@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>منصة البطولات</title>
+  <link rel="icon" href="icon-192.png"/>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+  <link rel="manifest" href="manifest.json"/>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #040404;
+      font-family: 'Tajawal', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #f0f0f0;
+      overflow: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(201,160,43,.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(41,128,185,.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 80%, rgba(39,174,96,.06) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .container {
+      text-align: center;
+      padding: 40px;
+      position: relative;
+      z-index: 1;
+      animation: fadeIn 1s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .logo-big {
+      margin-bottom: 16px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .logo-big img {
+      width: 100px;
+      height: 100px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 20px rgba(201,160,43,.4));
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+    h1 {
+      font-size: 36px;
+      color: #C9A02B;
+      margin-bottom: 10px;
+      font-weight: 900;
+      text-shadow: 0 2px 20px rgba(201,160,43,.3);
+    }
+    .tagline {
+      font-size: 16px;
+      color: #888;
+      margin-bottom: 35px;
+      font-family: 'Tajawal', sans-serif;
+    }
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all .3s;
+      font-family: 'Tajawal', sans-serif;
+      border: 1px solid transparent;
+    }
+    .btn img { width: 20px; height: 20px; object-fit: contain; }
+    .btn-viewer {
+      background: linear-gradient(135deg, #E8BE45, #C9A02B);
+      color: #000;
+    }
+    .btn-viewer:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(201,160,43,.4); }
+    .btn-admin {
+      background: linear-gradient(135deg, #1a3a5c, #2471A3);
+      color: #fff;
+    }
+    .btn-admin:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(36,113,163,.4); }
+    .btn-super {
+      background: linear-gradient(135deg, #5B2C8E, #7D3C98);
+      color: #fff;
+    }
+    .btn-super:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(125,60,152,.4); }
+    .features {
+      margin-top: 50px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      max-width: 700px;
+    }
+    .feature-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px;
+      padding: 20px 14px;
+      transition: all .3s;
+    }
+    .feature-card:hover {
+      background: rgba(255,255,255,.08);
+      transform: translateY(-3px);
+    }
+    .feature-icon { font-size: 28px; margin-bottom: 8px; }
+    .feature-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+    .feature-desc { font-size: 10px; color: #888; line-height: 1.5; }
+    .footer {
+      margin-top: 40px;
+      font-size: 11px;
+      color: #555;
+    }
+    @media(max-width:640px) {
+      h1 { font-size: 26px; }
+      .logo-big img { width: 72px; height: 72px; }
+      .features { grid-template-columns: 1fr; }
+      .btn-group { flex-direction: column; align-items: center; }
+      .btn { width: 100%; max-width: 280px; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-big">
+      <img src="icon-512.png" alt="منصة البطولات" style="width:100px;height:100px;object-fit:contain;border-radius:22px;display:block"/>
+    </div>
+    <h1>منصة البطولات</h1>
+    <p class="tagline">أداة إدارة دوريات كاملة — نتائج، ترتيب، بث مباشر</p>
+
+    <div class="btn-group">
+      <a href="league-viewer.html" class="btn btn-viewer">
+        <img src="icon-192.png" alt=""/> صفحة الجمهور
+      </a>
+      <a href="league-admin.html" class="btn btn-admin">⚙️ لوحة الإدارة</a>
+      <a href="superadmin.html" class="btn btn-super">
+        <img src="icon-192.png" alt=""/> سوبر أدمن
+      </a>
+    </div>
+
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">نتائج مباشرة</div>
+        <div class="feature-desc">تابع النتائج والترتيب لحظياً</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <div class="feature-title">تطبيق كامل</div>
+        <div class="feature-desc">PWA — يعمل بدون إنترنت</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔴</div>
+        <div class="feature-title">بث مباشر</div>
+        <div class="feature-desc">تابع المباريات لحظة بلحظة</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>© 2026 منصة بطولات — تطوير عبدالله السكني</p>
+    </div>
+  </div>
+
+  <script>
+    if('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>

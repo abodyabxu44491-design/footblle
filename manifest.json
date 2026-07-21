@@ -1,0 +1,28 @@
+{
+  "id": "/league-viewer.html",
+  "name": "منصة بطولات",
+  "short_name": "بطولات",
+  "description": "تابع نتائج وترتيب وأحداث بطولتك مباشرة",
+  "start_url": "./league-viewer.html?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#080808",
+  "theme_color": "#080808",
+  "orientation": "portrait-primary",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "المباريات", "short_name": "مباريات", "description": "عرض جدول المباريات", "url": "./league-viewer.html?tab=matches&source=shortcut", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "الترتيب", "short_name": "الترتيب", "description": "عرض جدول الترتيب", "url": "./league-viewer.html?tab=standings&source=shortcut", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
+  ],
+  "categories": ["sports", "entertainment"],
+  "prefer_related_applications": false,
+  "edge_side_panel": { "preferred_width": 400 }
+}

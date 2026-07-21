@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>منصة بطولات</title>
+<meta name="description" content="تابع نتائج وترتيب منصة بطولات مباشرة"/>
+<meta property="og:title" content="منصة بطولات"/>
+<meta property="og:description" content="نتائج وترتيب وأحداث البطولة مباشرة على منصة بطولات"/>
+<meta property="og:type" content="website"/>
+<meta property="og:image" content="icon-512.png"/>
+<meta property="og:image:width" content="512"/>
+<meta property="og:image:height" content="512"/>
+<meta property="og:locale" content="ar_SA"/>
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="منصة بطولات"/>
+<meta name="twitter:description" content="نتائج وترتيب وأحداث البطولة مباشرة"/>
+<meta name="twitter:image" content="icon-512.png"/>
+<meta name="theme-color" content="#080808"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="منصة بطولات"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" href="icon-192.png"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<!-- ✅ أداء: preconnect يوفّر ~300ms على 3G (DNS+TLS مسبقاً)
+     والخط يُحمَّل بلا حجب الرسم — النص يظهر فوراً بخط النظام ثم يُستبدل -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preconnect" href="https://www.gstatic.com"/>
+<link rel="preconnect" href="https://firestore.googleapis.com"/>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap"/>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
+<noscript><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet"/></noscript>
+<script>
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+<link rel="stylesheet" href="viewer.css"/>
+</head>
+<body>
+
+<!-- OFFLINE BAR -->
+<div class="offline-bar" id="offlineBar">
+  <div class="offline-dot"></div>
+  <span>أنت غير متصل — تعرض آخر بيانات محفوظة</span>
+</div>
+
+<!-- ERROR PAGE -->
+<div id="errorPage" style="display:none;position:fixed;inset:0;z-index:998;background:var(--dark);flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center">
+  <div style="font-size:60px;margin-bottom:16px">😔</div>
+  <div style="font-size:20px;font-weight:900;color:var(--gold);margin-bottom:8px">البطولة غير موجودة</div>
+  <div style="font-size:13px;color:var(--muted2);line-height:1.8;max-width:280px">الرابط الذي فتحته غير صحيح أو تم حذف البطولة. تأكد من الرابط وحاول مرة أخرى.</div>
+</div>
+
+<!-- PAGE LOADER -->
+<div id="pageLoader">
+  <div class="pl-icon"><img src="icon-512.png" style="width:72px;height:72px;object-fit:contain;display:block;margin:0 auto" alt=""/></div>
+  <div class="pl-spin"></div>
+  <div class="pl-text">جاري تحميل البطولة...</div>
+</div>
+
+<!-- LIVE OVERLAY — يظهر فوق كل شي لما يبدأ البث -->
+<!-- liveOverlay removed -->
+
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-inner">
+    <div class="header-top">
+      <div class="brand" style="display:flex;align-items:center;gap:8px"><img src="icon-192.png" style="width:30px;height:30px;object-fit:contain;border-radius:7px" alt=""/> منصة البطولات</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
+        <button class="notif-bell" id="notifBell" onclick="toggleNotifications()" title="الإشعارات" style="background:transparent;border:1px solid var(--border2);color:var(--muted2);border-radius:8px;padding:6px 10px;font-size:16px;cursor:pointer">🔔</button>
+        <button class="header-share" onclick="showSharePanel()">📤 مشاركة</button>
+      </div>
+    </div>
+    <div class="league-hero">
+      <div class="league-logo-wrap" id="leagueLogoWrap" style="display:none">
+        <img id="leagueLogoImg" alt=""/>
+      </div>
+      <div class="league-name" id="leagueName">جاري التحميل...</div>
+      <div class="league-meta">
+        <span class="meta-chip mc-gold" id="leagueSeason">2025</span>
+        <span class="meta-chip mc-green" id="leagueStatus">🟢 جارية</span>
+        <span class="meta-chip mc-muted" id="leagueType">دوري نقاط</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ══ LIVE STREAM SCREEN ══ -->
+<!-- streamSection removed -->
+
+
+<!-- ══ مساحة الراعي الرئيسي — تُملأ تلقائياً إذا كان هناك راعٍ مُفعّل ══ -->
+<div class="sponsor-strip" id="sponsorStrip" style="display:none" onclick="window._openSponsorLink && window._openSponsorLink()">
+  <div class="sponsor-strip-logo" id="sponsorStripLogo">🏅</div>
+  <div class="sponsor-strip-body">
+    <div class="sponsor-strip-label">بالشراكة مع</div>
+    <div class="sponsor-strip-name" id="sponsorStripName">—</div>
+  </div>
+  <div class="sponsor-strip-cta">زيارة ←</div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+  <!-- HOME -->
+  <div class="section active" id="tab-home">
+
+    <!-- قائمة المباريات الموحّدة (مباشر + قادمة + نتائج بدون بنرات) -->
+    <div id="homeMatchesSection"></div>
+
+    <!-- الترتيب المصغر -->
+    <div class="home-sub-header">
+      <div class="home-sub-title">📋 الترتيب</div>
+      <button onclick="switchTab('standings',null)" class="home-sub-btn">عرض الكل</button>
+    </div>
+    <div id="homeStandings"></div>
+
+    <!-- الهدافون المصغر -->
+    <div class="home-sub-header">
+      <div class="home-sub-title">🥇 الهدافون</div>
+      <button onclick="switchTab('scorers',null)" class="home-sub-btn">عرض الكل</button>
+    </div>
+    <div id="homeScorers"></div>
+
+    <!-- ══ شركاء البطولة — تُملأ تلقائياً إذا وُجد أكثر من راعٍ ══ -->
+    <div class="partners-row" id="partnersRow" style="display:none">
+      <div class="partners-row-label">شركاء البطولة</div>
+      <div class="partners-row-scroll" id="partnersRowScroll"></div>
+    </div>
+
+  </div>
+
+  <!-- STANDINGS -->
+  <div class="section" id="tab-standings">
+    <div class="sec-header">
+      <div><div class="sec-title">📋 جدول الترتيب</div><div class="sec-sub" id="standingsSub">يتحدث تلقائياً</div></div>
+    </div>
+    <div class="standings-card" id="fullStandings"></div>
+    <div class="zone-legend" id="zoneLegend"></div>
+  </div>
+
+  <!-- GROUPS -->
+  <div class="section" id="tab-groups" style="display:none">
+    <div class="sec-header">
+      <div><div class="sec-title">👥 المجموعات</div><div class="sec-sub">ترتيب كل مجموعة</div></div>
+    </div>
+    <div id="groupsContent"></div>
+  </div>
+
+  <!-- BRACKET -->
+  <div class="section" id="tab-bracket" style="display:none">
+    <div class="sec-header">
+      <div><div class="sec-title">🌳 شجرة البطولة</div><div class="sec-sub">مسيرة المتأهلين</div></div>
+    </div>
+    <div id="bracketContent"></div>
+  </div>
+
+  <!-- MATCHES -->
+  <div class="section" id="tab-matches">
+    <div class="sec-header">
+      <div><div class="sec-title">⚽ المباريات</div></div>
+    </div>
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="matchSearch" placeholder="ابحث عن فريق أو جولة..." oninput="filterMatchSearch(this.value)"/>
+      <span class="search-clear" id="searchClear" onclick="clearSearch()">✕</span>
+    </div>
+    <div class="filter-pills">
+      <div class="fp active" onclick="filterMatches('all',this)">الكل</div>
+      <div class="fp" onclick="filterMatches('live',this)">🔴 مباشر</div>
+      <div class="fp" onclick="filterMatches('upcoming',this)">🟡 قادمة</div>
+      <div class="fp" onclick="filterMatches('finished',this)">✅ انتهت</div>
+    </div>
+    <div class="matches-section" id="matchesList"></div>
+  </div>
+
+  <!-- TEAMS -->
+  <div class="section" id="tab-teams">
+    <div class="sec-header">
+      <div><div class="sec-title">👥 الفرق</div><div class="sec-sub">اضغط على الفريق لعرض بروفايله</div></div>
+    </div>
+    <div id="teamsGrid"></div>
+  </div>
+
+  <!-- SCORERS -->
+  <div class="section" id="tab-scorers">
+    <div class="sec-header">
+      <div><div class="sec-title">🥇 الهدافون</div><div class="sec-sub">اضغط على اللاعب لتفاصيله</div></div>
+    </div>
+    <div id="fullScorers"></div>
+  </div>
+
+  <!-- STATS -->
+  <div class="section" id="tab-stats">
+    <div class="sec-header">
+      <div><div class="sec-title">📊 الإحصائيات</div><div class="sec-sub" id="statsSub">إحصائيات البطولة</div></div>
+    </div>
+    <div class="chart-tabs">
+      <button class="chart-tab active" onclick="showChart('goals',this)">⚽ الأهداف</button>
+      <button class="chart-tab" onclick="showChart('wins',this)">🏆 الانتصارات</button>
+      <button class="chart-tab" onclick="showChart('played',this)">📋 المباريات</button>
+    </div>
+    <div class="chart-wrap" id="chartWrap"></div>
+    <div style="padding:0 16px 16px">
+      <div style="background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:12px">📈 ملخص البطولة</div>
+        <div id="summaryStats"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE — يعرض كل المباريات المباشرة الحالية -->
+  <div class="section" id="tab-live">
+    <div class="sec-header">
+      <div><div class="sec-title">🔴 مباشر الآن</div><div class="sec-sub">تحديث تلقائي لحظة بلحظة</div></div>
+    </div>
+    <div id="liveMatchesList">
+      <div style="text-align:center;padding:60px 20px;color:var(--muted)">
+        <div style="font-size:50px;margin-bottom:12px;opacity:.3">🔴</div>
+        <div style="font-size:14px">لا توجد مباريات مباشرة حالياً</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- share bar removed — replaced by native share sheet -->
+
+<!-- BOTTOM NAV -->
+<!-- حقوق المنصة -->
+<div class="app-credit">
+  منصة بطولات · تطوير وبرمجة <strong>عبدالله السكني</strong>
+</div>
+
+<nav class="bottom-nav" id="bottomNav">
+  <button class="bn-item active" id="bn-home" onclick="switchTab('home',null,this)"><span class="bi" data-ic="home"></span>الرئيسية</button>
+  <!-- دوري نقاط: ترتيب -->
+  <button class="bn-item" id="bn-standings" onclick="switchTab('standings',null,this)"><span class="bi" data-ic="list"></span>الترتيب</button>
+  <!-- مجموعات -->
+  <button class="bn-item" id="bn-groups" style="display:none" onclick="switchTab('groups',null,this)"><span class="bi" data-ic="target"></span>المجموعات</button>
+  <!-- إقصاء/شجرة -->
+  <button class="bn-item" id="bn-bracket" style="display:none" onclick="switchTab('bracket',null,this)"><span class="bi" data-ic="tree"></span>الشجرة</button>
+  <button class="bn-item" id="bn-matches" onclick="switchTab('matches',null,this)"><span class="bi" data-ic="ball"></span>المباريات</button>
+  <button class="bn-item" id="bn-teams" onclick="switchTab('teams',null,this)"><span class="bi" data-ic="users"></span>الفرق</button>
+  <button class="bn-item" id="bn-stats" onclick="switchTab('stats',null,this)"><span class="bi" data-ic="chart"></span>إحصائيات</button>
+  <button class="bn-item" id="bn-scorers" onclick="switchTab('scorers',null,this)"><span class="bi" data-ic="medal"></span>الهدافون</button>
+  <button class="bn-item" id="bn-live" onclick="switchTab('live',null,this)"><span class="bi" data-ic="live"></span>مباشر</button>
+</nav>
+
+
+<!-- PLAYER MODAL -->
+<div class="player-modal-overlay" id="playerModalOverlay" onclick="if(event.target===this)closePlayerModal()">
+  <div class="player-modal">
+    <div class="pm-handle" onclick="closePlayerModal()"></div>
+    <div class="pm-header">
+      <div class="pm-logo" id="pmLogo">⚽</div>
+      <div><div class="pm-name" id="pmName">—</div><div class="pm-team" id="pmTeam">—</div></div>
+    </div>
+    <div class="pm-grid">
+      <div class="pm-stat"><div class="pm-stat-val" id="pmGoals">0</div><div class="pm-stat-lbl">⚽ أهداف</div></div>
+      <div class="pm-stat"><div class="pm-stat-val" id="pmMatches">0</div><div class="pm-stat-lbl">🗓 مباريات</div></div>
+      <div class="pm-stat"><div class="pm-stat-val" id="pmAvg">0.0</div><div class="pm-stat-lbl">📈 معدل</div></div>
+      <div class="pm-stat"><div class="pm-stat-val" id="pmMOM">0</div><div class="pm-stat-lbl">⭐ رجل</div></div>
+    </div>
+    <div class="pm-section-title">📋 سجل المباريات</div>
+    <div id="pmMatchList"></div>
+  </div>
+</div>
+
+<!-- SHARE IMAGE CANVAS -->
+<div id="goalToast" class="goal-toast"></div>
+
+<!-- LINEUP SECTION في الـ overlay يُحقن تلقائياً -->
+
+<canvas id="shareCanvas" style="display:none"></canvas>
+
+<!-- INSTALL FAB BUTTON -->
+<div class="install-fab" id="installFab" onclick="installApp()" style="display:none">
+  <div class="install-fab-icon">📲</div>
+  <div class="install-fab-text">ثبّت التطبيق</div>
+</div>
+
+<!-- BACK TO TOP BUTTON -->
+<div class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+  ↑
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<!-- 🔑 VAPID KEY — ضع مفتاحك هنا من Firebase Console → Cloud Messaging → Web Push certificates -->
+<!-- احصل عليه من: Firebase Console → Project Settings → Cloud Messaging → Web configuration → Generate key pair -->
+<script>
+  // استبدل هذه القيمة بمفتاح VAPID الحقيقي من Firebase Console
+  window.VAPID_KEY = '';
+  // مثال: window.VAPID_KEY = 'BLRxxxxxxxxxxxxxxxxxxxxxxx...';
+</script>
+<script>
+/* ===== inlined: timer-core.js ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  timer-core.js — المصدر الوحيد للحقيقة لتوقيت المباراة
+ *  ───────────────────────────────────────────────────────────────────
+ *  يحل محل منطق التوقيت المبعثر في:
+ *    admin.js  /  viewer.js  /  all-fixes.js
+ *
+ *  المبدأ الأساسي (يجب أن يفهمه الأدمن والجمهور بنفس الطريقة):
+ *  ─────────────────────────────────────────────────────────────
+ *  الساعة "مستمرة" (continuous): الشوط الثاني يبدأ من 45:00 وليس 00:00،
+ *  والوقت الإضافي يكمل من نهاية الشوط الثاني. تماماً مثل التلفزيون.
+ *
+ *  كل فترة (شوط) لها:
+ *    dur       = مدة الفترة بالدقائق
+ *    offsetMin = مجموع دقائق كل الفترات السابقة (نقطة بداية عدّاد الفترة)
+ *
+ *  ⚠️ القاعدة الذهبية:
+ *  offsetMin يعتمد على المدد **الاسمية** فقط (45+45+15)، ولا يشمل
+ *  بدل الضائع إطلاقاً. هذا هو المعيار العالمي: الشوط الثاني يبدأ دائماً
+ *  من 45:00 حتى لو كان بدل ضائع الشوط الأول 5 دقائق.
+ *
+ *  نموذج البيانات (اسم واحد فقط — لا half1Extra vs half1ExtraMinutes):
+ *    half1ExtraMinutes / half2ExtraMinutes / et1ExtraMinutes / et2ExtraMinutes
+ *    half1ExtraSet     / half2ExtraSet     / et1ExtraSet     / et2ExtraSet
+ * ═══════════════════════════════════════════════════════════════════ */
+(function (root) {
+  'use strict';
+
+  var DEFAULT_STOPPAGE_CAP = 15; // إذا لم يحدد المنظم بدل ضائع
+
+  /* ── تحويل أي طابع زمني (Firebase Timestamp / Date / number) إلى ms ── */
+  function tsMs(ref) {
+    if (ref == null) return null;
+    if (typeof ref === 'number') return ref;
+    if (typeof ref.toMillis === 'function') return ref.toMillis();
+    if (typeof ref.seconds === 'number')
+      return ref.seconds * 1000 + Math.floor((ref.nanoseconds || 0) / 1e6);
+    if (ref instanceof Date) return ref.getTime();
+    return null;
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  /* ── FIX 4: مزامنة ساعة الخادم ──
+   * كل الأختام تُكتب بساعة الأدمن وتُقرأ بساعة المشاهد. أي انحراف في
+   * جهاز المشاهد (شائع: دقيقة أو أكثر) كان يزيح ساعته للأبد ويُدخله
+   * بدل الضائع مبكراً. نقيس الفرق مرة ونصحّحه في كل الحسابات. */
+  var _skew = 0;
+  function setSkew(ms) { _skew = Number(ms) || 0; }
+  function getSkew()   { return _skew; }
+  function nowMs()     { return Date.now() + _skew; }
+
+  /* ── قراءة الإعدادات: liveData ← إعدادات البطولة ← الافتراضي ── */
+  function getCfg(d, settings) {
+    d = d || {};
+    var ms = (settings && settings.matchSettings) || {};
+    function pick(a, b, c, dflt) {
+      return a || b || c || dflt;
+    }
+    return {
+      half1Duration: pick(d.half1Duration, ms.half1Duration, ms.halfDuration, 45),
+      half2Duration: pick(d.half2Duration, ms.half2Duration, ms.halfDuration, 45),
+      et1Duration:   pick(d.et1Duration,   ms.et1Duration,   null, 15),
+      et2Duration:   pick(d.et2Duration,   ms.et2Duration,   null, 15),
+      breakDuration: pick(d.breakDuration, ms.breakDuration, null, 15)
+    };
+  }
+
+  /* ── معلومات الفترة الحالية ──
+   * ترجع { dur, offsetMin, extra, extraSet, cap, keyExtra, keySet }
+   * offsetMin = مجموع المدد الاسمية للفترات السابقة (بدون بدل ضائع) */
+  function getPhase(d, settings) {
+    if (!d) return null;
+    var cfg = getCfg(d, settings);
+    var ph  = d.matchStatus;
+
+    var h1 = cfg.half1Duration;
+    var h2 = cfg.half2Duration;
+    var e1 = cfg.et1Duration;
+
+    if (ph === 'extratime1') {
+      return {
+        dur: e1, offsetMin: h1 + h2,
+        extra: d.et1ExtraMinutes || 0, extraSet: !!d.et1ExtraSet,
+        keyExtra: 'et1ExtraMinutes', keySet: 'et1ExtraSet'
+      };
+    }
+    if (ph === 'extratime2') {
+      return {
+        dur: cfg.et2Duration, offsetMin: h1 + h2 + e1,
+        extra: d.et2ExtraMinutes || 0, extraSet: !!d.et2ExtraSet,
+        keyExtra: 'et2ExtraMinutes', keySet: 'et2ExtraSet'
+      };
+    }
+    if (ph === 'live' && d.currentHalf === 2) {
+      return {
+        dur: h2, offsetMin: h1,
+        extra: d.half2ExtraMinutes || 0, extraSet: !!d.half2ExtraSet,
+        keyExtra: 'half2ExtraMinutes', keySet: 'half2ExtraSet'
+      };
+    }
+    if (ph === 'live') {
+      return {
+        dur: h1, offsetMin: 0,
+        extra: d.half1ExtraMinutes || 0, extraSet: !!d.half1ExtraSet,
+        keyExtra: 'half1ExtraMinutes', keySet: 'half1ExtraSet'
+      };
+    }
+    return null; // halftime / penalties / ended / upcoming — لا عدّاد
+  }
+
+  function capOf(phase) {
+    return phase.extraSet ? phase.extra : DEFAULT_STOPPAGE_CAP;
+  }
+
+  /* ── الثواني المنقضية منذ بداية الفترة الحالية ──
+   * ⚠️ ترجع ثواني **الفترة وحدها** (تبدأ من 0 لكل شوط).
+   * الإزاحة تُضاف عند العرض فقط. هذا يمنع تضارب الأدمن/الجمهور. */
+  function phaseSecs(d) {
+    if (!d) return 0;
+    if (d.timerPaused) return d.phaseSeconds || 0;
+    var ph = d.matchStatus, ref = null;
+    if (ph === 'live')            ref = d.currentHalf === 2 ? d.half2StartedAt : d.half1StartedAt;
+    else if (ph === 'extratime1') ref = d.et1StartedAt;
+    else if (ph === 'extratime2') ref = d.et2StartedAt;
+    var ms = tsMs(ref);
+    if (ms == null) return d.phaseSeconds || 0;
+    return Math.max(0, Math.floor((nowMs() - ms) / 1000));
+  }
+
+  /* ── الحالة الكاملة للعداد — يستخدمها الأدمن والجمهور بالتساوي ──
+   * ترجع:
+   *   displayMin / displaySec : الأرقام المعروضة على الساعة
+   *   inStoppage              : هل نحن في بدل الضائع؟
+   *   stoppageMin/Sec         : عدّاد بدل الضائع (+2:14)
+   *   shouldAutoEnd           : بلغنا السقف → أنهِ الفترة
+   *   clock                   : "50:12" جاهزة للعرض
+   *   stoppageLabel           : "+2" أو ''  */
+  function compute(d, settings) {
+    var phase = getPhase(d, settings);
+    if (!phase) return null;
+
+    var s   = phaseSecs(d);
+    var mm  = Math.floor(s / 60);
+    var ss  = s % 60;
+
+    if (mm < phase.dur) {
+      return {
+        phase: phase, inStoppage: false,
+        displayMin: phase.offsetMin + mm, displaySec: ss,
+        stoppageMin: 0, stoppageSec: 0, shouldAutoEnd: false,
+        clock: pad(phase.offsetMin + mm) + ':' + pad(ss),
+        stoppageLabel: ''
+      };
+    }
+
+    // ── انتهى الوقت الأصلي → بدل الضائع يُحسب **لحاله** ──
+    // معيار التطبيقات الرياضية (365Scores / SofaScore / FlashScore):
+    //   الساعة الرئيسية تتجمّد عند حد الفترة (45:00 / 90:00 / 105:00 / 120:00)
+    //   ولا تتجاوزه إطلاقاً، ويعمل بجانبها عدّاد منفصل +1:23 يعدّ لحاله.
+    // ❌ الخطأ الشائع: 46:00 ، 47:00 (الساعة تكمل) — هذا ليس سلوك التطبيقات.
+    var cap  = capOf(phase);
+    var xSec = s - phase.dur * 60;
+    var xm   = Math.floor(xSec / 60);
+    var xs   = xSec % 60;
+
+    // حد الفترة: الرقم الذي تتجمّد عنده الساعة (45 / 90 / 105 / 120)
+    var limit = phase.offsetMin + phase.dur;
+
+    // FIX 5: لا تُنهِ الفترة تلقائياً إلا إذا أعلن المنظّم بدل الضائع فعلاً.
+    //        كان السقف الافتراضي (15) ينهي الشوط وحده عند 60:05 بلا إذن.
+    var announced = phase.extraSet && phase.extra > 0;
+
+    return {
+      phase: phase, inStoppage: true,
+      // ✅ الساعة الرئيسية متجمّدة تماماً عند الحد — دقائق وثواني
+      displayMin: limit, displaySec: 0,
+      // ✅ عدّاد بدل الضائع مستقل — يعدّ لحاله بلا سقف على العرض
+      stoppageMin: xm, stoppageSec: xs,
+      shouldAutoEnd: announced && xSec >= cap * 60 + 5,
+      clock: pad(limit) + ':00',
+      // FIX 7: لا تُظهر شارة بدل الضائع في اللحظة 45:00 بالضبط.
+      //        كانت تظهر "45+1 / +0:00" قبل إعلان الحكم في كل مباراة.
+      showStoppage: announced || xSec >= 1,
+      // التسمية الرسمية: 45'+2
+      stoppageLabel: '+' + (xm + 1),
+      stoppageClock: '+' + xm + ':' + pad(xs)
+    };
+  }
+
+  /* ── دقيقة الحدث (هدف/بطاقة) — التسمية الرسمية "45+2" ──
+   * ترجع { minute, extraMinute, label } */
+  function eventMinute(d, settings) {
+    var c = compute(d, settings);
+    if (!c) return { minute: 0, extraMinute: 0, label: "0'" };
+    var p = c.phase;
+    if (!c.inStoppage) {
+      var m = c.displayMin + 1; // الدقيقة 0:30 تُسجَّل كالدقيقة 1
+      return { minute: m, extraMinute: 0, label: m + "'" };
+    }
+    // في بدل الضائع: الأساس هو حد الفترة (45/90/105/120) والزيادة تبدأ من 1
+    var base = p.offsetMin + p.dur;
+    var x    = c.stoppageMin + 1;
+    return { minute: base, extraMinute: x, label: base + '+' + x };
+  }
+
+  var API = {
+    DEFAULT_STOPPAGE_CAP: DEFAULT_STOPPAGE_CAP,
+    setSkew: setSkew, getSkew: getSkew, nowMs: nowMs,
+    tsMs: tsMs, pad: pad,
+    getCfg: getCfg, getPhase: getPhase, capOf: capOf,
+    phaseSecs: phaseSecs, compute: compute, eventMinute: eventMinute
+  };
+
+  root.TimerCore = API;
+
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* ===== inlined: scorers-core.js ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  scorers-core.js — نظام الهدافين الموحّد
+ *  ───────────────────────────────────────────────────────────────────
+ *  المشكلة التي يحلها:
+ *    الكود القديم كان يجمع الأهداف بـ **اسم اللاعب فقط**:
+ *        goalsMap[name] += goals
+ *    فلو وُجد "محمد" في فريق النصر و"محمد" في فريق الهلال،
+ *    تُدمج أهدافهما في سطر واحد — خطأ فادح في الترتيب.
+ *
+ *  الحل:
+ *    المفتاح = playerId إن وُجد، وإلا  teamId::الاسم_المُطبَّع
+ *    → لاعبان بنفس الاسم في فريقين مختلفين = سطران منفصلان دائماً.
+ *    → لاعبان بنفس الاسم في **نفس** الفريق يُفرَّقان بالرقم إن وُجد.
+ *
+ *  مصادر البيانات (بالأولوية):
+ *    1. liveData.events  (type:'goal')  ← الأدق: فيه playerId و teamId
+ *    2. homeScorers / awayScorers (نص)  ← احتياطي للمباريات القديمة
+ * ═══════════════════════════════════════════════════════════════════ */
+(function (root) {
+  'use strict';
+
+  /* ── تطبيع الاسم: يزيل الفروق الشكلية دون دمج أشخاص مختلفين ──
+   * "  محمَّد  علي " → "محمد علي" */
+  function normName(s) {
+    if (!s) return '';
+    return String(s)
+      .replace(/[\u064B-\u0652\u0670]/g, '')   // التشكيل
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ى/g, 'ي')
+      .replace(/ة/g, 'ه')
+      .replace(/\u200f|\u200e/g, '')            // محارف الاتجاه
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  function isPlaceholder(n) {
+    var s = (n || '').trim();
+    return !s || s === '—' || s === '-' || s === '؟' || s === '?' || s === 'null' || s === 'undefined';
+  }
+
+  /* ── المفتاح الفريد للاعب ── */
+  function playerKey(playerId, teamId, name, number) {
+    if (playerId) return 'p:' + playerId;
+    var k = 't:' + (teamId || '?') + '::' + normName(name);
+    // نفس الاسم داخل نفس الفريق → فرّق بالرقم
+    if (number != null && number !== '') k += '#' + number;
+    return k;
+  }
+
+  /* ── تحليل نص الهدافين: "محمد (2), علي" ── */
+  function parseScorerText(str) {
+    if (!str) return [];
+    return String(str).split(',').map(function (chunk) {
+      var m = chunk.trim().match(/^(.+?)\s*(?:\((\d+)\))?$/);
+      if (!m) return null;
+      var name = (m[1] || '').trim();
+      if (isPlaceholder(name)) return null;
+      var g = parseInt(m[2] || '1', 10);
+      return { name: name, goals: (isNaN(g) || g < 1) ? 1 : g };
+    }).filter(Boolean);
+  }
+
+  /* ── محاولة إيجاد اللاعب في كشف الفريق للحصول على id/رقم ── */
+  function lookupRoster(rosters, teamId, name) {
+    var list = (rosters && rosters[teamId]) || [];
+    var target = normName(name);
+    var hits = list.filter(function (p) { return normName(p.name) === target; });
+    if (hits.length === 1) return hits[0];
+    return null; // 0 = غير موجود، >1 = ملتبس (لا نخمّن)
+  }
+
+  /* ── البناء الرئيسي ──
+   * opts: { matches, teams, rosters }
+   * ترجع مصفوفة مرتبة: [{ key, name, goals, teamId, teamName, teamLogo, number, playerId }] */
+  function build(opts) {
+    opts = opts || {};
+    var matches = opts.matches || [];
+    var teams   = opts.teams   || [];
+    var rosters = opts.rosters || {};
+    var map = {};
+
+    function teamOf(id) {
+      return teams.find(function (t) { return t.id === id; }) || {};
+    }
+
+    function add(playerId, teamId, name, number, goals) {
+      if (isPlaceholder(name)) return;
+      var key = playerKey(playerId, teamId, name, number);
+      if (!map[key]) {
+        var t = teamOf(teamId);
+        map[key] = {
+          key: key, playerId: playerId || null,
+          name: String(name).trim(),
+          number: (number != null && number !== '') ? number : null,
+          goals: 0,
+          teamId: teamId || null,
+          teamName: t.name || '',
+          teamLogo: t.logo || ''
+        };
+      }
+      map[key].goals += goals;
+    }
+
+    matches.filter(function (m) { return m.status === 'finished'; }).forEach(function (m) {
+      // ✅ المصدر الموحّد: أحداث صفحة البث المباشر (m.liveData.events) أو
+      // أحداث الإدخال السريع (m.events في أعلى مستوى الوثيقة) — أيهما متوفر.
+      var liveEv = (m.liveData && m.liveData.events) || [];
+      var ev = liveEv.length ? liveEv : (Array.isArray(m.events) ? m.events : []);
+      var goalEvents = ev.filter(function (e) {
+        return e && e.type === 'goal' && !isPlaceholder(e.player);
+      });
+
+      if (goalEvents.length) {
+        // ✅ المصدر الأدق — يحتوي على هوية اللاعب
+        goalEvents.forEach(function (e) {
+          // بعض الأنظمة تكتب `team` وبعضها `side`
+          var evSide = e.team || e.side || 'home';
+          var teamId = e.teamId || (evSide === 'home' ? m.homeId : m.awayId);
+          var pid    = e.playerId || null;
+          var num    = e.playerNumber != null ? e.playerNumber : null;
+          if (!pid) {
+            var r = lookupRoster(rosters, teamId, e.player);
+            if (r) { pid = r.id; if (num == null) num = r.number; }
+          }
+          add(pid, teamId, e.player, num, 1);
+        });
+        return; // لا تُضاعف من النص
+      }
+
+      // ── احتياطي: النص (مباريات قديمة قبل نظام الأحداث) ──
+      [[m.homeScorers, m.homeId], [m.awayScorers, m.awayId]].forEach(function (pair) {
+        parseScorerText(pair[0]).forEach(function (it) {
+          var r   = lookupRoster(rosters, pair[1], it.name);
+          var pid = r ? r.id : null;
+          var num = r ? r.number : null;
+          add(pid, pair[1], it.name, num, it.goals);
+        });
+      });
+    });
+
+    return Object.values(map).sort(function (a, b) {
+      if (b.goals !== a.goals) return b.goals - a.goals;          // الأهداف
+      return a.name.localeCompare(b.name, 'ar');                   // ثم الاسم (ثبات الترتيب)
+    });
+  }
+
+  /* ── ترتيب بمراكز متساوية: 1,2,2,4 ── */
+  function withRanks(list) {
+    var rank = 0, prev = null;
+    return list.map(function (p, i) {
+      if (prev === null || p.goals !== prev) { rank = i + 1; prev = p.goals; }
+      return Object.assign({}, p, { rank: rank });
+    });
+  }
+
+  var API = {
+    normName: normName, playerKey: playerKey,
+    parseScorerText: parseScorerText, build: build, withRanks: withRanks
+  };
+  root.ScorersCore = API;
+
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* ===== sponsor-core (مدمج) ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  sponsor-core.js — نظام الراعي
+ *  ───────────────────────────────────────────────────────────────────
+ *  نوعان:
+ *    • راعي البطولة  (tournament) → يظهر في كل صفحات الجمهور
+ *    • راعي المباراة (match)      → يظهر داخل صفحة تفاصيل المباراة
+ *      وإن وُجد راعي مباراة فهو يتقدّم على راعي البطولة داخل تلك المباراة.
+ *
+ *  التخزين:
+ *    settings.sponsor            = { name, logo, url, active }
+ *    match.sponsorData           = { name, logo, url, active }
+ *    (الحقل القديم match.sponsor النصي يبقى مدعوماً للتوافق)
+ *
+ *  الشعار يُخزَّن base64 مضغوط (≤ 40KB) حتى لا يُثقل Firestore.
+ * ═══════════════════════════════════════════════════════════════════ */
+(function (root) {
+  'use strict';
+
+  /* ── تطبيع الرابط: يقبل موقع / واتساب / رقم جوال ── */
+  function normalizeUrl(raw) {
+    var s = String(raw || '').trim();
+    if (!s) return '';
+
+    // واتساب: 9665xxxxxxxx أو 05xxxxxxxx أو +966...
+    var digits = s.replace(/[\s\-()]/g, '');
+    if (/^\+?\d{9,15}$/.test(digits)) {
+      var n = digits.replace(/^\+/, '');
+      if (/^0\d{9}$/.test(n)) n = '966' + n.slice(1);   // 05xxxxxxxx → 9665xxxxxxxx
+      return 'https://wa.me/' + n;
+    }
+    if (/^wa\.me\//i.test(s)) return 'https://' + s;
+    if (/^https?:\/\//i.test(s)) return s;
+    if (/^www\./i.test(s)) return 'https://' + s;
+    if (/^[\w-]+(\.[\w-]+)+([\/?#].*)?$/.test(s)) return 'https://' + s;  // example.com/x
+    return '';
+  }
+
+  /* ── نوع الرابط لاختيار نص الزر ── */
+  function linkKind(url) {
+    if (!url) return 'none';
+    if (/wa\.me|whatsapp/i.test(url)) return 'whatsapp';
+    return 'web';
+  }
+
+  function buttonLabel(url) {
+    var k = linkKind(url);
+    if (k === 'whatsapp') return 'تواصل';
+    if (k === 'web')      return 'زيارة';
+    return '';
+  }
+
+  /* ── تنظيف كائن الراعي قبل الحفظ ── */
+  function sanitize(obj) {
+    obj = obj || {};
+    var name = String(obj.name || '').trim().slice(0, 60);
+    var url  = normalizeUrl(obj.url);
+    var logo = obj.logo || '';
+    // اقبل base64 صور فقط
+    if (logo && !/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(logo)) logo = '';
+    return {
+      name: name,
+      logo: logo,
+      url: url,
+      active: obj.active !== false && !!(name || logo)
+    };
+  }
+
+  function isEmpty(s) {
+    return !s || (!s.name && !s.logo);
+  }
+
+  /* ── أي راعي يُعرض؟ راعي المباراة يتقدّم داخل صفحة المباراة ── */
+  function resolve(settings, match) {
+    var m = match && (match.sponsorData ||
+      (typeof match.sponsor === 'string' && match.sponsor.trim()
+        ? { name: match.sponsor.trim(), active: true } : null));
+    if (m && m.active !== false && !isEmpty(m)) return sanitize(m);
+
+    var t = settings && settings.sponsor;
+    if (t && t.active !== false && !isEmpty(t)) return sanitize(t);
+    return null;
+  }
+
+  /* ── هروب HTML — الاسم يأتي من إدخال المنظم ── */
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /* ── بطاقة الراعي (HTML) ──
+   * variant: 'bar' (أعلى الصفحة) | 'inline' (داخل تفاصيل المباراة) */
+  function cardHTML(sp, variant) {
+    if (!sp) return '';
+    variant = variant || 'bar';
+    var label = buttonLabel(sp.url);
+    var logo = sp.logo
+      ? '<img src="' + esc(sp.logo) + '" alt="" class="sp-logo"/>'
+      : '<div class="sp-logo sp-logo-ph">' + esc((sp.name || '?').charAt(0)) + '</div>';
+
+    var btn = (sp.url && label)
+      ? '<a class="sp-btn" href="' + esc(sp.url) + '" target="_blank" rel="noopener noreferrer nofollow">' + label + '</a>'
+      : '';
+
+    return '' +
+      '<div class="sp-card sp-' + variant + '">' +
+        logo +
+        '<div class="sp-txt">' +
+          '<div class="sp-lbl">برعاية</div>' +
+          '<div class="sp-name">' + esc(sp.name || '') + '</div>' +
+        '</div>' +
+        btn +
+      '</div>';
+  }
+
+  var API = {
+    normalizeUrl: normalizeUrl, linkKind: linkKind, buttonLabel: buttonLabel,
+    sanitize: sanitize, isEmpty: isEmpty, resolve: resolve, cardHTML: cardHTML, esc: esc
+  };
+  root.SponsorCore = API;
+
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* ===== icons (مدمج) ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  icons.js — نظام أيقونات SVG موحّد (بأسلوب Lucide)
+ *  ───────────────────────────────────────────────────────────────────
+ *  يستبدل الإيموجي بأيقونات خطية نظيفة بنفس الأسلوب البصري.
+ *
+ *  الاستخدام:
+ *    Icon('trophy')             → <svg …>
+ *    Icon('trophy', 18)         → بحجم 18px
+ *    Icon('trophy', 18, '#C9A02B')
+ *    window.emojiToIcon('🏆')   → يحوّل إيموجي إلى أيقونة تلقائياً
+ *
+ *  كل الأيقونات: stroke currentColor، 24×24 viewBox، بدون تعبئة.
+ *  ترث لون النص تلقائياً ⇒ تعمل مع الوضع الليلي/النهاري بلا كود إضافي.
+ * ═══════════════════════════════════════════════════════════════════ */
+(function (root) {
+  'use strict';
+
+  /* ── مسارات الأيقونات (24×24) ── */
+  var P = {
+    /* رياضة */
+    ball:      '<circle cx="12" cy="12" r="9"/><path d="M12 7.5l3.3 2.4-1.3 3.9h-4l-1.3-3.9z"/><path d="M12 3v4.5M4.6 9.8l4.1 1.5M19.4 9.8l-4.1 1.5M8 19.6l2-4.3M16 19.6l-2-4.3"/>',
+    trophy:    '<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/><path d="M10 14h4M9 20h6M12 14v6"/>',
+    goal:      '<rect x="3" y="7" width="18" height="12" rx="1"/><path d="M3 11h18M3 15h18M9 7v12M15 7v12"/>',
+    whistle:   '<circle cx="8" cy="13" r="5"/><path d="M13 13h8V8l-8 3"/><path d="M8 13h.01"/>',
+    flag:      '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+    field:     '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14M3 10h3v4H3M21 10h-3v4h3"/><circle cx="12" cy="12" r="2.2"/>',
+    shirt:     '<path d="M8 3l4 2 4-2 5 3-2 4h-2v11H7V10H5L3 6z"/>',
+
+    /* حالة */
+    check:     '<path d="M4 12.5l5 5L20 6.5"/>',
+    close:     '<path d="M6 6l12 12M18 6L6 18"/>',
+    alert:     '<path d="M12 3l9.5 17H2.5z"/><path d="M12 9v5M12 17.5v.5"/>',
+    info:      '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/>',
+    live:      '<circle cx="12" cy="12" r="3.2"/><path d="M7 7a7 7 0 0 0 0 10M17 7a7 7 0 0 1 0 10M4 4a11 11 0 0 0 0 16M20 4a11 11 0 0 1 0 16"/>',
+    clock:     '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+    pause:     '<path d="M9 5v14M15 5v14"/>',
+    play:      '<path d="M7 4.5l12 7.5-12 7.5z"/>',
+    finish:    '<path d="M5 21V4M5 5h13l-2.5 4L18 13H5"/>',
+    lock:      '<rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+    unlock:    '<rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/>',
+    bolt:      '<path d="M13 2L4 14h6l-1 8 9-12h-6z"/>',
+
+    /* بيانات */
+    list:      '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+    chart:     '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    trend:     '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    calendar:  '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    users:     '<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5.5a3.2 3.2 0 0 1 0 6M17.5 20a6 6 0 0 0-2-4.4"/>',
+    user:      '<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>',
+    tree:      '<rect x="3" y="4" width="6" height="4" rx="1"/><rect x="3" y="16" width="6" height="4" rx="1"/><rect x="15" y="10" width="6" height="4" rx="1"/><path d="M9 6h3v6h3M9 18h3v-6"/>',
+    medal:     '<circle cx="12" cy="15" r="5"/><path d="M8.5 10.5L6 3h12l-2.5 7.5"/><path d="M12 13.2l.9 1.8 2 .3-1.4 1.4.3 2-1.8-1-1.8 1 .3-2L9 15.3l2-.3z"/>',
+    star:      '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+    target:    '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3"/>',
+
+    /* أدوات */
+    settings:  '<circle cx="12" cy="12" r="3"/><path d="M12 2.5l1.6 2.4 2.8-.6.4 2.9 2.6 1.2-1.4 2.5 1.4 2.5-2.6 1.2-.4 2.9-2.8-.6L12 21.5l-1.6-2.4-2.8.6-.4-2.9-2.6-1.2 1.4-2.5-1.4-2.5 2.6-1.2.4-2.9 2.8.6z"/>',
+    edit:      '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/>',
+    trash:     '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
+    save:      '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3M8 21v-6h8v6"/>',
+    plus:      '<path d="M12 5v14M5 12h14"/>',
+    minus:     '<path d="M5 12h14"/>',
+    search:    '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+    link:      '<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/>',
+    share:     '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.3M8.2 13.2l7.6 4.3"/>',
+    bell:      '<path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/>',
+    bellOff:   '<path d="M18 8a6 6 0 0 0-9.3-5M5.5 5.5A6 6 0 0 0 6 8c0 6-2 7-2 7h12"/><path d="M10.5 20a2 2 0 0 0 3 0M3 3l18 18"/>',
+    refresh:   '<path d="M20 11a8 8 0 0 0-14-4L3 10"/><path d="M4 13a8 8 0 0 0 14 4l3-3"/><path d="M3 5v5h5M21 19v-5h-5"/>',
+    image:     '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M21 16l-5-5-9 9"/>',
+    camera:    '<path d="M3 8h3l2-3h8l2 3h3v12H3z"/><circle cx="12" cy="13" r="3.5"/>',
+    tag:       '<path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
+    card:      '<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19"/>',
+    home:      '<path d="M3 11l9-8 9 8"/><path d="M5.5 9.5V20h13V9.5"/>',
+    globe:     '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/>',
+    phone:     '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+    mail:      '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5L12 13l8.5-6.5"/>',
+    signal:    '<path d="M12 20v-6"/><path d="M8.5 16.5a5 5 0 0 1 7 0M5.5 13a9 9 0 0 1 13 0M2.5 9.5a13 13 0 0 1 19 0"/>',
+    tv:        '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M8 3l4 3 4-3"/>',
+    eye:       '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.8"/>',
+    key:       '<circle cx="7.5" cy="12" r="4"/><path d="M11.5 12H21l-2 2.5M17 12v3"/>',
+    sun:       '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    moon:      '<path d="M20 14a8.5 8.5 0 0 1-10-10 8.5 8.5 0 1 0 10 10z"/>',
+    upload:    '<path d="M12 16V4M7.5 8.5L12 4l4.5 4.5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
+    download:  '<path d="M12 4v12M7.5 11.5L12 16l4.5-4.5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
+    chevronL:  '<path d="M15 5l-7 7 7 7"/>',
+    chevronR:  '<path d="M9 5l7 7-7 7"/>',
+    chevronD:  '<path d="M5 9l7 7 7-7"/>',
+    menu:      '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    dot:       '<circle cx="12" cy="12" r="4"/>',
+    money:     '<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.8"/><path d="M6 12h.01M18 12h.01"/>',
+    shield:    '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+    crown:     '<path d="M3 8l3.5 3L12 5l5.5 6L21 8l-2 10H5z"/>',
+    swords:    '<path d="M4 4l9 9M20 4l-9 9"/><path d="M13 13l3 3 4-4-3-3M11 13l-3 3-4-4 3-3"/>',
+    dice:      '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h.01M15 15h.01M9 15h.01M15 9h.01"/>',
+    palette:   '<path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 1.6-3.2 2 2 0 0 1 1.6-3.2H19a3 3 0 0 0 3-3 9 9 0 0 0-10-8.6z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/>',
+    bulb:      '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.3 1 2.1h5c0-.8.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
+    rocket:    '<path d="M12 2s5 2 5 9c0 4-2 7-5 10-3-3-5-6-5-10 0-7 5-9 5-9z"/><circle cx="12" cy="9.5" r="1.8"/><path d="M7 14l-3 2 2 3M17 14l3 2-2 3"/>',
+    handshake: '<path d="M2 11l4-4 4 2 2-1 2 1 4-2 4 4"/><path d="M6 13l3 3 2-2 2 2 3-3"/><path d="M2 11v4l4 4M22 11v4l-4 4"/>',
+    stadium:   '<ellipse cx="12" cy="9" rx="9" ry="4.5"/><path d="M3 9v5c0 2.5 4 4.5 9 4.5s9-2 9-4.5V9"/>',
+    injury:    '<path d="M12 3a6 6 0 0 0-6 6v3l-1.5 4.5h15L18 12V9a6 6 0 0 0-6-6z"/><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/>',
+    mic:       '<rect x="9" y="3" width="6" height="10" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/>',
+    plane:     '<path d="M2 13l20-7-7 20-3-8z"/>',
+    coffee:    '<path d="M4 8h13v6a5 5 0 0 1-10 0z"/><path d="M17 9h2a2.5 2.5 0 0 1 0 5h-2M4 21h13"/>',
+    board:     '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M7 12l3-3 3 3 4-4"/>',
+    doc:       '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+    package:   '<path d="M12 3l9 4.5v9L12 21l-9-4.5v-9z"/><path d="M3 7.5l9 4.5 9-4.5M12 12v9"/>'
+  };
+
+  /* ── خريطة الإيموجي → الأيقونة ── */
+  var MAP = {
+    '✅':'check','✓':'check','☑️':'check','❌':'close','✕':'close','✖️':'close',
+    '⚽':'ball','🥅':'goal','🏆':'trophy','🏅':'medal','🥇':'medal','🥈':'medal','🥉':'medal',
+    '👥':'users','👤':'user','🧑':'user','👨':'user','🔴':'live','🟢':'dot','🟡':'dot','🟠':'dot',
+    '⚪':'dot','⚫':'dot','🔵':'dot','🟣':'dot','🔷':'dot','🔶':'dot','🟦':'dot','🟩':'dot',
+    '🟪':'dot','🟫':'dot','🟨':'card','🟥':'card','🎴':'card','💳':'money','💼':'money',
+    '📋':'list','☰':'menu','📊':'chart','📈':'trend','📉':'trend','📅':'calendar','🗓':'calendar',
+    '📆':'calendar','⏰':'clock','⏱':'clock','⏲':'clock','🕐':'clock','⏸':'pause','⏸️':'pause',
+    '▶':'play','▶️':'play','🏁':'finish','⚡':'bolt','🔒':'lock','🔐':'lock','🔓':'unlock',
+    '🔑':'key','⚠️':'alert','⚠':'alert','💡':'bulb','ℹ️':'info','❓':'info','❔':'info',
+    '⚙️':'settings','⚙':'settings','🔧':'settings','🎛':'settings','✏️':'edit','📝':'edit','✍️':'edit',
+    '🗑':'trash','🗑️':'trash','💾':'save','➕':'plus','➖':'minus','🔍':'search','🔗':'link',
+    '📤':'share','📲':'share','🔔':'bell','🔕':'bellOff','🔄':'refresh','🔁':'refresh',
+    '🖼':'image','🖼️':'image','📸':'camera','📷':'camera','🏷️':'tag','🏷':'tag',
+    '🏠':'home','🌐':'globe','🌍':'globe','🌎':'globe','🌏':'globe','📱':'phone','📧':'mail',
+    '📡':'signal','📺':'tv','👁':'eye','👁️':'eye','☀️':'sun','🌙':'moon','⬆️':'upload','⬇️':'download','⬇':'download',
+    '🌳':'tree','🎯':'target','⭐':'star','🌟':'star','✨':'star','✦':'star','👑':'crown',
+    '🛡️':'shield','🛡':'shield','⚔️':'swords','⚔':'swords','🎲':'dice','🎨':'palette',
+    '🚀':'rocket','🤝':'handshake','🏟':'stadium','🏟️':'stadium','⛳':'flag','🚩':'flag',
+    '🤕':'injury','🎙':'mic','🎙️':'mic','🎤':'mic','✈️':'plane','☕':'coffee','📘':'doc','📄':'doc',
+    '📦':'package','👕':'shirt','⚖️':'whistle','👨‍⚖️':'whistle','🦵':'ball','🥊':'swords',
+    '📢':'signal','🎉':'star','🧠':'bulb','💎':'star','🔥':'bolt','⭕':'dot','🔽':'chevronD',
+    '➡️':'chevronL','⬅️':'chevronR','👆':'chevronD','👇':'chevronD','😔':'info','🎪':'star',
+    '🎮':'dice','🧤':'shield','🚦':'dot','💪':'shield','🎖️':'medal','🔮':'star','🌈':'star',
+    '🛈':'info','⛔':'close','📌':'tag','ℹ':'info',
+    '⚖':'whistle','🎖':'medal','✖':'close','☀':'sun','⬅':'chevronR','☑':'check',
+    '⬆':'upload','✍':'edit','✈':'plane','➡':'chevronL','⏳':'clock','✏':'edit'
+  };
+
+  function svg(name, size, color) {
+    var d = P[name];
+    if (!d) return '';
+    size = size || 16;
+    var c = color ? ' style="color:' + color + '"' : '';
+    return '<svg class="ic ic-' + name + '"' + c + ' width="' + size + '" height="' + size +
+      '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + d + '</svg>';
+  }
+
+  function fromEmoji(e, size, color) {
+    var n = MAP[e];
+    return n ? svg(n, size, color) : '';
+  }
+
+  root.Icon = svg;
+  root.IconFromEmoji = fromEmoji;
+  root.ICON_MAP = MAP;
+  root.ICON_PATHS = P;
+
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* ===== ترطيب أيقونات data-ic ===== */
+(function(){
+  function hydrate(root){
+    (root||document).querySelectorAll('[data-ic]').forEach(function(el){
+      if(el.getAttribute('data-done')) return;
+      if(!window.Icon) return;
+      el.innerHTML=window.Icon(el.getAttribute('data-ic'),19);
+      el.setAttribute('data-done','1');
+    });
+  }
+  window._hydrateIcons=hydrate;
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){hydrate();});
+  else hydrate();
+  new MutationObserver(function(){hydrate();}).observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>
+<script src="./viewer-emoji-svg.js"></script>
+<script type="module" src="viewer.js"></script>
+<script src="./all-fixes.js"></script>
+<script>
+/* ===== sponsor-viewer (مدمج) ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  sponsor-viewer.js — عرض الراعي في صفحة الجمهور
+ *  ───────────────────────────────────────────────────────────────────
+ *  • شريط أعلى الصفحة (تحت الهيدر) لراعي البطولة
+ *  • بطاقة داخل تفاصيل المباراة لراعي المباراة (يتقدّم على راعي البطولة)
+ *  • بدون إزعاج: لا نوافذ منبثقة، لا حركة، لا إعادة ظهور
+ * ═══════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var SP = window.SponsorCore;
+  if (!SP) { console.error('[sponsor-viewer] sponsor-core.js مفقود'); return; }
+
+  /* ── شريط راعي البطولة أعلى الصفحة ── */
+  window._spRender = function () {
+    var sp = SP.resolve(window.settings, null);
+    var host = document.getElementById('spBar');
+
+    if (!sp) { if (host) host.remove(); return; }
+
+    if (!host) {
+      var header = document.querySelector('.header');
+      if (!header || !header.parentNode) return;
+      host = document.createElement('div');
+      host.id = 'spBar';
+      header.parentNode.insertBefore(host, header.nextSibling);
+    }
+    var html = SP.cardHTML(sp, 'bar');
+    if (host.getAttribute('data-sig') !== html) {
+      host.innerHTML = html;
+      host.setAttribute('data-sig', html);
+    }
+  };
+
+  /* ── بطاقة الراعي داخل تفاصيل المباراة ── */
+  window._spMatchHTML = function (match) {
+    var sp = SP.resolve(window.settings, match);
+    return sp ? SP.cardHTML(sp, 'inline') : '';
+  };
+
+  // ارسم عند الجاهزية + بعد أي تحديث للإعدادات
+  if (document.readyState === 'loading')
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(window._spRender, 300); });
+  else setTimeout(window._spRender, 300);
+
+  console.log('[sponsor-viewer] ✅ جاهز');
+})();
+</script>
+<script>
+/* ===== inlined: scorers-adapter.js ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  scorers-adapter.js — يربط scorers-core.js بالمنصة
+ *  ───────────────────────────────────────────────────────────────────
+ *  يعمل في الأدمن والجمهور معاً:
+ *    • window._resolvePlayerId(teamId, name, matchId, side)
+ *        يستخرج هوية اللاعب من الكشف/التشكيلة وقت تسجيل الهدف.
+ *    • window.buildScorersData()
+ *        يُعاد تعريفها لتستخدم ScorersCore (مفتاح الهوية بدل الاسم).
+ *
+ *  يُحمَّل بعد admin.js / viewer.js وبعد all-fixes.js
+ *  (حتى يتغلّب على FIX-7 الذي كان يجمع بالاسم).
+ * ═══════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var SC = window.ScorersCore;
+  if (!SC) { console.error('[scorers] scorers-core.js مفقود'); return; }
+
+  /* ── يجمع كل الكشوف المتاحة: كشف الفريق + تشكيلة المباراة ── */
+  function collectRosters(matchId) {
+    var out = {};
+    var src = window._teamRosters || window.rosterCache || {};
+    Object.keys(src).forEach(function (tid) {
+      out[tid] = (src[tid] || []).map(function (p) {
+        return { id: p.id, name: p.name, number: p.number };
+      });
+    });
+
+    // أضف لاعبي التشكيلة (قد لا يكونون في الكشف)
+    var matches = window.matches || [];
+    matches.forEach(function (m) {
+      [['home', m.homeId], ['away', m.awayId]].forEach(function (pair) {
+        var side = pair[0], tid = pair[1];
+        if (!tid) return;
+        var ld = m.liveData || {};
+        var lu = side === 'home' ? (ld.homeLineup) : (ld.awayLineup);
+        if (!lu || !lu.players) return;
+        out[tid] = out[tid] || [];
+        lu.players.forEach(function (p) {
+          if (!p || !p.name) return;
+          var exists = out[tid].some(function (x) {
+            return SC.normName(x.name) === SC.normName(p.name);
+          });
+          if (!exists) out[tid].push({ id: p.id || null, name: p.name, number: p.number });
+        });
+      });
+    });
+    return out;
+  }
+
+  /* ── هوية اللاعب وقت التسجيل ── */
+  window._resolvePlayerId = function (teamId, name, matchId, side) {
+    if (!teamId || !name) return {};
+    var target = SC.normName(name);
+
+    // 1) كشف الفريق الرسمي
+    var roster = (window._teamRosters && window._teamRosters[teamId]) || [];
+    var hits = roster.filter(function (p) { return SC.normName(p.name) === target; });
+    if (hits.length === 1) return { playerId: hits[0].id, number: hits[0].number };
+
+    // 2) تشكيلة المباراة
+    var st = (window._liveMatches || {})[matchId];
+    var m  = (window.matches || []).find(function (x) { return x.id === matchId; });
+    var lu = side === 'home'
+      ? ((st && st.homeLineup) || (m && m.liveData && m.liveData.homeLineup))
+      : ((st && st.awayLineup) || (m && m.liveData && m.liveData.awayLineup));
+    var lp = (lu && lu.players) || [];
+    var lhits = lp.filter(function (p) { return p && SC.normName(p.name) === target; });
+    if (lhits.length === 1) return { playerId: lhits[0].id || null, number: lhits[0].number };
+
+    // ملتبس أو غير موجود — لا نخمّن؛ scorers-core سيفصل بـ teamId
+    return {};
+  };
+
+  /* ── إعادة تعريف buildScorersData ── */
+  function install() {
+    window.buildScorersData = function () {
+      return SC.build({
+        matches: window.matches || [],
+        teams:   window.teams   || [],
+        rosters: collectRosters()
+      });
+    };
+    window.buildScorersRanked = function () {
+      return SC.withRanks(window.buildScorersData());
+    };
+    console.log('[scorers] ✅ الهدافون بمفتاح الهوية (لا دمج بالاسم)');
+  }
+
+  // ثبّت فوراً، ثم أعد التثبيت بعد أي سكربت متأخر يحاول الكتابة فوقها
+  install();
+  var tries = 0;
+  var iv = setInterval(function () {
+    if (window.buildScorersData && !window.buildScorersData._byIdentity) {
+      install();
+      window.buildScorersData._byIdentity = true;
+    }
+    if (++tries > 20) clearInterval(iv);
+  }, 250);
+})();
+</script>
+  <!-- ══ LINEUP OVERLAY ══ -->
+  <div class="lineup-overlay" id="lineupOverlay">
+    <div class="lineup-topbar">
+      <div class="lineup-title" id="lineupTitle">التشكيلة</div>
+      <button class="lineup-close" onclick="closeLineup()">✕ إغلاق</button>
+    </div>
+    <div class="lineup-body">
+      <div class="lineup-teams-tabs" id="lineupTabs"></div>
+      <div id="lineupContent"></div>
+    </div>
+  </div>
+<!-- MATCH DETAIL OVERLAY -->
+<div class="match-detail-overlay" id="matchDetailOverlay">
+  <div class="md-topbar">
+    <div class="md-league-name" id="mdLeagueName">تفاصيل المباراة</div>
+    <button class="md-close" onclick="closeMatchDetail()">✕</button>
+  </div>
+  <div id="matchDetailBody"></div>
+</div>
+
+<!-- TEAM PROFILE OVERLAY -->
+<div class="match-detail-overlay" id="teamProfileOverlay">
+  <div class="md-topbar">
+    <div class="md-league-name" id="tpLeagueName">بروفايل الفريق</div>
+    <button class="md-close" onclick="closeTeamProfile()">✕</button>
+  </div>
+  <div id="teamProfileBody"></div>
+</div>
+
+<!-- ══ PUSH NOTIFICATIONS MODAL ══ -->
+<div id="notifModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center">
+  <div style="background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:24px;border-top:1px solid var(--border2)">
+    <div style="width:40px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 20px"></div>
+    <div style="font-size:32px;text-align:center;margin-bottom:10px">🔔</div>
+    <div style="font-size:17px;font-weight:900;text-align:center;margin-bottom:6px">إشعارات المباريات</div>
+    <div style="font-size:12px;color:var(--muted2);text-align:center;margin-bottom:20px;line-height:1.7">فعّل الإشعارات وصلك تنبيه فوري عند بداية المباراة، الأهداف، ونهاية المباراة</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+        <span style="font-size:22px">⚽</span>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">هدف جديد</div><div style="font-size:10px;color:var(--muted2)">تنبيه فوري عند كل هدف</div></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:var(--green)"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+        <span style="font-size:22px">🔴</span>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">بداية المباراة</div><div style="font-size:10px;color:var(--muted2)">عند انطلاق الصافرة</div></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:var(--green)"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+        <span style="font-size:22px">✅</span>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">نهاية المباراة</div><div style="font-size:10px;color:var(--muted2)">النتيجة النهائية فور الانتهاء</div></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:var(--green)"></div>
+      </div>
+    </div>
+    <button onclick="requestNotifPermission()" id="notifEnableBtn" style="width:100%;padding:14px;background:var(--gold);color:#000;border:none;border-radius:12px;font-family:Tajawal,sans-serif;font-size:14px;font-weight:900;cursor:pointer;margin-bottom:10px">
+      🔔 تفعيل الإشعارات
+    </button>
+    <button onclick="closeNotifModal()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border2);color:var(--muted2);border-radius:12px;font-family:Tajawal,sans-serif;font-size:13px;cursor:pointer">
+      ليس الآن
+    </button>
+  </div>
+</div>
+
+<script src="./clock-sync.js"></script>
+<script src="./date-groups.js"></script>
+<script src="./matches-tabs.js"></script>
+<script src="./viewer-perf.js"></script>
+<script src="./match-share-card.js"></script>
+</body>
+</html>

@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Super Admin — منصة البطولات</title>
+<meta name="theme-color" content="#080808"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" href="icon-192.png"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="منصة البطولات - سوبر أدمن"/>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet"/>
+<script>
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+<link rel="stylesheet" href="./superadmin.css"/>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="loginScreen">
+  <div class="lg-bg"></div>
+  <div class="lg-grid"></div>
+  <div class="lg-box">
+    <div class="lg-top">
+      <img src="icon-512.png" style="width:84px;height:84px;object-fit:contain;border-radius:20px;display:block;margin:0 auto 8px" alt=""/>
+      <div class="lg-title">Super Admin</div>
+      <div class="lg-sub">منصة البطولات · لوحة التحكم الرئيسية</div>
+    </div>
+    <div class="lg-form">
+      <div class="lf"><label>البريد الإلكتروني</label><input type="email" id="saEmail" placeholder="superadmin@league.com" autocomplete="email"/></div>
+      <div class="lf"><label>كلمة المرور</label><input type="password" id="saPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <button class="btn-lg" id="loginBtn" onclick="doLogin()">
+        <span id="loginBtnText">دخول المنصة</span>
+      </button>
+      <div class="lg-err" id="lgErr"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+  <div class="topbar">
+    <div class="tb-brand">
+      <img src="icon-192.png" style="width:38px;height:38px;object-fit:contain;border-radius:9px" alt=""/>
+      <div>
+        <div class="tb-title">منصة البطولات</div>
+        <div class="tb-role">Super Admin Panel</div>
+      </div>
+    </div>
+    <div class="tb-right">
+      <div class="tb-chip"><span style="color:var(--green)">●</span><span id="activeCount">0</span> دوريات نشطة</div>
+      <button class="tb-btn danger" onclick="doLogout()">خروج</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sb-sect">
+        <div class="sb-lbl">الرئيسية</div>
+        <div class="sb-item active" onclick="showPage('overview',this)"><span class="sb-icon">📊</span>نظرة عامة</div>
+        <div class="sb-item" onclick="showPage('leagues',this)"><span class="sb-icon"><img src="icon-192.png" style="width:20px;height:20px;object-fit:contain;border-radius:5px;vertical-align:middle" alt=""/></span>البطولات<span class="sb-badge bg-gold" id="leaguesBadge">0</span></div>
+        <div class="sb-item" onclick="showPage('subs',this)"><span class="sb-icon">💳</span>الاشتراكات<span class="sb-badge bg-green" id="subsBadge">0</span></div>
+      </div>
+      <div class="sb-sect">
+        <div class="sb-lbl">الإدارة</div>
+        <div class="sb-item" onclick="showPage('new-league',this)"><span class="sb-icon">➕</span>إنشاء بطولة</div>
+        <div class="sb-item" onclick="showPage('users',this)"><span class="sb-icon">👥</span>المستخدمون<span class="sb-badge bg-gold" id="usersBadge">0</span></div>
+        <div class="sb-item" onclick="showPage('analytics',this)"><span class="sb-icon">📈</span>الإحصائيات</div>
+      </div>
+      <div class="sb-sect">
+        <div class="sb-lbl">الإعدادات</div>
+        <div class="sb-item" onclick="showPage('platform',this)"><span class="sb-icon">⚙️</span>إعدادات المنصة</div>
+        <div class="sb-item" onclick="showPage('security',this)"><span class="sb-icon">🔒</span>الأمان</div>
+      </div>
+    </div>
+
+    <div class="main">
+
+      <!-- ══ OVERVIEW ══ -->
+      <div class="section active" id="page-overview">
+        <div class="ph">
+          <div class="ph-title">📊 نظرة عامة على المنصة</div>
+          <div class="ph-sub" id="lastUpdate">جاري التحديث...</div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card" style="--sc:var(--gold)">
+            <div class="stat-num" id="statTotal">0</div>
+            <div class="stat-lbl">إجمالي البطولات</div>
+            <div class="stat-trend"><span style="color:var(--muted)">🏆 جميع الأنواع</span></div>
+          </div>
+          <div class="stat-card" style="--sc:var(--green)">
+            <div class="stat-num" id="statActive">0</div>
+            <div class="stat-lbl">دوريات نشطة الآن</div>
+            <div class="stat-trend"><span class="pulse" style="color:var(--green)">● مباشر</span></div>
+          </div>
+          <div class="stat-card" style="--sc:#5ba8d6">
+            <div class="stat-num" id="statSubs">0</div>
+            <div class="stat-lbl">اشتراكات فعّالة</div>
+            <div class="stat-trend" id="expiringSoon"></div>
+          </div>
+          <div class="stat-card" style="--sc:var(--purple)">
+            <div class="stat-num" id="statUsers">0</div>
+            <div class="stat-lbl">أصحاب دوريات</div>
+            <div class="stat-trend"><span style="color:var(--muted)">👤 مستخدمون</span></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-hd">
+            <div class="card-title">🔴 الدوريات النشطة الآن</div>
+            <button class="btn btn-outline btn-sm" onclick="showPage('leagues',null)">عرض الكل</button>
+          </div>
+          <div id="activeLeaguesQuick"><div class="loader"><div class="spin"></div></div></div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-hd">
+            <div class="card-title">⚠️ اشتراكات تنتهي قريباً</div>
+            <button class="btn btn-outline btn-sm" onclick="showPage('subs',null)">إدارة</button>
+          </div>
+          <div id="expiringSubsOverview"><div class="loader"><div class="spin"></div></div></div>
+        </div>
+      </div>
+
+      <!-- ══ LEAGUES ══ -->
+      <div class="section" id="page-leagues">
+        <div class="ph">
+          <div class="ph-title" style="display:flex;align-items:center;gap:8px"><img src="icon-192.png" style="width:22px;height:22px;object-fit:contain;border-radius:5px" alt=""/> إدارة البطولات</div>
+          <div class="ph-sub" id="leaguesCount">جاري التحميل...</div>
+          <div class="ph-actions">
+            <button class="btn btn-gold" onclick="showPage('new-league',null)">➕ بطولة جديدة</button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-outline btn-sm filter-btn active" onclick="filterLeagues('all',this)">الكل</button>
+              <button class="btn btn-outline btn-sm filter-btn" onclick="filterLeagues('active',this)">🟢 نشطة</button>
+              <button class="btn btn-outline btn-sm filter-btn" onclick="filterLeagues('draft',this)">⚪ مسودة</button>
+              <button class="btn btn-outline btn-sm filter-btn" onclick="filterLeagues('archived',this)">🟡 أرشيف</button>
+            </div>
+          </div>
+        </div>
+        <div class="leagues-grid" id="leaguesGrid"><div class="loader"><div class="spin"></div></div></div>
+      </div>
+
+      <!-- ══ SUBSCRIPTIONS ══ -->
+      <div class="section" id="page-subs">
+        <div class="ph">
+          <div class="ph-title">💳 إدارة الاشتراكات</div>
+          <div class="ph-sub">تحكم كامل في خطط الاشتراك والمدفوعات</div>
+          <div class="ph-actions">
+            <button class="btn btn-gold" onclick="openModal('modal-new-sub')">➕ اشتراك جديد</button>
+          </div>
+        </div>
+        <div class="sub-summary-grid" style="margin-bottom:20px">
+          <div class="sub-summary-card" style="border-color:var(--green)">
+            <div class="sub-summary-n" style="color:var(--green)" id="statSubsActive">0</div>
+            <div class="sub-summary-l">🟢 نشط</div>
+          </div>
+          <div class="sub-summary-card" style="border-color:var(--orange)">
+            <div class="sub-summary-n" style="color:var(--orange)" id="statSubsSoon">0</div>
+            <div class="sub-summary-l">⚠ تنتهي قريباً</div>
+          </div>
+          <div class="sub-summary-card" style="border-color:var(--red)">
+            <div class="sub-summary-n" style="color:var(--red)" id="statSubsExpired">0</div>
+            <div class="sub-summary-l">🔴 منتهي</div>
+          </div>
+          <div class="sub-summary-card" style="border-color:var(--border3)">
+            <div class="sub-summary-n" style="color:var(--text)" id="statSubsTotal">0</div>
+            <div class="sub-summary-l">📋 الإجمالي</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title">📋 قائمة الاشتراكات</div></div>
+          <div style="overflow-x:auto">
+            <table class="sub-table">
+              <thead>
+                <tr>
+                  <th>البطولة</th><th>المالك</th><th>المدة</th>
+                  <th>تاريخ الانتهاء</th><th>الحالة</th><th>إجراء</th>
+                </tr>
+              </thead>
+              <tbody id="subsTable"><tr><td colspan="6" style="text-align:center;padding:20px"><div class="spin" style="margin:auto"></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ NEW LEAGUE ══ -->
+      <div class="section" id="page-new-league">
+        <div class="ph">
+          <div class="ph-title">➕ إنشاء بطولة جديدة</div>
+          <div class="ph-sub">أنشئ بطولة وأرسل الروابط وبيانات الدخول لصاحبها</div>
+        </div>
+
+        <div class="card">
+          <div class="card-hd"><div class="card-title">📋 معلومات البطولة</div></div>
+          <div class="card-bd">
+            <div class="fg"><label>اسم البطولة <span class="required">*</span></label><input class="fi" id="nl_name" placeholder="مثال: دوري حارة الروضة"/></div>
+            <div class="frow">
+              <div class="fg">
+                <label>المعرف (Slug) <span class="required">*</span></label>
+                <input class="fi" id="nl_slug" placeholder="rowda" oninput="updateLinks()" dir="ltr"/>
+                <div class="fhint">إنجليزي بدون مسافات — يُستخدم في الرابط</div>
+              </div>
+              <div class="fg"><label>الموسم</label><input class="fi" id="nl_season" value="2025"/></div>
+            </div>
+            <div class="fhint" style="margin-top:-6px">💡 نوع البطولة (دوري نقاط / مجموعات / خروج مغلوب) يحدده صاحب الدوري بنفسه من داخل لوحة الإدارة عند أول دخول — لا يُحدَّد هنا.</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <div class="card-hd"><div class="card-title">👤 بيانات صاحب الدوري</div></div>
+          <div class="card-bd">
+            <div class="frow">
+              <div class="fg"><label>الاسم <span class="required">*</span></label><input class="fi" id="nl_owner" placeholder="محمد أحمد"/></div>
+              <div class="fg"><label>رقم الواتساب</label><input class="fi" id="nl_phone" placeholder="967771234567" dir="ltr"/></div>
+            </div>
+            <div class="frow">
+              <div class="fg"><label>البريد الإلكتروني <span class="required">*</span></label><input class="fi" id="nl_email" type="email" placeholder="admin@league.com" dir="ltr"/><div class="fhint">يُستخدم لتسجيل الدخول</div></div>
+              <div class="fg"><label>كلمة مرور الإدارة <span class="required">*</span></label><input class="fi" id="nl_pass" type="text" placeholder="اختر كلمة مرور قوية"/>
+                <div class="fhint">لا تقل عن 6 أحرف</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <div class="card-hd"><div class="card-title">💳 مدة الاشتراك</div></div>
+          <div class="card-bd">
+            <div class="dur-grid" id="nl_durations">
+              <div class="dur-card selected" onclick="selectDuration(this,1,'nl')"><div class="dur-icon">📅</div><div class="dur-name">شهر</div><div class="dur-sub">1 شهر</div></div>
+              <div class="dur-card" onclick="selectDuration(this,3,'nl')"><div class="dur-icon">📅</div><div class="dur-name">3 أشهر</div><div class="dur-sub">ربع سنوي</div></div>
+              <div class="dur-card" onclick="selectDuration(this,6,'nl')"><div class="dur-icon">📅</div><div class="dur-name">6 أشهر</div><div class="dur-sub">نصف سنوي</div></div>
+              <div class="dur-card" onclick="selectDuration(this,12,'nl')"><div class="dur-icon">🗓</div><div class="dur-name">سنة</div><div class="dur-sub">12 شهر</div></div>
+              <div class="dur-card" onclick="selectDuration(this,0,'nl')"><div class="dur-icon">✏️</div><div class="dur-name">مخصص</div><div class="dur-sub">تاريخ يدوي</div></div>
+            </div>
+            <div class="frow" style="margin-top:14px">
+              <div class="fg"><label>تاريخ البداية</label><input class="fi" type="date" id="nl_start" oninput="recalcDuration('nl')"/></div>
+              <div class="fg"><label>تاريخ الانتهاء</label><input class="fi" type="date" id="nl_end"/></div>
+            </div>
+            <div class="fhint" id="nl_durHint">سينتهي الاشتراك تلقائياً بعد شهر من تاريخ البداية — يمكنك التعديل يدوياً.</div>
+          </div>
+        </div>
+
+        <!-- Generated Links -->
+        <div class="card" style="margin-top:14px;border-color:var(--green)">
+          <div class="card-hd"><div class="card-title" style="color:var(--green)">🔗 الروابط المولّدة</div></div>
+          <div class="card-bd">
+            <div style="margin-bottom:12px">
+              <div style="font-size:10px;color:var(--green);font-weight:700;margin-bottom:5px;letter-spacing:1px">🌐 رابط الجمهور</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <div style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;font-size:12px;font-family:monospace" id="nl_viewer_url">league-viewer.html?id=<span style="color:var(--green)" id="nl_slug_preview">rowda</span></div>
+                <button class="btn btn-green btn-sm" onclick="copyText('nl_viewer_url')">📋</button>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:#5ba8d6;font-weight:700;margin-bottom:5px;letter-spacing:1px">⚙️ رابط الإدارة</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <div style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;font-size:12px;font-family:monospace" id="nl_admin_url">league-admin.html?id=<span id="nl_slug_preview2">rowda</span></div>
+                <button class="btn btn-blue btn-sm" onclick="copyText('nl_admin_url')">📋</button>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px;margin-top:14px"><button class="btn btn-gold" style="width:100%;justify-content:center" onclick="openHandover()">صفحة التسليم — عرض / طباعة</button><div style="display:flex;gap:7px"><button class="btn btn-outline" style="flex:2;justify-content:center" onclick="sendHandoverWA()">إرسال الروابط واتساب</button><button class="btn btn-outline" style="flex:1;justify-content:center" onclick="sendPassWA()">كلمة المرور</button></div><div style="font-size:10px;color:var(--muted);text-align:center;line-height:1.7">كلمة المرور تُرسل منفصلة — لا تُكتب في نفس رسالة الروابط</div></div>
+          </div>
+        </div>
+
+        <button class="btn btn-gold" style="width:100%;padding:14px;font-size:14px;margin-top:16px" id="createBtn" onclick="createLeague()">
+          🚀 إنشاء البطولة وتفعيلها
+        </button>
+      </div>
+
+      <!-- ══ USERS ══ -->
+      <div class="section" id="page-users">
+        <div class="ph">
+          <div class="ph-title">👥 المستخدمون</div>
+          <div class="ph-sub">أصحاب الدوريات المسجلون</div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title">قائمة المستخدمين</div></div>
+          <div style="overflow-x:auto">
+            <table class="sub-table">
+              <thead><tr><th>الاسم</th><th>البريد</th><th>البطولة</th><th>الاشتراك</th><th>الحالة</th><th>إجراء</th></tr></thead>
+              <tbody id="usersTable"><tr><td colspan="6" style="text-align:center;padding:20px"><div class="spin" style="margin:auto"></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ ANALYTICS ══ -->
+      <div class="section" id="page-analytics">
+        <div class="ph">
+          <div class="ph-title">📈 الإحصائيات</div>
+          <div class="ph-sub">تحليل أداء المنصة</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+          <div class="card">
+            <div class="card-hd"><div class="card-title">🏆 توزيع البطولات حسب النوع</div></div>
+            <div class="card-bd"><div class="chart-bar" id="typeChart"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><div class="card-title">💳 حالة الاشتراكات</div></div>
+            <div class="card-bd"><div class="chart-bar" id="planChart"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title">📋 ملخص المنصة</div></div>
+          <div class="card-bd">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+              <div style="text-align:center;padding:14px;background:var(--card2);border-radius:10px">
+                <div style="font-size:24px;font-weight:900;color:var(--gold);font-family:Tajawal" id="totalMatches">-</div>
+                <div style="font-size:10px;color:var(--muted)">إجمالي المباريات</div>
+              </div>
+              <div style="text-align:center;padding:14px;background:var(--card2);border-radius:10px">
+                <div style="font-size:24px;font-weight:900;color:var(--green);font-family:Tajawal" id="totalGoals">-</div>
+                <div style="font-size:10px;color:var(--muted)">هدف مسجل</div>
+              </div>
+              <div style="text-align:center;padding:14px;background:var(--card2);border-radius:10px">
+                <div style="font-size:24px;font-weight:900;color:#5ba8d6;font-family:Tajawal" id="totalTeams">-</div>
+                <div style="font-size:10px;color:var(--muted)">فريق مشارك</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ PLATFORM SETTINGS ══ -->
+      <div class="section" id="page-platform">
+        <div class="ph">
+          <div class="ph-title">⚙️ إعدادات المنصة</div>
+          <div class="ph-sub">إعدادات عامة تؤثر على كل البطولات</div>
+        </div>
+        <div style="display:grid;gap:14px">
+          <div class="card">
+            <div class="card-hd"><div class="card-title">🌐 معلومات المنصة</div></div>
+            <div class="card-bd">
+              <div class="fg"><label>اسم المنصة</label><input class="fi" id="platformName" value="منصة البطولات"/></div>
+              <div class="fg"><label>التوقيع الثابت على الصور</label><input class="fi" id="platformSig" value="منصة البطولات"/></div>
+              <div class="fg"><label>رسالة الترحيب</label><input class="fi" id="platformWelcome" value="مرحباً بك في منصة البطولات"/></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><div class="card-title">🎛 إعدادات البطولات</div></div>
+            <div class="card-bd">
+              <div class="toggle-row" onclick="toggleSw(this)" data-key="allowNew"><div class="tg-info"><div class="tg-name">السماح بإنشاء بطولات جديدة</div><div class="tg-desc">إذا أُغلق لن يستطيع أحد إنشاء بطولة</div></div><div class="tg-sw on"></div></div>
+              <div class="toggle-row" onclick="toggleSw(this)" data-key="publicView"><div class="tg-info"><div class="tg-name">عرض صفحة الجمهور للجميع</div><div class="tg-desc">إذا أُغلق تصبح الصفحات خاصة</div></div><div class="tg-sw on"></div></div>
+              <div class="toggle-row" onclick="toggleSw(this)" data-key="subsRequired"><div class="tg-info"><div class="tg-name">تفعيل نظام الاشتراكات</div><div class="tg-desc">إذا أُغلق يصبح كل شيء مجاناً</div></div><div class="tg-sw on"></div></div>
+              <div class="toggle-row" onclick="toggleSw(this)" data-key="maintenance"><div class="tg-info"><div class="tg-name">وضع الصيانة</div><div class="tg-desc">يوقف المنصة مؤقتاً للصيانة</div></div><div class="tg-sw"></div></div>
+            </div>
+          </div>
+          <button class="btn btn-gold" style="width:100%;padding:14px" onclick="savePlatformSettings()">💾 حفظ الإعدادات</button>
+        </div>
+      </div>
+
+      <!-- ══ SECURITY ══ -->
+      <div class="section" id="page-security">
+        <div class="ph">
+          <div class="ph-title">🔒 الأمان</div>
+          <div class="ph-sub">حماية المنصة والحسابات</div>
+        </div>
+        <div style="display:grid;gap:14px">
+          <div class="card">
+            <div class="card-hd"><div class="card-title">🔑 تغيير كلمة مرور Super Admin</div></div>
+            <div class="card-bd">
+              <div class="fg"><label>كلمة المرور الجديدة</label><input class="fi" type="password" id="newPass1" placeholder="••••••••"/></div>
+              <div class="fg"><label>تأكيد كلمة المرور</label><input class="fi" type="password" id="newPass2" placeholder="••••••••"/></div>
+              <button class="btn btn-gold" onclick="changePassword()">حفظ كلمة المرور الجديدة</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><div class="card-title">📧 بريد Super Admin الحالي</div></div>
+            <div class="card-bd">
+              <div style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;font-size:12px;font-family:monospace" id="currentAdminEmail">—</div>
+              <div class="fhint" style="margin-top:8px">لتغيير البريد يجب إعادة الإعداد من Firebase Console</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /layout -->
+
+  <nav class="mob-nav">
+    <button class="mn-item active" onclick="showPage('overview',null,this)"><span style="font-size:19px">📊</span>الرئيسية</button>
+    <button class="mn-item" onclick="showPage('leagues',null,this)"><img src="icon-192.png" style="width:22px;height:22px;object-fit:contain;border-radius:5px" alt=""/>البطولات</button>
+    <button class="mn-item" onclick="showPage('new-league',null,this)"><span style="font-size:19px">➕</span>جديدة</button>
+    <button class="mn-item" onclick="showPage('subs',null,this)"><span style="font-size:19px">💳</span>اشتراكات</button>
+    <button class="mn-item" onclick="showPage('users',null,this)"><span style="font-size:19px">👥</span>المستخدمون</button>
+    <button class="mn-item" onclick="showPage('analytics',null,this)"><span style="font-size:19px">📈</span>إحصائيات</button>
+    <button class="mn-item" onclick="showPage('platform',null,this)"><span style="font-size:19px">⚙️</span>إعدادات</button>
+    <button class="mn-item" onclick="showPage('security',null,this)"><span style="font-size:19px">🔒</span>الأمان</button>
+  </nav>
+</div>
+
+<!-- ══ MODALS ══ -->
+<div class="modal-overlay" id="modal-new-sub">
+  <div class="modal-box">
+    <div class="modal-hd"><div class="modal-title">💳 اشتراك جديد</div><button class="modal-close" onclick="closeModal('modal-new-sub')">✕</button></div>
+    <div class="modal-bd">
+      <div class="fg"><label>اسم المالك <span class="required">*</span></label><input class="fi" id="sub_owner" placeholder="محمد أحمد"/></div>
+      <div class="fg"><label>بريده الإلكتروني <span class="required">*</span></label><input class="fi" id="sub_email" type="email" placeholder="user@example.com" dir="ltr"/></div>
+      <div class="fg"><label>البطولة المرتبطة <span class="required">*</span></label>
+        <select class="fs" id="sub_league"><option value="">-- اختر بطولة --</option></select>
+      </div>
+      <div class="fg"><label>مدة الاشتراك</label>
+        <div class="dur-grid" id="sub_durations">
+          <div class="dur-card selected" onclick="selectDuration(this,1,'sub')"><div class="dur-icon">📅</div><div class="dur-name">شهر</div><div class="dur-sub">1 شهر</div></div>
+          <div class="dur-card" onclick="selectDuration(this,3,'sub')"><div class="dur-icon">📅</div><div class="dur-name">3 أشهر</div><div class="dur-sub">ربع سنوي</div></div>
+          <div class="dur-card" onclick="selectDuration(this,6,'sub')"><div class="dur-icon">📅</div><div class="dur-name">6 أشهر</div><div class="dur-sub">نصف سنوي</div></div>
+          <div class="dur-card" onclick="selectDuration(this,12,'sub')"><div class="dur-icon">🗓</div><div class="dur-name">سنة</div><div class="dur-sub">12 شهر</div></div>
+          <div class="dur-card" onclick="selectDuration(this,0,'sub')"><div class="dur-icon">✏️</div><div class="dur-name">مخصص</div><div class="dur-sub">تاريخ يدوي</div></div>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>تاريخ البداية</label><input class="fi" type="date" id="sub_start" oninput="recalcDuration('sub')"/></div>
+        <div class="fg"><label>تاريخ الانتهاء</label><input class="fi" type="date" id="sub_end"/></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-outline" onclick="closeModal('modal-new-sub')">إلغاء</button>
+      <button class="btn btn-gold" onclick="createSubscription()">✓ إنشاء الاشتراك</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-renew-sub">
+  <div class="modal-box">
+    <div class="modal-hd"><div class="modal-title">🔄 تجديد الاشتراك</div><button class="modal-close" onclick="closeModal('modal-renew-sub')">✕</button></div>
+    <div class="modal-bd">
+      <div class="fg" style="text-align:center;background:var(--card2);border-radius:8px;padding:10px" id="renew_leagueLabel">—</div>
+      <div class="fg"><label>مدة التجديد</label>
+        <div class="dur-grid" id="renew_durations">
+          <div class="dur-card selected" onclick="selectDuration(this,1,'renew')"><div class="dur-icon">📅</div><div class="dur-name">شهر</div><div class="dur-sub">1 شهر</div></div>
+          <div class="dur-card" onclick="selectDuration(this,3,'renew')"><div class="dur-icon">📅</div><div class="dur-name">3 أشهر</div><div class="dur-sub">ربع سنوي</div></div>
+          <div class="dur-card" onclick="selectDuration(this,6,'renew')"><div class="dur-icon">📅</div><div class="dur-name">6 أشهر</div><div class="dur-sub">نصف سنوي</div></div>
+          <div class="dur-card" onclick="selectDuration(this,12,'renew')"><div class="dur-icon">🗓</div><div class="dur-name">سنة</div><div class="dur-sub">12 شهر</div></div>
+          <div class="dur-card" onclick="selectDuration(this,0,'renew')"><div class="dur-icon">✏️</div><div class="dur-name">مخصص</div><div class="dur-sub">تاريخ يدوي</div></div>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>يبدأ التجديد من</label><input class="fi" type="date" id="renew_start" oninput="recalcDuration('renew')"/></div>
+        <div class="fg"><label>تاريخ الانتهاء الجديد</label><input class="fi" type="date" id="renew_end"/></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-outline" onclick="closeModal('modal-renew-sub')">إلغاء</button>
+      <button class="btn btn-gold" onclick="confirmRenewSub()">✓ تأكيد التجديد</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-league-actions">
+  <div class="modal-box">
+    <div class="modal-hd"><div class="modal-title" id="mal-title">إجراءات البطولة</div><button class="modal-close" onclick="closeModal('modal-league-actions')">✕</button></div>
+    <div class="modal-bd" id="mal-body"></div>
+    <div class="modal-ft"><button class="btn btn-outline" onclick="closeModal('modal-league-actions')">إغلاق</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!--
+  ══════════════════════════════════════════════════
+  🔧 إعداد Super Admin — أول مرة فقط
+  ══════════════════════════════════════════════════
+  1. افتح Firebase Console → Authentication
+  2. أنشئ مستخدم بالبريد والكلمة التي تريدها
+  3. انسخ الـ UID بتاعه
+  4. افتح Firestore → أنشئ collection "admins"
+  5. أنشئ document باسم الـ UID بهذا المحتوى:
+     { "role": "superadmin", "email": "your@email.com" }
+  6. الآن يمكنك الدخول بتلك البيانات
+
+  ══════════════════════════════════════════════════
+  Firestore Security Rules — ضعها في Firebase Console
+  ══════════════════════════════════════════════════
+  ⚠️ تنبيه: الكود يستخدم مجموعتين منفصلتين:
+     - admins/{uid}        → Super Admin فقط (role: 'superadmin')
+     - leagueAdmins/{uid}  → أصحاب الدوريات (leagueId: '...')
+  ══════════════════════════════════════════════════
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+
+      // Super Admins — قراءة فقط لصاحب الـ UID
+      match /admins/{uid} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+
+      // League Admins — أصحاب الدوريات
+      match /leagueAdmins/{uid} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if request.auth != null &&
+          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'superadmin';
+      }
+
+      // البطولات — قراءة عامة، كتابة للسوبر أدمن أو صاحب الدوري
+      match /leagues/{leagueId} {
+        allow read: if true;
+        allow write: if request.auth != null &&
+          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'superadmin'
+          || get(/databases/$(database)/documents/leagueAdmins/$(request.auth.uid)).data.leagueId == leagueId);
+      }
+
+      // محتوى البطولة (فرق، مباريات، لاعبون...) — قراءة عامة، كتابة لصاحب الدوري
+      match /leagues/{leagueId}/{sub=**} {
+        allow read: if true;
+        allow write: if request.auth != null &&
+          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'superadmin'
+          || get(/databases/$(database)/documents/leagueAdmins/$(request.auth.uid)).data.leagueId == leagueId);
+      }
+
+      // الاشتراكات — السوبر أدمن فقط
+      match /subscriptions/{id} {
+        allow read: if request.auth != null &&
+          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'superadmin'
+          || get(/databases/$(database)/documents/leagueAdmins/$(request.auth.uid)).data.leagueId == resource.data.leagueId);
+        allow write: if request.auth != null &&
+          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'superadmin';
+      }
+
+      // إعدادات المنصة — السوبر أدمن فقط
+      match /settings/{id} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null &&
+          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'superadmin';
+      }
+    }
+  }
+  ══════════════════════════════════════════════════
+-->
+
+<!-- iOS INSTALL BANNER -->
+<div id="iosBanner">
+  <div class="ios-banner-inner">
+    <button class="ios-banner-close" onclick="document.getElementById('iosBanner').classList.remove('show');sessionStorage.setItem('ios_install_dismissed','1')">✕</button>
+    <div class="ios-banner-icon">📲</div>
+    <div class="ios-banner-title">ثبّت لوحة السوبر أدمن</div>
+    <div class="ios-banner-steps">
+      <div class="ios-step"><span class="ios-step-num">١</span><span>اضغط زر <strong>المشاركة</strong> أسفل المتصفح</span><span class="ios-step-icon">⬆️</span></div>
+      <div class="ios-step"><span class="ios-step-num">٢</span><span>اختر <strong>إضافة إلى الشاشة الرئيسية</strong></span><span class="ios-step-icon">＋</span></div>
+      <div class="ios-step"><span class="ios-step-num">٣</span><span>اضغط <strong>إضافة</strong> للتأكيد</span><span class="ios-step-icon">✅</span></div>
+    </div>
+    <div class="ios-banner-arrow">▼</div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module" src="./superadmin.js"></script>
+<script src="./handover.js"></script>
+</body>
+</html>

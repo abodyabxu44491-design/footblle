@@ -1,0 +1,143 @@
+rules_version = '2';
+
+/* ═══════════════════════════════════════════════════════════════════
+ *  firestore.rules — قواعد الأمان
+ *  ───────────────────────────────────────────────────────────────────
+ *  ⚠️  تصحيح مهم عن نسختي السابقة:
+ *      كانت تفحص  request.auth.uid in leagueDoc.admins
+ *      لكن مستند البطولة **لا يحوي حقل admins إطلاقاً**.
+ *      النموذج الحقيقي الذي يبنيه السوبر أدمن (superadmin.js):
+ *
+ *        leagues/{slug}      → { ownerUid: "abc123", ownerEmail, ... }
+ *        leagueAdmins/{uid}  → { leagueId: "slug", active: true }
+ *
+ *      ولوحة الإدارة تتحقق هكذا (admin.js:70):
+ *        getDoc(leagueAdmins/{auth.uid}).leagueId === LEAGUE_ID
+ *
+ *      لو نُشرت قواعدي القديمة لفقد **كل** المنظّمين صلاحية الكتابة
+ *      فوراً. هذه النسخة تطابق النموذج الفعلي — بلا أي تعديل بيانات.
+ *
+ *  النشر:  firebase deploy --only firestore:rules
+ * ═══════════════════════════════════════════════════════════════════ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function adminRec() {
+      return get(/databases/$(database)/documents/leagueAdmins/$(request.auth.uid)).data;
+    }
+
+    function hasAdminRec() {
+      return signedIn()
+             && exists(/databases/$(database)/documents/leagueAdmins/$(request.auth.uid));
+    }
+
+    // منظّم هذه البطولة تحديداً (ونشط)
+    function ownsLeague(lid) {
+      return hasAdminRec()
+             && adminRec().leagueId == lid
+             && adminRec().active == true;
+    }
+
+    // مالك البطولة عبر ownerUid — احتياط لو غاب سجل leagueAdmins
+    function isOwnerUid(lid) {
+      return signedIn()
+             && get(/databases/$(database)/documents/leagues/$(lid)).data.ownerUid == request.auth.uid;
+    }
+
+    // البطولة نشطة؟ (السوبر أدمن يضبط status='suspended' عند انتهاء الاشتراك)
+    function leagueActive(lid) {
+      return get(/databases/$(database)/documents/leagues/$(lid)).data.status == 'active';
+    }
+
+    /* ✅ الصلاحية = منظّم البطولة + البطولة نشطة.
+       بدون فحص الحالة هنا، المنظّم المنتهي اشتراكه يحذف
+       #lockedOverlay من DevTools (سطر واحد) ويواصل الكتابة —
+       لأن الحجب كان بصرياً فقط: classList.add('show'). */
+    function canManage(lid) {
+      return (ownsLeague(lid) || isOwnerUid(lid)) && leagueActive(lid);
+    }
+
+    // مستند البطولة نفسه — مسموح حتى لو موقوفة (وإلا استحال التجديد)
+    function canEditLeagueDoc(lid) {
+      return ownsLeague(lid) || isOwnerUid(lid);
+    }
+
+    // ── سجلّات المنظّمين ──────────────────────────────────────
+    match /leagueAdmins/{uid} {
+      allow read:  if signedIn() && request.auth.uid == uid;
+      allow write: if false;   // السوبر أدمن / Console فقط
+    }
+
+    // ── البطولات ─────────────────────────────────────────────
+    match /leagues/{lid} {
+      allow read: if true;
+
+      // المنظّم يعدّل بطولته — لا يغيّر الملكية ولا حالة الاشتراك
+      /* المنظّم يعدّل بطولته، ولا يغيّر ملكيتها.
+         الحالة: يُسمح بإبقائها كما هي، أو الأرشفة الطوعية فقط
+         (active → archived — زر «إغلاق البطولة»).
+         يُمنع منعاً باتّاً: suspended → active  (فكّ إيقاف اشتراكه بنفسه). */
+      allow update: if canEditLeagueDoc(lid)
+                    && request.resource.data.ownerUid == resource.data.ownerUid
+                    && (
+                         request.resource.data.status == resource.data.status
+                         || (resource.data.status == 'active'
+                             && request.resource.data.status == 'archived')
+                       );
+
+      allow create, delete: if false;   // السوبر أدمن فقط
+
+      match /matches/{mid} {
+        allow read:  if true;
+        allow write: if canManage(lid);
+      }
+      match /teams/{tid} {
+        allow read:  if true;
+        allow write: if canManage(lid);
+        match /roster/{pid} {
+          allow read:  if true;
+          allow write: if canManage(lid);
+        }
+      }
+      match /groups/{gid} {
+        allow read:  if true;
+        allow write: if canManage(lid);
+      }
+      match /knockoutRounds/{rid} {
+        allow read:  if true;
+        allow write: if canManage(lid);
+      }
+      match /config/{cid} {
+        allow read:  if true;
+        allow write: if canManage(lid);
+      }
+
+      // الجمهور المجهول ينشئ توكن إشعاراته فقط — بلا قراءة
+      match /notifTokens/{token} {
+        allow create: if true;
+        allow read, update, delete: if false;
+      }
+
+      match /{sub}/{docId} {
+        allow read:  if true;
+        allow write: if canManage(lid);
+      }
+    }
+
+    // ── الاشتراكات ───────────────────────────────────────────
+    // المنظّم يقرأ حالته وتاريخ انتهائه. الكتابة للسوبر أدمن فقط.
+    match /subscriptions/{sid} {
+      allow read:  if signedIn();
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

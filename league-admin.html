@@ -1,0 +1,2633 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>لوحة الإدارة — منصة البطولات</title>
+<meta name="theme-color" content="#080808"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="منصة البطولات"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" href="icon-192.png"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet"/>
+<script>
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+<link rel="stylesheet" href="./admin.css"/>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-glow"></div>
+  <div class="login-grid"></div>
+  <div class="login-box">
+    <div class="login-top">
+      <img src="icon-512.png" style="width:80px;height:80px;object-fit:contain;border-radius:18px;display:block;margin:0 auto 12px" alt=""/>
+      <div class="login-title" id="loginTitle">لوحة إدارة الدوري</div>
+      <div class="login-sub" id="loginSub">منصة البطولات</div>
+    </div>
+    <div class="login-form">
+      <div class="fl"><label>البريد الإلكتروني</label><input type="email" id="loginEmail" placeholder="admin@league.com" autocomplete="email"/></div>
+      <div class="fl"><label>كلمة المرور</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <button class="btn-primary" id="loginBtn" onclick="doLogin()">
+        <span id="loginBtnText">🔐 دخول</span>
+      </button>
+      <div class="login-err" id="loginErr"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LOCKED OVERLAY -->
+<div id="lockedOverlay">
+  <div class="lo-icon">🔒</div>
+  <div class="lo-title" id="lockedTitle">الاشتراك منتهي</div>
+  <div class="lo-msg" id="lockedMsg">انتهى اشتراكك في منصة دوري الحي. تواصل مع المسؤول لتجديد الاشتراك والاستمرار في إدارة بطولتك.</div>
+  <button class="btn btn-gold" style="padding:12px 28px;font-size:14px" onclick="doLogout()">تسجيل الخروج</button>
+</div>
+
+<!-- ══ SETUP WIZARD — أول دخول ══ -->
+<div id="setupWizard" style="display:none;position:fixed;inset:0;z-index:990;background:rgba(0,0,0,.92);overflow-y:auto">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+    <div style="background:var(--card);border:1px solid var(--gold3);border-radius:20px;width:100%;max-width:500px;overflow:hidden">
+
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg,#0d0a00,#1a1200);padding:28px 24px 20px;text-align:center;border-bottom:1px solid var(--gold3)">
+        <div style="font-size:48px;margin-bottom:8px">🏆</div>
+        <div style="font-size:18px;font-weight:900;color:var(--gold);font-family:Tajawal,sans-serif">مرحباً! إعداد البطولة</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6">هذا الإعداد يتم <strong style="color:var(--gold2)">مرة واحدة فقط</strong> ولا يمكن تغيير نوع البطولة لاحقاً</div>
+      </div>
+
+      <div style="padding:24px">
+
+        <!-- Step Indicator -->
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:28px">
+          <div class="wz-step active" id="wz-dot-1">١</div>
+          <div style="flex:1;height:2px;background:var(--border2);border-radius:1px" id="wz-line-1"></div>
+          <div class="wz-step" id="wz-dot-2">٢</div>
+          <div style="flex:1;height:2px;background:var(--border2);border-radius:1px" id="wz-line-2"></div>
+          <div class="wz-step" id="wz-dot-3">٣</div>
+        </div>
+
+        <!-- STEP 1: اسم البطولة والموسم -->
+        <div id="wz-step-1">
+          <div style="font-size:13px;font-weight:900;color:var(--gold);margin-bottom:16px">① معلومات البطولة</div>
+          <div class="form-group">
+            <label class="form-label">اسم البطولة *</label>
+            <input class="form-input" id="wz-name" placeholder="مثال: دوري الحي الشمالي" style="font-size:14px"/>
+          </div>
+          <div class="form-group" style="margin-top:14px">
+            <label class="form-label">الموسم</label>
+            <input class="form-input" id="wz-season" placeholder="مثال: 2025" value="2025"/>
+          </div>
+          <button class="btn btn-gold" style="width:100%;padding:14px;margin-top:20px;font-size:13px" onclick="wzGoStep(2)">التالي ←</button>
+        </div>
+
+        <!-- STEP 2: نوع البطولة -->
+        <div id="wz-step-2" style="display:none">
+          <div style="font-size:13px;font-weight:900;color:var(--gold);margin-bottom:6px">② اختر نوع البطولة</div>
+          <div style="font-size:11px;color:var(--red);background:rgba(220,50,50,.08);border:1px solid rgba(220,50,50,.2);border-radius:8px;padding:9px 12px;margin-bottom:16px;line-height:1.6">
+            ⚠️ <strong>تنبيه هام:</strong> بعد التأكيد لن تتمكن من تغيير نوع البطولة أبداً
+          </div>
+          <div style="display:grid;gap:10px">
+            <div class="wz-type-card" id="wzt-league" onclick="wzSelectType('league')">
+              <div style="font-size:28px">📋</div>
+              <div>
+                <div style="font-size:13px;font-weight:900">دوري نقاط</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5">كل فريق يلعب ضد الآخرين · جدول ترتيب كامل · مناطق متأهلين وهابطين</div>
+              </div>
+            </div>
+            <div class="wz-type-card" id="wzt-groups" onclick="wzSelectType('groups')">
+              <div style="font-size:28px">🔷</div>
+              <div>
+                <div style="font-size:13px;font-weight:900">مجموعات + خروج مغلوب</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5">دور المجموعات أولاً ← ثم شجرة إقصاء للمتأهلين</div>
+              </div>
+            </div>
+            <div class="wz-type-card" id="wzt-knockout" onclick="wzSelectType('knockout')">
+              <div style="font-size:28px">⚡</div>
+              <div>
+                <div style="font-size:13px;font-weight:900">خروج مغلوب فقط</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5">شجرة إقصاء مباشرة من البداية · الخاسر يخرج فوراً</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:20px">
+            <button class="btn btn-outline" style="flex:1;padding:12px" onclick="wzGoStep(1)">← السابق</button>
+            <button class="btn btn-gold" style="flex:2;padding:12px;font-size:13px" onclick="wzGoStep(3)">التالي ←</button>
+          </div>
+        </div>
+
+        <!-- STEP 3: التفاصيل + التأكيد -->
+        <div id="wz-step-3" style="display:none">
+          <div style="font-size:13px;font-weight:900;color:var(--gold);margin-bottom:16px">③ تفاصيل البطولة</div>
+
+          <!-- يُبنى ديناميكياً حسب النوع المختار: عدد الفرق، المجموعات، بداية الشجرة... -->
+          <div id="wz-dynamic-config"></div>
+
+          <div style="background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:16px;margin:16px 0">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <span style="font-size:11px;color:var(--muted)">اسم البطولة</span>
+              <span style="font-size:13px;font-weight:900;color:var(--text)" id="wz-confirm-name">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <span style="font-size:11px;color:var(--muted)">الموسم</span>
+              <span style="font-size:13px;font-weight:700;color:var(--text)" id="wz-confirm-season">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:11px;color:var(--muted)">نوع البطولة</span>
+              <span style="font-size:13px;font-weight:900;color:var(--gold)" id="wz-confirm-type">—</span>
+            </div>
+          </div>
+          <div style="background:rgba(220,50,50,.07);border:1px solid rgba(220,50,50,.2);border-radius:10px;padding:12px;font-size:11px;color:#e07070;line-height:1.7;margin-bottom:18px">
+            🔒 بعد الضغط على "تأكيد وإنشاء البطولة" سيُقفل نوع البطولة نهائياً، وستُنشأ كل المجموعات/الشجرة تلقائياً بحسب ما حددته أعلاه
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-outline" style="flex:1;padding:12px" onclick="wzGoStep(2)">← السابق</button>
+            <button class="btn btn-gold" style="flex:2;padding:14px;font-size:14px;font-weight:900" id="wzConfirmBtn" onclick="wzConfirmFinal()">تأكيد وإنشاء البطولة</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.wz-step {
+  width:30px;height:30px;border-radius:50%;background:var(--card2);border:2px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--muted);
+  flex-shrink:0;transition:all .3s;
+}
+.wz-step.active { background:var(--gold3);border-color:var(--gold);color:var(--gold); }
+.wz-step.done { background:var(--green);border-color:var(--green);color:#fff; }
+.wz-line-done { background:var(--gold3) !important; }
+.settings-group-title {
+  font-size:12px; font-weight:900; color:var(--gold); letter-spacing:.5px;
+  padding:6px 4px 2px; margin-top:6px; display:flex; align-items:baseline; gap:8px;
+  border-bottom:1px solid var(--border2); padding-bottom:8px;
+}
+.settings-group-sub {
+  font-size:10px; font-weight:400; color:var(--muted); letter-spacing:0;
+}
+.wz-type-card {
+  display:flex;align-items:flex-start;gap:14px;padding:14px 16px;
+  background:var(--card2);border:2px solid var(--border2);border-radius:12px;cursor:pointer;transition:all .2s;
+}
+.wz-type-card:hover { border-color:var(--gold3);background:var(--card3); }
+.wz-type-card.selected { border-color:var(--gold);background:rgba(201,160,43,.08); }
+</style>
+
+<!-- APP -->
+<div id="app">
+  <!-- SUB EXPIRED BANNER -->
+  <div id="subExpiredBanner">
+    <div class="sub-exp-text">⚠️ اشتراكك منتهي أو على وشك الانتهاء</div>
+    <div class="sub-exp-sub" id="subExpiredMsg">تواصل مع المسؤول لتجديد الاشتراك</div>
+  </div>
+
+  <div class="topbar">
+    <div class="tb-brand">
+      <!-- ✅ زر القائمة — يفتح التنقل الجانبي على الجوال (بديل شريط الإيموجي) -->
+      <button class="tb-menu" id="tbMenuBtn" onclick="toggleAdminDrawer()" aria-label="القائمة">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <path d="M3 6h18M3 12h18M3 18h18"/>
+        </svg>
+      </button>
+      <img id="topbarIcon" src="icon-192.png" style="width:38px;height:38px;object-fit:contain;border-radius:9px" alt=""/>
+      <div>
+        <div class="tb-name" id="topbarName">الدوري</div>
+        <div class="tb-league">لوحة الإدارة</div>
+      </div>
+    </div>
+    <div class="tb-actions">
+      <button class="tb-btn" id="viewerBtn" onclick="openViewer()">👁 الجمهور ↗</button>
+      <button class="tb-btn danger" onclick="doLogout()">خروج</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- ✅ خلفية الدرج (جوال) -->
+    <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeAdminDrawer()"></div>
+    <script>
+      window.toggleAdminDrawer = function () {
+        document.body.classList.toggle('drawer-open');
+      };
+      window.closeAdminDrawer = function () {
+        document.body.classList.remove('drawer-open');
+      };
+      /* أغلق الدرج تلقائياً بعد اختيار أي قسم — وإلا يبقى المستخدم عالقاً في القائمة */
+      document.addEventListener('click', function (e) {
+        const item = e.target.closest('.sb-item');
+        if (item && window.innerWidth <= 640) window.closeAdminDrawer();
+      }, true);
+      /* أغلقه عند تكبير الشاشة */
+      window.addEventListener('resize', function () {
+        if (window.innerWidth > 640) window.closeAdminDrawer();
+      });
+    </script>
+    <!-- SIDEBAR — بدون البث -->
+    <div class="sidebar">
+      <div class="sb-label">الرئيسية</div>
+      <div class="sb-item active" onclick="showPage('dashboard',this)"><span class="sb-icon" data-ic="chart"></span> لوحة التحكم</div>
+      <div class="sb-item" onclick="showPage('matches',this)"><span class="sb-icon" data-ic="ball"></span> المباريات <span class="sb-badge live" id="liveMatchBadge" style="display:none">مباشر</span></div>
+      <div class="sb-item" onclick="showPage('standings',this)"><span class="sb-icon" data-ic="list"></span> الترتيب</div>
+      <div class="sb-item" onclick="showPage('scorers',this)"><span class="sb-icon" data-ic="medal"></span> الهدافون</div>
+      <div class="sb-label">الإدارة</div>
+      <div class="sb-item" onclick="showPage('teams',this)"><span class="sb-icon" data-ic="users"></span> الفرق <span class="sb-badge" id="teamsBadge">0</span></div>
+      <div class="sb-item" onclick="showPage('cards',this)"><span class="sb-icon" data-ic="palette"></span> البطاقات</div>
+      <div class="sb-item" onclick="showPage('sponsor',this)"><span class="sb-icon" data-ic="tag"></span> الراعي</div>
+
+      <!-- ثابت: المجموعات + الإقصاء (لإظهارها حتى لو admin.js لا يحقنها) -->
+      <div class="sb-item" id="sb-groups" style="display:none" onclick="showPage('groups',this)" data-page="groups"><span class="sb-icon" data-ic="users"></span> المجموعات</div>
+      <div class="sb-item" id="sb-knockout" style="display:none" onclick="showPage('knockout',this)" data-page="knockout"><span class="sb-icon" data-ic="tree"></span> الإقصاء</div>
+
+      <div class="sb-label">الإعدادات</div>
+      <div class="sb-item" onclick="showPage('settings',this)"><span class="sb-icon" data-ic="settings"></span> إعدادات البطولة</div>
+      <div class="sb-item" id="sb-zones" onclick="showPage('zones',this)"><span class="sb-icon" data-ic="target"></span> مناطق الترتيب</div>
+      <div class="sb-item" onclick="showPage('danger',this)"><span class="sb-icon" data-ic="alert"></span> منطقة الخطر</div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main" style="padding:0">
+
+      <!-- TOP TABS — تبويب الإدارة فقط (البث الآن في صفحة مستقلة لكل مباراة) -->
+      <div class="top-tabs" id="topTabs" style="display:none">
+        <button class="top-tab active" id="ttab-main" onclick="switchTopTab('main',this)">📊 الإدارة</button>
+      </div>
+
+      <!-- محتوى الإدارة -->
+      <div id="panel-main" style="padding:20px 16px 100px">
+
+      <!-- DASHBOARD -->
+      <div class="section active" id="page-dashboard">
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="chart"></span>لوحة التحكم</div>
+          <div class="page-sub">نظرة عامة على الدوري</div>
+        </div>
+        <div class="viewer-link-bar">
+          <div><div class="vlb-label">🌐 رابط الجمهور</div><div class="vlb-url" id="viewerLinkDisplay">league-viewer.html?id=...</div></div>
+          <div class="vlb-actions">
+            <button class="copy-btn" onclick="copyViewerLink()">📋 نسخ</button>
+            <button class="open-btn" onclick="openViewer()">فتح ↗</button>
+          </div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card" style="--accent:var(--gold)"><div class="stat-num" id="dashTeams">0</div><div class="stat-lbl">فرق مشاركة</div></div>
+          <div class="stat-card" style="--accent:var(--blue)"><div class="stat-num" id="dashMatches">0</div><div class="stat-lbl">إجمالي المباريات</div></div>
+          <div class="stat-card" style="--accent:var(--green)"><div class="stat-num" id="dashGoals">0</div><div class="stat-lbl">هدف مسجل</div></div>
+          <div class="stat-card" style="--accent:var(--orange)"><div class="stat-num" id="dashRound">—</div><div class="stat-lbl">الجولة الحالية</div></div>
+        </div>
+
+        <!-- بطاقة الوصول السريع للمباريات -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-header">
+            <div class="card-title">⚽ المباريات</div>
+            <button class="btn btn-outline btn-sm" onclick="showPage('matches',null)">عرض الكل</button>
+          </div>
+          <div class="card-body" id="dashMatchesSummary">
+            <div style="text-align:center;padding:10px 0 4px">
+              <div style="font-size:13px;color:var(--muted2);margin-bottom:14px;line-height:1.7">
+                إدارة النتائج والبث والتشكيلات تتم من قسم <strong style="color:var(--gold)">المباريات</strong>
+              </div>
+              <button class="btn btn-gold" style="padding:13px 32px;font-size:14px;font-weight:900" onclick="showPage('matches',null)">
+                ⚽ الذهاب إلى المباريات
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="dashStandingsCard">
+          <div class="card-header"><div class="card-title"><span class="pt-ic" data-ic="list"></span>الترتيب الحالي</div><button class="btn btn-outline btn-sm" onclick="showPage('standings',null)">تفاصيل</button></div>
+          <div id="dashStandings"><div class="spin"></div></div>
+        </div>
+      </div>
+
+      <!-- MATCHES -->
+      <div class="section" id="page-matches">
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="ball"></span>إدارة المباريات</div>
+          <div class="page-sub">إدخال النتائج وإدارة الجدول</div>
+          <div class="page-actions">
+            <button class="btn btn-gold" onclick="openModal('modal-match')">+ إضافة مباراة</button>
+          </div>
+        </div>
+        <div id="matchesList"><div class="spin"></div></div>
+      </div>
+
+      <!-- TEAMS -->
+      <div class="section" id="page-teams">
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="users"></span>إدارة الفرق</div>
+          <div class="page-sub" id="teamsCount">جاري التحميل...</div>
+          <div class="page-actions"><button class="btn btn-gold" onclick="openModal('modal-team')">+ إضافة فريق</button></div>
+        </div>
+        <div class="teams-list" id="teamsList"><div class="spin"></div></div>
+      </div>
+
+      <!-- STANDINGS -->
+      <div class="section" id="page-standings">
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="list"></span>جدول الترتيب</div>
+          <div class="page-sub">يتحدث تلقائياً عند إدخال النتائج</div>
+          <div class="page-actions">
+            <button class="btn btn-outline" onclick="showPage('zones',null)">⚙️ مناطق</button>
+            <button class="btn btn-gold" onclick="shareStandings()">📤 مشاركة</button>
+          </div>
+        </div>
+        <div class="card"><div id="fullStandings"><div class="spin"></div></div></div>
+        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center" id="zoneLegend"></div>
+      </div>
+
+      <!-- SCORERS -->
+      <div class="section" id="page-scorers">
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="medal"></span>الهدافون</div>
+          <div class="page-sub">يتحدث تلقائياً عند إدخال النتائج</div>
+        </div>
+        <div id="scorersList"><div class="spin"></div></div>
+      </div>
+
+      <!-- CARDS -->
+      <div class="section" id="page-cards">
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="palette"></span>البطاقات</div>
+          <div class="page-sub">توليد ومشاركة البطاقات الاحترافية</div>
+        </div>
+        <div id="cardsList"><div class="spin"></div></div>
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline" style="flex:1" onclick="shareViaWA()">📲 واتساب</button>
+          <button class="btn btn-gold" style="flex:1" onclick="showToast('تم الحفظ ✓','success')">💾 حفظ صورة</button>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <!-- ══ صفحة الراعي ══ -->
+      <div class="section" id="page-sponsor">
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="tag"></span>الراعي</div>
+          <div class="page-sub">راعي البطولة يظهر في صفحة الجمهور</div>
+        </div>
+
+        <div style="display:grid;gap:14px;max-width:640px">
+          <div class="card">
+            <div class="card-header"><div class="card-title">راعي البطولة</div></div>
+            <div class="card-body">
+
+              <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+                <div>
+                  <label class="form-label">الشعار</label>
+                  <div class="sp-drop" id="spLogoPrev" onclick="document.getElementById('spLogoInput').click()">
+                    <span style="font-size:22px;color:var(--muted)">🏷️</span>
+                  </div>
+                  <input type="file" id="spLogoInput" accept="image/*" style="display:none" onchange="spHandleLogo(this)"/>
+                  <button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="spClearLogo()">إزالة</button>
+                </div>
+
+                <div style="flex:1;min-width:220px;display:grid;gap:10px">
+                  <div class="form-group">
+                    <label class="form-label">اسم الراعي</label>
+                    <input class="form-input" id="spName" maxlength="60" placeholder="مثال: شركة النخبة" oninput="spPreview()"/>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">الرابط (اختياري)</label>
+                    <input class="form-input" id="spUrl" placeholder="موقع أو رقم واتساب" oninput="spPreview()"/>
+                    <div style="font-size:10px;color:var(--muted2);margin-top:4px">
+                      اكتب موقعاً (example.com) أو رقم واتساب (0512345678) — يُحوَّل تلقائياً
+                    </div>
+                  </div>
+                  <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);cursor:pointer">
+                    <input type="checkbox" id="spActive" checked onchange="spPreview()"/> إظهار الراعي للجمهور
+                  </label>
+                </div>
+              </div>
+
+              <div style="margin-top:16px">
+                <label class="form-label">المعاينة</label>
+                <div id="spPreviewBox" style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:10px">
+                  <div style="color:var(--muted);font-size:12px;text-align:center;padding:14px">أدخل اسم الراعي لرؤية المعاينة</div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:14px">
+                <button class="btn btn-gold" onclick="spSave()">حفظ</button>
+                <button class="btn" onclick="spRemove()">إزالة الراعي</button>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-body" style="font-size:12px;color:var(--muted2);line-height:1.9">
+              <b style="color:var(--text)">راعي المباراة</b><br/>
+              لتعيين راعٍ لمباراة محددة، افتح المباراة من صفحة <b>المباريات</b> ← تعديل ← حقل الراعي.<br/>
+              راعي المباراة يظهر داخل تفاصيل تلك المباراة فقط، ويتقدّم على راعي البطولة.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="page-settings">
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="settings"></span>إعدادات البطولة</div>
+          <div class="page-sub">تحكم كامل في النظام والإعدادات</div>
+        </div>
+        <div style="display:grid;gap:14px">
+
+          <div class="card" id="subInfoCard" style="border-color:var(--border2)">
+            <div class="card-header"><div class="card-title">💳 اشتراك البطولة</div></div>
+            <div class="card-body">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+                <div>
+                  <div style="font-size:11px;color:var(--muted)">الحالة</div>
+                  <div style="font-size:14px;font-weight:900;margin-top:2px" id="subInfoStatus">—</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--muted)">تاريخ البداية</div>
+                  <div style="font-size:13px;font-weight:700;margin-top:2px" id="subInfoStart">—</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--muted)">تاريخ الانتهاء</div>
+                  <div style="font-size:13px;font-weight:700;margin-top:2px" id="subInfoEnd">—</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--muted)">الأيام المتبقية</div>
+                  <div style="font-size:14px;font-weight:900;margin-top:2px" id="subInfoDays">—</div>
+                </div>
+              </div>
+              <div style="margin-top:12px;background:var(--card3);border-radius:20px;height:8px;overflow:hidden">
+                <div id="subInfoBar" style="height:100%;width:0%;background:var(--gold);border-radius:20px;transition:width .3s"></div>
+              </div>
+              <div style="margin-top:10px;font-size:10px;color:var(--muted2)" id="subInfoNote">جاري التحقق من حالة الاشتراك...</div>
+            </div>
+          </div>
+
+          <!-- ═══════ المجموعة ١: معلومات البطولة ═══════ -->
+          <div class="settings-group-title">📋 معلومات البطولة</div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">📋 المعلومات الأساسية</div></div>
+            <div class="card-body">
+              <div class="form-group"><label class="form-label">اسم البطولة</label><input class="form-input" id="setName" placeholder="اسم البطولة"/></div>
+
+              <!-- ✅ شعار البطولة — المصدر الوحيد. يُطبَّق على البطاقات وواجهة الجمهور -->
+              <div class="form-group">
+                <label class="form-label">شعار البطولة</label>
+                <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+                  <div id="setLogoPrev" style="width:64px;height:64px;flex-shrink:0;border-radius:12px;
+                    background:var(--card3);border:1px solid var(--border2);display:flex;
+                    align-items:center;justify-content:center;font-size:26px;overflow:hidden">🏆</div>
+                  <div style="flex:1">
+                    <input type="file" id="setLogoInput" accept="image/*" style="display:none"
+                      onchange="lgHandleLogo(this)"/>
+                    <button class="btn btn-outline" style="width:100%;padding:10px;font-size:12px"
+                      onclick="document.getElementById('setLogoInput').click()">📤 رفع شعار</button>
+                    <button class="btn btn-outline" id="setLogoDel" style="width:100%;padding:8px;font-size:11px;
+                      margin-top:6px;display:none;color:#e74c3c;border-color:rgba(231,76,60,.3)"
+                      onclick="lgClearLogo()">🗑 حذف الشعار</button>
+                  </div>
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.7">
+                  💡 يظهر تلقائياً في كل البطاقات وفي واجهة الجمهور — لا حاجة لرفعه مرة أخرى
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">الموسم</label><input class="form-input" id="setSeason" placeholder="2025"/></div>
+                <div class="form-group"><label class="form-label">عدد الجولات</label><input class="form-input" type="number" id="setRounds" value="10"/></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">نقاط الفوز</label><input class="form-input" type="number" id="setWinPts" value="3"/></div>
+                <div class="form-group"><label class="form-label">نقاط التعادل</label><input class="form-input" type="number" id="setDrawPts" value="1"/></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">🏆 نوع البطولة</div></div>
+            <div class="card-body">
+              <!-- نوع البطولة مقفل — للعرض فقط -->
+              <div id="typeLockedDisplay" style="display:flex;align-items:center;gap:14px;background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:14px 16px">
+                <div style="font-size:32px" id="typeLockedIcon">🏆</div>
+                <div style="flex:1">
+                  <div style="font-size:13px;font-weight:900;color:var(--text)" id="typeLockedName">—</div>
+                  <div style="font-size:10px;color:var(--muted);margin-top:3px" id="typeLockedDesc">—</div>
+                </div>
+                <div style="background:rgba(200,80,80,.1);border:1px solid rgba(200,80,80,.3);border-radius:8px;padding:5px 10px;text-align:center">
+                  <div style="font-size:14px">🔒</div>
+                  <div style="font-size:9px;color:#e07070;margin-top:2px">مقفل</div>
+                </div>
+              </div>
+              <div style="margin-top:10px;background:rgba(200,80,80,.06);border:1px solid rgba(200,80,80,.15);border-radius:8px;padding:9px 12px;font-size:10px;color:#c07070;line-height:1.6">
+                🔒 نوع البطولة مقفل نهائياً ولا يمكن تغييره بعد الإطلاق
+              </div>
+
+            </div>
+          </div>
+
+          <!-- ═══════ المجموعة ٢: إعدادات المباريات (تُطبَّق تلقائياً على الكل) ═══════ -->
+          <div class="settings-group-title">⚽ إعدادات المباريات <span class="settings-group-sub">تُطبَّق تلقائياً على كل مباريات البطولة</span></div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">⏱ مدة الأشواط</div></div>
+            <div class="card-body">
+              <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
+                💡 هذه الإعدادات تُطبَّق تلقائياً على جميع المباريات — لا تحتاج لضبطها في كل مباراة
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">⏱ مدة الشوط الأول (د)</label>
+                  <input class="form-input" type="number" id="setHalf1Dur" value="45" min="1" max="90" oninput="updateMatchDurPreview()"/>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">☕ مدة الاستراحة (د)</label>
+                  <input class="form-input" type="number" id="setBreakDur" value="15" min="1" max="30" oninput="updateMatchDurPreview()"/>
+                </div>
+              </div>
+              <div class="form-row" style="margin-top:10px">
+                <div class="form-group">
+                  <label class="form-label">⏱ مدة الشوط الثاني (د)</label>
+                  <input class="form-input" type="number" id="setHalf2Dur" value="45" min="1" max="90" oninput="updateMatchDurPreview()"/>
+                </div>
+                <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-end">
+                  <div style="font-size:10px;color:var(--muted);margin-bottom:6px">مثال: خماسي = 10 / 10</div>
+                  <div style="font-size:11px;color:var(--gold);font-weight:700" id="matchDurPreview">المباراة: 105 دقيقة</div>
+                </div>
+              </div>
+              <div style="margin-top:14px;border-top:1px solid var(--border2);padding-top:14px">
+                <div style="font-size:11px;color:var(--muted2);font-weight:700;margin-bottom:10px">خيارات إضافية</div>
+                <div class="toggle-row" onclick="toggleSwitch(this)" data-key="hasExtraTime">
+                  <div class="toggle-info">
+                    <div class="toggle-name">⚡ وقت إضافي</div>
+                    <div class="toggle-desc">يظهر زر "إضافة وقت" أثناء البث</div>
+                  </div>
+                  <div class="toggle-switch on"></div>
+                </div>
+                <div class="toggle-row" onclick="toggleSwitch(this)" data-key="hasPenalties">
+                  <div class="toggle-info">
+                    <div class="toggle-name">🥅 ركلات الترجيح</div>
+                    <div class="toggle-desc">يظهر زر "بدء الركلات" عند التعادل</div>
+                  </div>
+                  <div class="toggle-switch on"></div>
+                </div>
+
+                <!-- ⚡ إعدادات الوقت الإضافي -->
+                <div id="et-settings-block" style="margin-top:10px;padding:12px 14px;background:var(--card3);border-radius:10px;border:1px solid rgba(243,156,18,.2)">
+                  <div style="font-size:10px;color:#f39c12;font-weight:700;margin-bottom:10px">⚡ مدة الوقت الإضافي</div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label class="form-label">⏱ وإضافي 1 (د)</label>
+                      <input class="form-input" type="number" id="setET1Dur" value="15" min="1" max="30" oninput="updateMatchDurPreview()"/>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">⏱ وإضافي 2 (د)</label>
+                      <input class="form-input" type="number" id="setET2Dur" value="15" min="1" max="30" oninput="updateMatchDurPreview()"/>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 👕 نظام التشكيلة — إعداد واحد على مستوى البطولة كاملة -->
+          <div class="card">
+            <div class="card-header"><div class="card-title">👕 نظام التشكيلة</div></div>
+            <div class="card-body">
+              <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
+                💡 يحدّد عدد لاعبي التشكيلة الأساسيين (شامل الحارس) لكل مباريات البطولة — يطبَّق تلقائياً في قسم التشكيلات وصفحة الجمهور، بدون اختيار في كل مباراة
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="setSquadGrid">
+                <button type="button" class="type-card" id="setSquad5" onclick="setSquadSize(5)" style="padding:12px 4px;font-size:13px;font-weight:700">5</button>
+                <button type="button" class="type-card" id="setSquad6" onclick="setSquadSize(6)" style="padding:12px 4px;font-size:13px;font-weight:700">6</button>
+                <button type="button" class="type-card" id="setSquad7" onclick="setSquadSize(7)" style="padding:12px 4px;font-size:13px;font-weight:700">7</button>
+                <button type="button" class="type-card" id="setSquad8" onclick="setSquadSize(8)" style="padding:12px 4px;font-size:13px;font-weight:700">8</button>
+                <button type="button" class="type-card" id="setSquad9" onclick="setSquadSize(9)" style="padding:12px 4px;font-size:13px;font-weight:700">9</button>
+                <button type="button" class="type-card" id="setSquad10" onclick="setSquadSize(10)" style="padding:12px 4px;font-size:13px;font-weight:700">10</button>
+                <button type="button" class="type-card" id="setSquad11" onclick="setSquadSize(11)" style="padding:12px 4px;font-size:13px;font-weight:700">11</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 🔁 نظام الذهاب والإياب — يظهر فقط في بطولات المجموعات -->
+          <div class="card" id="legModeCard" style="display:none">
+            <div class="card-header"><div class="card-title">🔁 نظام مباريات المجموعات</div></div>
+            <div class="card-body">
+              <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
+                💡 يُطبَّق على كل مباريات المجموعات القادمة عند توليدها — التغيير هنا لا يعدّل مباريات مولّدة مسبقاً
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <button type="button" class="type-card" id="setLegSingle" onclick="setLegMode('single')" style="padding:12px 8px;font-size:12px">
+                  <div style="font-size:18px;margin-bottom:4px">➡️</div>ذهاب فقط
+                </button>
+                <button type="button" class="type-card" id="setLegDouble" onclick="setLegMode('double')" style="padding:12px 8px;font-size:12px">
+                  <div style="font-size:18px;margin-bottom:4px">🔁</div>ذهاب وإياب
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════ المجموعة ٣: الترتيب والتأهل ═══════ -->
+          <div class="settings-group-title">🏆 الترتيب والتأهل</div>
+
+          <!-- ⚖️ إعداد طريقة الحسم عند التساوي بالنقاط -->
+          <div class="card" id="tiebreakCard">
+            <div class="card-header"><div class="card-title">⚖️ طريقة الحسم عند التساوي بالنقاط</div></div>
+            <div class="card-body">
+              <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
+                💡 عند تساوي فريقين أو أكثر بالنقاط، يتم الفصل بينهم بالترتيب التالي حسب اختيارك
+              </div>
+              <div style="font-size:12px;font-weight:700;color:var(--muted2);margin-bottom:10px">رتّب المعايير حسب الأولوية (الأول = الأعلى أهمية):</div>
+              <div id="tiebreakList" style="display:flex;flex-direction:column;gap:8px">
+                <!-- يتم حقنها من JS -->
+              </div>
+              <div style="margin-top:12px;font-size:10px;color:var(--muted);line-height:1.7;border-top:1px solid var(--border2);padding-top:10px">
+                <b>المواجهات المباشرة</b>: النتيجة بين الفريقين المتساويين<br/>
+                <b>فارق الأهداف</b>: الأهداف المسجلة – الأهداف المستقبلة<br/>
+                <b>الأهداف المسجلة</b>: عدد الأهداف المسجلة فقط<br/>
+                <b>القرعة</b>: قرعة عشوائية (آخر خيار)
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">🎯 مناطق الترتيب</div><button class="btn btn-outline btn-sm" onclick="showPage('zones',null)">فتح</button></div>
+            <div class="card-body">
+              <div style="font-size:11px;color:var(--muted2);line-height:1.7">
+                حدّد مناطق التأهل والهبوط (المتوج، المتأهل، الهابط...) من صفحة مناطق الترتيب المخصّصة.
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════ المجموعة ٤: العرض للجمهور ═══════ -->
+          <div class="settings-group-title">🎛 خيارات العرض للجمهور</div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">🎛 الأقسام المفعّلة</div></div>
+            <div class="card-body">
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showLive"><div class="toggle-info"><div class="toggle-name">🔴 مؤشر المباشر</div><div class="toggle-desc">يظهر LIVE على المباراة الجارية</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showCountdown"><div class="toggle-info"><div class="toggle-name">⏰ عداد تنازلي</div><div class="toggle-desc">يظهر للجمهور قبل المباراة</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showShare"><div class="toggle-info"><div class="toggle-name">📤 مشاركة الصور</div><div class="toggle-desc">زر المشاركة على البطاقات</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showStats"><div class="toggle-info"><div class="toggle-name">📊 إحصائيات البطولة</div><div class="toggle-desc">يظهر تبويب الإحصائيات للجمهور</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showScorers"><div class="toggle-info"><div class="toggle-name">🥇 جدول الهدافين</div><div class="toggle-desc">يظهر تبويب الهدافين للجمهور</div></div><div class="toggle-switch on"></div></div>
+            </div>
+          </div>
+
+          <button class="btn btn-gold" style="width:100%;padding:14px;font-size:14px;position:sticky;bottom:10px;box-shadow:0 4px 20px rgba(0,0,0,.4)" onclick="saveSettings()">💾 حفظ جميع الإعدادات</button>
+        </div>
+      </div>
+
+      <!-- ZONES -->
+      <div class="section" id="page-zones">
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="target"></span>مناطق الترتيب</div>
+          <div class="page-sub">تحديد المتأهلين والهابطين</div>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-header"><div class="card-title">🏆 إعداد المناطق</div></div>
+          <div class="card-body">
+            <p style="font-size:11px;color:var(--muted2);margin-bottom:14px">المجموع يجب أن يساوي عدد الفرق</p>
+            <div class="zone-builder">
+              <div class="zone-row"><div class="zone-color" style="background:var(--gold)"></div><div class="zone-name">🏆 المتوج</div><input class="zone-count" type="number" value="1" min="0" id="z_champion" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فريق</span></div>
+              <div class="zone-row"><div class="zone-color" style="background:var(--green)"></div><div class="zone-name">✅ متأهل</div><input class="zone-count" type="number" value="2" min="0" id="z_qualify" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فرق</span></div>
+              <div class="zone-row"><div class="zone-color" style="background:var(--blue)"></div><div class="zone-name">🔵 مشروط</div><input class="zone-count" type="number" value="1" min="0" id="z_cond" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فرق</span></div>
+              <div class="zone-row"><div class="zone-color" style="background:#888"></div><div class="zone-name">⚪ عادي</div><input class="zone-count" type="number" value="0" min="0" id="z_normal" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فرق</span></div>
+              <div class="zone-row"><div class="zone-color" style="background:var(--orange)"></div><div class="zone-name">🟠 ملعب الهبوط</div><input class="zone-count" type="number" value="1" min="0" id="z_playoff" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فريق</span></div>
+              <div class="zone-row"><div class="zone-color" style="background:var(--red)"></div><div class="zone-name">🔴 هابط</div><input class="zone-count" type="number" value="1" min="0" id="z_relegate" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فرق</span></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:10px 14px;background:var(--card3);border-radius:8px">
+              <span style="font-size:11px;color:var(--muted2)">الإجمالي</span>
+              <span id="zoneTotal" style="font-size:14px;font-weight:900;color:var(--gold)">6 / 6</span>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-gold" style="width:100%;padding:14px;margin-top:4px" onclick="saveZones()">💾 حفظ المناطق</button>
+      </div>
+
+      <!-- DANGER -->
+      <div class="section" id="page-danger">
+        <div class="page-header">
+          <div class="page-title" style="color:var(--red)">⚠️ منطقة الخطر</div>
+          <div class="page-sub">إجراءات لا يمكن التراجع عنها</div>
+        </div>
+        <div style="display:grid;gap:12px">
+          <div class="card"><div class="card-body">
+            <div style="font-size:14px;font-weight:700;color:var(--gold);margin-bottom:6px">فحص سلامة البطولة</div>
+            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">
+              يكشف المباريات المكررة · الجولات الخاطئة · الفرق بلا مجموعة ·
+              أي خطأ يفسد جدول الترتيب — مع سبب كل مشكلة وحلّها.
+            </div>
+            <button class="btn btn-gold" onclick="hcShow()">افحص الآن</button>
+          </div></div>
+          <div class="card" style="border-color:var(--red2)"><div class="card-body">
+            <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">مسح كل المباريات</div>
+            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">
+              يحذف كل المباريات المضافة (المجموعات والإقصاء) مع نتائجها وأحداثها.
+              الفرق والمجموعات تبقى كما هي — ثم تقدر تولّد المباريات من جديد.
+            </div>
+            <button class="btn btn-danger" onclick="clearAllMatches()">مسح كل المباريات</button>
+          </div></div>
+          <div class="card" style="border-color:var(--red2)"><div class="card-body">
+            <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">🔒 إغلاق البطولة</div>
+            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">يتم إغلاق الدوري وتحويله لأرشيف للعرض فقط</div>
+            <button class="btn btn-danger" onclick="closeLeague()">🔒 إغلاق البطولة</button>
+          </div></div>
+          <div class="card" style="border-color:var(--red2)"><div class="card-body">
+            <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">🔄 إعادة تعيين الترتيب</div>
+            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">حذف جميع نتائج المباريات وإعادة الترتيب من الصفر (الفرق تبقى)</div>
+            <button class="btn btn-danger" onclick="resetStandings()">🔄 إعادة ضبط الترتيب</button>
+          </div></div>
+
+          <!-- ✅ §13: مسح جميع البيانات -->
+          <div class="card" style="border-color:var(--red2)"><div class="card-body">
+            <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">🗑 مسح جميع البيانات</div>
+            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">حذف جميع الفرق والمباريات والأحداث والإحصائيات — مع الإبقاء على نوع البطولة وإعداداتها</div>
+            <button class="btn btn-danger" onclick="wipeAllData()">🗑 مسح جميع البيانات</button>
+          </div></div>
+
+          <!-- ✅ §13: إعادة ضبط البطولة — رجوع لمعالج الإنشاء -->
+          <div class="card" style="border-color:var(--red2)"><div class="card-body">
+            <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">♻️ إعادة ضبط البطولة بالكامل</div>
+            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">حذف كل شيء وإرجاع البطولة لنقطة البداية — شاشة اختيار نوع البطولة ومعالج الإنشاء، وكأنها بطولة جديدة</div>
+            <button class="btn btn-danger" onclick="resetTournament()">♻️ إعادة ضبط البطولة</button>
+          </div></div>
+        </div>
+      </div>
+
+      </div><!-- /panel-main -->
+
+
+      <!-- panel-live removed — البث الآن في صفحة مستقلة -->
+
+
+    </div><!-- /main -->
+  </div><!-- /layout -->
+
+  <!-- ══ QUICK ENTRY OVERLAY ══ -->
+  <div class="qe-overlay" id="qeOverlay" style="display:none;position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.92);overflow-y:auto">
+    <div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:20px">
+      <div style="background:var(--card);border:1px solid var(--gold3);border-radius:20px;width:100%;max-width:560px;overflow:hidden">
+        <div style="background:linear-gradient(135deg,#0d0a00,#1a1200);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--gold3)">
+          <div>
+            <div style="font-size:15px;font-weight:900;color:var(--gold);font-family:Tajawal,sans-serif">⚽ إدخال سريع</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px" id="qeMatchLabel">جاري التحميل...</div>
+          </div>
+          <button onclick="closeQuickEntry()" style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;color:var(--text);width:36px;height:36px;cursor:pointer;font-size:18px">✕</button>
+        </div>
+        <div style="padding:20px" id="qeOverlayBody">
+          <div style="text-align:center;padding:40px;color:var(--muted)">جاري التحميل...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⛔ شريط التنقل السفلي (الإيموجي) أُزيل — استُبدل بقائمة جانبية منظمة تدعم الجوال -->
+</div>
+
+<!-- INSTALL BANNER -->
+<div id="installBanner">
+  <div class="ib-row">
+    <div class="ib-icon">⚽</div>
+    <div class="ib-text">
+      <div class="ib-title">ثبّت دوري الحي على هاتفك</div>
+      <div class="ib-sub">وصول سريع بدون متصفح</div>
+    </div>
+  </div>
+  <div class="ib-btns">
+    <button class="ib-install" id="installBtn">📲 تثبيت</button>
+    <button class="ib-dismiss" onclick="document.getElementById('installBanner').style.display='none'">لاحقاً</button>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-team">
+  <div class="modal-box" style="max-width:480px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header"><div class="modal-title">➕ إضافة فريق</div><button class="modal-close" onclick="closeModal('modal-team')">✕</button></div>
+    <div class="modal-body">
+
+      <!-- الشعار -->
+      <div class="form-group">
+        <label class="form-label">شعار الفريق *</label>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <div id="teamLogoPreview" style="width:64px;height:64px;border-radius:14px;background:var(--card3);border:2px solid var(--gold3);display:flex;align-items:center;justify-content:center;font-size:34px;overflow:hidden;flex-shrink:0;background-size:cover;background-position:center">⚽</div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+            <button type="button" class="btn btn-gold" style="justify-content:center" onclick="openIconPicker()">اختيار أيقونة</button>
+            <label style="display:flex;align-items:center;justify-content:center;gap:8px;background:var(--card2);border:1px dashed var(--border3);border-radius:var(--rs);padding:9px 12px;cursor:pointer">
+              <span style="font-size:11px;color:var(--muted2)">أو ارفع صورة شعار</span>
+              <input type="file" id="teamLogoFile" accept="image/*" style="display:none" onchange="handleTeamLogoUpload(this)"/>
+            </label>
+            <input type="hidden" id="newTeamLogo" value=""/>
+          </div>
+        </div>
+      </div>
+
+      <!-- الاسم واللون -->
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">اسم الفريق *</label><input class="form-input" id="newTeamName" placeholder="مثال: نجوم الحارة"/></div>
+        <div class="form-group"><label class="form-label">الاسم المختصر</label><input class="form-input" id="newTeamShort" placeholder="مثال: NHR" maxlength="4"/></div>
+      </div>
+
+      <!-- لون الفريق -->
+      <div class="form-group">
+        <label class="form-label">لون الفريق</label>
+        <div class="team-color-row" id="teamColorRow">
+          <div class="tc-swatch sel" style="background:#C9A02B" data-color="#C9A02B" onclick="selectTeamColor(this)"></div>
+          <div class="tc-swatch" style="background:#27AE60" data-color="#27AE60" onclick="selectTeamColor(this)"></div>
+          <div class="tc-swatch" style="background:#2980B9" data-color="#2980B9" onclick="selectTeamColor(this)"></div>
+          <div class="tc-swatch" style="background:#C0392B" data-color="#C0392B" onclick="selectTeamColor(this)"></div>
+          <div class="tc-swatch" style="background:#8E44AD" data-color="#8E44AD" onclick="selectTeamColor(this)"></div>
+          <div class="tc-swatch" style="background:#D35400" data-color="#D35400" onclick="selectTeamColor(this)"></div>
+          <div class="tc-swatch" style="background:#17A589" data-color="#17A589" onclick="selectTeamColor(this)"></div>
+          <div class="tc-swatch" style="background:#AAB7B8" data-color="#AAB7B8" onclick="selectTeamColor(this)"></div>
+          <input type="color" id="teamColorCustom" style="width:32px;height:32px;border-radius:8px;border:2px solid var(--border);cursor:pointer;padding:0" oninput="selectTeamColorCustom(this.value)"/>
+        </div>
+      </div>
+
+      <!-- المدرب والمدير -->
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🧑‍💼 المدرب الرئيسي</label><input class="form-input" id="newTeamCoach" placeholder="م. محمد أحمد"/></div>
+        <div class="form-group"><label class="form-label">👔 مدير الفريق</label><input class="form-input" id="newTeamManager" placeholder="اسم المدير"/></div>
+      </div>
+
+      <!-- الملعب والتأسيس -->
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🏟 الملعب الرئيسي</label><input class="form-input" id="newTeamStadium" placeholder="ملعب الحارة الشمالية"/></div>
+        <div class="form-group"><label class="form-label">📅 سنة التأسيس</label><input class="form-input" type="number" id="newTeamFounded" placeholder="2020" min="1900" max="2099"/></div>
+      </div>
+
+      <!-- التواصل -->
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">📱 واتساب التواصل</label><input class="form-input" type="tel" id="newTeamPhone" placeholder="05xxxxxxxx"/></div>
+        <div class="form-group"><label class="form-label">📸 إنستقرام</label><input class="form-input" id="newTeamInsta" placeholder="@team_name"/></div>
+      </div>
+
+      <!-- ملاحظات -->
+      <div class="form-group"><label class="form-label">📝 نبذة عن الفريق</label><textarea class="form-input" id="newTeamBio" rows="2" placeholder="فريق تأسس عام 2020 في الحارة الغربية..." style="resize:none"></textarea></div>
+</div>
+       <div class="modal-footer">
+       <button class="btn btn-outline" onclick="closeModal('modal-team');resetTeamForm()">إلغاء</button>
+       <button class="btn btn-gold" onclick="addTeam()">✓ إضافة الفريق</button>
+     </div>
+   </div>
+ </div>
+
+<!-- MODAL تعديل فريق -->
+<div class="modal-overlay" id="modal-edit-team">
+  <div class="modal-box" style="max-width:480px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header"><div class="modal-title">✏️ تعديل بيانات الفريق</div><button class="modal-close" onclick="closeModal('modal-edit-team')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="editTeamId"/>
+      <!-- الشعار -->
+      <div class="form-group">
+        <label class="form-label">شعار الفريق</label>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <div id="editLogoPreview" style="width:64px;height:64px;border-radius:14px;background:var(--card3);border:2px solid var(--gold3);display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden;flex-shrink:0;background-size:cover;background-position:center">⚽</div>
+          <div style="flex:1">
+            <label style="display:flex;align-items:center;gap:8px;background:var(--card2);border:1px dashed var(--gold3);border-radius:var(--rs);padding:9px 12px;cursor:pointer;transition:border-color .2s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--gold3)'">
+              <span style="font-size:16px">🖼</span>
+              <span style="font-size:11px;color:var(--muted2)">تغيير الصورة (PNG/JPG)</span>
+              <input type="file" accept="image/*" style="display:none" onchange="handleEditLogoUpload(this)"/>
+            </label>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <button class="btn btn-outline btn-sm" onclick="deleteEditLogo()" style="font-size:10px;padding:4px 8px;color:var(--red);border-color:var(--red)">🗑 حذف الشعار</button>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">اتركه كما هو إذا لا تريد تغيير الشعار</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- الاسم -->
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">اسم الفريق *</label><input class="form-input" id="editTeamName" placeholder="مثال: نجوم الحارة"/></div>
+        <div class="form-group"><label class="form-label">الاسم المختصر</label><input class="form-input" id="editTeamShort" placeholder="NHR" maxlength="4"/></div>
+      </div>
+      <!-- المدرب والمدير -->
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🧑‍💼 المدرب الرئيسي</label><input class="form-input" id="editTeamCoach" placeholder="م. محمد أحمد"/></div>
+        <div class="form-group"><label class="form-label">👔 مدير الفريق</label><input class="form-input" id="editTeamManager" placeholder="اسم المدير"/></div>
+      </div>
+      <!-- الملعب والتأسيس -->
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🏟 الملعب الرئيسي</label><input class="form-input" id="editTeamStadium" placeholder="ملعب الحارة الشمالية"/></div>
+        <div class="form-group"><label class="form-label">📅 سنة التأسيس</label><input class="form-input" type="number" id="editTeamFounded" placeholder="2020" min="1900" max="2099"/></div>
+      </div>
+      <!-- التواصل -->
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">📱 واتساب التواصل</label><input class="form-input" type="tel" id="editTeamPhone" placeholder="05xxxxxxxx"/></div>
+        <div class="form-group"><label class="form-label">📸 إنستقرام</label><input class="form-input" id="editTeamInsta" placeholder="@team_name"/></div>
+      </div>
+      <!-- نبذة -->
+      <div class="form-group"><label class="form-label">📝 نبذة عن الفريق</label><textarea class="form-input" id="editTeamBio" rows="2" placeholder="فريق تأسس عام 2020..." style="resize:none"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-team')">إلغاء</button>
+      <button class="btn btn-gold" onclick="saveEditTeam()">💾 حفظ التعديلات</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-match">
+  <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header"><div class="modal-title">➕ إضافة مباراة</div><button class="modal-close" onclick="closeModal('modal-match')">✕</button></div>
+    <div class="modal-body">
+      <!-- الفريقان -->
+      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px">⚽ الفريقان</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">الفريق الأول 🏠</label><select class="form-select" id="matchHome"></select></div>
+        <div class="form-group"><label class="form-label">الفريق الثاني ✈️</label><select class="form-select" id="matchAway"></select></div>
+      </div>
+      <!-- الوقت والمكان -->
+      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">📅 الوقت والمكان</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">التاريخ</label><input class="form-input" type="date" id="matchDate"/></div>
+        <div class="form-group"><label class="form-label">الوقت</label><input class="form-input" type="time" id="matchTime" value="16:00"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🏟 الملعب</label><input class="form-input" id="matchVenue" value="ملعب الحارة"/></div>
+        <div class="form-group"><label class="form-label">🎯 رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1"/></div>
+      </div>
+      <!-- طاقم المباراة -->
+      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">👔 طاقم المباراة <span style="color:var(--muted);font-weight:400">(اختياري)</span></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🏁 الحكم الرئيسي</label><input class="form-input" id="matchReferee" placeholder="اسم الحكم"/></div>
+        <div class="form-group"><label class="form-label">🎙 المعلق</label><input class="form-input" id="matchCommentator" placeholder="اسم المعلق"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🚩 حكم خط 1</label><input class="form-input" id="matchLinesman1" placeholder="الاسم"/></div>
+        <div class="form-group"><label class="form-label">🚩 حكم خط 2</label><input class="form-input" id="matchLinesman2" placeholder="الاسم"/></div>
+      </div>
+      <!-- الرعاة والإضافات -->
+      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">🏅 الرعاة والإضافات <span style="color:var(--muted);font-weight:400">(اختياري)</span></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🏅 الراعي الرئيسي</label><input class="form-input" id="matchSponsor" placeholder="اسم الراعي"/></div>
+        <div class="form-group"><label class="form-label">📸 المصور</label><input class="form-input" id="matchPhotographer" placeholder="اسم المصور"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🎤 مذيع الملعب</label><input class="form-input" id="matchAnnouncer" placeholder="اسم المذيع"/></div>
+        <div class="form-group"><label class="form-label">👥 عدد الجمهور</label><input class="form-input" type="number" id="matchAttendance" placeholder="500"/></div>
+      </div>
+      <div class="form-group"><label class="form-label">📝 ملاحظات (تظهر للجمهور)</label><textarea class="form-input" id="matchNotes" rows="2" placeholder="أي ملاحظات إضافية..." style="resize:none"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-match')">إلغاء</button>
+      <button class="btn btn-gold" onclick="addMatch()">✓ إضافة المباراة</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIVE EVENT MODAL -->
+<div class="modal-overlay" id="lvEventModal">
+  <div class="modal-box">
+    <div class="modal-header"><div class="modal-title" id="lvEventTitle">⚽ تسجيل حدث</div><button class="modal-close" onclick="closeModal('lvEventModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">الفريق</label>
+        <select class="form-select" id="lvEvTeam">
+          <option value="home" id="lvEvHomeOpt">الفريق الأول</option>
+          <option value="away" id="lvEvAwayOpt">الفريق الثاني</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">اسم اللاعب</label><input class="form-input" id="lvEvPlayer" placeholder="اسم اللاعب"/></div>
+      <div class="form-group" id="lvEvPlayer2Field" style="display:none"><label class="form-label">اللاعب البديل</label><input class="form-input" id="lvEvPlayer2" placeholder="اسم اللاعب الداخل"/></div>
+      <div class="form-group"><label class="form-label">الدقيقة</label><input class="form-input" type="number" id="lvEvMinute" placeholder="مثال: 23"/></div>
+      <div class="form-group"><label class="form-label">ملاحظة (اختياري)</label><input class="form-input" id="lvEvNote" placeholder="مثال: ركلة جزاء"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('lvEventModal')">إلغاء</button>
+      <button class="btn btn-gold" onclick="lvSaveEvent()">✓ تسجيل</button>
+    </div>
+  </div>
+</div>
+
+<!-- iOS INSTALL BANNER -->
+<div id="iosBanner">
+  <div class="ios-banner-inner">
+    <button class="ios-banner-close" onclick="document.getElementById('iosBanner').classList.remove('show');sessionStorage.setItem('ios_install_dismissed','1')">✕</button>
+    <div class="ios-banner-icon">📲</div>
+    <div class="ios-banner-title">ثبّت لوحة الإدارة على جهازك</div>
+    <div class="ios-banner-steps">
+      <div class="ios-step"><span class="ios-step-num">١</span><span>اضغط زر <strong>المشاركة</strong> أسفل المتصفح</span><span class="ios-step-icon">⬆️</span></div>
+      <div class="ios-step"><span class="ios-step-num">٢</span><span>اختر <strong>إضافة إلى الشاشة الرئيسية</strong></span><span class="ios-step-icon">＋</span></div>
+      <div class="ios-step"><span class="ios-step-num">٣</span><span>اضغط <strong>إضافة</strong> للتأكيد</span><span class="ios-step-icon">✅</span></div>
+    </div>
+    <div class="ios-banner-arrow">▼</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script>
+/* ===== timer-core (مدمج) ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  timer-core.js — المصدر الوحيد للحقيقة لتوقيت المباراة
+ *  ───────────────────────────────────────────────────────────────────
+ *  يحل محل منطق التوقيت المبعثر في:
+ *    admin.js  /  viewer.js  /  all-fixes.js
+ *
+ *  المبدأ الأساسي (يجب أن يفهمه الأدمن والجمهور بنفس الطريقة):
+ *  ─────────────────────────────────────────────────────────────
+ *  الساعة "مستمرة" (continuous): الشوط الثاني يبدأ من 45:00 وليس 00:00،
+ *  والوقت الإضافي يكمل من نهاية الشوط الثاني. تماماً مثل التلفزيون.
+ *
+ *  كل فترة (شوط) لها:
+ *    dur       = مدة الفترة بالدقائق
+ *    offsetMin = مجموع دقائق كل الفترات السابقة (نقطة بداية عدّاد الفترة)
+ *
+ *  ⚠️ القاعدة الذهبية:
+ *  offsetMin يعتمد على المدد **الاسمية** فقط (45+45+15)، ولا يشمل
+ *  بدل الضائع إطلاقاً. هذا هو المعيار العالمي: الشوط الثاني يبدأ دائماً
+ *  من 45:00 حتى لو كان بدل ضائع الشوط الأول 5 دقائق.
+ *
+ *  نموذج البيانات (اسم واحد فقط — لا half1Extra vs half1ExtraMinutes):
+ *    half1ExtraMinutes / half2ExtraMinutes / et1ExtraMinutes / et2ExtraMinutes
+ *    half1ExtraSet     / half2ExtraSet     / et1ExtraSet     / et2ExtraSet
+ * ═══════════════════════════════════════════════════════════════════ */
+(function (root) {
+  'use strict';
+
+  var DEFAULT_STOPPAGE_CAP = 15; // إذا لم يحدد المنظم بدل ضائع
+
+  /* ── تحويل أي طابع زمني (Firebase Timestamp / Date / number) إلى ms ── */
+  function tsMs(ref) {
+    if (ref == null) return null;
+    if (typeof ref === 'number') return ref;
+    if (typeof ref.toMillis === 'function') return ref.toMillis();
+    if (typeof ref.seconds === 'number')
+      return ref.seconds * 1000 + Math.floor((ref.nanoseconds || 0) / 1e6);
+    if (ref instanceof Date) return ref.getTime();
+    return null;
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  /* ── FIX 4: مزامنة ساعة الخادم ──
+   * كل الأختام تُكتب بساعة الأدمن وتُقرأ بساعة المشاهد. أي انحراف في
+   * جهاز المشاهد (شائع: دقيقة أو أكثر) كان يزيح ساعته للأبد ويُدخله
+   * بدل الضائع مبكراً. نقيس الفرق مرة ونصحّحه في كل الحسابات. */
+  var _skew = 0;
+  function setSkew(ms) { _skew = Number(ms) || 0; }
+  function getSkew()   { return _skew; }
+  function nowMs()     { return Date.now() + _skew; }
+
+  /* ── قراءة الإعدادات: liveData ← إعدادات البطولة ← الافتراضي ── */
+  function getCfg(d, settings) {
+    d = d || {};
+    var ms = (settings && settings.matchSettings) || {};
+    function pick(a, b, c, dflt) {
+      return a || b || c || dflt;
+    }
+    return {
+      half1Duration: pick(d.half1Duration, ms.half1Duration, ms.halfDuration, 45),
+      half2Duration: pick(d.half2Duration, ms.half2Duration, ms.halfDuration, 45),
+      et1Duration:   pick(d.et1Duration,   ms.et1Duration,   null, 15),
+      et2Duration:   pick(d.et2Duration,   ms.et2Duration,   null, 15),
+      breakDuration: pick(d.breakDuration, ms.breakDuration, null, 15)
+    };
+  }
+
+  /* ── معلومات الفترة الحالية ──
+   * ترجع { dur, offsetMin, extra, extraSet, cap, keyExtra, keySet }
+   * offsetMin = مجموع المدد الاسمية للفترات السابقة (بدون بدل ضائع) */
+  function getPhase(d, settings) {
+    if (!d) return null;
+    var cfg = getCfg(d, settings);
+    var ph  = d.matchStatus;
+
+    var h1 = cfg.half1Duration;
+    var h2 = cfg.half2Duration;
+    var e1 = cfg.et1Duration;
+
+    if (ph === 'extratime1') {
+      return {
+        dur: e1, offsetMin: h1 + h2,
+        extra: d.et1ExtraMinutes || 0, extraSet: !!d.et1ExtraSet,
+        keyExtra: 'et1ExtraMinutes', keySet: 'et1ExtraSet'
+      };
+    }
+    if (ph === 'extratime2') {
+      return {
+        dur: cfg.et2Duration, offsetMin: h1 + h2 + e1,
+        extra: d.et2ExtraMinutes || 0, extraSet: !!d.et2ExtraSet,
+        keyExtra: 'et2ExtraMinutes', keySet: 'et2ExtraSet'
+      };
+    }
+    if (ph === 'live' && d.currentHalf === 2) {
+      return {
+        dur: h2, offsetMin: h1,
+        extra: d.half2ExtraMinutes || 0, extraSet: !!d.half2ExtraSet,
+        keyExtra: 'half2ExtraMinutes', keySet: 'half2ExtraSet'
+      };
+    }
+    if (ph === 'live') {
+      return {
+        dur: h1, offsetMin: 0,
+        extra: d.half1ExtraMinutes || 0, extraSet: !!d.half1ExtraSet,
+        keyExtra: 'half1ExtraMinutes', keySet: 'half1ExtraSet'
+      };
+    }
+    return null; // halftime / penalties / ended / upcoming — لا عدّاد
+  }
+
+  function capOf(phase) {
+    return phase.extraSet ? phase.extra : DEFAULT_STOPPAGE_CAP;
+  }
+
+  /* ── الثواني المنقضية منذ بداية الفترة الحالية ──
+   * ⚠️ ترجع ثواني **الفترة وحدها** (تبدأ من 0 لكل شوط).
+   * الإزاحة تُضاف عند العرض فقط. هذا يمنع تضارب الأدمن/الجمهور. */
+  function phaseSecs(d) {
+    if (!d) return 0;
+    if (d.timerPaused) return d.phaseSeconds || 0;
+    var ph = d.matchStatus, ref = null;
+    if (ph === 'live')            ref = d.currentHalf === 2 ? d.half2StartedAt : d.half1StartedAt;
+    else if (ph === 'extratime1') ref = d.et1StartedAt;
+    else if (ph === 'extratime2') ref = d.et2StartedAt;
+    var ms = tsMs(ref);
+    if (ms == null) return d.phaseSeconds || 0;
+    return Math.max(0, Math.floor((nowMs() - ms) / 1000));
+  }
+
+  /* ── الحالة الكاملة للعداد — يستخدمها الأدمن والجمهور بالتساوي ──
+   * ترجع:
+   *   displayMin / displaySec : الأرقام المعروضة على الساعة
+   *   inStoppage              : هل نحن في بدل الضائع؟
+   *   stoppageMin/Sec         : عدّاد بدل الضائع (+2:14)
+   *   shouldAutoEnd           : بلغنا السقف → أنهِ الفترة
+   *   clock                   : "50:12" جاهزة للعرض
+   *   stoppageLabel           : "+2" أو ''  */
+  function compute(d, settings) {
+    var phase = getPhase(d, settings);
+    if (!phase) return null;
+
+    var s   = phaseSecs(d);
+    var mm  = Math.floor(s / 60);
+    var ss  = s % 60;
+
+    if (mm < phase.dur) {
+      return {
+        phase: phase, inStoppage: false,
+        displayMin: phase.offsetMin + mm, displaySec: ss,
+        stoppageMin: 0, stoppageSec: 0, shouldAutoEnd: false,
+        clock: pad(phase.offsetMin + mm) + ':' + pad(ss),
+        stoppageLabel: ''
+      };
+    }
+
+    // ── انتهى الوقت الأصلي → بدل الضائع يُحسب **لحاله** ──
+    // معيار التطبيقات الرياضية (365Scores / SofaScore / FlashScore):
+    //   الساعة الرئيسية تتجمّد عند حد الفترة (45:00 / 90:00 / 105:00 / 120:00)
+    //   ولا تتجاوزه إطلاقاً، ويعمل بجانبها عدّاد منفصل +1:23 يعدّ لحاله.
+    // ❌ الخطأ الشائع: 46:00 ، 47:00 (الساعة تكمل) — هذا ليس سلوك التطبيقات.
+    var cap  = capOf(phase);
+    var xSec = s - phase.dur * 60;
+    var xm   = Math.floor(xSec / 60);
+    var xs   = xSec % 60;
+
+    // حد الفترة: الرقم الذي تتجمّد عنده الساعة (45 / 90 / 105 / 120)
+    var limit = phase.offsetMin + phase.dur;
+
+    // FIX 5: لا تُنهِ الفترة تلقائياً إلا إذا أعلن المنظّم بدل الضائع فعلاً.
+    //        كان السقف الافتراضي (15) ينهي الشوط وحده عند 60:05 بلا إذن.
+    var announced = phase.extraSet && phase.extra > 0;
+
+    return {
+      phase: phase, inStoppage: true,
+      // ✅ الساعة الرئيسية متجمّدة تماماً عند الحد — دقائق وثواني
+      displayMin: limit, displaySec: 0,
+      // ✅ عدّاد بدل الضائع مستقل — يعدّ لحاله بلا سقف على العرض
+      stoppageMin: xm, stoppageSec: xs,
+      shouldAutoEnd: announced && xSec >= cap * 60 + 5,
+      clock: pad(limit) + ':00',
+      // FIX 7: لا تُظهر شارة بدل الضائع في اللحظة 45:00 بالضبط.
+      //        كانت تظهر "45+1 / +0:00" قبل إعلان الحكم في كل مباراة.
+      showStoppage: announced || xSec >= 1,
+      // التسمية الرسمية: 45'+2
+      stoppageLabel: '+' + (xm + 1),
+      stoppageClock: '+' + xm + ':' + pad(xs)
+    };
+  }
+
+  /* ── دقيقة الحدث (هدف/بطاقة) — التسمية الرسمية "45+2" ──
+   * ترجع { minute, extraMinute, label } */
+  function eventMinute(d, settings) {
+    var c = compute(d, settings);
+    if (!c) return { minute: 0, extraMinute: 0, label: "0'" };
+    var p = c.phase;
+    if (!c.inStoppage) {
+      var m = c.displayMin + 1; // الدقيقة 0:30 تُسجَّل كالدقيقة 1
+      return { minute: m, extraMinute: 0, label: m + "'" };
+    }
+    // في بدل الضائع: الأساس هو حد الفترة (45/90/105/120) والزيادة تبدأ من 1
+    var base = p.offsetMin + p.dur;
+    var x    = c.stoppageMin + 1;
+    return { minute: base, extraMinute: x, label: base + '+' + x };
+  }
+
+  var API = {
+    DEFAULT_STOPPAGE_CAP: DEFAULT_STOPPAGE_CAP,
+    setSkew: setSkew, getSkew: getSkew, nowMs: nowMs,
+    tsMs: tsMs, pad: pad,
+    getCfg: getCfg, getPhase: getPhase, capOf: capOf,
+    phaseSecs: phaseSecs, compute: compute, eventMinute: eventMinute
+  };
+
+  root.TimerCore = API;
+
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* ===== scorers-core (مدمج) ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  scorers-core.js — نظام الهدافين الموحّد
+ *  ───────────────────────────────────────────────────────────────────
+ *  المشكلة التي يحلها:
+ *    الكود القديم كان يجمع الأهداف بـ **اسم اللاعب فقط**:
+ *        goalsMap[name] += goals
+ *    فلو وُجد "محمد" في فريق النصر و"محمد" في فريق الهلال،
+ *    تُدمج أهدافهما في سطر واحد — خطأ فادح في الترتيب.
+ *
+ *  الحل:
+ *    المفتاح = playerId إن وُجد، وإلا  teamId::الاسم_المُطبَّع
+ *    → لاعبان بنفس الاسم في فريقين مختلفين = سطران منفصلان دائماً.
+ *    → لاعبان بنفس الاسم في **نفس** الفريق يُفرَّقان بالرقم إن وُجد.
+ *
+ *  مصادر البيانات (بالأولوية):
+ *    1. liveData.events  (type:'goal')  ← الأدق: فيه playerId و teamId
+ *    2. homeScorers / awayScorers (نص)  ← احتياطي للمباريات القديمة
+ * ═══════════════════════════════════════════════════════════════════ */
+(function (root) {
+  'use strict';
+
+  /* ── تطبيع الاسم: يزيل الفروق الشكلية دون دمج أشخاص مختلفين ──
+   * "  محمَّد  علي " → "محمد علي" */
+  function normName(s) {
+    if (!s) return '';
+    return String(s)
+      .replace(/[\u064B-\u0652\u0670]/g, '')   // التشكيل
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ى/g, 'ي')
+      .replace(/ة/g, 'ه')
+      .replace(/\u200f|\u200e/g, '')            // محارف الاتجاه
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  function isPlaceholder(n) {
+    var s = (n || '').trim();
+    return !s || s === '—' || s === '-' || s === '؟' || s === '?' || s === 'null' || s === 'undefined';
+  }
+
+  /* ── المفتاح الفريد للاعب ── */
+  function playerKey(playerId, teamId, name, number) {
+    if (playerId) return 'p:' + playerId;
+    var k = 't:' + (teamId || '?') + '::' + normName(name);
+    // نفس الاسم داخل نفس الفريق → فرّق بالرقم
+    if (number != null && number !== '') k += '#' + number;
+    return k;
+  }
+
+  /* ── تحليل نص الهدافين: "محمد (2), علي" ── */
+  function parseScorerText(str) {
+    if (!str) return [];
+    return String(str).split(',').map(function (chunk) {
+      var m = chunk.trim().match(/^(.+?)\s*(?:\((\d+)\))?$/);
+      if (!m) return null;
+      var name = (m[1] || '').trim();
+      if (isPlaceholder(name)) return null;
+      var g = parseInt(m[2] || '1', 10);
+      return { name: name, goals: (isNaN(g) || g < 1) ? 1 : g };
+    }).filter(Boolean);
+  }
+
+  /* ── محاولة إيجاد اللاعب في كشف الفريق للحصول على id/رقم ── */
+  function lookupRoster(rosters, teamId, name) {
+    var list = (rosters && rosters[teamId]) || [];
+    var target = normName(name);
+    var hits = list.filter(function (p) { return normName(p.name) === target; });
+    if (hits.length === 1) return hits[0];
+    return null; // 0 = غير موجود، >1 = ملتبس (لا نخمّن)
+  }
+
+  /* ── البناء الرئيسي ──
+   * opts: { matches, teams, rosters }
+   * ترجع مصفوفة مرتبة: [{ key, name, goals, teamId, teamName, teamLogo, number, playerId }] */
+  function build(opts) {
+    opts = opts || {};
+    var matches = opts.matches || [];
+    var teams   = opts.teams   || [];
+    var rosters = opts.rosters || {};
+    var map = {};
+
+    function teamOf(id) {
+      return teams.find(function (t) { return t.id === id; }) || {};
+    }
+
+    function add(playerId, teamId, name, number, goals) {
+      if (isPlaceholder(name)) return;
+      var key = playerKey(playerId, teamId, name, number);
+      if (!map[key]) {
+        var t = teamOf(teamId);
+        map[key] = {
+          key: key, playerId: playerId || null,
+          name: String(name).trim(),
+          number: (number != null && number !== '') ? number : null,
+          goals: 0,
+          teamId: teamId || null,
+          teamName: t.name || '',
+          teamLogo: t.logo || ''
+        };
+      }
+      map[key].goals += goals;
+    }
+
+    matches.filter(function (m) { return m.status === 'finished'; }).forEach(function (m) {
+      var ev = (m.liveData && m.liveData.events) || [];
+      var goalEvents = ev.filter(function (e) {
+        return e && e.type === 'goal' && !isPlaceholder(e.player);
+      });
+
+      if (goalEvents.length) {
+        // ✅ المصدر الأدق — يحتوي على هوية اللاعب
+        goalEvents.forEach(function (e) {
+          var teamId = e.teamId || (e.team === 'home' ? m.homeId : m.awayId);
+          var pid    = e.playerId || null;
+          var num    = e.playerNumber != null ? e.playerNumber : null;
+          if (!pid) {
+            var r = lookupRoster(rosters, teamId, e.player);
+            if (r) { pid = r.id; if (num == null) num = r.number; }
+          }
+          add(pid, teamId, e.player, num, 1);
+        });
+        return; // لا تُضاعف من النص
+      }
+
+      // ── احتياطي: النص (مباريات قديمة قبل نظام الأحداث) ──
+      [[m.homeScorers, m.homeId], [m.awayScorers, m.awayId]].forEach(function (pair) {
+        parseScorerText(pair[0]).forEach(function (it) {
+          var r   = lookupRoster(rosters, pair[1], it.name);
+          var pid = r ? r.id : null;
+          var num = r ? r.number : null;
+          add(pid, pair[1], it.name, num, it.goals);
+        });
+      });
+    });
+
+    return Object.values(map).sort(function (a, b) {
+      if (b.goals !== a.goals) return b.goals - a.goals;          // الأهداف
+      return a.name.localeCompare(b.name, 'ar');                   // ثم الاسم (ثبات الترتيب)
+    });
+  }
+
+  /* ── ترتيب بمراكز متساوية: 1,2,2,4 ── */
+  function withRanks(list) {
+    var rank = 0, prev = null;
+    return list.map(function (p, i) {
+      if (prev === null || p.goals !== prev) { rank = i + 1; prev = p.goals; }
+      return Object.assign({}, p, { rank: rank });
+    });
+  }
+
+  var API = {
+    normName: normName, playerKey: playerKey,
+    parseScorerText: parseScorerText, build: build, withRanks: withRanks
+  };
+  root.ScorersCore = API;
+
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* ===== sponsor-core (مدمج) ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  sponsor-core.js — نظام الراعي
+ *  ───────────────────────────────────────────────────────────────────
+ *  نوعان:
+ *    • راعي البطولة  (tournament) → يظهر في كل صفحات الجمهور
+ *    • راعي المباراة (match)      → يظهر داخل صفحة تفاصيل المباراة
+ *      وإن وُجد راعي مباراة فهو يتقدّم على راعي البطولة داخل تلك المباراة.
+ *
+ *  التخزين:
+ *    settings.sponsor            = { name, logo, url, active }
+ *    match.sponsorData           = { name, logo, url, active }
+ *    (الحقل القديم match.sponsor النصي يبقى مدعوماً للتوافق)
+ *
+ *  الشعار يُخزَّن base64 مضغوط (≤ 40KB) حتى لا يُثقل Firestore.
+ * ═══════════════════════════════════════════════════════════════════ */
+(function (root) {
+  'use strict';
+
+  /* ── تطبيع الرابط: يقبل موقع / واتساب / رقم جوال ── */
+  function normalizeUrl(raw) {
+    var s = String(raw || '').trim();
+    if (!s) return '';
+
+    // واتساب: 9665xxxxxxxx أو 05xxxxxxxx أو +966...
+    var digits = s.replace(/[\s\-()]/g, '');
+    if (/^\+?\d{9,15}$/.test(digits)) {
+      var n = digits.replace(/^\+/, '');
+      if (/^0\d{9}$/.test(n)) n = '966' + n.slice(1);   // 05xxxxxxxx → 9665xxxxxxxx
+      return 'https://wa.me/' + n;
+    }
+    if (/^wa\.me\//i.test(s)) return 'https://' + s;
+    if (/^https?:\/\//i.test(s)) return s;
+    if (/^www\./i.test(s)) return 'https://' + s;
+    if (/^[\w-]+(\.[\w-]+)+([\/?#].*)?$/.test(s)) return 'https://' + s;  // example.com/x
+    return '';
+  }
+
+  /* ── نوع الرابط لاختيار نص الزر ── */
+  function linkKind(url) {
+    if (!url) return 'none';
+    if (/wa\.me|whatsapp/i.test(url)) return 'whatsapp';
+    return 'web';
+  }
+
+  function buttonLabel(url) {
+    var k = linkKind(url);
+    if (k === 'whatsapp') return 'تواصل';
+    if (k === 'web')      return 'زيارة';
+    return '';
+  }
+
+  /* ── تنظيف كائن الراعي قبل الحفظ ── */
+  function sanitize(obj) {
+    obj = obj || {};
+    var name = String(obj.name || '').trim().slice(0, 60);
+    var url  = normalizeUrl(obj.url);
+    var logo = obj.logo || '';
+    // اقبل base64 صور فقط
+    if (logo && !/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(logo)) logo = '';
+    return {
+      name: name,
+      logo: logo,
+      url: url,
+      active: obj.active !== false && !!(name || logo)
+    };
+  }
+
+  function isEmpty(s) {
+    return !s || (!s.name && !s.logo);
+  }
+
+  /* ── أي راعي يُعرض؟ راعي المباراة يتقدّم داخل صفحة المباراة ── */
+  function resolve(settings, match) {
+    var m = match && (match.sponsorData ||
+      (typeof match.sponsor === 'string' && match.sponsor.trim()
+        ? { name: match.sponsor.trim(), active: true } : null));
+    if (m && m.active !== false && !isEmpty(m)) return sanitize(m);
+
+    var t = settings && settings.sponsor;
+    if (t && t.active !== false && !isEmpty(t)) return sanitize(t);
+    return null;
+  }
+
+  /* ── هروب HTML — الاسم يأتي من إدخال المنظم ── */
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /* ── بطاقة الراعي (HTML) ──
+   * variant: 'bar' (أعلى الصفحة) | 'inline' (داخل تفاصيل المباراة) */
+  function cardHTML(sp, variant) {
+    if (!sp) return '';
+    variant = variant || 'bar';
+    var label = buttonLabel(sp.url);
+    var logo = sp.logo
+      ? '<img src="' + esc(sp.logo) + '" alt="" class="sp-logo"/>'
+      : '<div class="sp-logo sp-logo-ph">' + esc((sp.name || '?').charAt(0)) + '</div>';
+
+    var btn = (sp.url && label)
+      ? '<a class="sp-btn" href="' + esc(sp.url) + '" target="_blank" rel="noopener noreferrer nofollow">' + label + '</a>'
+      : '';
+
+    return '' +
+      '<div class="sp-card sp-' + variant + '">' +
+        logo +
+        '<div class="sp-txt">' +
+          '<div class="sp-lbl">برعاية</div>' +
+          '<div class="sp-name">' + esc(sp.name || '') + '</div>' +
+        '</div>' +
+        btn +
+      '</div>';
+  }
+
+  var API = {
+    normalizeUrl: normalizeUrl, linkKind: linkKind, buttonLabel: buttonLabel,
+    sanitize: sanitize, isEmpty: isEmpty, resolve: resolve, cardHTML: cardHTML, esc: esc
+  };
+  root.SponsorCore = API;
+
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* ===== icons (مدمج) ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  icons.js — نظام أيقونات SVG موحّد (بأسلوب Lucide)
+ *  ───────────────────────────────────────────────────────────────────
+ *  يستبدل الإيموجي بأيقونات خطية نظيفة بنفس الأسلوب البصري.
+ *
+ *  الاستخدام:
+ *    Icon('trophy')             → <svg …>
+ *    Icon('trophy', 18)         → بحجم 18px
+ *    Icon('trophy', 18, '#C9A02B')
+ *    window.emojiToIcon('🏆')   → يحوّل إيموجي إلى أيقونة تلقائياً
+ *
+ *  كل الأيقونات: stroke currentColor، 24×24 viewBox، بدون تعبئة.
+ *  ترث لون النص تلقائياً ⇒ تعمل مع الوضع الليلي/النهاري بلا كود إضافي.
+ * ═══════════════════════════════════════════════════════════════════ */
+(function (root) {
+  'use strict';
+
+  /* ── مسارات الأيقونات (24×24) ── */
+  var P = {
+    /* رياضة */
+    ball:      '<circle cx="12" cy="12" r="9"/><path d="M12 7.5l3.3 2.4-1.3 3.9h-4l-1.3-3.9z"/><path d="M12 3v4.5M4.6 9.8l4.1 1.5M19.4 9.8l-4.1 1.5M8 19.6l2-4.3M16 19.6l-2-4.3"/>',
+    trophy:    '<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/><path d="M10 14h4M9 20h6M12 14v6"/>',
+    goal:      '<rect x="3" y="7" width="18" height="12" rx="1"/><path d="M3 11h18M3 15h18M9 7v12M15 7v12"/>',
+    whistle:   '<circle cx="8" cy="13" r="5"/><path d="M13 13h8V8l-8 3"/><path d="M8 13h.01"/>',
+    flag:      '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+    field:     '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14M3 10h3v4H3M21 10h-3v4h3"/><circle cx="12" cy="12" r="2.2"/>',
+    shirt:     '<path d="M8 3l4 2 4-2 5 3-2 4h-2v11H7V10H5L3 6z"/>',
+
+    /* حالة */
+    check:     '<path d="M4 12.5l5 5L20 6.5"/>',
+    close:     '<path d="M6 6l12 12M18 6L6 18"/>',
+    alert:     '<path d="M12 3l9.5 17H2.5z"/><path d="M12 9v5M12 17.5v.5"/>',
+    info:      '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/>',
+    live:      '<circle cx="12" cy="12" r="3.2"/><path d="M7 7a7 7 0 0 0 0 10M17 7a7 7 0 0 1 0 10M4 4a11 11 0 0 0 0 16M20 4a11 11 0 0 1 0 16"/>',
+    clock:     '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+    pause:     '<path d="M9 5v14M15 5v14"/>',
+    play:      '<path d="M7 4.5l12 7.5-12 7.5z"/>',
+    finish:    '<path d="M5 21V4M5 5h13l-2.5 4L18 13H5"/>',
+    lock:      '<rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+    unlock:    '<rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/>',
+    bolt:      '<path d="M13 2L4 14h6l-1 8 9-12h-6z"/>',
+
+    /* بيانات */
+    list:      '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+    chart:     '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    trend:     '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    calendar:  '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    users:     '<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5.5a3.2 3.2 0 0 1 0 6M17.5 20a6 6 0 0 0-2-4.4"/>',
+    user:      '<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>',
+    tree:      '<rect x="3" y="4" width="6" height="4" rx="1"/><rect x="3" y="16" width="6" height="4" rx="1"/><rect x="15" y="10" width="6" height="4" rx="1"/><path d="M9 6h3v6h3M9 18h3v-6"/>',
+    medal:     '<circle cx="12" cy="15" r="5"/><path d="M8.5 10.5L6 3h12l-2.5 7.5"/><path d="M12 13.2l.9 1.8 2 .3-1.4 1.4.3 2-1.8-1-1.8 1 .3-2L9 15.3l2-.3z"/>',
+    star:      '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+    target:    '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3"/>',
+
+    /* أدوات */
+    settings:  '<circle cx="12" cy="12" r="3"/><path d="M12 2.5l1.6 2.4 2.8-.6.4 2.9 2.6 1.2-1.4 2.5 1.4 2.5-2.6 1.2-.4 2.9-2.8-.6L12 21.5l-1.6-2.4-2.8.6-.4-2.9-2.6-1.2 1.4-2.5-1.4-2.5 2.6-1.2.4-2.9 2.8.6z"/>',
+    edit:      '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/>',
+    trash:     '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
+    save:      '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3M8 21v-6h8v6"/>',
+    plus:      '<path d="M12 5v14M5 12h14"/>',
+    minus:     '<path d="M5 12h14"/>',
+    search:    '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+    link:      '<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/>',
+    share:     '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.3M8.2 13.2l7.6 4.3"/>',
+    bell:      '<path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/>',
+    bellOff:   '<path d="M18 8a6 6 0 0 0-9.3-5M5.5 5.5A6 6 0 0 0 6 8c0 6-2 7-2 7h12"/><path d="M10.5 20a2 2 0 0 0 3 0M3 3l18 18"/>',
+    refresh:   '<path d="M20 11a8 8 0 0 0-14-4L3 10"/><path d="M4 13a8 8 0 0 0 14 4l3-3"/><path d="M3 5v5h5M21 19v-5h-5"/>',
+    image:     '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M21 16l-5-5-9 9"/>',
+    camera:    '<path d="M3 8h3l2-3h8l2 3h3v12H3z"/><circle cx="12" cy="13" r="3.5"/>',
+    tag:       '<path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
+    card:      '<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19"/>',
+    home:      '<path d="M3 11l9-8 9 8"/><path d="M5.5 9.5V20h13V9.5"/>',
+    globe:     '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/>',
+    phone:     '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+    mail:      '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5L12 13l8.5-6.5"/>',
+    signal:    '<path d="M12 20v-6"/><path d="M8.5 16.5a5 5 0 0 1 7 0M5.5 13a9 9 0 0 1 13 0M2.5 9.5a13 13 0 0 1 19 0"/>',
+    tv:        '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M8 3l4 3 4-3"/>',
+    eye:       '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.8"/>',
+    key:       '<circle cx="7.5" cy="12" r="4"/><path d="M11.5 12H21l-2 2.5M17 12v3"/>',
+    sun:       '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    moon:      '<path d="M20 14a8.5 8.5 0 0 1-10-10 8.5 8.5 0 1 0 10 10z"/>',
+    upload:    '<path d="M12 16V4M7.5 8.5L12 4l4.5 4.5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
+    download:  '<path d="M12 4v12M7.5 11.5L12 16l4.5-4.5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
+    chevronL:  '<path d="M15 5l-7 7 7 7"/>',
+    chevronR:  '<path d="M9 5l7 7-7 7"/>',
+    chevronD:  '<path d="M5 9l7 7 7-7"/>',
+    menu:      '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    dot:       '<circle cx="12" cy="12" r="4"/>',
+    money:     '<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.8"/><path d="M6 12h.01M18 12h.01"/>',
+    shield:    '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+    crown:     '<path d="M3 8l3.5 3L12 5l5.5 6L21 8l-2 10H5z"/>',
+    swords:    '<path d="M4 4l9 9M20 4l-9 9"/><path d="M13 13l3 3 4-4-3-3M11 13l-3 3-4-4 3-3"/>',
+    dice:      '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h.01M15 15h.01M9 15h.01M15 9h.01"/>',
+    palette:   '<path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 1.6-3.2 2 2 0 0 1 1.6-3.2H19a3 3 0 0 0 3-3 9 9 0 0 0-10-8.6z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/>',
+    bulb:      '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.3 1 2.1h5c0-.8.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
+    rocket:    '<path d="M12 2s5 2 5 9c0 4-2 7-5 10-3-3-5-6-5-10 0-7 5-9 5-9z"/><circle cx="12" cy="9.5" r="1.8"/><path d="M7 14l-3 2 2 3M17 14l3 2-2 3"/>',
+    handshake: '<path d="M2 11l4-4 4 2 2-1 2 1 4-2 4 4"/><path d="M6 13l3 3 2-2 2 2 3-3"/><path d="M2 11v4l4 4M22 11v4l-4 4"/>',
+    stadium:   '<ellipse cx="12" cy="9" rx="9" ry="4.5"/><path d="M3 9v5c0 2.5 4 4.5 9 4.5s9-2 9-4.5V9"/>',
+    cloudRain: '<path d="M17.5 17a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 2.2A3.5 3.5 0 0 0 6.5 17"/><path d="M8 19l-1 2M12 19l-1 2M16 19l-1 2"/>',
+    injury:    '<path d="M12 3a6 6 0 0 0-6 6v3l-1.5 4.5h15L18 12V9a6 6 0 0 0-6-6z"/><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/>',
+    mic:       '<rect x="9" y="3" width="6" height="10" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/>',
+    plane:     '<path d="M2 13l20-7-7 20-3-8z"/>',
+    coffee:    '<path d="M4 8h13v6a5 5 0 0 1-10 0z"/><path d="M17 9h2a2.5 2.5 0 0 1 0 5h-2M4 21h13"/>',
+    board:     '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M7 12l3-3 3 3 4-4"/>',
+    doc:       '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+    package:   '<path d="M12 3l9 4.5v9L12 21l-9-4.5v-9z"/><path d="M3 7.5l9 4.5 9-4.5M12 12v9"/>'
+  };
+
+  /* ── خريطة الإيموجي → الأيقونة ── */
+  var MAP = {
+    '\uD83D\uDC54':'shirt', '\u267B\uFE0F':'refresh', '\u267B':'refresh',
+    '\uD83E\uDDD1\u200D\uD83D\uDCBC':'user',
+    '✅':'check','✓':'check','☑️':'check','❌':'close','✕':'close','✖️':'close',
+    '⚽':'ball','🥅':'goal','🏆':'trophy','🏅':'medal','🥇':'medal','🥈':'medal','🥉':'medal',
+    '👥':'users','👤':'user','🧑':'user','👨':'user','🔴':'live','🟢':'dot','🟡':'dot','🟠':'dot',
+    '⚪':'dot','⚫':'dot','🔵':'dot','🟣':'dot','🔷':'dot','🔶':'dot','🟦':'dot','🟩':'dot',
+    '🟪':'dot','🟫':'dot','🟨':'card','🟥':'card','🎴':'card','💳':'money','💼':'money',
+    '📋':'list','☰':'menu','📊':'chart','📈':'trend','📉':'trend','📅':'calendar','🗓':'calendar',
+    '📆':'calendar','⏰':'clock','⏱':'clock','⏲':'clock','🕐':'clock','⏸':'pause','⏸️':'pause',
+    '▶':'play','▶️':'play','🏁':'finish','⚡':'bolt','🔒':'lock','🔐':'lock','🔓':'unlock',
+    '🔑':'key','⚠️':'alert','⚠':'alert','💡':'bulb','ℹ️':'info','❓':'info','❔':'info',
+    '⚙️':'settings','⚙':'settings','🔧':'settings','🎛':'settings','✏️':'edit','📝':'edit','✍️':'edit',
+    '🗑':'trash','🗑️':'trash','💾':'save','➕':'plus','➖':'minus','🔍':'search','🔗':'link',
+    '📤':'share','📲':'share','🔔':'bell','🔕':'bellOff','🔄':'refresh','🔁':'refresh',
+    '🖼':'image','🖼️':'image','📸':'camera','📷':'camera','🏷️':'tag','🏷':'tag',
+    '🏠':'home','🌐':'globe','🌍':'globe','🌎':'globe','🌏':'globe','📱':'phone','📧':'mail',
+    '📡':'signal','📺':'tv','👁':'eye','👁️':'eye','☀️':'sun','🌙':'moon','⬆️':'upload','⬇️':'download','⬇':'download',
+    '🌳':'tree','🎯':'target','⭐':'star','🌟':'star','✨':'star','✦':'star','👑':'crown',
+    '🛡️':'shield','🛡':'shield','⚔️':'swords','⚔':'swords','🎲':'dice','🎨':'palette',
+    '🚀':'rocket','🤝':'handshake','🏟':'stadium','🏟️':'stadium','⛳':'flag','🚩':'flag',
+    '🤕':'injury','🎙':'mic','🎙️':'mic','🎤':'mic','✈️':'plane','☕':'coffee','📘':'doc','📄':'doc',
+    '📦':'package','👕':'shirt','⚖️':'whistle','👨‍⚖️':'whistle','🦵':'ball','🥊':'swords',
+    '📢':'signal','🎉':'star','🧠':'bulb','💎':'star','🔥':'bolt','⭕':'dot','🔽':'chevronD',
+    '➡️':'chevronL','⬅️':'chevronR','👆':'chevronD','👇':'chevronD','😔':'info','🎪':'star',
+    '🎮':'dice','🧤':'shield','🚦':'dot','💪':'shield','🎖️':'medal','🔮':'star','🌈':'star'
+  };
+
+  function svg(name, size, color) {
+    var d = P[name];
+    if (!d) return '';
+    size = size || 16;
+    var c = color ? ' style="color:' + color + '"' : '';
+    return '<svg class="ic ic-' + name + '"' + c + ' width="' + size + '" height="' + size +
+      '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + d + '</svg>';
+  }
+
+  function fromEmoji(e, size, color) {
+    var n = MAP[e];
+    return n ? svg(n, size, color) : '';
+  }
+
+  root.Icon = svg;
+  root.IconFromEmoji = fromEmoji;
+  root.ICON_MAP = MAP;
+  root.ICON_PATHS = P;
+
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* ===== ترطيب أيقونات data-ic ===== */
+(function(){
+  function hydrate(root){
+    (root||document).querySelectorAll('[data-ic]').forEach(function(el){
+      if(el.getAttribute('data-done')) return;
+      var n=el.getAttribute('data-ic');
+      if(window.Icon){ el.innerHTML=window.Icon(n,17); el.setAttribute('data-done','1'); }
+    });
+    autoIcons(root);
+  }
+
+  /* ✅ تحويل تلقائي للإيموجي النصي إلى SVG.
+     ICON_MAP كان مبنياً (163 رمزاً) ولا يُستخدم إطلاقاً — فبقيت
+     عشرات الإيموجي نصاً خاماً في العناوين والأزرار وحقول الإعدادات
+     (مثل ➡️ 🔁 في «نظام مباريات المجموعات»).
+     نمشي على العُقد النصية فقط — لا نلمس:
+       • حقول الإدخال (قيم المستخدم)
+       • منتقي أيقونة الفريق (بيانات مخزّنة في Firestore)
+       • ما حُوّل مسبقاً */
+  /* النطاقات مرتّبة تصاعدياً (وإلا: Range out of order)،
+     والأزواج البديلة (surrogate pairs) في فرع منفصل. */
+  var RE = new RegExp(
+    '[\u2190-\u21FF\u2600-\u27BF\u2B00-\u2BFF]\uFE0F?' +
+    '|[\uD83C-\uD83E][\uDC00-\uDFFF]\uFE0F?', 'g');
+
+  var SKIP = { INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1, SCRIPT:1, STYLE:1 };
+
+  function autoIcons(root){
+    if(!window.Icon || !window.ICON_MAP) return;
+    var host = root || document.body;
+    if(!host || !host.querySelectorAll) return;
+
+    var walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
+      acceptNode: function(t){
+        if(!t.nodeValue || !RE.test(t.nodeValue)) return NodeFilter.FILTER_REJECT;
+        RE.lastIndex = 0;
+        var p = t.parentElement;
+        if(!p || SKIP[p.tagName]) return NodeFilter.FILTER_REJECT;
+        if(p.closest('[data-no-ic],[data-done],#iconPickerOv,#teamLogoPreview,#editLogoPreview,#setLogoPrev,.team-logo-box,.cs-id-logo-wrap')) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+
+    var jobs = [], t;
+    while((t = walker.nextNode())) jobs.push(t);
+
+    jobs.forEach(function(node){
+      var txt = node.nodeValue, out = '', last = 0, hit = false, m;
+      RE.lastIndex = 0;
+      while((m = RE.exec(txt))){
+        var name = window.ICON_MAP[m[0]] || window.ICON_MAP[m[0].replace('\uFE0F','')];
+        if(!name){ continue; }
+        out += esc(txt.slice(last, m.index)) + window.Icon(name, 15);
+        last = m.index + m[0].length;
+        hit = true;
+      }
+      if(!hit) return;
+      out += esc(txt.slice(last));
+      var span = document.createElement('span');
+      span.setAttribute('data-done','1');
+      span.style.cssText = 'display:inline-flex;align-items:center;gap:5px;vertical-align:middle';
+      span.innerHTML = out;
+      node.parentNode.replaceChild(span, node);
+    });
+  }
+  function esc(s){
+    return s.replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; });
+  }
+  window._autoIcons = autoIcons;
+  window._hydrateIcons=hydrate;
+  if(document.readyState==='loading')
+    document.addEventListener('DOMContentLoaded',function(){hydrate();});
+  else hydrate();
+  // أعد الترطيب بعد أي حقن ديناميكي
+  new MutationObserver(function(){hydrate();}).observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>
+<script>
+/* ===== نافذة اختيار أيقونة الفريق ===== */
+(function(){
+  var CATS = [
+    { t:'حيوانات', v:['🦅','🦁','🐯','🐻','🦊','🐺','🦈','🐬','🦉','🦋','🐉','🦄','🐆','🦌','🐎','🦂'] },
+    { t:'قوة',     v:['⚡','🔥','💎','👑','🛡️','⚔️','💪','🚀','🏹','⚓','🗡️','🔱'] },
+    { t:'رياضة',   v:['⚽','🏆','🥇','🎯','🥊','🏅','🎖️','🏟️','👕','🧤'] },
+    { t:'طبيعة',   v:['🌟','🌙','☀️','🌊','🏔️','🌹','🌴','🍀','🌵','❄️','🌺','🌪️'] },
+    { t:'رموز',    v:['🎪','🎭','🎨','🎲','♠️','♦️','🔰','⭐','✨','🌈','🔆','🎵'] }
+  ];
+  window.openIconPicker = function(){
+    var ov = document.getElementById('iconPickerOv');
+    if (ov) ov.remove();
+    ov = document.createElement('div');
+    ov.id = 'iconPickerOv';
+    ov.setAttribute('data-no-ic','1');   // لا تحوّل أيقونات الفرق
+    ov.style.cssText = 'position:fixed;inset:0;z-index:30000;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:16px';
+    var html = '<div style="background:var(--card);border:1px solid var(--border2);border-radius:16px;max-width:420px;width:100%;max-height:76vh;display:flex;flex-direction:column;overflow:hidden">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">'
+      + '<div style="font-size:14px;font-weight:900;color:var(--text)">اختيار أيقونة</div>'
+      + '<button type="button" onclick="document.getElementById(\'iconPickerOv\').remove()" style="background:transparent;border:none;color:var(--muted2);cursor:pointer;padding:4px;display:flex">'
+      + (window.Icon ? window.Icon('close',18) : '×') + '</button></div>'
+      + '<div style="overflow-y:auto;padding:12px 16px 18px">';
+    CATS.forEach(function(c){
+      html += '<div style="font-size:11px;color:var(--muted2);font-weight:700;margin:10px 0 7px">' + c.t + '</div>'
+           +  '<div style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px">';
+      c.v.forEach(function(e){
+        html += '<button type="button" onclick="pickTeamIcon(\'' + e + '\')" '
+             +  'style="aspect-ratio:1;font-size:22px;background:var(--card2);border:1px solid var(--border);'
+             +  'border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .12s" '
+             +  'onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
+             +  e + '</button>';
+      });
+      html += '</div>';
+    });
+    html += '</div></div>';
+    ov.innerHTML = html;
+    ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
+    document.body.appendChild(ov);
+  };
+  window.pickTeamIcon = function(e){
+    var inp = document.getElementById('newTeamLogo');
+    if (inp) inp.value = e;
+    var prev = document.getElementById('teamLogoPreview');
+    if (prev){
+      prev.textContent = e;
+      prev.style.backgroundImage = '';
+    }
+    if (typeof window._clearTeamLogoData === 'function') window._clearTeamLogoData();
+    var ov = document.getElementById('iconPickerOv');
+    if (ov) ov.remove();
+  };
+})();
+</script>
+<script type="module" src="./admin.js"></script>
+<!-- نظام التشكيلات — Drag & Drop — يُحمّل بعد الأدمن مباشرة -->
+<script type="module" src="./admin-lineup-dragdrop.js"></script>
+
+<!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
+
+<script src="./live-page-stats-fix.js"></script>
+<script src="./all-fixes.js"></script>
+<script>
+/* ===== timer-admin (مدمج) ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  timer-admin.js — طبقة الأدمن فوق timer-core.js
+ *  ───────────────────────────────────────────────────────────────────
+ *  يحل محل نظام التوقيت القديم المبعثر
+ *  ويلغي أيضاً تعارض all-fixes.js FIX-1 (lpStartMatch/_getCfg).
+ *
+ *  مدمج مباشرة داخل الصفحة — لا يحتاج أي ملف خارجي.
+ *
+ *  المبدأ: st (الحالة الداخلية) يستخدم **نفس أسماء حقول liveData**
+ *  حتى لا يحدث انزلاق بين ما يُحفظ وما يُقرأ.
+ *    half1ExtraMinutes / half1ExtraSet / phaseSeconds ...
+ * ═══════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var TC = window.TimerCore;
+  if (!TC) { console.error('[timer-admin] timer-core.js مفقود'); return; }
+
+  function el(id, matchId) { return document.getElementById(id + '-' + matchId); }
+
+  function waitFor(cond, cb) {
+    if (cond()) return cb();
+    setTimeout(function () { waitFor(cond, cb); }, 150);
+  }
+
+  /* ── يبني كائن liveData-shaped من الحالة الداخلية ──
+   * timer-core يفهم هذا الشكل فقط. */
+  function toData(st) {
+    var cfg = st.cfg || {};
+    return {
+      matchStatus:       st.matchStatus,
+      currentHalf:       st.currentHalf,
+      timerPaused:       st.timerPaused,
+      phaseSeconds:      st.phaseSeconds || 0,
+      half1StartedAt:    st.half1StartedAt,
+      half2StartedAt:    st.half2StartedAt,
+      et1StartedAt:      st.et1StartedAt,
+      et2StartedAt:      st.et2StartedAt,
+      halftimeStartedAt: st.halftimeStartedAt,
+      half1ExtraMinutes: st.half1ExtraMinutes || 0,
+      half2ExtraMinutes: st.half2ExtraMinutes || 0,
+      et1ExtraMinutes:   st.et1ExtraMinutes   || 0,
+      et2ExtraMinutes:   st.et2ExtraMinutes   || 0,
+      half1ExtraSet:     !!st.half1ExtraSet,
+      half2ExtraSet:     !!st.half2ExtraSet,
+      et1ExtraSet:       !!st.et1ExtraSet,
+      et2ExtraSet:       !!st.et2ExtraSet,
+      half1Duration:     cfg.half1Duration,
+      half2Duration:     cfg.half2Duration,
+      et1Duration:       cfg.et1Duration,
+      et2Duration:       cfg.et2Duration,
+      breakDuration:     cfg.breakDuration
+    };
+  }
+
+  waitFor(
+    function () {
+      return typeof window._liveMatches === 'object' &&
+             typeof window._lpSaveV2 === 'function' &&
+             typeof window.openLivePage === 'function';
+    },
+    function () {
+
+      /* ══ ترحيل الأسماء القديمة → الجديدة (توافق خلفي) ══ */
+      function migrate(st) {
+        if (!st) return;
+        var pairs = [
+          ['half1Extra', 'half1ExtraMinutes'], ['half2Extra', 'half2ExtraMinutes'],
+          ['et1Extra',   'et1ExtraMinutes'],   ['et2Extra',   'et2ExtraMinutes']
+        ];
+        pairs.forEach(function (p) {
+          if (st[p[1]] == null && st[p[0]] != null) st[p[1]] = st[p[0]];
+        });
+        if (st.phaseSeconds == null && st.timerSeconds != null) st.phaseSeconds = st.timerSeconds;
+      }
+
+      /* ══ العدّاد ══ */
+      function tick(matchId) {
+        var st = window._liveMatches[matchId];
+        if (!st) return;
+        clearInterval(st.timerInterval);
+        st.timerInterval = setInterval(function () {
+          window._lpUpdateTimerDisplay(matchId);
+        }, 500);
+      }
+
+      /* ══ العرض — المصدر الوحيد: TimerCore.compute ══ */
+      window._lpUpdateTimerDisplay = function (matchId) {
+        var st = window._liveMatches[matchId];
+        if (!st) return;
+        migrate(st);
+
+        var timerEl = el('lp-timer', matchId);
+        var extraEl = el('lp-extra', matchId);
+
+        var fixed = { halftime: '⏸️', halftime_et: '⏸️', ended: '🏁',
+                      penalties: 'ر.ج', upcoming: '00:00' };
+        if (fixed[st.matchStatus] !== undefined) {
+          if (timerEl) timerEl.textContent = fixed[st.matchStatus];
+          if (extraEl) { extraEl.style.display = 'none'; extraEl.textContent = ''; }
+          return;
+        }
+
+        var c = TC.compute(toData(st), window.settings);
+        if (!c) return;
+
+        st.phaseSeconds = TC.phaseSecs(toData(st));
+
+        if (timerEl) timerEl.textContent = c.clock;
+        if (extraEl) {
+          if (c.inStoppage && c.showStoppage) {
+            /* ✅ نفس تنسيق الجمهور: +5 و +2:14 جنب بعض فوق · 45:00 تحت */
+            extraEl.style.display = 'flex';
+            extraEl.style.color = '';
+            extraEl.style.fontWeight = '';
+            var badge = (c.phase.extraSet && c.phase.extra > 0)
+              ? '<span class="lp-add-min">+' + c.phase.extra + '</span>' : '';
+            extraEl.innerHTML = badge +
+              '<span class="lp-stop-t">' + c.stoppageClock + '</span>';
+          } else {
+            extraEl.style.display = 'none';
+            extraEl.innerHTML = '';
+          }
+        }
+
+        if (c.shouldAutoEnd && typeof window._lpAutoEndHalf === 'function') {
+          // ثبّت بدل الضائع الفعلي المستخدم قبل إنهاء الفترة
+          st[c.phase.keyExtra] = TC.capOf(c.phase);
+          st[c.phase.keySet]   = true;
+          window._lpAutoEndHalf(matchId);
+        }
+      };
+
+      /* ══ توافق: دوال قديمة يستدعيها admin.js ══ */
+      window._calcSecsFromServer = function (st) {
+        return st ? TC.phaseSecs(toData(st)) : 0;
+      };
+      window._calcMatchSecsV2 = window._calcSecsFromServer;
+
+      /* ══ دقيقة الحدث (هدف/بطاقة) — يستدعيها admin.js ══
+       * ترجع { minute, extraMinute, label } وفق الإزاحة الصحيحة. */
+      window._evMinute = function (st) {
+        if (!st) return { minute: 0, extraMinute: 0, label: "0'" };
+        migrate(st);
+        return TC.eventMinute(toData(st), window.settings);
+      };
+
+      /* ══ بدء المباراة ══ */
+      window.lpStartMatch = async function (matchId) {
+        var st = window._liveMatches[matchId];
+        if (!st) return;
+        clearInterval(st.timerInterval);
+
+        var cfg = TC.getCfg({}, window.settings);
+        st.cfg = cfg;
+        st.matchStatus  = 'live';
+        st.currentHalf  = 1;
+        st.timerPaused  = false;
+        st.phaseSeconds = 0;
+        st.timerSeconds = 0;
+        ['half1', 'half2', 'et1', 'et2'].forEach(function (k) {
+          st[k + 'ExtraMinutes'] = 0;
+          st[k + 'ExtraSet']     = false;
+        });
+        st.half1StartedAt    = Date.now();
+        st.half2StartedAt    = null;
+        st.et1StartedAt      = null;
+        st.et2StartedAt      = null;
+        st.halftimeStartedAt = null;
+        st._autoEndPending   = false;
+
+        tick(matchId);
+        window._lpUpdateTimerDisplay(matchId);
+        window._lpUpdateStatusUI(matchId);
+        await window._lpSaveV2(matchId);
+        window.showToast && window.showToast('▶ بدأت المباراة', 'success');
+      };
+
+      /* ══ الشوط الثاني — يبدأ عدّاده من الصفر، والإزاحة عند العرض ══ */
+      window.lpStartSecondHalf = async function (matchId) {
+        var st = window._liveMatches[matchId];
+        if (!st) return;
+        clearInterval(st.timerInterval);
+
+        st.matchStatus       = 'live';
+        st.currentHalf       = 2;
+        st.timerPaused       = false;
+        st.phaseSeconds      = 0;
+        st.half2ExtraMinutes = 0;
+        st.half2ExtraSet     = false;
+        st.half2StartedAt    = Date.now();   // ← صفر، لا offset
+        st.halftimeStartedAt = null;
+        st._autoEndPending   = false;
+
+        window._lpUpdateStatusUI(matchId);
+        window._lpUpdateTimerDisplay(matchId);
+        tick(matchId);
+        await window._lpSaveV2(matchId);
+        window.showToast && window.showToast('▶️ بدأ الشوط الثاني', 'success');
+      };
+
+      /* ══ بين الشوطين ══ */
+      window.lpHalfTime = async function (matchId) {
+        var st = window._liveMatches[matchId];
+        if (!st) return;
+        st.phaseSeconds = TC.phaseSecs(toData(st));
+        clearInterval(st.timerInterval);
+        st.timerInterval     = null;
+        st.timerPaused       = true;
+        st.matchStatus       = 'halftime';
+        st.halftimeStartedAt = Date.now();
+        window._lpUpdateStatusUI(matchId);
+        window._lpUpdateTimerDisplay(matchId);
+        await window._lpSaveV2(matchId);
+        window.showToast && window.showToast('⏸️ بين الشوطين', 'success');
+      };
+
+      /* ══ الوقت الإضافي الأول ══ */
+      window.lpStartET1 = async function (matchId) {
+        var st = window._liveMatches[matchId];
+        if (!st) return;
+        clearInterval(st.timerInterval);
+        st.matchStatus     = 'extratime1';
+        st.timerPaused     = false;
+        st.phaseSeconds    = 0;
+        st.et1ExtraMinutes = 0;
+        st.et1ExtraSet     = false;
+        st.et1StartedAt    = Date.now();     // ← صفر
+        st.halftimeStartedAt = null;
+        st._autoEndPending = false;
+        tick(matchId);
+        window._lpUpdateStatusUI(matchId);
+        window._lpUpdateTimerDisplay(matchId);
+        await window._lpSaveV2(matchId);
+        window.showToast && window.showToast('⚡ بدأ الوقت الإضافي الأول', 'success');
+      };
+
+      window.lpHalfTimeET = async function (matchId) {
+        var st = window._liveMatches[matchId];
+        if (!st) return;
+        st.phaseSeconds = TC.phaseSecs(toData(st));
+        clearInterval(st.timerInterval);
+        st.timerInterval     = null;
+        st.timerPaused       = true;
+        st.matchStatus       = 'halftime_et';
+        st.halftimeStartedAt = Date.now();
+        window._lpUpdateStatusUI(matchId);
+        window._lpUpdateTimerDisplay(matchId);
+        await window._lpSaveV2(matchId);
+        window.showToast && window.showToast('☕ استراحة الوقت الإضافي', 'success');
+      };
+
+      window.lpStartET2 = async function (matchId) {
+        var st = window._liveMatches[matchId];
+        if (!st) return;
+        clearInterval(st.timerInterval);
+        st.matchStatus     = 'extratime2';
+        st.timerPaused     = false;
+        st.phaseSeconds    = 0;
+        st.et2ExtraMinutes = 0;
+        st.et2ExtraSet     = false;
+        st.et2StartedAt    = Date.now();     // ← صفر
+        st.halftimeStartedAt = null;
+        st._autoEndPending = false;
+        tick(matchId);
+        window._lpUpdateStatusUI(matchId);
+        window._lpUpdateTimerDisplay(matchId);
+        await window._lpSaveV2(matchId);
+        window.showToast && window.showToast('⚡ بدأ الوقت الإضافي الثاني', 'success');
+      };
+
+      /* ══ إيقاف / استئناف ══
+         ✅ عند الإيقاف: نفتح نافذة السبب أولاً (لو متاحة).
+            هذه النسخة تُحمَّل بعد admin.js فكانت تلغي نافذة السبب تماماً. */
+      window.lpPauseMatch = function (matchId) {
+        var st = window._liveMatches[matchId];
+        if (!st) return;
+        var ACTIVE = ['live', 'extratime1', 'extratime2'];
+        if (ACTIVE.indexOf(st.matchStatus) === -1) {
+          window.showToast && window.showToast('الإيقاف متاح أثناء الشوط فقط', 'error');
+          return;
+        }
+        // إيقاف → اسأل عن السبب. استئناف → نفّذ مباشرة.
+        if (!st.timerPaused && typeof window.lpOpenPauseReason === 'function') {
+          window.lpOpenPauseReason(matchId);
+          return;
+        }
+        window._lpDoPauseTC(matchId, '');
+      };
+
+      /* التنفيذ الفعلي — يستدعيه lpConfirmPause بعد اختيار السبب */
+      window._lpDoPauseTC = function (matchId, reason) {
+        var st = window._liveMatches[matchId];
+        if (!st) return;
+        if (!st.timerPaused) {
+          st.phaseSeconds = TC.phaseSecs(toData(st));
+          st.timerSeconds = st.phaseSeconds;
+          st.timerPaused  = true;
+          st.pausedAt     = Date.now();
+          st.pauseReason  = reason || '';
+          clearInterval(st.timerInterval);
+          st.timerInterval = null;
+          window.showToast && window.showToast(
+            reason ? '⏸️ توقفت: ' + reason : '⏸️ تم إيقاف الوقت مؤقتاً', 'success');
+        } else {
+          st.timerPaused = false;
+          st.pausedAt    = null;
+          st.pauseReason = '';
+          var off = (st.phaseSeconds || 0) * 1000;
+          var now = Date.now();
+          if (st.matchStatus === 'live' && st.currentHalf === 1) st.half1StartedAt = now - off;
+          if (st.matchStatus === 'live' && st.currentHalf === 2) st.half2StartedAt = now - off;
+          if (st.matchStatus === 'extratime1') st.et1StartedAt = now - off;
+          if (st.matchStatus === 'extratime2') st.et2StartedAt = now - off;
+          tick(matchId);
+          window.showToast && window.showToast('▶️ تم استئناف المباراة', 'success');
+        }
+        window._lpUpdateStatusUI(matchId);
+        window._lpUpdateTimerDisplay(matchId);
+        window._lpSaveV2(matchId);
+      };
+      // وجّه _lpDoPause (من admin.js) لهذه النسخة حتى تعمل نافذة السبب
+      window._lpDoPause = window._lpDoPauseTC;
+
+      /* ══ نافذة بدل الضائع ══ */
+      window.lpCloseAddTime = function (matchId) {
+        var modal = el('lp-atmodal', matchId);
+        if (modal) modal.style.display = 'none';
+      };
+
+      window.lpOpenAddTime = function (matchId) {
+        var st = window._liveMatches[matchId];
+        if (!st) return;
+        var phase = TC.getPhase(toData(st), window.settings);
+        if (!phase) {
+          window.showToast && window.showToast('بدل الضائع متاح أثناء الشوط فقط', 'error');
+          return;
+        }
+        var labels = { extratime1: 'الوقت الإضافي الأول', extratime2: 'الوقت الإضافي الثاني' };
+        var label  = labels[st.matchStatus] ||
+                     (st.currentHalf === 2 ? 'الشوط الثاني' : 'الشوط الأول');
+
+        var halfEl = el('lp-at-half', matchId);
+        var inp    = el('lp-at-mins', matchId);
+        var modal  = el('lp-atmodal', matchId);
+        if (halfEl) halfEl.textContent = label + ' (' + phase.dur + ' د)';
+        if (inp)    inp.value = phase.extraSet ? phase.extra : 1;
+        if (modal)  modal.style.display = 'flex';
+      };
+
+      window.lpConfirmAddTime = async function (matchId) {
+        var st = window._liveMatches[matchId];
+        if (!st) return;
+        var phase = TC.getPhase(toData(st), window.settings);
+        if (!phase) return;
+
+        var inp  = el('lp-at-mins', matchId);
+        var mins = parseInt((inp && inp.value) || 1, 10);
+        if (isNaN(mins) || mins < 0) mins = 1;
+        if (mins > 30) mins = 30;
+
+        st[phase.keyExtra] = mins;   // تعيين، وليس تراكم
+        st[phase.keySet]   = true;
+
+        window.lpCloseAddTime(matchId);
+        window._lpUpdateTimerDisplay(matchId);
+        window.showToast && window.showToast('➕ بدل الضائع: ' + mins + ' دقيقة', 'success');
+        await window._lpSaveV2(matchId);
+      };
+
+      /* ══ إعادة تشغيل العدّاد عند فتح صفحة البث ══ */
+      var _origOpen = window.openLivePage;
+      window.openLivePage = function (matchId) {
+        _origOpen(matchId);
+        setTimeout(function () {
+          var st = window._liveMatches[matchId];
+          if (!st) return;
+          migrate(st);
+          if (!st.cfg) st.cfg = TC.getCfg({}, window.settings);
+          var active = ['live', 'extratime1', 'extratime2'];
+          if (active.indexOf(st.matchStatus) !== -1 && !st.timerPaused) tick(matchId);
+          window._lpUpdateTimerDisplay(matchId);
+          window._lpUpdateStatusUI(matchId);
+        }, 120);
+      };
+
+      /* ══ الحفظ — يضمن الأسماء الجديدة في Firebase ══ */
+      var _origSave = window._lpSaveV2;
+      window._lpSaveV2 = async function (matchId) {
+        var st = window._liveMatches[matchId];
+        if (st) {
+          migrate(st);
+          if (!st.cfg) st.cfg = TC.getCfg({}, window.settings);
+          st.phaseSeconds = TC.phaseSecs(toData(st));
+          st.timerSeconds = st.phaseSeconds; // توافق خلفي
+          // مرايا للأسماء القديمة حتى لا ينكسر أي كود متبقٍ
+          st.half1Extra = st.half1ExtraMinutes || 0;
+          st.half2Extra = st.half2ExtraMinutes || 0;
+          st.et1Extra   = st.et1ExtraMinutes   || 0;
+          st.et2Extra   = st.et2ExtraMinutes   || 0;
+        }
+        return _origSave(matchId);
+      };
+
+      console.log('[timer-admin] ✅ موحّد على TimerCore');
+    }
+  );
+})();
+</script>
+<script>
+/* ===== scorers-adapter (مدمج) ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  scorers-adapter.js — يربط scorers-core.js بالمنصة
+ *  ───────────────────────────────────────────────────────────────────
+ *  يعمل في الأدمن والجمهور معاً:
+ *    • window._resolvePlayerId(teamId, name, matchId, side)
+ *        يستخرج هوية اللاعب من الكشف/التشكيلة وقت تسجيل الهدف.
+ *    • window.buildScorersData()
+ *        يُعاد تعريفها لتستخدم ScorersCore (مفتاح الهوية بدل الاسم).
+ *
+ *  يُحمَّل بعد admin.js / viewer.js وبعد all-fixes.js
+ *  (حتى يتغلّب على FIX-7 الذي كان يجمع بالاسم).
+ * ═══════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var SC = window.ScorersCore;
+  if (!SC) { console.error('[scorers] scorers-core.js مفقود'); return; }
+
+  /* ── يجمع كل الكشوف المتاحة: كشف الفريق + تشكيلة المباراة ── */
+  function collectRosters(matchId) {
+    var out = {};
+    var src = window._teamRosters || window.rosterCache || {};
+    Object.keys(src).forEach(function (tid) {
+      out[tid] = (src[tid] || []).map(function (p) {
+        return { id: p.id, name: p.name, number: p.number };
+      });
+    });
+
+    // أضف لاعبي التشكيلة (قد لا يكونون في الكشف)
+    var matches = window.matches || [];
+    matches.forEach(function (m) {
+      [['home', m.homeId], ['away', m.awayId]].forEach(function (pair) {
+        var side = pair[0], tid = pair[1];
+        if (!tid) return;
+        var ld = m.liveData || {};
+        var lu = side === 'home' ? (ld.homeLineup) : (ld.awayLineup);
+        if (!lu || !lu.players) return;
+        out[tid] = out[tid] || [];
+        lu.players.forEach(function (p) {
+          if (!p || !p.name) return;
+          var exists = out[tid].some(function (x) {
+            return SC.normName(x.name) === SC.normName(p.name);
+          });
+          if (!exists) out[tid].push({ id: p.id || null, name: p.name, number: p.number });
+        });
+      });
+    });
+    return out;
+  }
+
+  /* ── هوية اللاعب وقت التسجيل ── */
+  window._resolvePlayerId = function (teamId, name, matchId, side) {
+    if (!teamId || !name) return {};
+    var target = SC.normName(name);
+
+    // 1) كشف الفريق الرسمي
+    var roster = (window._teamRosters && window._teamRosters[teamId]) || [];
+    var hits = roster.filter(function (p) { return SC.normName(p.name) === target; });
+    if (hits.length === 1) return { playerId: hits[0].id, number: hits[0].number };
+
+    // 2) تشكيلة المباراة
+    var st = (window._liveMatches || {})[matchId];
+    var m  = (window.matches || []).find(function (x) { return x.id === matchId; });
+    var lu = side === 'home'
+      ? ((st && st.homeLineup) || (m && m.liveData && m.liveData.homeLineup))
+      : ((st && st.awayLineup) || (m && m.liveData && m.liveData.awayLineup));
+    var lp = (lu && lu.players) || [];
+    var lhits = lp.filter(function (p) { return p && SC.normName(p.name) === target; });
+    if (lhits.length === 1) return { playerId: lhits[0].id || null, number: lhits[0].number };
+
+    // ملتبس أو غير موجود — لا نخمّن؛ scorers-core سيفصل بـ teamId
+    return {};
+  };
+
+  /* ── إعادة تعريف buildScorersData ── */
+  function install() {
+    window.buildScorersData = function () {
+      return SC.build({
+        matches: window.matches || [],
+        teams:   window.teams   || [],
+        rosters: collectRosters()
+      });
+    };
+    window.buildScorersRanked = function () {
+      return SC.withRanks(window.buildScorersData());
+    };
+    console.log('[scorers] ✅ الهدافون بمفتاح الهوية (لا دمج بالاسم)');
+  }
+
+  // ثبّت فوراً، ثم أعد التثبيت بعد أي سكربت متأخر يحاول الكتابة فوقها
+  install();
+  var tries = 0;
+  var iv = setInterval(function () {
+    if (window.buildScorersData && !window.buildScorersData._byIdentity) {
+      install();
+      window.buildScorersData._byIdentity = true;
+    }
+    if (++tries > 20) clearInterval(iv);
+  }, 250);
+})();
+</script>
+<script>
+/* ===== sponsor-admin (مدمج) ===== */
+/* ═══════════════════════════════════════════════════════════════════
+ *  sponsor-admin.js — قسم "الراعي" في لوحة التحكم
+ *  ───────────────────────────────────────────────────────────────────
+ *  • راعي البطولة  → يُحفظ في config/settings.sponsor
+ *  • راعي المباراة → يُحفظ في المباراة نفسها (sponsorData)
+ *  • الشعار يُضغط تلقائياً إلى ≤ 256px / ~40KB قبل الحفظ
+ * ═══════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var SP = window.SponsorCore;
+  if (!SP) { console.error('[sponsor] sponsor-core.js مفقود'); return; }
+
+  var _logoData = null;   // شعار البطولة الحالي (base64)
+  var _mLogoData = {};    // شعار كل مباراة  matchId → base64
+
+  /* ── ضغط الصورة: يمنع تضخّم Firestore ── */
+  function compress(file, cb) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        var MAX = 256;
+        var w = img.width, h = img.height;
+        if (w > h && w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        else if (h > MAX)     { w = Math.round(w * MAX / h); h = MAX; }
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        var ctx = c.getContext('2d');
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        // جرّب webp ثم png (للشفافية)
+        var out = c.toDataURL('image/webp', 0.85);
+        if (out.length > 60000 || out.indexOf('data:image/webp') !== 0)
+          out = c.toDataURL('image/png');
+        if (out.length > 60000) out = c.toDataURL('image/jpeg', 0.8);
+        cb(out);
+      };
+      img.onerror = function () { cb(null); };
+      img.src = e.target.result;
+    };
+    reader.onerror = function () { cb(null); };
+    reader.readAsDataURL(file);
+  }
+
+  function toast(m, t) { window.showToast && window.showToast(m, t || 'success'); }
+
+  /* ── رفع شعار البطولة ── */
+  window.spHandleLogo = function (input) {
+    var f = input.files && input.files[0];
+    if (!f) return;
+    if (!/^image\//.test(f.type)) { toast('اختر ملف صورة', 'error'); return; }
+    if (f.size > 5 * 1024 * 1024) { toast('الصورة أكبر من 5MB', 'error'); return; }
+    compress(f, function (data) {
+      if (!data) { toast('تعذّر قراءة الصورة', 'error'); return; }
+      _logoData = data;
+      var prev = document.getElementById('spLogoPrev');
+      if (prev) prev.innerHTML = '<img src="' + data + '" style="width:100%;height:100%;object-fit:contain"/>';
+      spPreview();
+    });
+  };
+
+  window.spClearLogo = function () {
+    _logoData = null;
+    var prev = document.getElementById('spLogoPrev');
+    if (prev) prev.innerHTML = '<span style="font-size:22px;color:var(--muted)">🏷️</span>';
+    var inp = document.getElementById('spLogoInput');
+    if (inp) inp.value = '';
+    spPreview();
+  };
+
+  function readForm() {
+    return SP.sanitize({
+      name:   (document.getElementById('spName') || {}).value,
+      url:    (document.getElementById('spUrl')  || {}).value,
+      logo:   _logoData,
+      active: !(document.getElementById('spActive') || {}).checked === false
+    });
+  }
+
+  /* ── معاينة حيّة ── */
+  window.spPreview = function () {
+    var box = document.getElementById('spPreviewBox');
+    if (!box) return;
+    var sp = readForm();
+    box.innerHTML = SP.isEmpty(sp)
+      ? '<div style="color:var(--muted);font-size:12px;text-align:center;padding:14px">أدخل اسم الراعي لرؤية المعاينة</div>'
+      : SP.cardHTML(sp, 'bar');
+  };
+
+  /* ── حفظ راعي البطولة ── */
+  window.spSave = async function () {
+    var sp = readForm();
+    if (SP.isEmpty(sp)) { toast('أدخل اسم الراعي أو شعاره', 'error'); return; }
+    var raw = (document.getElementById('spUrl') || {}).value;
+    if (raw && raw.trim() && !sp.url) { toast('الرابط غير صالح — اكتب موقعاً أو رقم واتساب', 'error'); return; }
+    try {
+      window.settings = window.settings || {};
+      window.settings.sponsor = sp;
+      if (typeof window._spPersist === 'function') await window._spPersist(sp);
+      toast('تم حفظ الراعي ✓');
+    } catch (e) { toast('خطأ: ' + e.message, 'error'); }
+  };
+
+  window.spRemove = async function () {
+    if (!confirm('إزالة راعي البطولة؟')) return;
+    try {
+      var empty = { name: '', logo: '', url: '', active: false };
+      window.settings = window.settings || {};
+      window.settings.sponsor = empty;
+      if (typeof window._spPersist === 'function') await window._spPersist(empty);
+      var n = document.getElementById('spName'); if (n) n.value = '';
+      var u = document.getElementById('spUrl');  if (u) u.value = '';
+      window.spClearLogo();
+      toast('تمت إزالة الراعي');
+    } catch (e) { toast('خطأ: ' + e.message, 'error'); }
+  };
+
+  /* ── تعبئة النموذج من الإعدادات ── */
+  window.spLoadForm = function () {
+    var sp = (window.settings && window.settings.sponsor) || {};
+    var n = document.getElementById('spName'); if (n) n.value = sp.name || '';
+    var u = document.getElementById('spUrl');  if (u) u.value = sp.url || '';
+    var a = document.getElementById('spActive'); if (a) a.checked = sp.active !== false;
+    _logoData = sp.logo || null;
+    var prev = document.getElementById('spLogoPrev');
+    if (prev) prev.innerHTML = _logoData
+      ? '<img src="' + _logoData + '" style="width:100%;height:100%;object-fit:contain"/>'
+      : '<span style="font-size:22px;color:var(--muted)">🏷️</span>';
+    spPreview();
+  };
+
+  /* ── راعي المباراة (من نافذة تعديل المباراة) ── */
+  window.spHandleMatchLogo = function (input, matchId) {
+    var f = input.files && input.files[0];
+    if (!f) return;
+    if (!/^image\//.test(f.type)) { toast('اختر ملف صورة', 'error'); return; }
+    compress(f, function (data) {
+      if (!data) return;
+      _mLogoData[matchId] = data;
+      var prev = document.getElementById('spm-prev-' + matchId);
+      if (prev) prev.innerHTML = '<img src="' + data + '" style="width:100%;height:100%;object-fit:contain"/>';
+    });
+  };
+
+  window.spReadMatchForm = function (matchId) {
+    var g = function (id) { return (document.getElementById(id + '-' + matchId) || {}).value; };
+    var sp = SP.sanitize({
+      name: g('spm-name'), url: g('spm-url'),
+      logo: _mLogoData[matchId] || null,
+      active: true
+    });
+    return SP.isEmpty(sp) ? null : sp;
+  };
+
+  window.spSetMatchLogo = function (matchId, data) { _mLogoData[matchId] = data || null; };
+  window.spGetMatchLogo = function (matchId) { return _mLogoData[matchId] || null; };
+
+  console.log('[sponsor-admin] ✅ جاهز');
+})();
+</script>
+<script src="./cards-system.js"></script>
+<script>
+// ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
+window.lvOpenLineupFromLive = function() {
+  // نحاول نجيب ID المباراة الحالية من الـ state المباشر
+  const matchId = window._lvCurrentMatchId
+    || (typeof _lvMatchId !== 'undefined' ? _lvMatchId : null)
+    || (typeof currentLiveMatch !== 'undefined' && currentLiveMatch ? currentLiveMatch.id : null);
+
+  if (!matchId) {
+    if (typeof showToast === 'function')
+      showToast('⚠️ اختر مباراة أولاً من قائمة المباريات', 'error');
+    else alert('اختر مباراة أولاً');
+    return;
+  }
+
+  if (typeof openLineupDragDrop === 'function') {
+    openLineupDragDrop(matchId);
+  } else {
+    // الملف لم يُحمَّل بعد — انتظر ثانية وحاول ثانية
+    setTimeout(() => {
+      if (typeof openLineupDragDrop === 'function') openLineupDragDrop(matchId);
+      else if (typeof showToast === 'function') showToast('❌ نظام التشكيلات لم يُحمَّل', 'error');
+    }, 1000);
+  }
+};
+
+
+// ── دوال Modal البث المباشر العامة (تتصل بنظام البث الداخلي) ──
+
+// Modal تسجيل الحدث - lvEventModal
+window._lvEventMatchId = null;
+window.lvSaveEvent = async function() {
+  const matchId = window._lvEventMatchId;
+  if (!matchId) { typeof showToast==='function' && showToast('❌ لم تُحدد مباراة', 'error'); return; }
+  const type   = window._lvCurrentEventType?.[matchId] || 'goal';
+  const icon   = window._lvCurrentEventIcon?.[matchId] || '⚽';
+  const label  = window._lvCurrentEventLabel?.[matchId] || 'حدث';
+  // حفظ القيم في حقول الـ modal الداخلية ثم استدعاء lpConfirmEvent
+  const team   = document.getElementById('lvEvTeam')?.value   || 'home';
+  const player = document.getElementById('lvEvPlayer')?.value || '';
+  const player2= document.getElementById('lvEvPlayer2')?.value || '';
+  const minute = document.getElementById('lvEvMinute')?.value || '';
+  const note   = document.getElementById('lvEvNote')?.value   || '';
+  // ضخّ القيم في حقول الـ overlay الديناميكي
+  const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+  setVal('lp-evteam-'   + matchId, team);
+  setVal('lp-evplayer-' + matchId, player);
+  setVal('lp-evplayer2-'+ matchId, player2);
+  setVal('lp-evmin-'    + matchId, minute);
+  setVal('lp-evnote-'   + matchId, note);
+  if (typeof window.lpConfirmEvent === 'function') await window.lpConfirmEvent(matchId);
+  window.closeModal('lvEventModal');
+};
+
+// Modal إضافة وقت إضافي - addTimeModal
+window._lvAddTimeMatchId = null;
+window.lvSetAddTimeVal = function(n) {
+  const inp = document.getElementById('addTimeMinutes');
+  if (inp) inp.value = n;
+};
+window.lvCloseAddTimeModal = function() {
+  const modal = document.getElementById('addTimeModal');
+  if (modal) modal.style.display = 'none';
+};
+window.lvConfirmAddTime = async function() {
+  const matchId = window._lvAddTimeMatchId;
+  const mins = parseInt(document.getElementById('addTimeMinutes')?.value || 1);
+  if (matchId && typeof window.lpConfirmAddTime === 'function') {
+    // نضخ القيمة في حقل الـ overlay الداخلي أولاً
+    const inp = document.getElementById('lp-at-mins-' + matchId);
+    if (inp) inp.value = mins;
+    await window.lpConfirmAddTime(matchId);
+  }
+  window.lvCloseAddTimeModal();
+};
+
+// ── ربط زر التشكيلة في بطاقات المباريات (يُستدعى من admin_new_2_2.js) ──
+window.openMatchLineup = function(matchId) {
+  if (typeof openLineupDragDrop === 'function') {
+    openLineupDragDrop(matchId);
+  } else {
+    setTimeout(() => {
+      if (typeof openLineupDragDrop === 'function') openLineupDragDrop(matchId);
+    }, 800);
+  }
+};
+</script>
+
+<!-- ══ MODAL: إضافة وقت إضافي ══ -->
+<div id="addTimeModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+  <div style="background:var(--card);border:1px solid var(--gold3);border-radius:20px;width:calc(100% - 48px);max-width:340px;overflow:hidden;margin:24px">
+    <div style="background:linear-gradient(135deg,#1a1200,#0d0a00);padding:18px 20px 14px;border-bottom:1px solid var(--gold3);text-align:center">
+      <div style="font-size:24px;margin-bottom:4px">⏱</div>
+      <div style="font-size:15px;font-weight:900;color:var(--gold);font-family:Tajawal,sans-serif">إضافة وقت إضافي</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px" id="addTimeModalHalf">الشوط الحالي</div>
+    </div>
+    <div style="padding:20px">
+      <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;text-align:center">كم دقيقة تضيف؟</div>
+      <!-- أزرار سريعة -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+        <button onclick="lvSetAddTimeVal(1)" style="background:var(--card3);border:1px solid var(--border2);border-radius:10px;padding:10px 0;font-size:14px;font-weight:900;color:var(--text);font-family:'Tajawal',sans-serif;cursor:pointer">+1</button>
+        <button onclick="lvSetAddTimeVal(2)" style="background:var(--card3);border:1px solid var(--border2);border-radius:10px;padding:10px 0;font-size:14px;font-weight:900;color:var(--text);font-family:'Tajawal',sans-serif;cursor:pointer">+2</button>
+        <button onclick="lvSetAddTimeVal(3)" style="background:var(--card3);border:1px solid var(--border2);border-radius:10px;padding:10px 0;font-size:14px;font-weight:900;color:var(--text);font-family:'Tajawal',sans-serif;cursor:pointer">+3</button>
+        <button onclick="lvSetAddTimeVal(5)" style="background:var(--card3);border:1px solid var(--border2);border-radius:10px;padding:10px 0;font-size:14px;font-weight:900;color:var(--text);font-family:'Tajawal',sans-serif;cursor:pointer">+5</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+        <div style="font-size:11px;color:var(--muted);white-space:nowrap">أو أدخل يدوياً:</div>
+        <input type="number" id="addTimeMinutes" min="1" max="15" value="1" style="flex:1;background:var(--card3);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;font-size:14px;font-weight:900;color:var(--text);font-family:'Tajawal',sans-serif;text-align:center"/>
+        <div style="font-size:11px;color:var(--muted)">دقيقة</div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button onclick="lvCloseAddTimeModal()" style="flex:1;background:var(--card3);border:1px solid var(--border2);border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:var(--muted);font-family:'Tajawal',sans-serif;cursor:pointer">إلغاء</button>
+        <button onclick="lvConfirmAddTime()" style="flex:2;background:linear-gradient(135deg,var(--gold2),var(--gold));border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:900;color:#000;font-family:'Tajawal',sans-serif;cursor:pointer">✅ تأكيد الإضافة</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="./timer-hotfix.js"></script>
+<script src="./tiebreak-rules.js"></script>
+<script src="./date-groups.js"></script>
+<script src="./admin-matches-tabs.js"></script>
+<script src="./groups-gate.js"></script>
+<script src="./league-logo.js"></script>
+<script src="./health-check.js"></script>
+<script src="./lock-guard.js"></script>
+<script src="./clock-sync.js"></script>
+</body>
+</html>

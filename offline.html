@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>منصة بطولات — غير متصل</title>
+<meta name="theme-color" content="#080808"/>
+<link rel="icon" href="icon-192.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Tajawal',sans-serif;background:#080808;color:#efefef;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center}
+  .icon{margin-bottom:20px;opacity:.5}
+  .icon img{width:80px;height:80px;object-fit:contain;filter:grayscale(30%)}
+  .title{font-size:20px;font-weight:900;color:#C9A02B;margin-bottom:10px}
+  .sub{font-size:13px;color:#666;line-height:1.8;max-width:280px;margin:0 auto 28px}
+  .btn{background:#C9A02B;color:#000;border:none;border-radius:10px;padding:12px 28px;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:900;cursor:pointer}
+  .btn:active{opacity:.8}
+</style>
+</head>
+<body>
+  <div class="icon"><img src="icon-192.png" alt="منصة البطولات"/></div>
+  <div class="title">أنت غير متصل</div>
+  <div class="sub">تحقق من اتصالك بالإنترنت وحاول مرة أخرى</div>
+  <button class="btn" onclick="location.reload()">إعادة المحاولة</button>
+</body>
+</html>

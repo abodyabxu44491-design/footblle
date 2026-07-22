@@ -1416,36 +1416,13 @@
   /* ── نص إعلان البطولة للمشاركة ── */
   function _buildShareText(name, url) {
     const S  = window.settings || {};
-    const t  = S.type || 'league';
-    const M  = window.matches || [];
-    const T  = window.teams || [];
 
-    const TAG = { league:'دوري نقاط', groups:'مجموعات + إقصاء', knockout:'خروج مغلوب' };
+    // رسالة ترحيب بسيطة باسم البطولة فقط — بلا نوع البطولة ولا عدد الفرق
     const L = [];
-
     L.push('*' + name + '*' + (S.season ? ' · ' + S.season : ''));
-    L.push(TAG[t] || 'بطولة');
-
-    // نبضة حيّة — تعطي سبباً للضغط الآن
-    const live = M.filter(m => m.status === 'live').length;
-    const fin  = M.filter(m => m.status === 'finished').length;
-    const bits = [];
-    if (T.length) bits.push(T.length + ' فريق');
-    if (M.length) bits.push(M.length + ' مباراة');
-    if (bits.length) L.push(bits.join(' · '));
-
     L.push('');
-    if (live) {
-      L.push('*' + live + ' مباراة مباشرة الآن*');
-      L.push('تابع النتيجة لحظة بلحظة');
-    } else if (fin && fin < M.length) {
-      L.push('النتائج والترتيب أولاً بأول');
-    } else if (fin && fin === M.length) {
-      L.push('البطولة اكتملت — شاهد النتائج والهدافين');
-    } else {
-      L.push('تابع المباريات والنتائج مباشرة');
-    }
-
+    L.push('تابع البطولة لحظة بلحظة');
+    L.push('كل النتائج والترتيب والهدافون والبث المباشر في مكان واحد.');
     L.push('');
     L.push('اضغط للمتابعة:');
     L.push(url);

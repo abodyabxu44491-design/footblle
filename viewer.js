@@ -205,6 +205,12 @@ async function init() {
   if(!leagueDoc.exists()) { showError('البطولة غير موجودة'); return; }
   league = _sanitizeDoc({id: leagueDoc.id, ...leagueDoc.data()});
 
+  // فور معرفة شعار البطولة: اعرضه في شاشة التحميل بدل أيقونة المنصة العامة
+  if (league.logo) {
+    const _pl = document.getElementById('plLogo');
+    if (_pl) _pl.src = league.logo;
+  }
+
   if(league.status === 'suspended') { showError('البطولة موقوفة مؤقتاً','هذه البطولة موقوفة حالياً. تابعنا لاحقاً.'); return; }
 
   updateHeader();
@@ -1677,36 +1683,12 @@ function _getShareData() {
   const season = (league && league.season) ? ' · ' + league.season : '';
   const type   = tournamentType || (league && league.type) || 'league';
 
-  // ✅ الرسالة تتغيّر حسب نوع البطولة — لا نص واحد للجميع
-  const T = {
-    league: {
-      tag:  'دوري نقاط',
-      lines: ['جدول الترتيب لحظة بلحظة', 'النتائج والهدافون', 'بث مباشر للمباريات']
-    },
-    groups: {
-      tag:  'دور المجموعات',
-      lines: ['ترتيب كل مجموعة', 'المتأهلون للأدوار التالية', 'النتائج والهدافون']
-    },
-    knockout: {
-      tag:  'بطولة إقصائية',
-      lines: ['شجرة البطولة كاملة', 'من يتأهل للدور القادم', 'النتائج وركلات الترجيح']
-    }
-  };
-  const t = T[type] || T.league;
-
-  // ملخّص حي: عدد الفرق والمباريات إن توفّر
-  const nTeams = (window.teams || []).length;
-  const live   = (window.matches || []).filter(function(m){
-    return m.status === 'live';
-  }).length;
-
+  // رسالة ترحيب بسيطة باسم البطولة فقط — بلا نوع البطولة ولا عدد الفرق
   const parts = [];
   parts.push('🏆 ' + name + season);
-  parts.push('📌 ' + t.tag + (nTeams ? ' · ' + nTeams + ' فريق' : ''));
-  if (live) parts.push('🔴 ' + live + (live === 1 ? ' مباراة مباشرة الآن' : ' مباريات مباشرة الآن'));
   parts.push('');
   parts.push('تابع البطولة لحظة بلحظة 👇');
-  parts.push(t.lines.map(function(l){ return '• ' + l; }).join('\n'));
+  parts.push('كل النتائج والترتيب والهدافون والبث المباشر في مكان واحد.');
   parts.push('');
   parts.push('اضغط الرابط وتابع كل التفاصيل مجاناً:');
   parts.push('🔗 ' + url);

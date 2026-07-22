@@ -3564,7 +3564,7 @@ window.confirmDialog = function (opts) {
 // ══ SHARE ══
 window.shareStandings = function() {
    const url = SITE_URL + 'league-viewer.html?id=' + LEAGUE_ID;
-   const text = `🏆 ${league?.name || 'البطولة'}\n\n🌐 انضم الآن لمتابعة البطولة\n\n🔗 ${url}`;
+   const text = `🏆 ${league?.name || 'البطولة'}\n\nتابع البطولة لحظة بلحظة 👇\nكل النتائج والترتيب والهدافون والبث المباشر في مكان واحد.\n\nاضغط الرابط وتابع كل التفاصيل مجاناً:\n🔗 ${url}`;
    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
  };
 

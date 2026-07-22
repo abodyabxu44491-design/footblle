@@ -600,6 +600,24 @@ function updateLiveBanner() {
 // ── عداد الوقت per-match في بطاقات المباريات ──
 
 
+// ── نتيجة ركلات الترجيح من أي مصدر: الحقل المباشر أولاً، وإلا liveData.penalties
+// يعيد {h, a} أو null. يضمن ظهور الفائز حتى للمباريات القديمة التي حُفظت
+// بلا penaltyScoreHome (لها فقط liveData.penalties).
+function _penScore(m) {
+  if (!m) return null;
+  if (m.penaltyScoreHome != null && m.penaltyScoreAway != null) {
+    return { h: m.penaltyScoreHome, a: m.penaltyScoreAway };
+  }
+  const p = m.penalties || (m.liveData && m.liveData.penalties);
+  if (p && (Array.isArray(p.home) || Array.isArray(p.away))) {
+    const isGoal = r => (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal');
+    const h = (p.home || []).filter(isGoal).length;
+    const a = (p.away || []).filter(isGoal).length;
+    if ((p.home || []).length || (p.away || []).length) return { h, a };
+  }
+  return null;
+}
+
 // ── تحويل Firestore Timestamp إلى milliseconds ──────────────────
 // Firebase يُعيد Timestamp object بـ .seconds أو number أو null
 function _tsMs(ref) {
@@ -1068,12 +1086,13 @@ function renderGroupsStandings() {
           const ht=teams.find(t=>t.id===m.homeId)||{name:m.homeName||'?',logo:''};
           const at=teams.find(t=>t.id===m.awayId)||{name:m.awayName||'?',logo:''};
           const fin=m.status==='finished',live=m.status==='live';
+          const _psR=_penScore(m);
           return `<div class="gm-row${live?' gm-live':''}" onclick="openMatchDetail('${m.id}')">
             <div class="gm-team gm-home">${logoHtml(ht.logo,16,4)} <span>${ht.name}</span></div>
             <div class="gm-score${fin||live?' gm-score-fin':''}">
               ${fin||live
-                ? `${m.homeScore??0} - ${m.awayScore??0}${m.penaltyScoreHome != null 
-                    ? `<span style="display:block;font-size:9px;color:var(--gold)">رك: ${m.penaltyScoreHome}-${m.penaltyScoreAway}</span>` 
+                ? `${m.homeScore??0} - ${m.awayScore??0}${_psR 
+                    ? `<span style="display:block;font-size:9px;color:var(--gold)">رك: ${_psR.h}-${_psR.a}</span>` 
                     : ''}`
                 : m.date||'—'
               }
@@ -1335,12 +1354,13 @@ function btMatchBox(m, isFinal) {
   const at = m.awayId ? (teams.find(t=>t.id===m.awayId)||{name:m.awayName||'TBD',logo:''}) : {name:m.awayName||'TBD',logo:''};
   const isFin  = m.status === 'finished';
   const isLive = m.status === 'live';
-  const hw = isFin && ((m.penaltyScoreHome != null ? m.penaltyScoreHome > m.penaltyScoreAway : (m.homeScore ?? 0) > (m.awayScore ?? 0)));
-  const aw = isFin && ((m.penaltyScoreAway != null ? m.penaltyScoreAway > m.penaltyScoreHome : (m.awayScore ?? 0) > (m.homeScore ?? 0)));
+  const _ps = _penScore(m);
+  const hw = isFin && (_ps ? _ps.h > _ps.a : (m.homeScore ?? 0) > (m.awayScore ?? 0));
+  const aw = isFin && (_ps ? _ps.a > _ps.h : (m.awayScore ?? 0) > (m.homeScore ?? 0));
   const clickFn = m.id ? `openMatchDetail('${m.id}')` : `openBracketMatch('','${encodeURIComponent(String(m.id||''))}')`;
   // ✅︎ المباراة المنتهية تبقى ظاهرة ببطاقتها كاملة (الفائز + الخاسر) — لا تُفرَّغ أبداً
-  const penH = (isFin && m.penaltyScoreHome != null) ? `<span class="bt-pen">رك ${m.penaltyScoreHome}</span>` : '';
-  const penA = (isFin && m.penaltyScoreAway != null) ? `<span class="bt-pen">رك ${m.penaltyScoreAway}</span>` : '';
+  const penH = (isFin && _ps) ? `<span class="bt-pen">رك ${_ps.h}</span>` : '';
+  const penA = (isFin && _ps) ? `<span class="bt-pen">رك ${_ps.a}</span>` : '';
   return `<div class="bt-match ${isLive?'bt-live':isFin?'bt-done':''}${isFinal?' bt-final':''}" onclick="${clickFn}">
     ${isLive ? '<span class="bt-live-dot">🔴</span>' : ''}
     <div class="bt-team ${hw?'bt-winner':''}${isFin&&!hw&&aw?' bt-loser':''}">
@@ -1415,24 +1435,21 @@ function renderBracketMatchLinear(m, roundName) {
   const at = m.awayId ? (teams.find(t=>t.id===m.awayId)||{name:m.awayName||'TBD',logo:''}) : {name:m.awayName||'TBD',logo:''};
   const isFin  = m.status==='finished';
   const isLive = m.status==='live';
-  const hw = isFin && ((m.penaltyScoreHome != null 
-    ? m.penaltyScoreHome > m.penaltyScoreAway
-    : (m.homeScore ?? 0) > (m.awayScore ?? 0)));
-  const aw = isFin && ((m.penaltyScoreAway != null 
-    ? m.penaltyScoreAway > m.penaltyScoreHome
-    : (m.awayScore ?? 0) > (m.homeScore ?? 0)));
+  const _ps = _penScore(m);
+  const hw = isFin && (_ps ? _ps.h > _ps.a : (m.homeScore ?? 0) > (m.awayScore ?? 0));
+  const aw = isFin && (_ps ? _ps.a > _ps.h : (m.awayScore ?? 0) > (m.homeScore ?? 0));
   const clickFn = m.id ? `openMatchDetail('${m.id}')` : `openBracketMatch('','${encodeURIComponent(String(m.id||''))}')`;
   return `<div class="bracket-match ${isLive?'bm-live':isFin?'bm-done':''}" onclick="${clickFn}">
     <div class="bm-team ${hw?'bm-winner':''}">
       <span class="bm-logo">${logoHtml(ht.logo,20,5)}</span>
       <span class="bm-name">${ht.name}</span>
-      <span class="bm-score">${isFin||isLive ? m.homeScore??0 : ''}${isFin && m.penaltyScoreHome != null ? `<span style="font-size:9px;color:var(--gold);display:block">رك: ${m.penaltyScoreHome}</span>` : ''}</span>
+      <span class="bm-score">${isFin||isLive ? m.homeScore??0 : ''}${isFin && _ps ? `<span style="font-size:9px;color:var(--gold);display:block">رك: ${_ps.h}</span>` : ''}</span>
     </div>
     <div class="bm-sep" style="height:1px;background:var(--b1)"></div>
     <div class="bm-team ${aw?'bm-winner':''}">
       <span class="bm-logo">${logoHtml(at.logo,20,5)}</span>
       <span class="bm-name">${at.name}</span>
-      <span class="bm-score">${isFin||isLive ? m.awayScore??0 : ''}${isFin && m.penaltyScoreAway != null ? `<span style="font-size:9px;color:var(--gold);display:block">رك: ${m.penaltyScoreAway}</span>` : ''}</span>
+      <span class="bm-score">${isFin||isLive ? m.awayScore??0 : ''}${isFin && _ps ? `<span style="font-size:9px;color:var(--gold);display:block">رك: ${_ps.a}</span>` : ''}</span>
     </div>
     ${isLive ? '<div class="bm-live-dot">🔴</div>' : ''}
   </div>`;
@@ -1463,19 +1480,16 @@ window.openBracketMatch = function(roundId, matchId) {
   const isFin  = bm.status === 'finished';
   const isLive = bm.status === 'live';
   // ── تحديد الفائز مع دعم ركلات الترجيح ──
-  const hw = isFin && ((bm.penaltyScoreHome != null 
-    ? bm.penaltyScoreHome > bm.penaltyScoreAway
-    : (bm.homeScore ?? 0) > (bm.awayScore ?? 0)));
-  const aw = isFin && ((bm.penaltyScoreAway != null 
-    ? bm.penaltyScoreAway > bm.penaltyScoreHome
-    : (bm.awayScore ?? 0) > (bm.homeScore ?? 0)));
+  const _psD = _penScore(bm);
+  const hw = isFin && (_psD ? _psD.h > _psD.a : (bm.homeScore ?? 0) > (bm.awayScore ?? 0));
+  const aw = isFin && (_psD ? _psD.a > _psD.h : (bm.awayScore ?? 0) > (bm.homeScore ?? 0));
 
   const lName = document.getElementById('mdLeagueName');
   if(lName) lName.textContent = (league?.name||'') + ' · ' + (roundName||'شجرة البطولة');
 
   // ── عرض النتيجة مع ركلات الترجيح إذا وجدت ──
   const scoreHtml = isFin || isLive
-    ? `<div class="md-score">${bm.homeScore??0} - ${bm.awayScore??0}${bm.penaltyScoreHome != null ? `<br><span style="font-size:12px;color:var(--gold)">رك: ${bm.penaltyScoreHome} - ${bm.penaltyScoreAway}</span>` : ''}</div>`
+    ? `<div class="md-score">${bm.homeScore??0} - ${bm.awayScore??0}${_psD ? `<br><span style="font-size:12px;color:var(--gold)">رك: ${_psD.h} - ${_psD.a}</span>` : ''}</div>`
     : `<div class="md-score" style="font-size:18px;color:var(--t3);letter-spacing:4px">VS</div>`;
 
   body.innerHTML = `
@@ -1721,14 +1735,12 @@ function renderSummaryStats() {
   const fin=matches.filter(m=>m.status==='finished');
   const goals=fin.reduce((s,m)=>s+(m.homeScore||0)+(m.awayScore||0),0);
   const draws=fin.filter(m=>m.homeScore===m.awayScore).length;
-  const homeWins=fin.filter(m=>m.homeScore>m.awayScore).length;
-  const awayWins=fin.filter(m=>m.awayScore>m.homeScore).length;
+  const decisive=fin.filter(m=>m.homeScore!==m.awayScore).length;
   const rows=[
     ['🗓 مباريات منتهية',fin.length],
     ['⚽ مجموع الأهداف',goals],
     ['📈 معدل أهداف/مباراة',fin.length?(goals/fin.length).toFixed(1):0],
-    ['🏠 فوز أصحاب الأرض',homeWins],
-    ['✈︎️ فوز الضيف',awayWins],
+    ['🏆 مباريات حُسمت',decisive],
     ['🤝 تعادلات',draws],
   ];
   el.innerHTML=rows.map(([l,v])=>`
@@ -2631,6 +2643,21 @@ function renderHomeRecentResults() {
 
 // ⚡ ولّد المانيفست فوراً من id في الرابط (قبل Firebase) — تثبيت فوري آمن
 if (LEAGUE_ID) { try { _installDynamicManifest(null); } catch(e){} }
+
+// مؤشّر نسخة مرئي (للتأكد من وصول التحديث) — يختفي تلقائياً بعد 6 ثوانٍ
+(function(){
+  try{
+    var b=document.createElement('div');
+    b.textContent='build v58';
+    b.style.cssText='position:fixed;bottom:6px;left:6px;z-index:99999;'
+      +'background:rgba(0,0,0,.6);color:#C9A02B;font:700 9px Tajawal,sans-serif;'
+      +'padding:2px 7px;border-radius:6px;pointer-events:none;opacity:.7';
+    (document.body||document.documentElement).appendChild(b);
+    setTimeout(function(){ b.style.transition='opacity .6s'; b.style.opacity='0';
+      setTimeout(function(){ b.remove(); },700); }, 6000);
+  }catch(e){}
+})();
+
 init();
 
 // ════════════════════════════════════════
@@ -3302,7 +3329,9 @@ if (!window._renderAllV2Patched) {
         }
 
         // ── علامة اصطناعية: بداية ركلات الترجيح (إن وصلت المباراة إليها) ──
-        const reachedPens = !!(d && d.penalties && (d.matchStatus === 'penalties' || isF))
+        const _pdMark = (d && d.penalties) || m.penalties || (m.liveData && m.liveData.penalties);
+        const _hasPenMark = !!(_pdMark && ((_pdMark.home||[]).length || (_pdMark.away||[]).length));
+        const reachedPens = (_hasPenMark && ((d && d.matchStatus === 'penalties') || isF))
           || (isF && (m.penaltyScoreHome != null || m.penaltyScoreAway != null));
         if (reachedPens) {
           rows.push({ minute: 998, order: 0.95, kind: 'marker', label: 'بدأت ركلات الترجيح' });
@@ -3382,17 +3411,27 @@ if (!window._renderAllV2Patched) {
           ? '<div class="vt-empty">لا توجد أحداث بعد</div>'
           : '';
 
+        // ── ركلات الترجيح: تعمل من أي مصدر (بث/إدخال سريع، جارية/منتهية) ──
+        // مصدر التفاصيل: liveData.penalties أو m.penalties. مصدر النتيجة:
+        // أي منهما أو penaltyScoreHome (الإدخال السريع). تظهر طالما هناك أي أثر.
         let penHtml = '';
-        if (d && d.penalties && (d.matchStatus === 'penalties' || isF)) {
-          const hp = d.penalties.home || [], ap = d.penalties.away || [];
-          // يدعم النص القديم ('goal') والكائن الجديد ({result, player})
+        (function buildPen() {
+          const pd = (d && d.penalties) || m.penalties || (m.liveData && m.liveData.penalties) || null;
+          const hasDetails = !!(pd && ((pd.home || []).length || (pd.away || []).length));
+          const psAgg = (typeof _penScore === 'function') ? _penScore(m) : null;
+          const inPenPhase = d && (d.matchStatus === 'penalties');
+          // شرط الظهور: تفاصيل موجودة، أو نتيجة ركلات، وحالة منتهية/طور ركلات
+          const show = (hasDetails || psAgg) && (isF || inPenPhase);
+          if (!show) return;
+
           const _isGoal = r => (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal');
           const _nameOf = r => (typeof r === 'object' && r && r.player) ? String(r.player) : '';
-          const hGoals = hp.filter(_isGoal).length;
-          const aGoals = ap.filter(_isGoal).length;
+          const hp = hasDetails ? (pd.home || []) : [];
+          const ap = hasDetails ? (pd.away || []) : [];
+          const hGoals = hasDetails ? hp.filter(_isGoal).length : (psAgg ? psAgg.h : 0);
+          const aGoals = hasDetails ? ap.filter(_isGoal).length : (psAgg ? psAgg.a : 0);
           const winnerName = hGoals !== aGoals ? (hGoals > aGoals ? ht.name : at.name) : '';
 
-          // صف تفصيلي لكل ركلة: رقم + أيقونة + اسم اللاعب (إن وُجد)
           function kickList(list) {
             if (!list.length) return '<div class="pen-empty">—</div>';
             return `<div class="pen-klist">${list.map((r, i) => {
@@ -3406,26 +3445,29 @@ if (!window._renderAllV2Patched) {
             }).join('')}</div>`;
           }
 
+          // جسم البطاقة: تفاصيل لو وُجدت، وإلا النتيجة الإجمالية الكبيرة
+          const body = hasDetails
+            ? `<div class="pen-teams">
+                 <div class="pen-team"><div class="pen-team-name">${ht.name}</div>${kickList(hp)}</div>
+                 <div class="pen-vsep"></div>
+                 <div class="pen-team"><div class="pen-team-name">${at.name}</div>${kickList(ap)}</div>
+               </div>`
+            : `<div class="pen-aggscore">
+                 <div class="pen-agg-team"><div class="pen-team-name">${ht.name}</div><div class="pen-agg-num">${hGoals}</div></div>
+                 <div class="pen-agg-sep">-</div>
+                 <div class="pen-agg-team"><div class="pen-team-name">${at.name}</div><div class="pen-agg-num">${aGoals}</div></div>
+               </div>`;
+
           penHtml = `<div class="pen-card">
             <div class="pen-head">
               <span class="pen-head-ic">${window.Icon ? window.Icon('target', 15) : ''}</span>
               <span>ركلات الترجيح</span>
               <span class="pen-head-score">${hGoals} - ${aGoals}</span>
             </div>
-            <div class="pen-teams">
-              <div class="pen-team">
-                <div class="pen-team-name">${ht.name}</div>
-                ${kickList(hp)}
-              </div>
-              <div class="pen-vsep"></div>
-              <div class="pen-team">
-                <div class="pen-team-name">${at.name}</div>
-                ${kickList(ap)}
-              </div>
-            </div>
+            ${body}
             ${winnerName ? `<div class="pen-winner">🏆 ${winnerName} يتأهل بركلات الترجيح</div>` : ''}
           </div>`;
-        }
+        })();
 
         return `<div class="vt-timeline">${teamsHeader}<div class="vt-line"></div>${rowsHtml}</div>${emptyHtml}${penHtml}`;
       }
@@ -3624,7 +3666,7 @@ function renderPitchViewer(lineup, isAway) {
               border:1px solid rgba(201,160,43,.3);
               background:rgba(201,160,43,.12);color:var(--gold);
               font-size:11px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">
-              🏠 ${ht.name} ${hasHL ? '' : '(لم تُدخَل)'}
+              ${ht.name} ${hasHL ? '' : '(لم تُدخَل)'}
             </button>
             <button onclick="(function(btn){
               document.getElementById('vlu-home-${_uid}').style.display='none';
@@ -3637,7 +3679,7 @@ function renderPitchViewer(lineup, isAway) {
               border:1px solid var(--b2);
               background:var(--s2);color:var(--t3);
               font-size:11px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">
-              ✈︎️ ${at.name} ${hasAL ? '' : '(لم تُدخَل)'}
+              ${at.name} ${hasAL ? '' : '(لم تُدخَل)'}
             </button>
           </div>
           <div id="vlu-home-${_uid}">${renderPitchViewer(hl, false)}</div>

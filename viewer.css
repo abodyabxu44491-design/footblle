@@ -2563,6 +2563,11 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .pen-kmark{ flex:0 0 auto; display:flex; align-items:center }
 .pen-kname{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:start; color:var(--t1) }
 .pen-krow.pen-out .pen-kname{ text-decoration:line-through; text-decoration-color:rgba(231,76,60,.5) }
+/* عرض النتيجة الإجمالية (حين لا تتوفر تفاصيل كل ركلة — الإدخال السريع) */
+.pen-aggscore{ display:flex; align-items:center; justify-content:center; gap:18px; padding:6px 0 2px }
+.pen-agg-team{ text-align:center; flex:1; min-width:0 }
+.pen-agg-num{ font-size:30px; font-weight:900; color:#b579d1; font-family:Tajawal,sans-serif; margin-top:2px }
+.pen-agg-sep{ font-size:20px; color:var(--t3); font-weight:900 }
 
 /* ══ لوحة معلومات المباراة (المباريات القادمة) ══ */
 .mi-panel{

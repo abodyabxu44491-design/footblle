@@ -843,7 +843,7 @@ async function loadLeagueData() {
       return (a.date || '').localeCompare(b.date || '');
     });
     renderMatches();
-    renderQuickEntry();
+    // renderQuickEntry() أُزيل — النظام القديم مهجور، الإدخال السريع يفتح صفحة البث الآن
     window.renderStandings();
     renderScorers();
     updateMatchStats();
@@ -1510,9 +1510,19 @@ function renderMatchCard(m) {
   const isFin   = m.status === 'finished';
   const isHT    = m.status === 'halftime';
   const isUpcoming = m.status === 'upcoming';
-  const homeWin = isFin && m.homeScore > m.awayScore;
-  const awayWin = isFin && m.awayScore > m.homeScore;
-  const isDraw  = isFin && m.homeScore === m.awayScore;
+  const _psA = (function(){
+    if (m.penaltyScoreHome != null && m.penaltyScoreAway != null) return { h:m.penaltyScoreHome, a:m.penaltyScoreAway };
+    const p = m.penalties || (m.liveData && m.liveData.penalties);
+    if (p && (Array.isArray(p.home) || Array.isArray(p.away)) && ((p.home||[]).length || (p.away||[]).length)) {
+      const g = r => (typeof r === 'string') ? r==='goal' : !!(r && r.result==='goal');
+      return { h:(p.home||[]).filter(g).length, a:(p.away||[]).filter(g).length };
+    }
+    return null;
+  })();
+  const _drawRaw = isFin && m.homeScore === m.awayScore;
+  const homeWin = isFin && (_psA && _drawRaw ? _psA.h > _psA.a : m.homeScore > m.awayScore);
+  const awayWin = isFin && (_psA && _drawRaw ? _psA.a > _psA.h : m.awayScore > m.homeScore);
+  const isDraw  = _drawRaw && !_psA;
 
   // ✅︎ الإيقاف المؤقت يظهر على بطاقة الإدارة أيضاً (لا يبقى "مباشر" والوقت واقف)
   const isPaused = isLive && !!(m.liveData && m.liveData.timerPaused);
@@ -1541,9 +1551,9 @@ function renderMatchCard(m) {
     </div>` : '';
 
   // عرض ركلات الترجيح إذا كانت موجودة
-  const penScoreLine = m.penaltyScoreHome != null ? `
+  const penScoreLine = _psA ? `
     <div style="padding:0 14px 6px;font-size:11px;color:#9b59b6;font-weight:700">
-      🥅 ركلات الترجيح: ${m.penaltyScoreHome} - ${m.penaltyScoreAway}
+      🥅 ركلات الترجيح: ${_psA.h} - ${_psA.a}
     </div>` : '';
 
   // تحديد لون الفائز
@@ -1551,8 +1561,8 @@ function renderMatchCard(m) {
   const awayColor = awayWin ? '#C9A02B' : homeWin ? '#eee' : isDraw ? '#888' : '#eee';
 
   // تحديد النتيجة النهائية (تشمل ركلات الترجيح)
-  const displayHomeScore = m.penaltyScoreHome != null && isDraw ? m.penaltyScoreHome : m.homeScore;
-  const displayAwayScore = m.penaltyScoreAway != null && isDraw ? m.penaltyScoreAway : m.awayScore;
+  const displayHomeScore = m.homeScore;
+  const displayAwayScore = m.awayScore;
 
   return `
 <div class="mcv2-card ${cardCls}" id="mcard_${m.id}" style="position:relative;background:#0e0e0e;border:1px solid ${isLive ? 'rgba(192,57,43,.3)' : '#1f1f1f'};border-radius:20px;overflow:hidden;margin-bottom:12px;box-shadow:${isLive ? '0 0 25px rgba(192,57,43,.1)' : '0 2px 10px rgba(0,0,0,.2)'}">
@@ -1596,7 +1606,7 @@ function renderMatchCard(m) {
     </button>
     <button onclick="mcv2OpenQuickResult('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(39,174,96,.25);background:rgba(39,174,96,.08);color:#27ae60;cursor:pointer;font-family:Tajawal,sans-serif">
       <span style="font-size:18px">📝</span>
-      <span style="font-size:10px;font-weight:700;text-align:center;line-height:1.25">نتيجة<br>سريعة</span>
+      <span style="font-size:10px;font-weight:700;text-align:center;line-height:1.25">إدخال<br>سريع</span>
     </button>
     <button onclick="mcv2OpenInfo('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(201,160,43,.25);background:rgba(201,160,43,.08);color:#C9A02B;cursor:pointer;font-family:Tajawal,sans-serif">
       <span style="font-size:18px">⚙︎️</span>
@@ -1607,6 +1617,13 @@ function renderMatchCard(m) {
       <span style="font-size:10px;font-weight:700;text-align:center;line-height:1.25">التشكيلات</span>
     </button>
   </div>
+
+  ${isFin ? `<!-- زر التراجع — للمباريات المنتهية فقط -->
+  <div style="padding:0 12px 12px">
+    <button onclick="mcv2UndoMatch('${m.id}')" style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(230,126,34,.35);background:rgba(230,126,34,.08);color:#e67e22;cursor:pointer;font-family:Tajawal,sans-serif;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px">
+      ↩️ تراجع — إرجاع المباراة كأنها لم تُلعب
+    </button>
+  </div>` : ''}
 
   <!-- زر الحذف -->
   <button onclick="deleteMatch('${m.id}')" title="حذف المباراة"
@@ -1918,7 +1935,7 @@ function renderQuickEntry() {
       <input type="hidden" id="qe_asc_${m.id}" value="${m.awayScorers||''}"/>
     </div>`;
 
-  // ── أحداث سريعة (بطاقات فقط — الأهداف تُضاف بزر (+) في لوحة النتيجة أعلاه) ──
+  // ── أحداث سريعة (بطاقات + تبديل) ──
   const eventsHtml = `
     <div style="background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:12px;margin-bottom:10px">
       <div style="font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:1px;margin-bottom:10px">🟨 بطاقات</div>
@@ -1928,6 +1945,12 @@ function renderQuickEntry() {
         <div style="text-align:center;color:var(--border2);font-size:18px">│</div>
         <button onclick="qeEvent('${m.id}','yellow','🟨','${at.name}','away')" style="padding:8px 3px;border-radius:9px;background:rgba(243,156,18,.08);border:1px solid rgba(243,156,18,.25);color:#D35400;font-size:11px;cursor:pointer;font-family:Tajawal,sans-serif;text-align:center">🟨<div style="font-size:9px;margin-top:2px">${at.name.split(' ')[0]}</div></button>
         <button onclick="qeEvent('${m.id}','red','🟥','${at.name}','away')" style="padding:8px 3px;border-radius:9px;background:rgba(220,50,50,.08);border:1px solid rgba(220,50,50,.25);color:#C0392B;font-size:11px;cursor:pointer;font-family:Tajawal,sans-serif;text-align:center">🟥<div style="font-size:9px;margin-top:2px">${at.name.split(' ')[0]}</div></button>
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:1px;margin:12px 0 8px">🔄 تبديل</div>
+      <div style="display:grid;grid-template-columns:1fr 24px 1fr;gap:5px;align-items:center">
+        <button onclick="qeEvent('${m.id}','sub','🔄','${ht.name}','home')" style="padding:9px 3px;border-radius:9px;background:rgba(52,152,219,.08);border:1px solid rgba(52,152,219,.28);color:#3498db;font-size:11px;cursor:pointer;font-family:Tajawal,sans-serif;text-align:center;font-weight:700">🔄 تبديل<div style="font-size:9px;margin-top:2px;color:var(--muted)">${ht.name.split(' ')[0]}</div></button>
+        <div style="text-align:center;color:var(--border2);font-size:18px">│</div>
+        <button onclick="qeEvent('${m.id}','sub','🔄','${at.name}','away')" style="padding:9px 3px;border-radius:9px;background:rgba(52,152,219,.08);border:1px solid rgba(52,152,219,.28);color:#3498db;font-size:11px;cursor:pointer;font-family:Tajawal,sans-serif;text-align:center;font-weight:700">🔄 تبديل<div style="font-size:9px;margin-top:2px;color:var(--muted)">${at.name.split(' ')[0]}</div></button>
       </div>
     </div>`;
 
@@ -6120,16 +6143,30 @@ window.lpEndMatch = async function(matchId) {
       }
 
       if (finalHome || finalAway || penEvents.length) {
+        // ✅ احفظ نتيجة ركلات الترجيح كحقول مباشرة (penaltyScoreHome/Away)
+        //    حتى تظهر تحت النتيجة المتعادلة في بطاقات المباريات والرئيسية —
+        //    كانت تُحفظ فقط في liveData.penalties فيظهر "تعادل" بلا فائز.
+        const _pIsGoal = r => (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal');
+        let _penPayload = {};
+        if (st.penalties && ((st.penalties.home||[]).length || (st.penalties.away||[]).length)) {
+          _penPayload.penaltyScoreHome = (st.penalties.home||[]).filter(_pIsGoal).length;
+          _penPayload.penaltyScoreAway = (st.penalties.away||[]).filter(_pIsGoal).length;
+        }
         await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', matchId), {
           homeScorers: finalHome,
           awayScorers: finalAway,
-          events: [...(st.events || []), ...penEvents]
+          events: [...(st.events || []), ...penEvents],
+          ..._penPayload
         });
         // تحديث الـ local state أيضاً لضمان صحة recalcStandings
         if (existingMatch) {
           existingMatch.homeScorers = finalHome;
           existingMatch.awayScorers = finalAway;
           existingMatch.events = [...(existingMatch.events || []), ...penEvents];
+          if (_penPayload.penaltyScoreHome != null) {
+            existingMatch.penaltyScoreHome = _penPayload.penaltyScoreHome;
+            existingMatch.penaltyScoreAway = _penPayload.penaltyScoreAway;
+          }
           // تحديث liveData لضمان العرض الصحيح في الصفحة الجمهور
           if (!existingMatch.liveData) existingMatch.liveData = {};
           existingMatch.liveData.events = [...(existingMatch.liveData?.events || []), ...penEvents];
@@ -10262,6 +10299,229 @@ window.importRosterToLineup = function(teamId) {
     window.showToast && window.showToast('🗑 تم حذف الهدف', 'success');
   };
 
+  // ── عرض البطاقات والتبديلات (كل الأحداث عدا الأهداف) ──
+  window._qrCardEventsHtml = function(m) {
+    const evs = (Array.isArray(m.events) ? m.events : [])
+      .filter(e => e.type === 'yellow' || e.type === 'red' || e.type === 'sub');
+    if (!evs.length) {
+      return `<div style="text-align:center;padding:8px;color:#666;font-size:10px">لا توجد بطاقات أو تبديلات بعد</div>`;
+    }
+    return evs.map((e) => {
+      const realIdx = m.events.indexOf(e);
+      let ic = '🟨', body = e.player || '؟';
+      if (e.type === 'red') ic = '🟥';
+      if (e.type === 'sub') {
+        ic = '🔄';
+        body = `<span style="color:#e05252">▼${e.playerOut || e.player || '؟'}</span> <span style="color:#2ecc71">▲${e.playerIn || e.player2 || '؟'}</span>`;
+      }
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid #1a1a1a">
+        <span style="min-width:30px;font-size:11px;font-weight:900;color:#C9A02B">${e.minute || 0}'</span>
+        <span style="font-size:13px">${ic}</span>
+        <span style="flex:1;font-size:11px;font-weight:700;color:#ddd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          ${body}<span style="color:#777;font-weight:400"> · ${e.teamName || ''}</span>
+        </span>
+        <button onclick="qrDeleteCardEvent('${m.id}',${realIdx})" title="حذف"
+          style="width:24px;height:24px;border-radius:6px;border:1px solid rgba(220,50,50,.3);background:rgba(220,50,50,.08);color:#C0392B;font-size:11px;cursor:pointer">🗑</button>
+      </div>`;
+    }).join('');
+  };
+
+  window.qrDeleteCardEvent = function(matchId, idx) {
+    const m = _getM(matchId); if (!m || !Array.isArray(m.events)) return;
+    m.events = m.events.filter((_, i) => i !== idx);
+    const box = document.getElementById('qr-cardevents-' + matchId);
+    if (box) box.innerHTML = window._qrCardEventsHtml(m);
+    window.showToast && window.showToast('🗑 تم الحذف', 'success');
+  };
+
+  // ── إضافة بطاقة (صفراء/حمراء) عبر منتقي اللاعبين ──
+  window.qrAddCard = async function(matchId, side, cardType) {
+    const m = _getM(matchId); if (!m) return;
+    const t = side === 'home' ? _getT(m.homeId, m.homeName, m.homeLogo) : _getT(m.awayId, m.awayName, m.awayLogo);
+    const teamId = side === 'home' ? m.homeId : m.awayId;
+    const icon = cardType === 'red' ? '🟥' : '🟨';
+    const label = cardType === 'red' ? 'بطاقة حمراء' : 'بطاقة صفراء';
+    const color = cardType === 'red' ? '#e74c3c' : '#f1c40f';
+
+    document.getElementById('qrCardOv')?.remove();
+    const ov = document.createElement('div');
+    ov.id = 'qrCardOv';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:18px';
+    ov.innerHTML = `
+      <div style="width:100%;max-width:330px;background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
+        <div style="font-size:15px;font-weight:900;color:${color};text-align:center">${icon} ${label}</div>
+        <div style="font-size:11px;color:#888;text-align:center;margin-bottom:12px">${t.name}</div>
+        <div style="font-size:10px;color:#888;margin-bottom:5px">اسم اللاعب</div>
+        <input id="qrCardPlayer" placeholder="اكتب أو اختر لاعباً"
+          style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
+        <div id="qrCardRosterBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+          <span style="font-size:11px;color:#888">جارِ التحميل...</span>
+        </div>
+        <div style="font-size:10px;color:#888;margin:10px 0 5px">الدقيقة</div>
+        <input id="qrCardMinute" type="number" min="1" max="130" value="1"
+          style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
+          <button onclick="document.getElementById('qrCardOv').remove()"
+            style="padding:11px;border-radius:9px;border:1px solid #2a2a2a;background:transparent;color:#888;font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">إلغاء</button>
+          <button onclick="qrCommitCard('${matchId}','${side}','${cardType}','${icon}','${String(t.name).replace(/'/g,"\\'")}')"
+            style="padding:11px;border-radius:9px;border:none;background:${color};color:#000;font-family:Tajawal,sans-serif;font-weight:900;font-size:12px;cursor:pointer">✅︎ إضافة</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    window.bindModalDismiss(ov);
+    setTimeout(() => document.getElementById('qrCardPlayer')?.focus(), 60);
+    const roster = teamId ? await window._loadTeamRoster(teamId) : [];
+    const box = document.getElementById('qrCardRosterBox');
+    if (box) box.innerHTML = window._renderRosterPickButtons(roster, 'qrCardPlayer', []);
+  };
+
+  window.qrCommitCard = function(matchId, side, cardType, icon, teamName) {
+    const m = _getM(matchId); if (!m) return;
+    const player = (document.getElementById('qrCardPlayer')?.value || '').trim() || '؟';
+    const minute = parseInt(document.getElementById('qrCardMinute')?.value) || 1;
+    document.getElementById('qrCardOv')?.remove();
+    const evs = Array.isArray(m.events) ? [...m.events] : [];
+    evs.push({ minute, icon, player, teamName, type: cardType, side });
+    evs.sort((a, b) => (a.minute || 0) - (b.minute || 0));
+    m.events = evs;
+    const box = document.getElementById('qr-cardevents-' + matchId);
+    if (box) box.innerHTML = window._qrCardEventsHtml(m);
+    window.showToast && window.showToast(`${icon} ${player} · ${teamName}`, 'success');
+  };
+
+  // ── إضافة تبديل عبر منتقي الأساسي/الدكة ──
+  window.qrAddSub = function(matchId, side) {
+    const m = _getM(matchId); if (!m) return;
+    const t = side === 'home' ? _getT(m.homeId, m.homeName, m.homeLogo) : _getT(m.awayId, m.awayName, m.awayLogo);
+    window._subResetSelection && window._subResetSelection();
+    document.getElementById('qrSubOv')?.remove();
+    const ov = document.createElement('div');
+    ov.id = 'qrSubOv';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:18px';
+    ov.innerHTML = `
+      <div style="width:100%;max-width:360px;background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:16px;font-family:Tajawal,sans-serif;max-height:82vh;display:flex;flex-direction:column">
+        <div style="font-size:15px;font-weight:900;color:#3498db;text-align:center">🔄 تبديل لاعب</div>
+        <div style="font-size:11px;color:#888;text-align:center;margin-bottom:12px">${t.name}</div>
+        <div style="overflow-y:auto;flex:1">${window._subBuildPickerHtml ? window._subBuildPickerHtml(matchId, side) : ''}</div>
+        <div style="font-size:10px;color:#888;margin:10px 0 5px">الدقيقة</div>
+        <input id="qrSubMinute" type="number" min="1" max="130" value="1"
+          style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
+          <button onclick="document.getElementById('qrSubOv').remove()"
+            style="padding:11px;border-radius:9px;border:1px solid #2a2a2a;background:transparent;color:#888;font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">إلغاء</button>
+          <button onclick="qrCommitSub('${matchId}','${side}','${String(t.name).replace(/'/g,"\\'")}')"
+            style="padding:11px;border-radius:9px;border:none;background:#3498db;color:#fff;font-family:Tajawal,sans-serif;font-weight:900;font-size:12px;cursor:pointer">✅︎ إضافة</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    window.bindModalDismiss(ov);
+  };
+
+  window.qrCommitSub = function(matchId, side, teamName) {
+    const m = _getM(matchId); if (!m) return;
+    const sel = window._subSelected || { out: '', in: '' };
+    const out = (sel.out || '').trim(), inp = (sel.in || '').trim();
+    if (!out || !inp) { window.showToast && window.showToast('اختر لاعباً خارجاً وداخلاً', 'error'); return; }
+    const minute = parseInt(document.getElementById('qrSubMinute')?.value) || 1;
+    document.getElementById('qrSubOv')?.remove();
+    const evs = Array.isArray(m.events) ? [...m.events] : [];
+    evs.push({ minute, icon: '🔄', player: out, player2: inp, playerOut: out, playerIn: inp, teamName, type: 'sub', side });
+    evs.sort((a, b) => (a.minute || 0) - (b.minute || 0));
+    m.events = evs;
+    const box = document.getElementById('qr-cardevents-' + matchId);
+    if (box) box.innerHTML = window._qrCardEventsHtml(m);
+    window.showToast && window.showToast(`🔄 ${out} ⇄ ${inp} · ${teamName}`, 'success');
+  };
+
+  // ══ ركلات الترجيح التفصيلية (نفس بنية البث: penalties.home/away = [{result,player}]) ══
+  const _penIsGoal = r => (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal');
+
+  window._qrPenListHtml = function(m) {
+    const pens = m.penalties || { home: [], away: [] };
+    const row = (side, label) => {
+      const arr = pens[side] || [];
+      const dots = arr.length
+        ? arr.map(r => {
+            const g = _penIsGoal(r);
+            const nm = (typeof r === 'object' && r && r.player) ? r.player : '';
+            return `<span title="${nm}" style="font-size:13px">${g ? '✅︎' : '❌︎'}</span>`;
+          }).join(' ')
+        : '<span style="font-size:10px;color:#666">—</span>';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+        <span style="font-size:10px;color:#999;min-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+        <span style="display:flex;gap:3px;flex-wrap:wrap">${dots}</span>
+      </div>`;
+    };
+    const ht = _getT(m.homeId, m.homeName, m.homeLogo);
+    const at = _getT(m.awayId, m.awayName, m.awayLogo);
+    return row('home', ht.name) + row('away', at.name);
+  };
+
+  function _qrPenSync(m) {
+    if (!m.penalties) return;
+    m.penaltyScoreHome = (m.penalties.home || []).filter(_penIsGoal).length;
+    m.penaltyScoreAway = (m.penalties.away || []).filter(_penIsGoal).length;
+  }
+  function _qrPenRefresh(matchId, m) {
+    const list = document.getElementById('qr-pen-list-' + matchId);
+    if (list) list.innerHTML = window._qrPenListHtml(m);
+    const h = document.getElementById('qr-pen-sc-home-' + matchId);
+    const a = document.getElementById('qr-pen-sc-away-' + matchId);
+    if (h) h.textContent = m.penaltyScoreHome ?? 0;
+    if (a) a.textContent = m.penaltyScoreAway ?? 0;
+  }
+
+  // ضغط سجّل/ضيّع → منتقي لاعب سريع (قابل للتخطّي) ثم تسجيل الركلة
+  window.qrPenShot = function(matchId, side, result) {
+    const m = _getM(matchId); if (!m) return;
+    const t = side === 'home' ? _getT(m.homeId, m.homeName, m.homeLogo) : _getT(m.awayId, m.awayName, m.awayLogo);
+    const lu = side === 'home' ? m.homeLineup : m.awayLineup;
+    const players = (lu && Array.isArray(lu.players)) ? lu.players.filter(p => p.name) : [];
+    const resLabel = result === 'goal' ? '✅ سجّل' : '❌ ضيّع';
+    const resColor = result === 'goal' ? '#2ecc71' : '#e74c3c';
+
+    const btns = players.length
+      ? players.map(p => `<button onclick="qrPenChoose('${matchId}','${side}','${result}','${String(p.name).replace(/'/g,"\\'")}')"
+          style="display:flex;align-items:center;gap:6px;padding:9px 10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-align:right;width:100%">
+          <span style="min-width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:5px;background:rgba(255,255,255,.06);font-size:10px;font-weight:900;color:#C9A02B">${p.number||'—'}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>
+        </button>`).join('')
+      : '<div style="font-size:11px;color:#888;text-align:center;padding:12px">لا توجد تشكيلة محفوظة — يمكنك التخطّي</div>';
+
+    document.getElementById('qrPenOv')?.remove();
+    const ov = document.createElement('div');
+    ov.id = 'qrPenOv';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:18px';
+    ov.innerHTML = `
+      <div style="width:100%;max-width:320px;background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:16px;font-family:Tajawal,sans-serif;max-height:80vh;display:flex;flex-direction:column">
+        <div style="font-size:14px;font-weight:900;color:${resColor};text-align:center">${resLabel} الركلة</div>
+        <div style="font-size:11px;color:#888;text-align:center;margin-bottom:12px">${t.name} — اختر اللاعب أو تخطَّ</div>
+        <div style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1">${btns}</div>
+        <button onclick="qrPenChoose('${matchId}','${side}','${result}','')"
+          style="margin-top:12px;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:transparent;color:#888;font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">تخطّي (بدون اسم)</button>
+      </div>`;
+    document.body.appendChild(ov);
+    window.bindModalDismiss(ov);
+  };
+
+  window.qrPenChoose = function(matchId, side, result, playerName) {
+    document.getElementById('qrPenOv')?.remove();
+    const m = _getM(matchId); if (!m) return;
+    if (!m.penalties) m.penalties = { home: [], away: [] };
+    m.penalties[side].push({ result, player: (playerName || '').trim() });
+    _qrPenSync(m);
+    _qrPenRefresh(matchId, m);
+  };
+
+  window.qrPenUndo = function(matchId) {
+    const m = _getM(matchId); if (!m || !m.penalties) return;
+    const h = (m.penalties.home || []).length, a = (m.penalties.away || []).length;
+    if (!h && !a) return;
+    if (h >= a) m.penalties.home.pop(); else m.penalties.away.pop();
+    _qrPenSync(m);
+    _qrPenRefresh(matchId, m);
+  };
+
   window.mcv2OpenQuickResult = function(matchId) {
     const m = _getM(matchId); if (!m) return;
     _qrInit(m);
@@ -10348,11 +10608,25 @@ window.importRosterToLineup = function(teamId) {
       <div style="font-size:10px;color:#D35400;margin-bottom:6px">⏱ النتيجة أعلاه تُعتبر بعد الوقت الإضافي (٩٠+١٥+١٥)</div>
     </div>
     <div id="qr-pen-box-${matchId}" style="display:${wentPen?'block':'none'};margin-top:8px;padding:10px 12px;background:#161616;border-radius:10px;border:1px solid rgba(155,89,182,.25)">
-      <div style="font-size:10px;color:#9b59b6;font-weight:700;margin-bottom:8px">🥅 نتيجة ركلات الترجيح</div>
-      <div class="mcv2-g2">
-        <div class="mcv2-fld"><label class="mcv2-lbl">${ht.name}</label><input class="mcv2-inp" type="number" min="0" id="qr-pen-h-${matchId}" value="${m.penaltyScoreHome ?? ''}" placeholder="0"/></div>
-        <div class="mcv2-fld"><label class="mcv2-lbl">${at.name}</label><input class="mcv2-inp" type="number" min="0" id="qr-pen-a-${matchId}" value="${m.penaltyScoreAway ?? ''}" placeholder="0"/></div>
+      <div style="font-size:10px;color:#9b59b6;font-weight:700;margin-bottom:10px">🥅 ركلات الترجيح — سجّل كل ركلة</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:10px;color:#aaa;text-align:center;font-weight:700;margin-bottom:6px">${ht.name} · <span id="qr-pen-sc-home-${matchId}">0</span></div>
+          <div style="display:flex;gap:5px">
+            <button onclick="qrPenShot('${matchId}','home','goal')" style="flex:1;padding:8px;border-radius:8px;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.35);color:#2ecc71;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">✅ سجّل</button>
+            <button onclick="qrPenShot('${matchId}','home','miss')" style="flex:1;padding:8px;border-radius:8px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">❌ ضيّع</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#aaa;text-align:center;font-weight:700;margin-bottom:6px">${at.name} · <span id="qr-pen-sc-away-${matchId}">0</span></div>
+          <div style="display:flex;gap:5px">
+            <button onclick="qrPenShot('${matchId}','away','goal')" style="flex:1;padding:8px;border-radius:8px;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.35);color:#2ecc71;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">✅ سجّل</button>
+            <button onclick="qrPenShot('${matchId}','away','miss')" style="flex:1;padding:8px;border-radius:8px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">❌ ضيّع</button>
+          </div>
+        </div>
       </div>
+      <div id="qr-pen-list-${matchId}" style="margin-top:10px">${window._qrPenListHtml(m)}</div>
+      <button onclick="qrPenUndo('${matchId}')" style="margin-top:8px;width:100%;padding:7px;border-radius:8px;background:transparent;border:1px solid #333;color:#888;font-size:10px;cursor:pointer;font-family:Tajawal,sans-serif">↩ تراجع عن آخر ركلة</button>
     </div>
 
     <!-- ✅︎ سجل الأهداف — يُضاف بزر (+) في لوحة النتيجة أعلاه (نفس نظام البث) -->
@@ -10360,6 +10634,26 @@ window.importRosterToLineup = function(teamId) {
     <div id="qr-events-${matchId}" style="background:#111;border-radius:10px;padding:8px 10px">${_qrEventsHtml(m)}</div>
     <input type="hidden" id="qr-hsc-${matchId}" value="${m.homeScorers || ''}"/>
     <input type="hidden" id="qr-asc-${matchId}" value="${m.awayScorers || ''}"/>
+
+    <!-- 🟨 بطاقات وتبديلات -->
+    <div class="mcv2-sec" style="color:#e67e22">🟨 بطاقات وتبديلات</div>
+    <div style="background:#111;border-radius:10px;padding:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:10px;color:#888;text-align:center;font-weight:700;margin-bottom:2px">${ht.name}</div>
+          <button onclick="qrAddCard('${matchId}','home','yellow')" style="padding:8px;border-radius:9px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:#f1c40f;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🟨 بطاقة صفراء</button>
+          <button onclick="qrAddCard('${matchId}','home','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🟥 بطاقة حمراء</button>
+          <button onclick="qrAddSub('${matchId}','home')" style="padding:8px;border-radius:9px;background:rgba(52,152,219,.1);border:1px solid rgba(52,152,219,.3);color:#3498db;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🔄 تبديل</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:10px;color:#888;text-align:center;font-weight:700;margin-bottom:2px">${at.name}</div>
+          <button onclick="qrAddCard('${matchId}','away','yellow')" style="padding:8px;border-radius:9px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:#f1c40f;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🟨 بطاقة صفراء</button>
+          <button onclick="qrAddCard('${matchId}','away','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🟥 بطاقة حمراء</button>
+          <button onclick="qrAddSub('${matchId}','away')" style="padding:8px;border-radius:9px;background:rgba(52,152,219,.1);border:1px solid rgba(52,152,219,.3);color:#3498db;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🔄 تبديل</button>
+        </div>
+      </div>
+      <div id="qr-cardevents-${matchId}" style="margin-top:10px">${window._qrCardEventsHtml(m)}</div>
+    </div>
 
     <!-- الإحصائيات الكاملة (نفس تصميم صفحة البث) -->
     <div class="mcv2-sec" style="color:#2980B9">📊 الإحصائيات الكاملة</div>
@@ -10389,8 +10683,21 @@ window.importRosterToLineup = function(teamId) {
 
     const wentET  = document.getElementById('qr-et-box-'+matchId)?.style.display !== 'none';
     const wentPen = document.getElementById('qr-pen-box-'+matchId)?.style.display !== 'none';
-    const penH = wentPen ? (parseInt(document.getElementById(`qr-pen-h-${matchId}`)?.value ?? '') ) : null;
-    const penA = wentPen ? (parseInt(document.getElementById(`qr-pen-a-${matchId}`)?.value ?? '') ) : null;
+    // العدد: من الحقول الرقمية (qr-pen-h/a) أولاً، وإلا من تفاصيل الركلات إن وُجدت
+    const _pg = r => (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal');
+    const penObj = (wentPen && m.penalties && ((m.penalties.home||[]).length || (m.penalties.away||[]).length)) ? m.penalties : null;
+    const _penHField = parseInt(document.getElementById('qr-pen-h-'+matchId)?.value ?? '');
+    const _penAField = parseInt(document.getElementById('qr-pen-a-'+matchId)?.value ?? '');
+    let penH = null, penA = null;
+    if (wentPen) {
+      if (!isNaN(_penHField) || !isNaN(_penAField)) {
+        penH = isNaN(_penHField) ? 0 : _penHField;
+        penA = isNaN(_penAField) ? 0 : _penAField;
+      } else if (penObj) {
+        penH = (penObj.home || []).filter(_pg).length;
+        penA = (penObj.away || []).filter(_pg).length;
+      }
+    }
 
     // ── الإحصائيات: نحفظ بالتنسيقين (Home/Away و home_/away_) حتى تتوافق مع كل مكان يقرأها ──
     const st = window._qrStats[matchId] || {};
@@ -10410,9 +10717,9 @@ window.importRosterToLineup = function(teamId) {
       homeScorers: hsc, awayScorers: asc,
       manOfMatch: mom, summary: sum,
       wentToExtraTime: wentET,
-      penaltyScoreHome: wentPen && !isNaN(penH) ? penH : null,
-      penaltyScoreAway: wentPen && !isNaN(penA) ? penA : null,
-      penalties: wentPen ? (m.penalties || true) : (m.penalties || null),
+      penaltyScoreHome: penH,
+      penaltyScoreAway: penA,
+      penalties: penObj,
       stats: statsObj,
       status: 'finished',
       updatedAt: serverTimestamp(),
@@ -10445,6 +10752,67 @@ window.importRosterToLineup = function(teamId) {
   //  الوحيد لكل شيء: النتيجة، الوقت الإضافي، ركلات الترجيح، والإحصائيات
   //  الكاملة (9 إحصائيات) — بدل تكرار نفس الوظيفة في مكانين مختلفين.
   // ═══════════════════
+
+  // ═══════════════════
+  //  ↩️ التراجع عن المباراة — إعادتها كأنها لم تُلعب
+  //     يمسح: النتيجة، الهدافين، كل الأحداث، ركلات الترجيح، الإحصائيات،
+  //     رجل المباراة، الملخص، بيانات البث — وتعود «قادمة» قابلة للبث من جديد.
+  // ═══════════════════
+  window.mcv2UndoMatch = async function(matchId) {
+    const m = _getM(matchId); if (!m) return;
+    const LEAGUE_ID = window._getLeagueId ? window._getLeagueId() : (window.LEAGUE_ID || '');
+    if (!LEAGUE_ID) { window.showToast && window.showToast('خطأ في تحديد البطولة', 'error'); return; }
+
+    const ok = await window.confirmDialog({
+      title: '↩️ تراجع عن المباراة',
+      message: 'سيُمسح كل شيء عن هذه المباراة (النتيجة، الأهداف، من سجّلها، البطاقات، التبديلات، ركلات الترجيح، الإحصائيات) وتعود كأنها لم تُلعب — لتبثّها من جديد.\n\nمتأكد؟',
+      confirmText: 'نعم، تراجع', danger: true
+    });
+    if (!ok) return;
+
+    // إيقاف أي بث حيّ قائم لهذه المباراة
+    try {
+      const stLive = _liveMatches && _liveMatches[matchId];
+      if (stLive && stLive.timerInterval) clearInterval(stLive.timerInterval);
+      if (_liveMatches) delete _liveMatches[matchId];
+      const lp = document.getElementById('lp-' + matchId);
+      if (lp) lp.remove();
+    } catch(e) {}
+
+    // القيم التي تُعيد المباراة لحالة نظيفة تماماً
+    const cleared = {
+      homeScore: null, awayScore: null,
+      homeScorers: '', awayScorers: '',
+      events: [],
+      penaltyScoreHome: null, penaltyScoreAway: null,
+      wentToExtraTime: false,
+      manOfMatch: '', summary: '', stats: null,
+      liveData: null,
+      status: 'upcoming',
+      updatedAt: serverTimestamp(),
+    };
+
+    try {
+      await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', matchId), cleared);
+      // نظّف الحالة المحلية أيضاً
+      const lm = matches.find(x => x.id === matchId);
+      if (lm) {
+        Object.assign(lm, {
+          homeScore: null, awayScore: null, homeScorers: '', awayScorers: '',
+          events: [], penaltyScoreHome: null, penaltyScoreAway: null,
+          wentToExtraTime: false, manOfMatch: '', summary: '', stats: null,
+          liveData: null, status: 'upcoming'
+        });
+      }
+      document.getElementById('mcv2-qr-ov')?.remove();
+      document.getElementById('mcv2-info-ov')?.remove();
+      await recalcStandings();
+      if (typeof renderMatches === 'function') renderMatches();
+      window.showToast && window.showToast('↩️ رجعت المباراة — جاهزة للبث من جديد', 'success');
+    } catch(e) {
+      window.showToast && window.showToast('خطأ: ' + e.message, 'error');
+    }
+  };
 
   // ═══════════════════
   //  3️⃣  معلومات المباراة

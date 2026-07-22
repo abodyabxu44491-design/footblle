@@ -559,7 +559,9 @@ async function _wzCreateGroupsAndBracket() {
     const inp = document.getElementById('wzGName' + i);
     names.push(inp ? (inp.value.trim() || String.fromCharCode(65+i)) : (window._wzGroupNames[i] || String.fromCharCode(65+i)));
   }
-  const icons = ['🔵','🔴','🟡','🟢','🟣','🟠','⚪','⚫','🔷','🔶','🟥','🟦','🟩','🟨','🟪','🟫'];
+  // ⚠️ لا تضع 🔴/🟥 هنا — محجوزة بكل الموقع لمؤشر "🔴 بث مباشر"، ووضعها
+  // كإيقونة مجموعة تلتبس بصرياً بمؤشر البث (نظام SVG يحوّل نفس الرمز لنفس الأيقونة).
+  const icons = ['🔵','🟡','🟢','🟣','🟠','⚫','⚪','🔷','🔶','🟦','🟩','🟨','🟪','🟫'];
 
   // احذف أي مجموعات/شجرة سابقة (إعداد نظيف من الصفر)
   const existingGroups = await getDocs(collection(db, 'leagues', LEAGUE_ID, 'groups'));
@@ -875,6 +877,7 @@ function applySettings() {
   const el3 = document.getElementById('setRounds'); if(el3) el3.value = settings.rounds || 10;
   const el4 = document.getElementById('setWinPts'); if(el4) el4.value = settings.winPts || 3;
   const el5 = document.getElementById('setDrawPts'); if(el5) el5.value = settings.drawPts || 1;
+  const el6 = document.getElementById('setVenue'); if(el6) el6.value = settings.defaultVenue || '';
 
   // ✅ إعدادات المباراة (موحّدة: الشوطين + الاستراحة + الوقت الإضافي في مكان واحد)
   const ms = settings.matchSettings || {};
@@ -1253,6 +1256,62 @@ window._loadTeamRoster = async function(teamId, force) {
     window._teamRosters[teamId] = window._teamRosters[teamId] || [];
     return window._teamRosters[teamId];
   }
+};
+
+// ══ منتقي لاعب موحّد لأحداث المباراة (هدف/بطاقة/تبديل) ══
+// المصدر الوحيد: القائمة الدائمة المسجّلة لكل فريق (leagues/{id}/teams/{teamId}/roster)
+// — لا يُخلط أبداً بين لاعبي الفريقين، ولا تظهر أسماء من مباريات سابقة.
+window._rosterPosLabel = function(posKey) {
+  if (!posKey) return '';
+  try {
+    if (typeof ROSTER_POSITIONS !== 'undefined') {
+      const meta = ROSTER_POSITIONS.find(p => p.key === posKey);
+      if (meta) return meta.label;
+    }
+  } catch (e) {}
+  return posKey;
+};
+
+// ✅ أسماء اللاعبين الذين طردوا (بطاقة حمراء) بالفعل في هذه المباراة لهذا الفريق —
+// تُستخدم لاستبعادهم تلقائياً من قائمة اختيار الهدافين/الأحداث القادمة (اللاعب المطرود لا يستمر في اللعب).
+// يدعم كِلا اسمي الحقل المستخدَمين في المنصة: side (الإدخال السريع) و team (البث المباشر).
+window._redCardedNames = function(events, sideOrTeam) {
+  const set = new Set();
+  (events || []).forEach(e => {
+    if (e && e.type === 'red' && e.player && (e.side === sideOrTeam || e.team === sideOrTeam)) set.add(e.player);
+  });
+  return set;
+};
+
+// يبني أزرار اختيار لاعب من قائمة الفريق المسجّلة فقط. الضغط على زر يملأ الحقل باسم اللاعب،
+// وإن لم يوجد أي لاعب مسجَّل لهذا الفريق تظهر رسالة توضيحية دون أي اقتراحات (يبقى الإدخال اليدوي متاحاً دائماً).
+// excludeNames: أسماء تُستبعد كلياً من القائمة (مثل المطرودين ببطاقة حمراء في هذه المباراة).
+// اللاعب المصاب/الموقوف (حالته في القائمة الدائمة) لا يُستبعد بل يبقى ظاهراً بشكل باهت مع أيقونة تنبيه،
+// حتى تنتبه له الإدارة قبل الاختيار دون ما تفقد القدرة على اختياره لو كانت الحالة غير دقيقة.
+window._renderRosterPickButtons = function(players, inputId, excludeNames) {
+  const excl = excludeNames || new Set();
+  const visible = (players || []).filter(p => !excl.has(p.name));
+  if (!visible.length) {
+    const msg = (players && players.length)
+      ? 'كل لاعبي هذا الفريق المسجّلين مطرودون في هذه المباراة — يمكنك كتابة الاسم يدوياً'
+      : 'لا يوجد لاعبون مسجلون في قائمة هذا الفريق — يمكنك كتابة الاسم يدوياً';
+    return `<div style="font-size:11px;color:var(--muted,#888);padding:2px">${msg}</div>`;
+  }
+  return visible.map(p => {
+    const nm = (p.name || '').replace(/'/g, "\\'");
+    const posLabel = window._rosterPosLabel(p.position);
+    const numTag = (p.number !== undefined && p.number !== null && p.number !== '') ? ('#' + p.number + ' · ') : '';
+    const flagged = p.status === 'injured' || p.status === 'suspended';
+    let stMeta = null;
+    try { if (typeof ROSTER_STATUS !== 'undefined') stMeta = ROSTER_STATUS[p.status] || null; } catch (e) {}
+    const warnIcon = flagged ? ` <span title="${stMeta?.label || ''}">${stMeta?.icon || '⚠️'}</span>` : '';
+    const dimStyle = flagged ? 'opacity:.55;border-style:dashed;' : '';
+    return `<button type="button" onclick="document.getElementById('${inputId}').value='${nm}'"
+      style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 10px;background:var(--card3,#1a1a1a);border:1px solid var(--border2,#2a2a2a);border-radius:9px;color:var(--text,#eee);font-family:Tajawal,sans-serif;cursor:pointer;text-align:right;${dimStyle}">
+      <span style="font-size:12px;font-weight:800">${numTag}${p.name || ''}${warnIcon}</span>
+      ${posLabel ? `<span style="font-size:9px;color:var(--muted,#888)">${posLabel}${flagged && stMeta ? ' · ' + stMeta.label : ''}</span>` : (flagged && stMeta ? `<span style="font-size:9px;color:var(--muted,#888)">${stMeta.label}</span>` : '')}
+    </button>`;
+  }).join('');
 };
 
 // ══ BOTTOM SHEET للتأكيد — بديل confirm() في الجوال ══
@@ -2047,13 +2106,11 @@ function _qeRefresh(matchId) {
 }
 
 /* نافذة إضافة حدث — نفس فكرة صفحة البث (اسم اللاعب + الدقيقة) */
-window._qeOpenEventModal = function(matchId, type, icon, teamName, side) {
+window._qeOpenEventModal = async function(matchId, type, icon, teamName, side) {
   document.getElementById('qeEvOverlay')?.remove();
   const m = matches.find(x => x.id === matchId);
   if (!m) return;
   const teamId = side === 'home' ? m.homeId : m.awayId;
-  const team = teams.find(t => t.id === teamId);
-  const roster = (team && Array.isArray(team.players)) ? team.players : [];
   const titles = { goal: 'تسجيل هدف', own: 'هدف عكسي', yellow: 'بطاقة صفراء', red: 'بطاقة حمراء', sub: 'تبديل' };
 
   const ov = document.createElement('div');
@@ -2065,11 +2122,11 @@ window._qeOpenEventModal = function(matchId, type, icon, teamName, side) {
       <div style="font-size:11px;color:var(--muted,#888);text-align:center;margin-bottom:12px">${teamName}</div>
 
       <div style="font-size:10px;color:var(--muted,#888);margin-bottom:5px">اسم اللاعب</div>
-      <input id="qeEvPlayer" list="qeEvRoster" placeholder="اكتب أو اختر لاعباً"
+      <input id="qeEvPlayer" placeholder="اكتب أو اختر لاعباً من القائمة بالأسفل"
         style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border2,#2a2a2a);background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
-      <datalist id="qeEvRoster">
-        ${roster.map(p => `<option value="${(p.name || '').replace(/"/g, '&quot;')}"></option>`).join('')}
-      </datalist>
+      <div id="qeEvRosterBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+        <span style="font-size:11px;color:var(--muted,#888)">جارِ تحميل قائمة لاعبي ${teamName}...</span>
+      </div>
 
       <div style="font-size:10px;color:var(--muted,#888);margin:10px 0 5px">الدقيقة</div>
       <input id="qeEvMinute" type="number" min="1" max="130" value="1"
@@ -2085,6 +2142,13 @@ window._qeOpenEventModal = function(matchId, type, icon, teamName, side) {
   document.body.appendChild(ov);
   window.bindModalDismiss(ov);
   setTimeout(() => document.getElementById('qeEvPlayer')?.focus(), 60);
+
+  // ✅ لاعبو هذا الفريق فقط من القائمة الدائمة المسجَّلة — بدون أي خلط مع الفريق الآخر
+  // ✅ ونستبعد من طُرد ببطاقة حمراء بالفعل في هذه المباراة (لا يمكنه تسجيل هدف/الدخول من جديد)
+  const roster = teamId ? await window._loadTeamRoster(teamId) : [];
+  const excludeNames = window._redCardedNames(m.events, side);
+  const box = document.getElementById('qeEvRosterBox');
+  if (box) box.innerHTML = window._renderRosterPickButtons(roster, 'qeEvPlayer', excludeNames);
 };
 
 /* تثبيت الحدث في قاعدة البيانات */
@@ -3149,6 +3213,7 @@ window.saveSettings = async function() {
   const rounds = parseInt(document.getElementById('setRounds')?.value || 10);
   const winPts = parseInt(document.getElementById('setWinPts')?.value || 3);
   const drawPts = parseInt(document.getElementById('setDrawPts')?.value || 1);
+  const defaultVenue = document.getElementById('setVenue')?.value.trim() || '';
 
   // ✅ إعدادات المباراة من مستوى البطولة (موحّدة بالكامل: الشوطين + الاستراحة + الوقت الإضافي)
   const matchSettings = {
@@ -3184,10 +3249,12 @@ window.saveSettings = async function() {
       typeLocked: true,
       zones: settings.zones,
       tiebreakOrder: settings.tiebreakOrder,
+      defaultVenue,
       updatedAt: serverTimestamp()
     }, { merge: true });
     settings.winPts = winPts; settings.drawPts = drawPts;
     settings.matchSettings = matchSettings;
+    settings.defaultVenue = defaultVenue;
     showToast('تم حفظ الإعدادات ✓', 'success');
   } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
 };
@@ -3695,7 +3762,8 @@ window.wizConfirmGroups = async function() {
     await delBatch.commit();
 
     // Create groups
-    const icons = ['🔵','🔴','🟡','🟢','🟣','🟠','⚪','⚫','🔷','🔶','🟥','🟦','🟩','🟨','🟪','🟫'];
+    // ⚠️ لا تضع 🔴/🟥 — محجوزة لمؤشر "بث مباشر" بكل الموقع (راجع OVERRIDES.md)
+    const icons = ['🔵','🟡','🟢','🟣','🟠','⚫','⚪','🔷','🔶','🟦','🟩','🟨','🟪','🟫'];
     const batch2 = writeBatch(db);
     const teamsToDistribute = dist === 'auto' ? [...teams].sort(() => Math.random() - 0.5) : [];
     for(let i = 0; i < n; i++) {
@@ -3883,6 +3951,11 @@ window.toggleSwitch = function(row) {
 window.openModal = function(id) {
   const el = document.getElementById(id);
   if (!el) return;                       // ✅ لا تنهار لو العنصر غير موجود
+  // ✅ خانة الملعب تُعبَّأ تلقائياً من "الملعب الافتراضي" بالإعدادات — يفيد البطولات التي تُقام كلها على ملعب واحد
+  if (id === 'modal-match') {
+    const venueEl = document.getElementById('matchVenue');
+    if (venueEl) venueEl.value = (window.settings && window.settings.defaultVenue) || 'ملعب الحارة';
+  }
   el.classList.add('open');
   document.body.style.overflow = 'hidden';
 };
@@ -4157,7 +4230,7 @@ function _buildLivePage(matchId, match, ht, at) {
     <div class="lp-topbar">
       <button class="lp-close-btn" onclick="closeLivePage('${mId}')">✕ إغلاق</button>
       <div class="lp-title">🔴 بث مباشر · ${ht.name} × ${at.name}</div>
-      <div class="lp-save-indicator" id="lp-save-${mId}">—</div>
+      <div class="lp-save-indicator" id="lp-save-${mId}">متصل</div>
     </div>
 
     <div class="lp-body">
@@ -4546,26 +4619,16 @@ window.lpAddGoal = function(matchId, side) {
   const ht = teams.find(t => t.id === match.homeId) || { name: match.homeName || 'الأول' };
   const at = teams.find(t => t.id === match.awayId) || { name: match.awayName || 'الثاني' };
   const teamName = side === 'home' ? ht.name : at.name;
-  _lpOpenScorerPicker(matchId, side, teamName);
+  const teamId = side === 'home' ? match.homeId : match.awayId;
+  _lpOpenScorerPicker(matchId, side, teamName, teamId);
 };
 
-function _lpOpenScorerPicker(matchId, side, teamName) {
+async function _lpOpenScorerPicker(matchId, side, teamName, teamId) {
   const old = document.getElementById('lp-scorer-overlay-' + matchId);
   if (old) old.remove();
   const overlay = document.createElement('div');
   overlay.id = 'lp-scorer-overlay-' + matchId;
   overlay.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center';
-
-  // اقتراحات من أسماء اللاعبين في المباراة
-  const st = _liveMatches[matchId];
-  const match = matches.find(m => m.id === matchId);
-  const existingEvents = st?.events || [];
-  const namesSet = new Set();
-  existingEvents.forEach(ev => { if (ev.player && ev.player !== '—') namesSet.add(ev.player); });
-  // أسماء من تشكيلة المباراة
-  const lineup = side === 'home' ? (st?.homeLineup || match?.liveData?.homeLineup) : (st?.awayLineup || match?.liveData?.awayLineup);
-  if (lineup?.players) lineup.players.forEach(p => { if (p.name) namesSet.add(p.name); });
-  const names = [...namesSet].slice(0, 12);
 
   overlay.innerHTML = `
     <div style="background:var(--card);border:1px solid var(--gold3);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 20px 36px;animation:slideUp .25s ease">
@@ -4575,7 +4638,9 @@ function _lpOpenScorerPicker(matchId, side, teamName) {
         <div style="font-size:11px;color:var(--muted);margin-top:3px">${teamName}</div>
       </div>
       <input id="lp-sp-input-${matchId}" class="form-input" placeholder="اكتب اسم اللاعب..." style="font-size:14px;margin-bottom:10px" autocomplete="off"/>
-      ${names.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${names.map(n => `<button onclick="document.getElementById('lp-sp-input-${matchId}').value='${n.replace(/'/g,"\'")}'" style="padding:5px 11px;background:var(--card3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:12px;font-family:Tajawal,sans-serif;cursor:pointer">${n}</button>`).join('')}</div>` : ''}
+      <div id="lp-sp-roster-${matchId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+        <span style="font-size:11px;color:var(--muted)">جارِ تحميل قائمة اللاعبين...</span>
+      </div>
       <div style="display:flex;gap:8px">
         <button onclick="document.getElementById('lp-scorer-overlay-${matchId}')?.remove();lpRemoveGoalNoScorer?.('${matchId}','${side}')" style="flex:1;padding:12px;background:var(--card3);border:1px solid var(--border2);border-radius:12px;color:var(--muted);font-size:12px;font-family:Tajawal,sans-serif;cursor:pointer">تخطي</button>
         <button onclick="_lpConfirmGoal('${matchId}','${side}')" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--gold2),var(--gold));border:none;border-radius:12px;color:#000;font-size:13px;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer">✅ هدف!</button>
@@ -4584,6 +4649,14 @@ function _lpOpenScorerPicker(matchId, side, teamName) {
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
   setTimeout(() => document.getElementById('lp-sp-input-' + matchId)?.focus(), 100);
+
+  // ✅ لاعبو هذا الفريق فقط من القائمة الدائمة المسجَّلة — ممنوع ظهور لاعب من الفريق الآخر
+  // ✅ ونستبعد من طُرد ببطاقة حمراء بالفعل في هذه المباراة
+  const roster = teamId ? await window._loadTeamRoster(teamId) : [];
+  const st = _liveMatches[matchId];
+  const excludeNames = window._redCardedNames(st?.events, side);
+  const box = document.getElementById('lp-sp-roster-' + matchId);
+  if (box) box.innerHTML = window._renderRosterPickButtons(roster, 'lp-sp-input-' + matchId, excludeNames);
 }
 
 window._lpConfirmGoal = async function(matchId, side) {
@@ -4871,11 +4944,22 @@ window.lpSaveLineup = async function(matchId) {
 // ─────────────────────────────────────────────────────────────────
 // SAVE TO FIREBASE — يحفظ في matches/{matchId}.liveData
 // ─────────────────────────────────────────────────────────────────
+// ✅ مؤشر حالة الحفظ الموحّد لصفحة البث — يوضح للإدارة هل التغييرات محفوظة فعلاً على الخادم أو لا،
+// خصوصاً مهم أثناء البث حيث انقطاع الاتصال اللحظي قد يُضيّع حدثاً (هدف/بطاقة) دون أن يلاحظ أحد.
+window._lpSetSaveState = function(matchId, state, text) {
+  const el = document.getElementById('lp-save-' + matchId);
+  if (!el) return;
+  el.classList.remove('lp-save-saving', 'lp-save-ok', 'lp-save-err');
+  if (state === 'saving') { el.classList.add('lp-save-saving'); el.textContent = text || '💾 يحفظ...'; }
+  else if (state === 'ok') { el.classList.add('lp-save-ok'); el.textContent = text || '✅ تم الحفظ'; }
+  else if (state === 'err') { el.classList.add('lp-save-err'); el.textContent = text || '❌ فشل الحفظ — سيُعاد المحاولة'; }
+  else { el.textContent = text || 'متصل'; }
+};
+
 async function _lpSave(matchId) {
   const st = _liveMatches[matchId];
   if (!st || !LEAGUE_ID) return;
-  const saveEl = document.getElementById('lp-save-' + matchId);
-  if (saveEl) saveEl.textContent = '⏳';
+  window._lpSetSaveState(matchId, 'saving');
 
   const liveData = {
     matchId,
@@ -4961,9 +5045,10 @@ async function _lpSave(matchId) {
       awayScore: st.matchStatus === 'ended' ? st.awayScore : null,
       updatedAt: serverTimestamp(),
     });
-    if (saveEl) { saveEl.textContent = '✅ محفوظ'; setTimeout(() => { if (saveEl) saveEl.textContent = ''; }, 2000); }
+    window._lpSetSaveState(matchId, 'ok');
+    setTimeout(() => { const e2 = document.getElementById('lp-save-' + matchId); if (e2 && !e2.classList.contains('lp-save-saving')) window._lpSetSaveState(matchId, 'idle'); }, 3000);
   } catch(e) {
-    if (saveEl) saveEl.textContent = '❌';
+    window._lpSetSaveState(matchId, 'err');
     showToast('خطأ في الحفظ: ' + e.message, 'error');
   }
 }
@@ -4988,6 +5073,7 @@ setInterval(() => {
   const s = document.createElement('style');
   s.id = '_lp_css';
   s.textContent = `
+    @keyframes lp-save-pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
     .live-page-overlay {
       display: none;
       position: fixed; inset: 0; z-index: 5000;
@@ -5011,7 +5097,15 @@ setInterval(() => {
     }
     .lp-close-btn:hover { border-color: var(--red,#C0392B); color: var(--red,#C0392B); }
     .lp-title { flex: 1; font-size: 13px; font-weight: 900; color: var(--gold,#C9A02B); }
-    .lp-save-indicator { font-size: 11px; color: var(--muted,#666); min-width: 60px; text-align: left; }
+    .lp-save-indicator {
+      font-size: 11px; font-weight: 800; min-width: 70px; text-align: center;
+      padding: 4px 10px; border-radius: 20px; white-space: nowrap;
+      background: rgba(255,255,255,.06); color: var(--muted,#888); border: 1px solid rgba(255,255,255,.1);
+      transition: background .2s, color .2s, border-color .2s;
+    }
+    .lp-save-indicator.lp-save-saving { background: rgba(201,160,43,.12); color: #C9A02B; border-color: rgba(201,160,43,.35); animation: lp-save-pulse 1s infinite; }
+    .lp-save-indicator.lp-save-ok     { background: rgba(39,174,96,.12);  color: #27ae60; border-color: rgba(39,174,96,.35); }
+    .lp-save-indicator.lp-save-err    { background: rgba(192,57,43,.14); color: #ff6b5b; border-color: rgba(192,57,43,.4); }
 
     .lp-body {
       display: grid;
@@ -6000,8 +6094,7 @@ async function _lpSaveV2(matchId) {
   const LEAGUE_ID = window._getLeagueId ? window._getLeagueId() : '';
   if (!LEAGUE_ID) return;
 
-  const saveEl = document.getElementById('lp-save-' + matchId);
-  if (saveEl) saveEl.textContent = '⏳';
+  window._lpSetSaveState(matchId, 'saving');
 
   // اقرأ الحقول الجانبية
   function _val(id) { return document.getElementById(id + '-' + matchId)?.value || ''; }
@@ -6102,9 +6195,10 @@ async function _lpSaveV2(matchId) {
       penaltyScoreAway: st.penalties ? (st.penAwayScore != null ? st.penAwayScore : null) : null,
       updatedAt: serverTimestamp(),
     });
-    if (saveEl) { saveEl.textContent = '✅'; setTimeout(() => { if (saveEl) saveEl.textContent = ''; }, 2000); }
+    window._lpSetSaveState(matchId, 'ok');
+    setTimeout(() => { const e2 = document.getElementById('lp-save-' + matchId); if (e2 && !e2.classList.contains('lp-save-saving')) window._lpSetSaveState(matchId, 'idle'); }, 3000);
   } catch(e) {
-    if (saveEl) saveEl.textContent = '❌';
+    window._lpSetSaveState(matchId, 'err');
     window.showToast && window.showToast('خطأ في الحفظ: ' + e.message, 'error');
   }
 }
@@ -7178,7 +7272,7 @@ function injectGroupModal() {
         <div class="form-group" style="margin-top:14px">
           <label class="form-label">الأيقونة</label>
           <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:6px">
-            ${['🔵','🔴','🟡','🟢','🟣','🟠','⚪','⚫','🏆','⚽','🎯','🥊'].map(ic =>
+            ${['🔵','🟡','🟢','🟣','🟠','⚫','🏆','⚽','🎯','🥊'].map(ic =>
               `<button style="font-size:20px;padding:6px;background:var(--card3);border:1px solid var(--border);border-radius:8px;cursor:pointer"
                 onclick="document.getElementById('gmIcon').value='${ic}'">${ic}</button>`).join('')}
           </div>
@@ -9979,14 +10073,12 @@ console.log('[ROSTER PATCH] ✅ تم تحميل نظام إدارة اللاعب
     m.awayScorers = names('away');
   }
 
-  window.qrAddGoal = function(matchId, side) {
+  window.qrAddGoal = async function(matchId, side) {
     const m = _getM(matchId); if (!m) return;
     const t = side === 'home'
       ? _getT(m.homeId, m.homeName, m.homeLogo)
       : _getT(m.awayId, m.awayName, m.awayLogo);
     const teamId = side === 'home' ? m.homeId : m.awayId;
-    const team = (window.teams || []).find(x => x.id === teamId);
-    const roster = (team && Array.isArray(team.players)) ? team.players : [];
 
     document.getElementById('qrGoalOv')?.remove();
     const ov = document.createElement('div');
@@ -9997,11 +10089,11 @@ console.log('[ROSTER PATCH] ✅ تم تحميل نظام إدارة اللاعب
         <div style="font-size:15px;font-weight:900;color:#C9A02B;text-align:center">⚽ تسجيل هدف</div>
         <div style="font-size:11px;color:#888;text-align:center;margin-bottom:12px">${t.name}</div>
         <div style="font-size:10px;color:#888;margin-bottom:5px">اسم اللاعب</div>
-        <input id="qrGoalPlayer" list="qrGoalRoster" placeholder="اكتب أو اختر لاعباً"
+        <input id="qrGoalPlayer" placeholder="اكتب أو اختر لاعباً من القائمة بالأسفل"
           style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
-        <datalist id="qrGoalRoster">
-          ${roster.map(p => `<option value="${(p.name||'').replace(/"/g,'&quot;')}"></option>`).join('')}
-        </datalist>
+        <div id="qrGoalRosterBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+          <span style="font-size:11px;color:#888">جارِ تحميل قائمة لاعبي ${t.name}...</span>
+        </div>
         <div style="font-size:10px;color:#888;margin:10px 0 5px">الدقيقة</div>
         <input id="qrGoalMinute" type="number" min="1" max="130" value="1"
           style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
@@ -10015,6 +10107,13 @@ console.log('[ROSTER PATCH] ✅ تم تحميل نظام إدارة اللاعب
     document.body.appendChild(ov);
     window.bindModalDismiss(ov);
     setTimeout(() => document.getElementById('qrGoalPlayer')?.focus(), 60);
+
+    // ✅ لاعبو هذا الفريق فقط من القائمة الدائمة المسجَّلة — بدون خلط مع الفريق الآخر
+    // ✅ ونستبعد من طُرد ببطاقة حمراء بالفعل في هذه المباراة
+    const roster = teamId ? await window._loadTeamRoster(teamId) : [];
+    const excludeNames = window._redCardedNames(m.events, side);
+    const box = document.getElementById('qrGoalRosterBox');
+    if (box) box.innerHTML = window._renderRosterPickButtons(roster, 'qrGoalPlayer', excludeNames);
   };
 
   window.qrCommitGoal = function(matchId, side, teamName) {

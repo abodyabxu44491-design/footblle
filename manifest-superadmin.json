@@ -1,0 +1,24 @@
+{
+  "id": "/superadmin.html",
+  "name": "سوبر أدمن — بطولات",
+  "short_name": "سوبر أدمن",
+  "description": "لوحة تحكم السوبر أدمن: إدارة كل البطولات والاشتراكات",
+  "start_url": "./superadmin.html?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#160a20",
+  "theme_color": "#8E44AD",
+  "orientation": "portrait-primary",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    { "src": "icon-superadmin-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-superadmin-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-superadmin-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-superadmin-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "categories": ["sports", "business"],
+  "prefer_related_applications": false,
+  "edge_side_panel": { "preferred_width": 400 }
+}

@@ -2,13 +2,13 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <title>لوحة الإدارة — منصة البطولات</title>
 <meta name="theme-color" content="#080808"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="منصة البطولات"/>
-<link rel="manifest" href="manifest.json"/>
+<link rel="manifest" href="manifest-admin.json"/>
 <link rel="icon" href="icon-192.png"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet"/>
@@ -205,7 +205,7 @@ if('serviceWorker' in navigator) {
       </div>
     </div>
     <div class="tb-actions">
-      <button class="tb-btn" id="viewerBtn" onclick="openViewer()">👁 الجمهور ↗</button>
+      <button class="tb-btn" id="viewerBtn" onclick="openViewer()"><svg class="ic ic-eye" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="vertical-align:-3px;margin-left:4px"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.8"/></svg>الجمهور ↗</button>
       <button class="tb-btn danger" onclick="doLogout()">خروج</button>
     </div>
   </div>
@@ -504,6 +504,13 @@ if('serviceWorker' in navigator) {
                 <div class="form-group"><label class="form-label">نقاط الفوز</label><input class="form-input" type="number" id="setWinPts" value="3"/></div>
                 <div class="form-group"><label class="form-label">نقاط التعادل</label><input class="form-input" type="number" id="setDrawPts" value="1"/></div>
               </div>
+              <div class="form-group">
+                <label class="form-label">🏟 الملعب الافتراضي</label>
+                <input class="form-input" id="setVenue" placeholder="مثال: ملعب الحارة"/>
+                <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.7">
+                  💡 يُعبَّأ تلقائياً في خانة الملعب عند إنشاء أي مباراة جديدة — مفيد لو كل المباريات تُقام على نفس الملعب
+                </div>
+              </div>
             </div>
           </div>
 
@@ -787,21 +794,6 @@ if('serviceWorker' in navigator) {
   <!-- ⛔ شريط التنقل السفلي (الإيموجي) أُزيل — استُبدل بقائمة جانبية منظمة تدعم الجوال -->
 </div>
 
-<!-- INSTALL BANNER -->
-<div id="installBanner">
-  <div class="ib-row">
-    <div class="ib-icon">⚽</div>
-    <div class="ib-text">
-      <div class="ib-title">ثبّت دوري الحي على هاتفك</div>
-      <div class="ib-sub">وصول سريع بدون متصفح</div>
-    </div>
-  </div>
-  <div class="ib-btns">
-    <button class="ib-install" id="installBtn">📲 تثبيت</button>
-    <button class="ib-dismiss" onclick="document.getElementById('installBanner').style.display='none'">لاحقاً</button>
-  </div>
-</div>
-
 <!-- MODALS -->
 <div class="modal-overlay" id="modal-team">
   <div class="modal-box" style="max-width:480px;max-height:90vh;overflow-y:auto">
@@ -997,21 +989,6 @@ if('serviceWorker' in navigator) {
       <button class="btn btn-outline" onclick="closeModal('lvEventModal')">إلغاء</button>
       <button class="btn btn-gold" onclick="lvSaveEvent()">✓ تسجيل</button>
     </div>
-  </div>
-</div>
-
-<!-- iOS INSTALL BANNER -->
-<div id="iosBanner">
-  <div class="ios-banner-inner">
-    <button class="ios-banner-close" onclick="document.getElementById('iosBanner').classList.remove('show');sessionStorage.setItem('ios_install_dismissed','1')">✕</button>
-    <div class="ios-banner-icon">📲</div>
-    <div class="ios-banner-title">ثبّت لوحة الإدارة على جهازك</div>
-    <div class="ios-banner-steps">
-      <div class="ios-step"><span class="ios-step-num">١</span><span>اضغط زر <strong>المشاركة</strong> أسفل المتصفح</span><span class="ios-step-icon">⬆️</span></div>
-      <div class="ios-step"><span class="ios-step-num">٢</span><span>اختر <strong>إضافة إلى الشاشة الرئيسية</strong></span><span class="ios-step-icon">＋</span></div>
-      <div class="ios-step"><span class="ios-step-num">٣</span><span>اضغط <strong>إضافة</strong> للتأكيد</span><span class="ios-step-icon">✅</span></div>
-    </div>
-    <div class="ios-banner-arrow">▼</div>
   </div>
 </div>
 
@@ -2629,5 +2606,7 @@ window.openMatchLineup = function(matchId) {
 <script src="./health-check.js"></script>
 <script src="./lock-guard.js"></script>
 <script src="./clock-sync.js"></script>
+<script src="./viewport-lock.js"></script>
+<script src="./pwa-install.js"></script>
 </body>
 </html>

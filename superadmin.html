@@ -2,10 +2,10 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <title>Super Admin — منصة البطولات</title>
 <meta name="theme-color" content="#080808"/>
-<link rel="manifest" href="manifest.json"/>
+<link rel="manifest" href="manifest-superadmin.json"/>
 <link rel="icon" href="icon-192.png"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -533,23 +533,10 @@ if('serviceWorker' in navigator) {
   ══════════════════════════════════════════════════
 -->
 
-<!-- iOS INSTALL BANNER -->
-<div id="iosBanner">
-  <div class="ios-banner-inner">
-    <button class="ios-banner-close" onclick="document.getElementById('iosBanner').classList.remove('show');sessionStorage.setItem('ios_install_dismissed','1')">✕</button>
-    <div class="ios-banner-icon">📲</div>
-    <div class="ios-banner-title">ثبّت لوحة السوبر أدمن</div>
-    <div class="ios-banner-steps">
-      <div class="ios-step"><span class="ios-step-num">١</span><span>اضغط زر <strong>المشاركة</strong> أسفل المتصفح</span><span class="ios-step-icon">⬆️</span></div>
-      <div class="ios-step"><span class="ios-step-num">٢</span><span>اختر <strong>إضافة إلى الشاشة الرئيسية</strong></span><span class="ios-step-icon">＋</span></div>
-      <div class="ios-step"><span class="ios-step-num">٣</span><span>اضغط <strong>إضافة</strong> للتأكيد</span><span class="ios-step-icon">✅</span></div>
-    </div>
-    <div class="ios-banner-arrow">▼</div>
-  </div>
-</div>
-
 <!-- Firebase SDK -->
 <script type="module" src="./superadmin.js"></script>
 <script src="./handover.js"></script>
+<script src="./viewport-lock.js"></script>
+<script src="./pwa-install.js"></script>
 </body>
 </html>

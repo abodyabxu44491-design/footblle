@@ -951,4 +951,4 @@ function logoSmall(logo) {
   return `<span style="font-size:16px">${logo}</span>`;
 }
 
-console.log('✅ Admin Lineup Drag & Drop loaded');
+// console.log('✅ Admin Lineup Drag & Drop loaded');

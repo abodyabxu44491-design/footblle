@@ -173,7 +173,7 @@
     }
     window._amtRender = render;
     render();
-    console.log('[admin-matches-tabs] ✅ تبويبات الإدارة مفعّلة');
+    // console.log('[admin-matches-tabs] ✅ تبويبات الإدارة مفعّلة');
   }
   hook();
 })();

@@ -6457,7 +6457,7 @@ window._liveSystemV2 = {
   getPeriodText:  _getPeriodText,
 };
 
-console.log('[LIVE V2] ✅ نظام البث الرسمي المتكامل — تم التحميل');
+// console.log('[LIVE V2] ✅ نظام البث الرسمي المتكامل — تم التحميل');
 
 
 
@@ -8537,7 +8537,7 @@ window.enterApp = function () {
   // النوع الحقيقي سيُطبَّق في applySettings بعد قراءة Firestore
 };
 
-console.log('[AdminGroupsPatch] ✅ Groups & Knockout management engine loaded');
+// console.log('[AdminGroupsPatch] ✅ Groups & Knockout management engine loaded');
 
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -9334,7 +9334,7 @@ console.log('[AdminGroupsPatch] ✅ Groups & Knockout management engine loaded')
     setTimeout(init, 800);
   };
 
-  console.log('[DnD Groups] ✅ Drag & Drop engine loaded');
+  // console.log('[DnD Groups] ✅ Drag & Drop engine loaded');
 })();
 // ══════════════════════════════════════════════════════════════
 // LINEUP PATCH — إدارة التشكيلات من لوحة التحكم
@@ -9809,7 +9809,7 @@ window.importRosterToLineup = function(teamId) {
   showToast(`✅ تم استيراد ${players.length} لاعب — اختر التشكيل وأكمل`, 'success');
 };
 
-console.log('[ROSTER PATCH] ✅ تم تحميل نظام إدارة اللاعبين');
+// console.log('[ROSTER PATCH] ✅ تم تحميل نظام إدارة اللاعبين');
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -10488,6 +10488,6 @@ console.log('[ROSTER PATCH] ✅ تم تحميل نظام إدارة اللاعب
     injectCSS();
   }
 
-  console.log('[CARDS V2] ✅ نظام البطاقات v2 — تم التحميل');
+  // console.log('[CARDS V2] ✅ نظام البطاقات v2 — تم التحميل');
 
 })();

@@ -186,5 +186,5 @@
     hide();
   };
 
-  console.log('[groups-gate] ✅ بوابة المجموعات جاهزة');
+  // console.log('[groups-gate] ✅ بوابة المجموعات جاهزة');
 })();

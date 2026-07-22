@@ -64,6 +64,6 @@
   (function attempt() {
     wrap();
     if (++tries < 8) { setTimeout(attempt, 400); return; }
-    console.log('[lock-guard] حارس القفل مفعّل');
+    // console.log('[lock-guard] حارس القفل مفعّل');
   })();
 })();

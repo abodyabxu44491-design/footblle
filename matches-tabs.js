@@ -164,7 +164,7 @@
     }
     window._mtRender = render;   // renderMatches تستدعيها في أول سطر
     render();
-    console.log('[matches-tabs] ✅ التبويبات مفعّلة');
+    // console.log('[matches-tabs] ✅ التبويبات مفعّلة');
   }
   hook();
 })();

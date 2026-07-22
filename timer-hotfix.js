@@ -27,7 +27,7 @@
     if (!window._LP_SESSION) {
       window._LP_SESSION = 'lp_' + Math.random().toString(36).slice(2, 10) +
                            '_' + Date.now().toString(36);
-      console.log('[timer-hotfix] session =', window._LP_SESSION);
+      // console.log('[timer-hotfix] session =', window._LP_SESSION);
     }
 
     /* نبني نسخة "غير متوقفة" لقراءة الثواني الحقيقية قبل التجميد */
@@ -116,6 +116,6 @@
     window.addEventListener('focus', repaintAll);
     window.addEventListener('pageshow', repaintAll);
 
-    console.log('[timer-hotfix] ✅ FIX 2 (auto-end) · FIX 3 (timerRunning) · FIX 6 (extra=0) · FIX 9 (تعدد الأدمن) · FIX 10 (خنق التبويب)');
+    // console.log('[timer-hotfix] ✅ FIX 2 (auto-end) · FIX 3 (timerRunning) · FIX 6 (extra=0) · FIX 9 (تعدد الأدمن) · FIX 10 (خنق التبويب)');
   });
 })();

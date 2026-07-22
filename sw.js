@@ -1,14 +1,13 @@
 // ══ Service Worker — منصة بطولات ══
 /* ⚠️ ارفع هذا الرقم مع كل نشر، وإلا خدم الـ SW نسخة قديمة من
    admin.js / TimerCore فتنكسر الاستبدالات وتعود أخطاء الساعة. */
-const VERSION = 'batolat-v39';
+const VERSION = 'batolat-v41';
 
 // أهم ملفات صفحة الجمهور فقط (offline يخص الجمهور بشكل أساسي)
 const SHELL = [
   './',
   './league-viewer.html',
   './viewer.css',
-  './timer-core.js',
   './viewer.js',
   './all-fixes.js',
   './timer-hotfix.js',

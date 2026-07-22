@@ -58,7 +58,7 @@
     // احتفظ بمنفذ للرسم الفوري عند الحاجة
     window._renderNow = real;
 
-    console.log('[viewer-perf] الرسم مُدمَج ومتوقّف في الخلفية');
+    // console.log('[viewer-perf] الرسم مُدمَج ومتوقّف في الخلفية');
   }
   hook();
 

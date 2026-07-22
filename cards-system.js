@@ -1609,7 +1609,7 @@
       };
     }
     window.renderCards = function() { upgradeCardsPageHTML(); renderCardsPage(); };
-    console.log('[cards-system] ✅ v4 — هوية موحدة جاهزة');
+    // console.log('[cards-system] ✅ v4 — هوية موحدة جاهزة');
   }
 
   if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }

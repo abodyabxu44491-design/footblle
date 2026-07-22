@@ -129,6 +129,6 @@
       };
     }
 
-    console.log('[tiebreak-rules] ✅ قواعد الحسم مفعّلة');
+    // console.log('[tiebreak-rules] ✅ قواعد الحسم مفعّلة');
   });
 })();

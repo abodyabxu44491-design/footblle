@@ -1,4 +1,5 @@
 :root {
+  --topbar-h: calc(62px + env(safe-area-inset-top, 0px));
   --gold: #C9A02B;
   --gold2: #E8BE45;
   --gold3: #6B4E00;
@@ -213,8 +214,8 @@ body::after {
   background: rgba(4, 4, 4, .97);
   
   border-bottom: 1px solid var(--border);
-  padding: 0 20px;
-  height: 62px;
+  padding: env(safe-area-inset-top, 0px) 20px 0;
+  height: var(--topbar-h);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -303,7 +304,7 @@ body::after {
 /* SIDEBAR */
 .layout {
   display: flex;
-  min-height: calc(100vh - 62px);
+  min-height: calc(100vh - var(--topbar-h));
 }
 
 .sidebar {
@@ -313,8 +314,8 @@ body::after {
   border-left: 1px solid var(--border);
   padding: 20px 0;
   position: sticky;
-  top: 62px;
-  height: calc(100vh - 62px);
+  top: var(--topbar-h);
+  height: calc(100vh - var(--topbar-h));
   overflow-y: auto;
 }
 

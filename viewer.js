@@ -45,6 +45,29 @@ const params   = new URLSearchParams(location.search);
 const LEAGUE_ID = params.get('id') || '';
 const SITE_URL  = location.origin + location.pathname.replace(/\/[^/]*$/, '/');
 
+// ══ حماية من حقن HTML في بيانات المنظّم (XSS) ══
+// أسماء الفرق/اللاعبين/البطولة تُعرض عبر innerHTML في عشرات المواضع.
+// بدل تعديل كل موضع، نُصفّي الحقول النصية عند مصدرها (لحظة القراءة من
+// Firestore). نُزيل أقواس الوسوم فقط — يبقى النص طبيعياً ولا يُنفَّذ كـ HTML.
+function _stripTags(v) {
+  return typeof v === 'string' ? v.replace(/[<>]/g, '') : v;
+}
+// حقول نصية يكتبها المنظّم وقد تُعرض كـ HTML
+const _TEXT_FIELDS = ['name', 'shortName', 'coach', 'stadium', 'city',
+  'group', 'title', 'label', 'note', 'notes', 'scorer', 'player',
+  'playerName', 'assist', 'reason', 'season'];
+function _sanitizeDoc(o) {
+  if (!o || typeof o !== 'object') return o;
+  _TEXT_FIELDS.forEach(k => { if (k in o) o[k] = _stripTags(o[k]); });
+  // اللاعبون داخل الفريق (roster) وأحداث المباراة
+  if (Array.isArray(o.roster)) o.roster.forEach(_sanitizeDoc);
+  if (Array.isArray(o.players)) o.players.forEach(_sanitizeDoc);
+  if (Array.isArray(o.scorers)) o.scorers.forEach(_sanitizeDoc);
+  if (Array.isArray(o.events)) o.events.forEach(_sanitizeDoc);
+  return o;
+}
+window._sanitizeDoc = _sanitizeDoc;
+
 let league   = null;
 let teams    = [];
 let matches  = [];
@@ -180,7 +203,7 @@ async function init() {
   ]);
 
   if(!leagueDoc.exists()) { showError('البطولة غير موجودة'); return; }
-  league = {id: leagueDoc.id, ...leagueDoc.data()};
+  league = _sanitizeDoc({id: leagueDoc.id, ...leagueDoc.data()});
 
   if(league.status === 'suspended') { showError('البطولة موقوفة مؤقتاً','هذه البطولة موقوفة حالياً. تابعنا لاحقاً.'); return; }
 
@@ -205,26 +228,26 @@ async function init() {
   const checkHide = () => { if(teamsLoaded && matchesLoaded) hideLoader(); };
 
   onSnapshot(collection(db,'leagues',LEAGUE_ID,'teams'), snap => {
-    teams = snap.docs.map(d=>({id:d.id,...d.data()}));
+    teams = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()}));
     teamsLoaded = true; window.renderAll(); checkHide();
   }, () => { teamsLoaded = true; checkHide(); });
 
   onSnapshot(
     query(collection(db,'leagues',LEAGUE_ID,'matches'), orderBy('round'), orderBy('date')),
     snap => {
-      matches = snap.docs.map(d=>({id:d.id,...d.data()}));
+      matches = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()}));
       matches.sort((a,b)=>(a.round||0)-(b.round||0)||(a.date||'').localeCompare(b.date||''));
       matchesLoaded = true; window.renderAll(); checkHide();
     }, () => { matchesLoaded = true; checkHide(); }
   );
 
   onSnapshot(collection(db,'leagues',LEAGUE_ID,'groups'), snap => {
-    groups = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));
+    groups = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));
     if(tournamentType==='groups') window.renderAll();
   }, ()=>{});
 
   onSnapshot(collection(db,'leagues',LEAGUE_ID,'knockoutRounds'), snap => {
-    knockoutRounds = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));
+    knockoutRounds = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));
     if(tournamentType==='knockout'||tournamentType==='groups') window.renderAll();
   }, ()=>{});
 
@@ -2622,7 +2645,7 @@ async function subscribeFCM() {
         token, platform: navigator.userAgent.includes('Mobile') ? 'mobile' : 'web',
         createdAt: _sts(), leagueId: LEAGUE_ID
       });
-      console.log('[PUSH] Token saved ✅');
+      // console.log('[PUSH] Token saved ✅');
     }
   } catch(e) {
     console.warn('[PUSH] FCM subscribe error:', e);
@@ -3722,4 +3745,4 @@ window._calcMatchSecs     = _calcMatchSecs;
 window._startDetailClock2 = _startDetailClock2;
 window._buildUnifiedStatsHtml = _buildUnifiedStatsHtml;
 
-console.log('[VIEWER V3] ✅ النظام الموحّد النهائي — بدون بنرات أو تكرار');
+// console.log('[VIEWER V3] ✅ النظام الموحّد النهائي — بدون بنرات أو تكرار');

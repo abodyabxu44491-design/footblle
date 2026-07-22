@@ -107,5 +107,5 @@
     setTimeout(wait, 300);
   })();
 
-  console.log('[league-logo] ✅ جاهز');
+  // console.log('[league-logo] ✅ جاهز');
 })();

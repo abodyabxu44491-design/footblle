@@ -196,5 +196,5 @@
     window.open(url, '_blank');
   };
 
-  console.log('[handover] جاهز');
+  // console.log('[handover] جاهز');
 })();

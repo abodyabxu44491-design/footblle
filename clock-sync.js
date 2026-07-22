@@ -55,8 +55,8 @@
       // تجاهل الانحراف التافه (<2s) — رأس Date دقته ثانية
       var skew = Math.abs(best.skew) < 2000 ? 0 : best.skew;
       window.TimerCore.setSkew(skew);
-      console.log('[clock-sync] skew =', Math.round(skew) + 'ms',
-                  '| rtt =', Math.round(best.rtt) + 'ms');
+      // console.log('[clock-sync] skew =', Math.round(skew) + 'ms',
+      //             '| rtt =', Math.round(best.rtt) + 'ms');
     });
   }
 

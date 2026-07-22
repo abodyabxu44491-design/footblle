@@ -508,5 +508,5 @@
     }
   };
 
-  console.log('[match-share-card] جاهز');
+  // console.log('[match-share-card] جاهز');
 })();

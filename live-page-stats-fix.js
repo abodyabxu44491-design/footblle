@@ -491,7 +491,7 @@ function run() {
     var mid = el.id.replace(/^lp-/, '');
     if (mid) applyToPage(mid);
   });
-  console.log('[live-page-stats-fix v3] ✅');
+  // console.log('[live-page-stats-fix v3] ✅');
 }
 
 function waitAndRun() {

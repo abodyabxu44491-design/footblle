@@ -214,5 +214,5 @@
     '</div>';
   };
 
-  console.log('[health-check] جاهز');
+  // console.log('[health-check] جاهز');
 })();

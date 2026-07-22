@@ -84,7 +84,7 @@
           const tiebreakCard = document.getElementById('tiebreakCard');
           if (tiebreakCard) tiebreakCard.style.display = (type === 'league') ? '' : 'none';
 
-          console.log('[FIX-2] ✅ UI مُكيَّف لنوع البطولة:', type);
+          // console.log('[FIX-2] ✅ UI مُكيَّف لنوع البطولة:', type);
         };
 
         // طبّق فوراً إذا كان النوع موجوداً
@@ -263,7 +263,7 @@
 
         // أعِد الرندر فوراً
         if (typeof window.renderGroupsAdmin === 'function') window.renderGroupsAdmin();
-        console.log('[FIX-3] ✅ renderGroupsAdmin مُحدَّث مع حساب النقاط');
+        // console.log('[FIX-3] ✅ renderGroupsAdmin مُحدَّث مع حساب النقاط');
       }
     );
   }
@@ -297,7 +297,7 @@
             if (mnScorers) mnScorers.style.display  = '';
           };
         }
-        console.log('[FIX-4] ✅ الهدافون ظاهرون في جميع الأنظمة');
+        // console.log('[FIX-4] ✅ الهدافون ظاهرون في جميع الأنظمة');
       }
     );
   }
@@ -425,7 +425,7 @@
           }).join('');
         };
 
-        console.log('[FIX-5/8] ✅ التأهل يدوي فقط في صفحة الجمهور');
+        // console.log('[FIX-5/8] ✅ التأهل يدوي فقط في صفحة الجمهور');
       }
     );
   }
@@ -494,7 +494,7 @@
         // طبّق فوراً
         setTimeout(_hideStandingsElements, 300);
         setTimeout(_hideStandingsElements, 1000);
-        console.log('[FIX-6] ✅ إخفاء Standings في المجموعات/الإقصاء');
+        // console.log('[FIX-6] ✅ إخفاء Standings في المجموعات/الإقصاء');
       }
     );
   }
@@ -508,7 +508,7 @@
       function() {
         // الهدافون موجودون بالفعل في جميع أنواع التنقل
         // ⛔ أُزيل — نُقل إلى scorers-core.js (مفتاح الهوية بدل الاسم)
-        console.log('[FIX-7] ✅ الهدافون في جميع الأنظمة');
+        // console.log('[FIX-7] ✅ الهدافون في جميع الأنظمة');
       }
     );
   }
@@ -541,7 +541,7 @@
             return _origRenderStandings();
           };
         }
-        console.log('[FIX-DASH] ✅ لوحة التحكم مُكيَّفة للمجموعات');
+        // console.log('[FIX-DASH] ✅ لوحة التحكم مُكيَّفة للمجموعات');
       }
     );
   }
@@ -564,6 +564,6 @@
     });
   }
 
-  console.log('[all-fixes.js] ✅ تم تحميل الإصلاحات الشاملة');
+  // console.log('[all-fixes.js] ✅ تم تحميل الإصلاحات الشاملة');
 
 })();

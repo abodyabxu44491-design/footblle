@@ -1,7 +1,7 @@
 // ══ Service Worker — منصة بطولات ══
 /* ⚠️ ارفع هذا الرقم مع كل نشر، وإلا خدم الـ SW نسخة قديمة من
    admin.js / TimerCore فتنكسر الاستبدالات وتعود أخطاء الساعة. */
-const VERSION = 'batolat-v43';
+const VERSION = 'batolat-v51';
 
 // أهم ملفات صفحة الجمهور فقط (offline يخص الجمهور بشكل أساسي)
 const SHELL = [
@@ -90,7 +90,14 @@ async function networkFirst(request) {
   } catch {
     const cached = await caches.match(request);
     if (cached) return cached;
-    if (request.destination === 'document') return caches.match('./offline.html');
+    // مستند بمعاملات (?id=...) قد لا يطابق النسخة المخزّنة — جرّب المسار الأساسي
+    if (request.destination === 'document') {
+      const u = new URL(request.url);
+      const base = u.pathname; // بلا query
+      const byPath = await caches.match(base) || await caches.match('./league-viewer.html');
+      if (byPath) return byPath;
+      return caches.match('./offline.html');
+    }
     return new Response('', { status: 408 });
   }
 }

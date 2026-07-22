@@ -68,13 +68,13 @@ if('serviceWorker' in navigator) {
       </div>
       <div class="sb-sect">
         <div class="sb-lbl">الإدارة</div>
-        <div class="sb-item" onclick="showPage('new-league',this)"><span class="sb-icon">➕</span>إنشاء بطولة</div>
+        <div class="sb-item" onclick="showPage('new-league',this)"><span class="sb-icon">➕︎</span>إنشاء بطولة</div>
         <div class="sb-item" onclick="showPage('users',this)"><span class="sb-icon">👥</span>المستخدمون<span class="sb-badge bg-gold" id="usersBadge">0</span></div>
         <div class="sb-item" onclick="showPage('analytics',this)"><span class="sb-icon">📈</span>الإحصائيات</div>
       </div>
       <div class="sb-sect">
         <div class="sb-lbl">الإعدادات</div>
-        <div class="sb-item" onclick="showPage('platform',this)"><span class="sb-icon">⚙️</span>إعدادات المنصة</div>
+        <div class="sb-item" onclick="showPage('platform',this)"><span class="sb-icon">⚙︎️</span>إعدادات المنصة</div>
         <div class="sb-item" onclick="showPage('security',this)"><span class="sb-icon">🔒</span>الأمان</div>
       </div>
     </div>
@@ -133,7 +133,7 @@ if('serviceWorker' in navigator) {
           <div class="ph-title" style="display:flex;align-items:center;gap:8px"><img src="icon-192.png" style="width:22px;height:22px;object-fit:contain;border-radius:5px" alt=""/> إدارة البطولات</div>
           <div class="ph-sub" id="leaguesCount">جاري التحميل...</div>
           <div class="ph-actions">
-            <button class="btn btn-gold" onclick="showPage('new-league',null)">➕ بطولة جديدة</button>
+            <button class="btn btn-gold" onclick="showPage('new-league',null)">➕︎ بطولة جديدة</button>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <button class="btn btn-outline btn-sm filter-btn active" onclick="filterLeagues('all',this)">الكل</button>
               <button class="btn btn-outline btn-sm filter-btn" onclick="filterLeagues('active',this)">🟢 نشطة</button>
@@ -151,7 +151,7 @@ if('serviceWorker' in navigator) {
           <div class="ph-title">💳 إدارة الاشتراكات</div>
           <div class="ph-sub">تحكم كامل في خطط الاشتراك والمدفوعات</div>
           <div class="ph-actions">
-            <button class="btn btn-gold" onclick="openModal('modal-new-sub')">➕ اشتراك جديد</button>
+            <button class="btn btn-gold" onclick="openModal('modal-new-sub')">➕︎ اشتراك جديد</button>
           </div>
         </div>
         <div class="sub-summary-grid" style="margin-bottom:20px">
@@ -191,7 +191,7 @@ if('serviceWorker' in navigator) {
       <!-- ══ NEW LEAGUE ══ -->
       <div class="section" id="page-new-league">
         <div class="ph">
-          <div class="ph-title">➕ إنشاء بطولة جديدة</div>
+          <div class="ph-title">➕︎ إنشاء بطولة جديدة</div>
           <div class="ph-sub">أنشئ بطولة وأرسل الروابط وبيانات الدخول لصاحبها</div>
         </div>
 
@@ -235,7 +235,7 @@ if('serviceWorker' in navigator) {
               <div class="dur-card" onclick="selectDuration(this,3,'nl')"><div class="dur-icon">📅</div><div class="dur-name">3 أشهر</div><div class="dur-sub">ربع سنوي</div></div>
               <div class="dur-card" onclick="selectDuration(this,6,'nl')"><div class="dur-icon">📅</div><div class="dur-name">6 أشهر</div><div class="dur-sub">نصف سنوي</div></div>
               <div class="dur-card" onclick="selectDuration(this,12,'nl')"><div class="dur-icon">🗓</div><div class="dur-name">سنة</div><div class="dur-sub">12 شهر</div></div>
-              <div class="dur-card" onclick="selectDuration(this,0,'nl')"><div class="dur-icon">✏️</div><div class="dur-name">مخصص</div><div class="dur-sub">تاريخ يدوي</div></div>
+              <div class="dur-card" onclick="selectDuration(this,0,'nl')"><div class="dur-icon">✏︎️</div><div class="dur-name">مخصص</div><div class="dur-sub">تاريخ يدوي</div></div>
             </div>
             <div class="frow" style="margin-top:14px">
               <div class="fg"><label>تاريخ البداية</label><input class="fi" type="date" id="nl_start" oninput="recalcDuration('nl')"/></div>
@@ -257,7 +257,7 @@ if('serviceWorker' in navigator) {
               </div>
             </div>
             <div>
-              <div style="font-size:10px;color:#5ba8d6;font-weight:700;margin-bottom:5px;letter-spacing:1px">⚙️ رابط الإدارة</div>
+              <div style="font-size:10px;color:#5ba8d6;font-weight:700;margin-bottom:5px;letter-spacing:1px">⚙︎️ رابط الإدارة</div>
               <div style="display:flex;gap:8px;align-items:center">
                 <div style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;font-size:12px;font-family:monospace" id="nl_admin_url">league-admin.html?id=<span id="nl_slug_preview2">rowda</span></div>
                 <button class="btn btn-blue btn-sm" onclick="copyText('nl_admin_url')">📋</button>
@@ -329,7 +329,7 @@ if('serviceWorker' in navigator) {
       <!-- ══ PLATFORM SETTINGS ══ -->
       <div class="section" id="page-platform">
         <div class="ph">
-          <div class="ph-title">⚙️ إعدادات المنصة</div>
+          <div class="ph-title">⚙︎️ إعدادات المنصة</div>
           <div class="ph-sub">إعدادات عامة تؤثر على كل البطولات</div>
         </div>
         <div style="display:grid;gap:14px">
@@ -385,11 +385,11 @@ if('serviceWorker' in navigator) {
   <nav class="mob-nav">
     <button class="mn-item active" onclick="showPage('overview',null,this)"><span style="font-size:19px">📊</span>الرئيسية</button>
     <button class="mn-item" onclick="showPage('leagues',null,this)"><img src="icon-192.png" style="width:22px;height:22px;object-fit:contain;border-radius:5px" alt=""/>البطولات</button>
-    <button class="mn-item" onclick="showPage('new-league',null,this)"><span style="font-size:19px">➕</span>جديدة</button>
+    <button class="mn-item" onclick="showPage('new-league',null,this)"><span style="font-size:19px">➕︎</span>جديدة</button>
     <button class="mn-item" onclick="showPage('subs',null,this)"><span style="font-size:19px">💳</span>اشتراكات</button>
     <button class="mn-item" onclick="showPage('users',null,this)"><span style="font-size:19px">👥</span>المستخدمون</button>
     <button class="mn-item" onclick="showPage('analytics',null,this)"><span style="font-size:19px">📈</span>إحصائيات</button>
-    <button class="mn-item" onclick="showPage('platform',null,this)"><span style="font-size:19px">⚙️</span>إعدادات</button>
+    <button class="mn-item" onclick="showPage('platform',null,this)"><span style="font-size:19px">⚙︎️</span>إعدادات</button>
     <button class="mn-item" onclick="showPage('security',null,this)"><span style="font-size:19px">🔒</span>الأمان</button>
   </nav>
 </div>
@@ -410,7 +410,7 @@ if('serviceWorker' in navigator) {
           <div class="dur-card" onclick="selectDuration(this,3,'sub')"><div class="dur-icon">📅</div><div class="dur-name">3 أشهر</div><div class="dur-sub">ربع سنوي</div></div>
           <div class="dur-card" onclick="selectDuration(this,6,'sub')"><div class="dur-icon">📅</div><div class="dur-name">6 أشهر</div><div class="dur-sub">نصف سنوي</div></div>
           <div class="dur-card" onclick="selectDuration(this,12,'sub')"><div class="dur-icon">🗓</div><div class="dur-name">سنة</div><div class="dur-sub">12 شهر</div></div>
-          <div class="dur-card" onclick="selectDuration(this,0,'sub')"><div class="dur-icon">✏️</div><div class="dur-name">مخصص</div><div class="dur-sub">تاريخ يدوي</div></div>
+          <div class="dur-card" onclick="selectDuration(this,0,'sub')"><div class="dur-icon">✏︎️</div><div class="dur-name">مخصص</div><div class="dur-sub">تاريخ يدوي</div></div>
         </div>
       </div>
       <div class="frow">
@@ -436,7 +436,7 @@ if('serviceWorker' in navigator) {
           <div class="dur-card" onclick="selectDuration(this,3,'renew')"><div class="dur-icon">📅</div><div class="dur-name">3 أشهر</div><div class="dur-sub">ربع سنوي</div></div>
           <div class="dur-card" onclick="selectDuration(this,6,'renew')"><div class="dur-icon">📅</div><div class="dur-name">6 أشهر</div><div class="dur-sub">نصف سنوي</div></div>
           <div class="dur-card" onclick="selectDuration(this,12,'renew')"><div class="dur-icon">🗓</div><div class="dur-name">سنة</div><div class="dur-sub">12 شهر</div></div>
-          <div class="dur-card" onclick="selectDuration(this,0,'renew')"><div class="dur-icon">✏️</div><div class="dur-name">مخصص</div><div class="dur-sub">تاريخ يدوي</div></div>
+          <div class="dur-card" onclick="selectDuration(this,0,'renew')"><div class="dur-icon">✏︎️</div><div class="dur-name">مخصص</div><div class="dur-sub">تاريخ يدوي</div></div>
         </div>
       </div>
       <div class="frow">

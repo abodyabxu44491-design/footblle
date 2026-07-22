@@ -18,6 +18,7 @@ let _ddPlayers  = [];     // [{id, name, number, position, status, x, y}]
 let _ddFormation = '4-3-3';
 let _ddHomeData = null;
 let _ddAwayData = null;
+let _ddShowBench = true; // هل تظهر الدكة للجمهور؟ (يُحفظ داخل التشكيلة)
 let _dragTarget = null;   // اللاعب الذي يُسحب
 let _dragOffX   = 0;
 let _dragOffY   = 0;
@@ -339,6 +340,11 @@ const DD_PITCH_SVGS = {
       cursor:pointer;transition:opacity .2s;
     }
     .dd-save-btn:active { opacity:.8 }
+    .dd-bench-toggle{ padding:9px 12px; border-radius:10px; border:1px solid var(--border2,#2a2a2a);
+      background:var(--card2,#1a1a1a); color:var(--muted,#888); font-family:Tajawal,sans-serif;
+      font-weight:800; font-size:11.5px; cursor:pointer; transition:.15s }
+    .dd-bench-toggle.dd-bench-on{ border-color:rgba(39,174,96,.4); background:rgba(39,174,96,.12); color:#2ecc71 }
+    .dd-bench-toggle:active{ opacity:.8 }
     .dd-cancel-btn {
       padding:14px 18px;background:#14161b;
       border:1px solid #262a34;color:#9aa0b0;
@@ -376,6 +382,9 @@ window.openLineupDragDrop = function(matchId) {
     ? JSON.parse(JSON.stringify(m.awayLineup))
     : { formation: null, players: [] };
 
+  // حالة إظهار الدكة: من التشكيلة المحفوظة (افتراضياً تظهر)
+  _ddShowBench = (m.homeLineup && m.homeLineup.showBench === false) ? false : true;
+
   const ht = (typeof teams !== 'undefined' ? teams.find(t => t.id === m.homeId) : null)
           || { name: m.homeName || 'المضيف', logo: '⚽' };
   const at = (typeof teams !== 'undefined' ? teams.find(t => t.id === m.awayId) : null)
@@ -407,6 +416,9 @@ window.openLineupDragDrop = function(matchId) {
       </div>
       <div id="ddBody"></div>
       <div class="dd-footer">
+        <button class="dd-bench-toggle" id="ddBenchToggle" onclick="ddToggleBench()">
+          <span id="ddBenchToggleTxt">🪑 إظهار البدلاء للجمهور: —</span>
+        </button>
         <button class="dd-save-btn" onclick="ddSaveToFirebase()">💾 حفظ للجمهور</button>
         <button class="dd-cancel-btn" onclick="closeLineupDragDrop()">إلغاء</button>
       </div>
@@ -417,6 +429,7 @@ window.openLineupDragDrop = function(matchId) {
   _ddRosterHome = (window._teamRosters && window._teamRosters[m.homeId]) || [];
   _ddRosterAway = (window._teamRosters && window._teamRosters[m.awayId]) || [];
   ddRenderBody();
+  ddUpdateBenchToggle();
   if (typeof window._loadTeamRoster === 'function') {
     Promise.all([
       window._loadTeamRoster(m.homeId),
@@ -881,6 +894,20 @@ function ddAttachPitchEvents() {
 }
 
 // ══ حفظ في Firebase ══
+// ── تبديل إظهار الدكة للجمهور ──
+window.ddToggleBench = function() {
+  _ddShowBench = !_ddShowBench;
+  ddUpdateBenchToggle();
+};
+function ddUpdateBenchToggle() {
+  const txt = document.getElementById('ddBenchToggleTxt');
+  const btn = document.getElementById('ddBenchToggle');
+  if (txt) txt.textContent = _ddShowBench
+    ? '🪑 إظهار البدلاء للجمهور: نعم'
+    : '🪑 إظهار البدلاء للجمهور: لا';
+  if (btn) btn.classList.toggle('dd-bench-on', _ddShowBench);
+}
+
 window.ddSaveToFirebase = async function() {
   if(!_ddMatchId) return;
   ddReadCurrentInputs();
@@ -898,6 +925,7 @@ window.ddSaveToFirebase = async function() {
     return {
       formation: data.formation || _ddFormation,
       playerCount: targetCount,
+      showBench: _ddShowBench,
       players: [...starters, ...subs].map(p => ({
         name:     p.name     || '',
         number:   p.number   || '',

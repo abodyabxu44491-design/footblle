@@ -20,7 +20,7 @@ const auth = getAuth(app);
 
 // ══ STATE ══
 const SITE_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/');
-/* ✅ تصدير — superadmin.js موديول، فـ SITE_URL غير مرئية لـ inline onclick.
+/* ✅︎ تصدير — superadmin.js موديول، فـ SITE_URL غير مرئية لـ inline onclick.
    كانت أزرار «الجمهور/الإدارة» على البطاقة ترمي ReferenceError صامتاً
    ولا تفعل شيئاً، بينما أزرار نافذة «إجراءات» تعمل لأنها نصوص حرفية. */
 window.SITE_URL = SITE_URL;
@@ -269,8 +269,8 @@ function renderLeagues(filter = 'all') {
           <div class="lc-stat"><div class="lc-stat-n" style="font-size:11px">${leagueSubDaysLabel(l.id)}</div><div class="lc-stat-l">الاشتراك</div></div>
         </div>
         <div class="lc-links">
-          <span class="link-pill lp-viewer" onclick="openLeagueViewer('${l.id}')">الجمهور ↗</span>
-          <span class="link-pill lp-admin" onclick="openLeagueAdmin('${l.id}')">الإدارة ↗</span>
+          <span class="link-pill lp-viewer" onclick="openLeagueViewer('${l.id}')">الجمهور ↗︎</span>
+          <span class="link-pill lp-admin" onclick="openLeagueAdmin('${l.id}')">الإدارة ↗︎</span>
         </div>
       </div>
       <div class="lc-footer">
@@ -313,7 +313,7 @@ window.leagueActions = function(id) {
   const subInfo = sub ? `${durationLabel(sub.startDate, sub.endDate)} · ينتهي ${sub.endDate || '—'}` : '⚠️ لا يوجد اشتراك';
   const subColor = sub ? (sub.status === 'active' ? 'var(--green)' : 'var(--red)') : 'var(--orange)';
   const buttonLabel = sub ? (sub.status === 'active' ? 'مباشر' : 'موقوف') : 'غير مشترك';
-  document.getElementById('mal-title').textContent = '⚙️ ' + l.name;
+  document.getElementById('mal-title').textContent = '⚙︎️ ' + l.name;
   document.getElementById('mal-body').innerHTML = `
     <div style="display:grid;gap:10px">
       <div style="background:var(--card2);border-radius:10px;padding:12px 14px;font-size:11px;color:var(--muted2);line-height:1.9">
@@ -324,8 +324,8 @@ window.leagueActions = function(id) {
         <div>💳 الاشتراك: <strong style="color:${subColor}">${subInfo}</strong></div>
         <div>🔒 الحالة: <strong style="color:${l.locked ? 'var(--red)' : 'var(--green)'}">${l.locked ? 'مقفول' : 'مفتوح'}</strong></div>
       </div>
-      <button class="btn btn-green" style="width:100%;justify-content:center" onclick="window.open('league-viewer.html?id=${l.id}','_blank')">👁 فتح صفحة الجمهور ↗</button>
-      <button class="btn btn-blue" style="width:100%;justify-content:center" onclick="window.open('league-admin.html?id=${l.id}','_blank')">⚙️ فتح لوحة الإدارة ↗</button>
+      <button class="btn btn-green" style="width:100%;justify-content:center" onclick="window.open('league-viewer.html?id=${l.id}','_blank')">👁 فتح صفحة الجمهور ↗︎</button>
+      <button class="btn btn-blue" style="width:100%;justify-content:center" onclick="window.open('league-admin.html?id=${l.id}','_blank')">⚙︎️ فتح لوحة الإدارة ↗︎</button>
       <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="copyStr('league-viewer.html?id=${l.id}')">📋 نسخ رابط الجمهور</button>
       <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="hoOpen('${l.id}')">صفحة التسليم — عرض / طباعة</button>
       <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="hoWA('${l.id}')">إرسال الروابط واتساب</button>
@@ -381,7 +381,7 @@ function renderActiveQuick() {
         </div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
-        <button class="btn btn-outline btn-xs" onclick="window.open('league-admin.html?id=${l.id}','_blank')">إدارة ↗</button>
+        <button class="btn btn-outline btn-xs" onclick="window.open('league-admin.html?id=${l.id}','_blank')">إدارة ↗︎</button>
       </div>
     </div>
   `).join('');
@@ -396,7 +396,7 @@ function renderExpiringOverview() {
     return diff > 0 && diff <= 14;
   });
   if(soon.length === 0) {
-    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--green);font-size:12px">✅ لا توجد اشتراكات تنتهي قريباً</div>';
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--green);font-size:12px">✅︎ لا توجد اشتراكات تنتهي قريباً</div>';
     return;
   }
   el.innerHTML = soon.map(s => {
@@ -419,7 +419,7 @@ function renderExpiringOverview() {
 function renderSubs() {
   const tbody = document.getElementById('subsTable');
   if (!tbody) return;
-  // ✅ المصدر الوحيد للحالة: subStatus() — كانت مكررة بمنطق مختلف
+  // ✅︎ المصدر الوحيد للحالة: subStatus() — كانت مكررة بمنطق مختلف
   const META = {
     active:    ['exp-ok',      'نشط'],
     soon:      ['exp-soon',    'تنتهي قريباً'],
@@ -630,7 +630,7 @@ window.createLeague = async function() {
   const ownerEmail = document.getElementById('nl_email')?.value.trim()  || '';
   const ownerPass  = document.getElementById('nl_pass')?.value          || '';
   const phone      = document.getElementById('nl_phone')?.value.trim()  || '';
-  // ✅ نوع البطولة لا يُحدَّد هنا — صاحب الدوري يختاره من المعالج عند أول دخول ويُقفل هناك
+  // ✅︎ نوع البطولة لا يُحدَّد هنا — صاحب الدوري يختاره من المعالج عند أول دخول ويُقفل هناك
   const season     = document.getElementById('nl_season')?.value        || '2025';
   const startDate  = document.getElementById('nl_start')?.value         || '';
   const endDate    = document.getElementById('nl_end')?.value           || '';
@@ -670,10 +670,10 @@ window.createLeague = async function() {
       // نحذف الـ app الثانوي فوراً بعد إنشاء المستخدم
       await _deleteApp(secondaryApp);
     }
-    // ══ جلسة Super Admin لم تتغير ✅ ══
+    // ══ جلسة Super Admin لم تتغير ✅︎ ══
 
     // 2) Save league document
-    // ✅ FIX: نُزيل أي حقل undefined قبل الإرسال لـ Firestore
+    // ✅︎ FIX: نُزيل أي حقل undefined قبل الإرسال لـ Firestore
     const leagueData = {
       id:           slug,
       name,
@@ -717,7 +717,7 @@ window.createLeague = async function() {
       createdAt: serverTimestamp(),
     });
 
-    showToast('✅ تم إنشاء البطولة بنجاح! الروابط جاهزة', 'success');
+    showToast('✅︎ تم إنشاء البطولة بنجاح! الروابط جاهزة', 'success');
     setTimeout(() => { showPage('leagues', null); btn.disabled = false; btn.textContent = '🚀 إنشاء البطولة وتفعيلها'; }, 2000);
   } catch(e) {
     showToast('خطأ: ' + (e.message || e.code), 'error');
@@ -798,12 +798,12 @@ window.sendViaWA = function() {
   const pass = document.getElementById('nl_pass')?.value || '';
   const viewerUrl = SITE_URL + 'league-viewer.html?id=' + slug;
   const adminUrl = SITE_URL + 'league-admin.html?id=' + slug;
-  const txt = encodeURIComponent(`🏆 ${name}\n\n🌐 رابط الجمهور:\n${viewerUrl}\n\n⚙️ لوحة الإدارة:\n${adminUrl}\n\n📧 البريد: ${email}\n🔑 كلمة المرور: ${pass}`);
+  const txt = encodeURIComponent(`🏆 ${name}\n\n🌐 رابط الجمهور:\n${viewerUrl}\n\n⚙︎️ لوحة الإدارة:\n${adminUrl}\n\n📧 البريد: ${email}\n🔑 كلمة المرور: ${pass}`);
   window.open('https://wa.me/?text=' + txt, '_blank');
 };
 
 
-/* ✅ جسر التسليم — يمرّر بيانات البطولة الحقيقية من leagues[] */
+/* ✅︎ جسر التسليم — يمرّر بيانات البطولة الحقيقية من leagues[] */
 function _hoData(id) {
   const l = allLeagues.find(x => x.id === id) || {};
   return {
@@ -818,7 +818,7 @@ window.hoWA   = (id) => window.sendHandoverWA(_hoData(id));
 window.sendWALeague = function(name, id, phone) {
   const viewerUrl = SITE_URL + 'league-viewer.html?id=' + id;
   const adminUrl = SITE_URL + 'league-admin.html?id=' + id;
-  const txt = encodeURIComponent(`🏆 ${name}\n\n🌐 رابط الجمهور:\n${viewerUrl}\n\n⚙️ لوحة الإدارة:\n${adminUrl}`);
+  const txt = encodeURIComponent(`🏆 ${name}\n\n🌐 رابط الجمهور:\n${viewerUrl}\n\n⚙︎️ لوحة الإدارة:\n${adminUrl}`);
   const url = phone ? `https://wa.me/${phone}?text=${txt}` : `https://wa.me/?text=${txt}`;
   window.open(url, '_blank');
 };

@@ -4,9 +4,10 @@
 // ═══════════════════════════════════════════════════════
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy }
+import { getFirestore, initializeFirestore, persistentLocalCache,
+  persistentMultipleTabManager, collection, doc, getDoc, onSnapshot, query, orderBy }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-/* ✅ أداء: analytics و messaging كانا يُستوردان ثابتاً (~90KB) فيؤخّران
+/* ✅︎ أداء: analytics و messaging كانا يُستوردان ثابتاً (~90KB) فيؤخّران
    ظهور الصفحة على كل زائر. analytics لا يُستخدم إطلاقاً (getAnalytics فقط)،
    و messaging لا يُحتاج إلا عند الضغط على زر الإشعارات.
    الآن: تحميل كسول — لا يلمس المسار الحرج. */
@@ -28,7 +29,17 @@ const firebaseConfig = {
   measurementId: "G-E56JDRY7S1"
 };
 const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+/* ⚡ كاش محلي دائم: يجعل onSnapshot يقرأ فوراً من القرص عند إعادة الفتح
+   (بما فيه شعارات الفرق base64) ثم يزامن في الخلفية — فتحميل شبه فوري
+   في الزيارات المتكررة بدل انتظار الشبكة. مع fallback آمن. */
+let db;
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  });
+} catch (e) {
+  db = getFirestore(app);
+}
 /* analytics بعد اكتمال الرسم — لا يؤخّر أول ظهور */
 (function () {
   var go = function () {
@@ -120,7 +131,7 @@ Object.defineProperty(window, 'groups',  { get: () => groups,  configurable: tru
 
 const ZONE_COLORS = ['var(--gold)', 'var(--green)', 'var(--blue)', '#666', 'var(--orange)', 'var(--red)'];
 const ZONE_KEYS   = ['champion','qualify','cond','normal','playoff','relegate'];
-const ZONE_NAMES  = ['المتوج 🏆','متأهل ✅','مشروط 🔵','عادي ⚪','ملعب الهبوط 🟠','هابط 🔴'];
+const ZONE_NAMES  = ['المتوج 🏆','متأهل ✅︎','مشروط 🔵','عادي ⚪','ملعب الهبوط 🟠','هابط 🔴'];
 
 // تشكيلات ثابتة لـ 11 لاعب
 const FORMATION_POSITIONS = {
@@ -194,8 +205,88 @@ function getDynamicPositions(playerCount) {
 // ════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════
+// ⚡ توليد مانيفست ديناميكي لكل بطولة (اسمها + شعارها + رابط بدء صحيح)
+// يقبل استدعاءً مبكّراً بـ id فقط (قبل تحميل Firebase) لضمان أن التثبيت
+// السريع يلتقط start_url صحيحاً، ثم يُحدَّث بالاسم/الشعار لاحقاً.
+function _installDynamicManifest(league) {
+  try {
+    const id = LEAGUE_ID;
+    if (!id) return;
+    const name = (league && league.name) ? String(league.name) : 'بطولة';
+    const base = location.pathname.replace(/[^/]*$/, '') || './';
+    const startUrl = `${base}league-viewer.html?id=${encodeURIComponent(id)}&source=pwa`;
+    const scope = `${base}league-viewer.html?id=${encodeURIComponent(id)}`;
+
+    // أيقونة التطبيق = شعار البطولة إن كان صورة، وإلا أيقونة المنصة
+    const logoIsImg = league && league.logo &&
+      (String(league.logo).startsWith('data:') || String(league.logo).startsWith('http'));
+    const icons = logoIsImg
+      ? [
+          { src: league.logo, sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: league.logo, sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icon-192-maskable.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+          { src: 'icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ]
+      : [
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icon-192-maskable.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ];
+
+    const manifest = {
+      id: `/league-viewer.html?id=${id}`,
+      name: name,
+      short_name: name.length > 12 ? name.slice(0, 12) : name,
+      description: `تابع بطولة ${name} مباشرة`,
+      start_url: startUrl,
+      scope: scope,
+      display: 'standalone',
+      display_override: ['standalone', 'minimal-ui'],
+      background_color: '#080808',
+      theme_color: '#080808',
+      orientation: 'portrait-primary',
+      lang: 'ar', dir: 'rtl',
+      icons: icons,
+      categories: ['sports', 'entertainment'],
+      prefer_related_applications: false,
+    };
+
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+    const url = URL.createObjectURL(blob);
+    let link = document.querySelector('link[rel="manifest"]');
+    if (!link) { link = document.createElement('link'); link.rel = 'manifest'; document.head.appendChild(link); }
+    link.setAttribute('href', url);
+
+    // عنوان الصفحة أيضاً = اسم البطولة (يظهر في التطبيق وسجل المتصفح)
+    document.title = name;
+    const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (appleTitle) appleTitle.setAttribute('content', name);
+    else {
+      const mt = document.createElement('meta');
+      mt.name = 'apple-mobile-web-app-title'; mt.content = name;
+      document.head.appendChild(mt);
+    }
+  } catch (e) { /* تجاهل بصمت — المانيفست الثابت يبقى بديلاً */ }
+}
+
 async function init() {
-  if(!LEAGUE_ID) { showError('رابط غير صحيح'); return; }
+  if(!LEAGUE_ID) {
+    // كل بطولة مستقلة في المتصفح. لكن داخل التطبيق المثبّت (standalone) فقط:
+    // نستعيد بطولة التطبيق المحفوظة لحظة تثبيته — فلا يخرب الرابط أبداً.
+    const _standalone = window.matchMedia('(display-mode: standalone)').matches
+      || window.matchMedia('(display-mode: minimal-ui)').matches
+      || navigator.standalone === true
+      || new URLSearchParams(location.search).get('source') === 'pwa';
+    let _appLeague = '';
+    try { _appLeague = localStorage.getItem('installedLeagueId') || ''; } catch(e){}
+    if (_standalone && /^[A-Za-z0-9_-]{3,}$/.test(_appLeague)) {
+      location.replace('league-viewer.html?id=' + encodeURIComponent(_appLeague) + '&source=pwa');
+      return;
+    }
+    showError('رابط غير صحيح', 'لم يتم تحديد البطولة. افتح رابط البطولة الكامل من المنظّم.');
+    return;
+  }
 
   const [leagueDoc, settDoc] = await Promise.all([
     getDoc(doc(db,'leagues',LEAGUE_ID)),
@@ -205,11 +296,19 @@ async function init() {
   if(!leagueDoc.exists()) { showError('البطولة غير موجودة'); return; }
   league = _sanitizeDoc({id: leagueDoc.id, ...leagueDoc.data()});
 
+  // احفظ معرّف هذه البطولة — يُستعاد داخل التطبيق المثبّت فقط لو فُتح بلا id.
+  // (لا يؤثر على زوّار المتصفح لأن الاستعادة مشروطة بوضع standalone.)
+  try { localStorage.setItem('installedLeagueId', LEAGUE_ID); } catch(e){}
+
   // فور معرفة شعار البطولة: اعرضه في شاشة التحميل بدل أيقونة المنصة العامة
   if (league.logo) {
     const _pl = document.getElementById('plLogo');
     if (_pl) _pl.src = league.logo;
   }
+
+  // ⚡ مانيفست ديناميكي: اسم التطبيق = اسم البطولة، ورابط البدء يحمل معرّفها
+  // (يمنع "الرابط غير صحيح" عند فتح التطبيق المثبّت، لأنه يفتح البطولة مباشرة)
+  _installDynamicManifest(league);
 
   if(league.status === 'suspended') { showError('البطولة موقوفة مؤقتاً','هذه البطولة موقوفة حالياً. تابعنا لاحقاً.'); return; }
 
@@ -257,7 +356,7 @@ async function init() {
     if(tournamentType==='knockout'||tournamentType==='groups') window.renderAll();
   }, ()=>{});
 
-  // ✅ البث الجديد: يُقرأ من matches/{matchId}.liveData — لا يحتاج onSnapshot مستقل
+  // ✅︎ البث الجديد: يُقرأ من matches/{matchId}.liveData — لا يحتاج onSnapshot مستقل
 }
 
 function showError(title, msg) {
@@ -287,7 +386,7 @@ function updateHeader() {
   document.querySelector('meta[property="og:title"]')?.setAttribute('content', name);
   const el = n => document.getElementById(n);
   if(el('leagueName')) el('leagueName').textContent = name;
-  /* ✅ شعار البطولة فوق الاسم — مصدره إعدادات الإدارة (leagues/{id}.logo) */
+  /* ✅︎ شعار البطولة فوق الاسم — مصدره إعدادات الإدارة (leagues/{id}.logo) */
   const _lw = el('leagueLogoWrap'), _li = el('leagueLogoImg');
   if (_lw && _li) {
     if (league.logo) { _li.src = league.logo; _lw.style.display = 'flex'; }
@@ -304,9 +403,9 @@ function updateHeader() {
 //  LOGO HELPER
 // ════════════════════════════════════════
 function logoHtml(logo, size=32, radius=8) {
-  if(!logo) return `<span style="font-size:${size}px">⚽</span>`;
+  if(!logo) return `<span style="font-size:${size}px">⚽︎</span>`;
   if(logo.startsWith('data:')||logo.startsWith('http')||logo.startsWith('/')) {
-    return `<img src="${logo}" style="width:${size}px;height:${size}px;border-radius:${radius}px;object-fit:cover;display:inline-block;vertical-align:middle" onerror="this.style.display='none'"/>`;
+    return `<img src="${logo}" loading="lazy" decoding="async" style="width:${size}px;height:${size}px;border-radius:${radius}px;object-fit:cover;display:inline-block;vertical-align:middle" onerror="this.style.display='none'"/>`;
   }
   return `<span style="font-size:${size}px;line-height:1">${logo}</span>`;
 }
@@ -327,7 +426,7 @@ function renderAll() {
     renderGroupsStandings();
     renderKnockoutBracket();
     renderHomeGroups();
-    // ✅ FIX §1: لا نعرض جدول الترتيب العام في نظام المجموعات
+    // ✅︎ FIX §1: لا نعرض جدول الترتيب العام في نظام المجموعات
     // window.renderStandings() خاص بنظام الدوري فقط
 
   } else {
@@ -342,7 +441,7 @@ function renderAll() {
   renderChart();
   renderSummaryStats();
 }
-// ✅ تصدير — بدونه كان _origRA في الـpatch أدناه = undefined
+// ✅︎ تصدير — بدونه كان _origRA في الـpatch أدناه = undefined
 //    فلا تعمل updateStats/updateLiveBanner/renderStandings إطلاقاً.
 window.renderAll = renderAll;
 
@@ -560,13 +659,13 @@ function _evMinuteLabel(ev) {
 }
 
 function _fmtMatchTimer(d) {
-  // ✅ يستقبل liveData الآن (وليس أرقاماً مفككة) — يمنع فقدان الإزاحة
+  // ✅︎ يستقبل liveData الآن (وليس أرقاماً مفككة) — يمنع فقدان الإزاحة
   const c = window.TimerCore && window.TimerCore.compute(d, window.settings);
   if (!c) return '00:00';
   // FIX 7: عند 45:00 بالضبط لا شارة بدل ضائع حتى تمرّ ثانية أو يُعلنها المنظّم
   if (!c.inStoppage || !c.showStoppage) return c.clock;
-  // ✅ +5 فوق · الوقت الرسمي · العدّاد تحت
-  // ✅ التنسيق: +5 و +2:14 جنب بعض في صف واحد فوق · 45:00 تحت
+  // ✅︎ +5 فوق · الوقت الرسمي · العدّاد تحت
+  // ✅︎ التنسيق: +5 و +2:14 جنب بعض في صف واحد فوق · 45:00 تحت
   const badge = (c.phase.extraSet && c.phase.extra > 0)
     ? `<span class="mc-add-min">+${c.phase.extra}</span>` : '';
   return `<span class="mc-stop-row">${badge}<span class="mc-extra-t">${c.stoppageClock}</span></span>`
@@ -604,7 +703,7 @@ function _isInStoppage(d) {
 function checkExtraTimeChanges() {
   matches.filter(m => m.status === 'live' && m.liveData && LIVE_PHASES.includes(m.liveData.matchStatus)).forEach(m => {
     const d = m.liveData;
-    // ✅ المرجع الوحيد: TimerCore — نفس ما تراه لوحة التحكم
+    // ✅︎ المرجع الوحيد: TimerCore — نفس ما تراه لوحة التحكم
     const c = window.TimerCore && window.TimerCore.compute(d, window.settings);
     if (!c || !c.inStoppage || !c.phase.extraSet) return;
     const mins = c.phase.extra;
@@ -853,7 +952,7 @@ window.openPlayerModal = function(playerName, teamId) {
   const norm = n => SC ? SC.normName(n) : String(n || '').trim().toLowerCase();
   const data = buildScorersData();
 
-  // ✅ لو مُرِّر teamId نبحث بالاسم + الفريق معاً (يفصل بين لاعبين متشابهي الاسم
+  // ✅︎ لو مُرِّر teamId نبحث بالاسم + الفريق معاً (يفصل بين لاعبين متشابهي الاسم
   // في فريقين مختلفين). وإلا نرجع للبحث بالاسم فقط (توافق مع نداءات قديمة).
   let player = teamId
     ? data.find(p => p.teamId === teamId && norm(p.name) === norm(playerName))
@@ -955,7 +1054,7 @@ function renderGroupsStandings() {
     const sorted=gTeams.sort((a,b)=>{const sa=gs[a.id]||{},sb=gs[b.id]||{};if((sb.pts||0)!==(sa.pts||0))return(sb.pts||0)-(sa.pts||0);const fa={...a,...sa},fb={...b,...sb};return applyTiebreak(fa,fb,matches);});
     const qCount=g.qualify||2;
     const manualQ=new Set(g.qualifiedTeamIds||[]);
-    // ✅ FIX §2: لا نُظهر المتأهلين للجمهور إلا بعد الاعتماد الرسمي
+    // ✅︎ FIX §2: لا نُظهر المتأهلين للجمهور إلا بعد الاعتماد الرسمي
     const isPublished = g.qualificationPublished === true;
     const hasManualQ = isPublished && manualQ.size > 0;
 
@@ -988,7 +1087,7 @@ function renderGroupsStandings() {
     return `<div class="group-card">
       <div class="group-header">
         <div class="group-title">${g.icon||'👥'} المجموعة ${g.name||''}</div>
-        <div class="group-sub">${hasManualQ?`✅ ${manualQ.size} متأهل`:`متأهلون: أفضل ${qCount}`}</div>
+        <div class="group-sub">${hasManualQ?`✅︎ ${manualQ.size} متأهل`:`متأهلون: أفضل ${qCount}`}</div>
       </div>
       <div class="gt-header">
         <div>#</div><div>الفريق</div>
@@ -996,7 +1095,7 @@ function renderGroupsStandings() {
       </div>
       ${sorted.map((t,i)=>{
         const s=gs[t.id]||{};const gd=(s.gf||0)-(s.ga||0);
-        // ✅ FIX §2: علامات التأهل تظهر فقط بعد الاعتماد الرسمي
+        // ✅︎ FIX §2: علامات التأهل تظهر فقط بعد الاعتماد الرسمي
         const isQ=hasManualQ?manualQ.has(t.id):i<qCount;
         const isElim=hasManualQ&&!manualQ.has(t.id)&&manualQ.size>=qCount;
         // إذا لم يُعتمد بعد — لا نُظهر أي علامة تأهل أو إقصاء
@@ -1006,8 +1105,8 @@ function renderGroupsStandings() {
           <div class="gt-team">
             <span>${logoHtml(t.logo,18,4)}</span>
             <span class="gt-name">${t.name}</span>
-            ${(isQ&&showBadges)?'<span class="qualify-badge">✅ متأهل</span>':''}
-            ${(isElim&&showBadges)?'<span class="elim-badge">❌ خرج</span>':''}
+            ${(isQ&&showBadges)?'<span class="qualify-badge">✅︎ متأهل</span>':''}
+            ${(isElim&&showBadges)?'<span class="elim-badge">❌︎ خرج</span>':''}
           </div>
           <div class="gt-val">${s.p||0}</div>
           <div class="gt-val" style="color:var(--green)">${s.w||0}</div>
@@ -1027,7 +1126,7 @@ function renderGroupsStandings() {
 //  KNOCKOUT BRACKET
 // ════════════════════════════════════════
 function buildRoundNames(total,rounds) {
-  // ✅ الأولوية دائماً لـ r.name المحفوظ في Firebase
+  // ✅︎ الأولوية دائماً لـ r.name المحفوظ في Firebase
   // buildRoundNames كـ fallback فقط لو الاسم فارغ
   return rounds.map((r,i)=>{
     if(r && r.name) return r.name; // اسم من Firebase
@@ -1059,7 +1158,7 @@ function renderKnockoutBracket() {
     const resolvedRounds = knockoutRounds.map((r,i) => {
       const matchIds = r.matchIds || [];
       const roundMs  = matchIds.map(mid => matches.find(m => m.id === mid)).filter(Boolean);
-      // ✅ لا نعتمد على matchIds وحدها: أي مباراة تحمل knockoutRoundId لهذا الدور
+      // ✅︎ لا نعتمد على matchIds وحدها: أي مباراة تحمل knockoutRoundId لهذا الدور
       //    تُضاف أيضاً — كانت المباريات المنتهية تختفي من الشجرة لو تأخّر تحديث matchIds
       //    أو حُذف الـ id منها، فتظهر الخانة فارغة رغم وجود المباراة ونتيجتها.
       const byRoundId = matches.filter(m =>
@@ -1073,7 +1172,7 @@ function renderKnockoutBracket() {
       return { name: roundNames[i] || r.name || ('الدور '+(i+1)), slots: r.slots, matchesWithSlot: withSlot };
     });
 
-    // ✅ نفصل دور "مباراة تحديد المركز الثالث" إن وُجد — يُعرض كبطاقة صغيرة مستقلة بجانب النهائي
+    // ✅︎ نفصل دور "مباراة تحديد المركز الثالث" إن وُجد — يُعرض كبطاقة صغيرة مستقلة بجانب النهائي
     const thirdIdx = resolvedRounds.findIndex(r => /ثالث/.test(r.name));
     const thirdRound = thirdIdx >= 0 ? resolvedRounds.splice(thirdIdx, 1)[0] : null;
 
@@ -1138,7 +1237,7 @@ function buildVerticalBracketHTML(rounds, thirdRound) {
           <div class="btv-side">${rightSlots.map(m => btMatchBox(m, false)).join('')}</div>
         </div>
       </div>
-      <div class="btv-arrow">⬇</div>`;
+      <div class="btv-arrow">⬇︎</div>`;
   }).join('');
 
   return `
@@ -1188,7 +1287,7 @@ function buildSlotArr(round) {
   const arr = new Array(round.slots).fill(null);
   const overflow = [];
   round.matchesWithSlot.forEach(({m, slot}) => {
-    // ✅ لا تُسقط أي مباراة بصمت: لو الخانة مأخوذة أو الرقم خارج المدى
+    // ✅︎ لا تُسقط أي مباراة بصمت: لو الخانة مأخوذة أو الرقم خارج المدى
     //    ضعها في أول خانة فاضية — بدل أن تختفي من الشجرة تماماً.
     if (slot != null && slot >= 0 && slot < round.slots && !arr[slot]) arr[slot] = m;
     else overflow.push(m);
@@ -1239,7 +1338,7 @@ function btMatchBox(m, isFinal) {
   const hw = isFin && ((m.penaltyScoreHome != null ? m.penaltyScoreHome > m.penaltyScoreAway : (m.homeScore ?? 0) > (m.awayScore ?? 0)));
   const aw = isFin && ((m.penaltyScoreAway != null ? m.penaltyScoreAway > m.penaltyScoreHome : (m.awayScore ?? 0) > (m.homeScore ?? 0)));
   const clickFn = m.id ? `openMatchDetail('${m.id}')` : `openBracketMatch('','${encodeURIComponent(String(m.id||''))}')`;
-  // ✅ المباراة المنتهية تبقى ظاهرة ببطاقتها كاملة (الفائز + الخاسر) — لا تُفرَّغ أبداً
+  // ✅︎ المباراة المنتهية تبقى ظاهرة ببطاقتها كاملة (الفائز + الخاسر) — لا تُفرَّغ أبداً
   const penH = (isFin && m.penaltyScoreHome != null) ? `<span class="bt-pen">رك ${m.penaltyScoreHome}</span>` : '';
   const penA = (isFin && m.penaltyScoreAway != null) ? `<span class="bt-pen">رك ${m.penaltyScoreAway}</span>` : '';
   return `<div class="bt-match ${isLive?'bt-live':isFin?'bt-done':''}${isFinal?' bt-final':''}" onclick="${clickFn}">
@@ -1410,7 +1509,7 @@ ${bm.events&&bm.events.length ? `
          <div class="md-event">
            <div class="md-ev-min">${ev.type === 'penalty' ? 'رك' : ev.minute||'—'}'</div>
            <div class="md-ev-icon">${ev.type === 'penalty'
-             ? (ev.result === 'goal' ? '🥅 ✅' : '🥅 ❌')
+             ? (ev.result === 'goal' ? '🥅 ✅︎' : '🥅 ❌︎')
              : ev.icon||'⚽'}</div>
            <div class="md-ev-info">
              <div class="md-ev-player">${ev.type === 'penalty' 
@@ -1477,7 +1576,7 @@ function adaptUIToType() {
       <button class="bn-item" id="bn-live"     onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
     if(standEl) standEl.style.display = 'none';
     if(brkEl)   brkEl.style.display   = bracketOK ? 'block' : 'none';
-    // ✅ FIX §1: إخفاء حاويات الترتيب في نظام الإقصاء
+    // ✅︎ FIX §1: إخفاء حاويات الترتيب في نظام الإقصاء
     ['fullStandings','homeStandings','zoneLegend'].forEach(function(id) {
       var el = document.getElementById(id); if(el) el.style.display = 'none';
     });
@@ -1494,7 +1593,7 @@ function adaptUIToType() {
     if(standEl) standEl.style.display = 'none';
     if(gEl)     gEl.style.display     = 'block';
     if(brkEl)   brkEl.style.display   = bracketOK ? 'block' : 'none';
-    // ✅ FIX §1: إخفاء حاويات الترتيب العام في نظام المجموعات
+    // ✅︎ FIX §1: إخفاء حاويات الترتيب العام في نظام المجموعات
     ['fullStandings','homeStandings','zoneLegend'].forEach(function(id) {
       var el = document.getElementById(id); if(el) el.style.display = 'none';
     });
@@ -1510,7 +1609,7 @@ function adaptUIToType() {
       <button class="bn-item" id="bn-live"      onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
     if(standEl) standEl.style.display = '';
   }
-  // ✅ للـ home-section sub-header "عرض الكل" — أخفه إذا مش دوري نقاط
+  // ✅︎ للـ home-section sub-header "عرض الكل" — أخفه إذا مش دوري نقاط
   if(type !== 'league') {
     document.querySelectorAll('[onclick*="switchTab(\'standings\'"]').forEach(el => {
       if(el.classList.contains('home-sub-btn')) el.style.display = 'none';
@@ -1534,12 +1633,12 @@ window.toggleGroupMatches = function(btn, gid) {
   list.style.display = isOpen ? 'none' : 'block';
   const arrow = btn.querySelector('.gmt-arrow');
   if(arrow) arrow.textContent = isOpen ? '▼' : '▲';
-  // ✅ toggle class للـ animation
+  // ✅︎ toggle class للـ animation
   btn.classList.toggle('open', !isOpen);
 };
 
 window.switchTab = function(name, btn, mn) {
-  // ✅ إزالة active + مسح أي inline style من كل الـ sections
+  // ✅︎ إزالة active + مسح أي inline style من كل الـ sections
   document.querySelectorAll('.section').forEach(s => {
     s.classList.remove('active');
     s.style.display = ''; // مسح inline style حتى يتحكم CSS
@@ -1629,7 +1728,7 @@ function renderSummaryStats() {
     ['⚽ مجموع الأهداف',goals],
     ['📈 معدل أهداف/مباراة',fin.length?(goals/fin.length).toFixed(1):0],
     ['🏠 فوز أصحاب الأرض',homeWins],
-    ['✈️ فوز الضيف',awayWins],
+    ['✈︎️ فوز الضيف',awayWins],
     ['🤝 تعادلات',draws],
   ];
   el.innerHTML=rows.map(([l,v])=>`
@@ -1655,7 +1754,7 @@ function _buildShareModal() {
       '<div style="font-size:11px;color:#5a6070;text-align:center;margin-bottom:20px;font-family:Tajawal,sans-serif">اختر طريقة المشاركة</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
         '<button onclick="window._doShareWA()" style="display:flex;align-items:center;gap:8px;background:#0d1f14;border:1px solid rgba(37,211,102,.2);border-radius:14px;padding:14px 12px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:13px;font-weight:700;color:#25d366"><span style="font-size:20px">📲</span> واتساب</button>' +
-        '<button onclick="window._doShareTG()" style="display:flex;align-items:center;gap:8px;background:#0d1520;border:1px solid rgba(0,136,204,.2);border-radius:14px;padding:14px 12px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:13px;font-weight:700;color:#0088cc"><span style="font-size:20px">✈️</span> تيليجرام</button>' +
+        '<button onclick="window._doShareTG()" style="display:flex;align-items:center;gap:8px;background:#0d1520;border:1px solid rgba(0,136,204,.2);border-radius:14px;padding:14px 12px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:13px;font-weight:700;color:#0088cc"><span style="font-size:20px">✈︎️</span> تيليجرام</button>' +
         '<button onclick="window._doCopyLink()" id="_copyBtn" style="display:flex;align-items:center;gap:8px;background:#14161b;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px 12px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:13px;font-weight:700;color:#9aa0b0"><span style="font-size:20px">🔗</span> نسخ الرابط</button>' +
         '<button onclick="window._closeShareModal()" style="display:flex;align-items:center;gap:8px;background:#14161b;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px 12px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:13px;font-weight:700;color:#5a6070"><span style="font-size:20px">✕</span> إغلاق</button>' +
       '</div>' +
@@ -1718,7 +1817,7 @@ window._doCopyLink = function() {
       btn.style.color = '#2dc653';
       btn.style.borderColor = 'rgba(45,198,83,.3)';
       const sp = btn.querySelector('span');
-      if (sp) sp.textContent = '✅';
+      if (sp) sp.textContent = '✅︎';
     }
     showToast('تم نسخ الرابط 🔗', 'success');
     setTimeout(function() { window._closeShareModal(); }, 1200);
@@ -1741,7 +1840,7 @@ window._doCopyLink = function() {
 };
 
 window.showSharePanel = function() {
-  // ✅ لا تصمت لو البيانات لم تُحمَّل بعد — الرابط وحده كافٍ للمشاركة
+  // ✅︎ لا تصمت لو البيانات لم تُحمَّل بعد — الرابط وحده كافٍ للمشاركة
   const d = _getShareData();
   if (navigator.share) {
     // ⚠️ لا نمرّر url منفصلاً: واتساب وتيليجرام يعرضان الرابط فقط ويحذفان النص.
@@ -1841,19 +1940,19 @@ window.haptic = function(style='light') {
 (function(){
   if(localStorage.getItem('theme')==='light') {
     document.documentElement.classList.add('light');
-    const btn=document.getElementById('themeToggle'); if(btn) btn.textContent='☀️';
+    const btn=document.getElementById('themeToggle'); if(btn) btn.textContent='☀︎️';
   }
 })();
 window.toggleTheme = function() {
   const isL=document.documentElement.classList.toggle('light');
   localStorage.setItem('theme',isL?'light':'dark');
-  const btn=document.getElementById('themeToggle'); if(btn) btn.textContent=isL?'☀️':'🌙';
+  const btn=document.getElementById('themeToggle'); if(btn) btn.textContent=isL?'☀︎️':'🌙';
 };
 
 // ════════════════════════════════════════
 //  OFFLINE
 // ════════════════════════════════════════
-window.addEventListener('online', ()=>{ document.getElementById('offlineBar')?.classList.remove('show'); showToast('عدت للاتصال ✅','success'); });
+window.addEventListener('online', ()=>{ document.getElementById('offlineBar')?.classList.remove('show'); showToast('عدت للاتصال ✅︎','success'); });
 window.addEventListener('offline', ()=>{ document.getElementById('offlineBar')?.classList.add('show'); });
 if(!navigator.onLine) document.getElementById('offlineBar')?.classList.add('show');
 
@@ -1878,7 +1977,7 @@ window.addEventListener('scroll',()=>{
     if(Math.abs(dx)<60||dy>80) return;
     const active=document.querySelector('.section.active'); if(!active) return;
     const cur=active.id.replace('tab-','');
-    // ✅ فلتر الـ tabs الموجودة فعلاً في DOM (تتجنب bracket المخفية)
+    // ✅︎ فلتر الـ tabs الموجودة فعلاً في DOM (تتجنب bracket المخفية)
     const allTabs=getDynamicTabOrder();
     const tabs=allTabs.filter(t=>document.getElementById('bn-'+t));
     const idx=tabs.indexOf(cur); if(idx===-1) return;
@@ -1893,10 +1992,10 @@ window.addEventListener('scroll',()=>{
 let deferredPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferredPrompt=e; const f=document.getElementById('installFab'); if(f) f.style.display='flex'; });
 window.installApp = async function() {
-  if(!deferredPrompt) { showToast('التطبيق جاهز للتثبيت من القائمة ⬇️','success'); return; }
+  if(!deferredPrompt) { showToast('التطبيق جاهز للتثبيت من القائمة ⬇︎️','success'); return; }
   deferredPrompt.prompt();
   const {outcome}=await deferredPrompt.userChoice;
-  if(outcome==='accepted') showToast('✅ تم التثبيت بنجاح!','success');
+  if(outcome==='accepted') showToast('✅︎ تم التثبيت بنجاح!','success');
   deferredPrompt=null;
   const f=document.getElementById('installFab'); if(f) f.style.display='none';
 };
@@ -2190,7 +2289,7 @@ function startCardTimers() {
   }
 }
 
-// ✅ إعادة تشغيل التايمر عند العودة للصفحة
+// ✅︎ إعادة تشغيل التايمر عند العودة للصفحة
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     // المستخدم رجع للصفحة — أعد تشغيل التايمر
@@ -2276,7 +2375,7 @@ function _collectScorerRosters() {
 }
 
 // ── buildScorersData ──────────────────────────────────────
-// ✅ يفصل اللاعبين بالهوية (playerId أو teamId+الاسم المُطبَّع) عبر ScorersCore
+// ✅︎ يفصل اللاعبين بالهوية (playerId أو teamId+الاسم المُطبَّع) عبر ScorersCore
 //    بدل تجميع الأهداف بالاسم المجرّد — لاعبان بنفس الاسم في فريقين مختلفين
 //    (مثال: "علي" في الجوارح و"علي" في النجوم) لم يعودا يُدمَجان في سطر واحد.
 function buildScorersData() {
@@ -2394,7 +2493,7 @@ function renderStandings() {
   const z = settings.zones || {};
   const ZONE_KEYS2   = ['champion','qualify','cond','normal','playoff','relegate'];
   const ZONE_COLORS2 = ['var(--gold)','var(--green)','var(--blue)','#666','var(--orange)','var(--red)'];
-  const ZONE_NAMES2  = ['المتوج 🏆','متأهل ✅','مشروط 🔵','عادي ⚪','ملعب الهبوط 🟠','هابط 🔴'];
+  const ZONE_NAMES2  = ['المتوج 🏆','متأهل ✅︎','مشروط 🔵','عادي ⚪','ملعب الهبوط 🟠','هابط 🔴'];
   let zoneIdx = 0, rowIdx = 0;
   const zoneColors = {};
   ZONE_KEYS2.forEach((k, ki) => {
@@ -2460,12 +2559,12 @@ function renderStandings() {
       `</div>` : '';
   }
 }
-// ✅ تصدير — يسمح لـall-fixes.js باستبدالها فعلياً
+// ✅︎ تصدير — يسمح لـall-fixes.js باستبدالها فعلياً
 window.renderStandings = renderStandings;
 
 // ── renderMatches ─────────────────────────────────────────
 function renderMatches(filter) {
-  /* ✅ التبويبات: matches-tabs.js يسجّل نفسه هنا. لا نستطيع استبدال
+  /* ✅︎ التبويبات: matches-tabs.js يسجّل نفسه هنا. لا نستطيع استبدال
      window.renderMatches من الخارج لأن كل الاستدعاءات الداخلية محلية
      (نفس فخ OVERRIDES.md)، فنُفوّض من داخل الدالة نفسها. */
   if (typeof window._mtRender === 'function') return window._mtRender();
@@ -2530,13 +2629,15 @@ function renderHomeRecentResults() {
 }
 
 
+// ⚡ ولّد المانيفست فوراً من id في الرابط (قبل Firebase) — تثبيت فوري آمن
+if (LEAGUE_ID) { try { _installDynamicManifest(null); } catch(e){} }
 init();
 
 // ════════════════════════════════════════
 //  PUSH NOTIFICATIONS — FCM Web
 // ════════════════════════════════════════
 
-/* ✅ يُنشأ عند الحاجة فقط (زر الإشعارات) — لا وقت التحميل */
+/* ✅︎ يُنشأ عند الحاجة فقط (زر الإشعارات) — لا وقت التحميل */
 let messaging = null;
 async function _msg() {
   if (!messaging) {
@@ -2593,9 +2694,9 @@ window.requestNotifPermission = async function() {
       const bell = document.getElementById('notifBell');
       if(bell) { bell.textContent = '🔔'; bell.style.color = 'var(--gold)'; bell.style.borderColor = 'var(--gold)'; }
       window.closeNotifModal();
-      showToast('✅ تم تفعيل الإشعارات! ستصلك تنبيهات المباريات', 'success');
+      showToast('✅︎ تم تفعيل الإشعارات! ستصلك تنبيهات المباريات', 'success');
     } else {
-      showToast('❌ لم يتم السماح بالإشعارات', 'error');
+      showToast('❌︎ لم يتم السماح بالإشعارات', 'error');
       if(btn) { btn.textContent = '🔔 تفعيل الإشعارات'; btn.disabled = false; }
     }
   } catch(e) {
@@ -2627,7 +2728,7 @@ async function subscribeFCM() {
         token, platform: navigator.userAgent.includes('Mobile') ? 'mobile' : 'web',
         createdAt: _sts(), leagueId: LEAGUE_ID
       });
-      // console.log('[PUSH] Token saved ✅');
+      // console.log('[PUSH] Token saved ✅︎');
     }
   } catch(e) {
     console.warn('[PUSH] FCM subscribe error:', e);
@@ -2709,7 +2810,7 @@ function _buildUnifiedStatsHtml(d, ht, at) {
 
 
 // ═══════════════════════════════════════════════════════════════
-//  ✅ النظام الموحّد النهائي — بطاقات مباريات بتصميم SofaScore
+//  ✅︎ النظام الموحّد النهائي — بطاقات مباريات بتصميم SofaScore
 //  - لا بنرات علوية
 //  - لا أقسام مستقلة "مباشر الآن"
 //  - نفس البطاقة تتحوّل live تلقائياً في مكانها
@@ -2747,7 +2848,7 @@ function _clock(d) {
   if (ph === 'ended')     return 'انتهت';
   if (!ph || ph === 'upcoming') return '--';
 
-  // ✅ المصدر الوحيد للحقيقة — نفس حساب لوحة التحكم بالضبط
+  // ✅︎ المصدر الوحيد للحقيقة — نفس حساب لوحة التحكم بالضبط
   const c = window.TimerCore && window.TimerCore.compute(d, window.settings);
   if (!c) return '--';
   // FIX 7: عند 45:00 بالضبط لا شارة بدل ضائع حتى تمرّ ثانية أو يُعلنها المنظّم
@@ -2756,7 +2857,7 @@ function _clock(d) {
   //   +5      ← الدقائق المضافة المُعلنة (فوق)
   //   45:00   ← الوقت الرسمي متجمّد (الوسط)
   //   +2:14   ← عدّاد بدل الضائع الجاري (تحت)
-  // ✅ التنسيق: +5 و +2:14 جنب بعض في صف واحد فوق · 45:00 تحت
+  // ✅︎ التنسيق: +5 و +2:14 جنب بعض في صف واحد فوق · 45:00 تحت
   const badge = (c.phase.extraSet && c.phase.extra > 0)
     ? `<span class="mc-add-min">+${c.phase.extra}</span>` : '';
   return `<span class="mc-stop-row">${badge}<span class="mc-extra-t">${c.stoppageClock}</span></span>`
@@ -2786,7 +2887,7 @@ function _evIcon(ev, size) {
   };
   var byEmoji = {
     '⚽':'ball','🥅':'goal','🔄':'refresh','🤕':'injury','🎯':'target',
-    '🏅':'medal','🏆':'trophy','⚡':'bolt','✅':'check','❌':'close'
+    '🏅':'medal','🏆':'trophy','⚡':'bolt','✅︎':'check','❌︎':'close'
   };
   var name = map[t] || byEmoji[ic] || 'ball';
   return (window.Icon ? window.Icon(name, size) : (ic || ''));
@@ -2796,7 +2897,47 @@ function _p(n) { return String(n).padStart(2, '0'); }
 const _LIVE = ['live','halftime','extratime1','halftime_et','extratime2','penalties'];
 
 // ══════════════════════════════════════════════════════════════
-//  بطاقة المباراة الموحّدة (مثل SofaScore / FlashScore)
+//  شارات اللاعب على التشكيلة (هدف/بطاقة) — مثل التطبيقات الكبيرة
+//  تحسب من أحداث المباراة عدد الأهداف ونوع البطاقات لكل لاعب،
+//  وترجع HTML صغيراً يُركَّب فوق دائرة اللاعب في الملعب.
+// ══════════════════════════════════════════════════════════════
+function _playerMatchBadges(events, side, playerName, number) {
+  if (!Array.isArray(events) || !playerName) return '';
+  const nm = String(playerName).trim();
+  const sideOf = e => e.side || e.team;
+  const nameOf = e => String(e.player || '').trim();
+
+  let goals = 0, yellow = 0, red = false;
+  events.forEach(e => {
+    if (sideOf(e) !== side) return;
+    if (nameOf(e) !== nm) return;
+    if (e.type === 'goal') goals++;
+    else if (e.type === 'yellow') yellow++;
+    else if (e.type === 'red') red = true;
+  });
+  // بطاقتان صفراوان = حمراء
+  const secondYellow = yellow >= 2;
+  const showRed = red || secondYellow;
+
+  const badges = [];
+  // كرت (أولوية للحمراء)
+  if (showRed) {
+    badges.push('<span class="pl-badge pl-badge-red" title="بطاقة حمراء"></span>');
+  } else if (yellow === 1) {
+    badges.push('<span class="pl-badge pl-badge-yellow" title="بطاقة صفراء"></span>');
+  }
+  // كورة الهدف (مع عدّاد لو أكثر من هدف) — أيقونة SVG لتطابق كل الأجهزة
+  if (goals > 0) {
+    const cnt = goals > 1 ? `<span class="pl-badge-goalcount">${goals}</span>` : '';
+    const ball = (window.Icon ? window.Icon('ball', 11) : '⚽');
+    badges.push('<span class="pl-badge pl-badge-goal">' + ball + cnt + '</span>');
+  }
+  if (!badges.length) return '';
+  return '<div class="pl-badges">' + badges.join('') + '</div>';
+}
+window._playerMatchBadges = _playerMatchBadges;
+
+
 //  - نفس البطاقة لكل الحالات: upcoming / live / finished
 //  - لا أقسام منفصلة، لا عناوين مكررة
 // ══════════════════════════════════════════════════════════════
@@ -2825,11 +2966,12 @@ function _matchCard(m) {
     const pLabel = isPen ? 'ركلات' : isHT ? 'استراحة'
                  : (ph === 'live' || ph === 'extratime1' || ph === 'extratime2' ? 'مباشر' : _periodLabel(d));
     const isPenScore = isPen && d.penalties;
-    const penH = isPenScore ? (d.penalties.home||[]).filter(Boolean).length : null;
-    const penA = isPenScore ? (d.penalties.away||[]).filter(Boolean).length : null;
-    // ✅ الإيقاف المؤقت — يظهر للجمهور بدل نبضة "مباشر"
+    const _penIsGoal = r => (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal');
+    const penH = isPenScore ? (d.penalties.home||[]).filter(_penIsGoal).length : null;
+    const penA = isPenScore ? (d.penalties.away||[]).filter(_penIsGoal).length : null;
+    // ✅︎ الإيقاف المؤقت — يظهر للجمهور بدل نبضة "مباشر"
     const isPaused = !!d.timerPaused && ['live','extratime1','extratime2'].includes(ph);
-    // ✅ تنظيف السبب عند العرض أيضاً (دفاع مزدوج ضد أي بيانات قديمة/غير نظيفة)
+    // ✅︎ تنظيف السبب عند العرض أيضاً (دفاع مزدوج ضد أي بيانات قديمة/غير نظيفة)
     const pReason  = String(d.pauseReason || '').replace(/[<>&"']/g, '').trim().slice(0, 60);
     const tag = isPaused
       ? `<div class="mc2-livetag mc2-paused">⏸️ متوقفة</div>`
@@ -2899,12 +3041,24 @@ function renderHomeSection() {
   const live     = (window.matches||[]).filter(m => m.status === 'live');
   const upcoming = (window.matches||[]).filter(m =>
                        m.status === 'upcoming' ||
-                       // ✅ شبكة أمان: مباريات "معلّقة" قديمة من قبل الإصلاح،
+                       // ✅︎ شبكة أمان: مباريات "معلّقة" قديمة من قبل الإصلاح،
                        // لو الفريقان معروفان (مو TBD بانتظار نتيجة دور سابق) نعرضها
                        (m.status === 'pending' && m.homeId && m.awayId))
                      .sort((a,b)=>(a.round||0)-(b.round||0)||(a.date||'').localeCompare(b.date||''));
+  // آخر النتائج = آخر ما انتهى فعلياً (حسب وقت الإنهاء)، لا حسب ترتيب المصفوفة.
+  // هذا يضمن ظهور مباريات الأدوار الإقصائية بدل مباريات المجموعات القديمة
+  // بمجرد انتهائها، لأن ترتيبها في المصفوفة قد يسبق الإقصاء.
   const finished = (window.matches||[]).filter(m => m.status === 'finished')
-                     .slice(-3).reverse();
+                     .slice()
+                     .sort((a,b) => {
+                       const ta = _tsMs(a.updatedAt), tb = _tsMs(b.updatedAt);
+                       if (ta != null && tb != null) return tb - ta;      // الأحدث انتهاءً أولاً
+                       if (ta != null) return -1;
+                       if (tb != null) return 1;
+                       // fallback: الدور الأعلى (الإقصاء) ثم التاريخ
+                       return (b.round||0)-(a.round||0) || (b.date||'').localeCompare(a.date||'');
+                     })
+                     .slice(0, 3);
 
   let html = '';
 
@@ -2923,7 +3077,7 @@ function renderHomeSection() {
   // آخر النتائج
   if (finished.length) {
     if (html) html += `<div style="height:8px"></div>`;
-    html += `<div style="font-size:11px;font-weight:700;color:var(--t3,#666);padding:4px 2px 6px">✅ آخر النتائج</div>`;
+    html += `<div style="font-size:11px;font-weight:700;color:var(--t3,#666);padding:4px 2px 6px">✅︎ آخر النتائج</div>`;
     html += finished.map(m => _matchCard(m)).join('');
   }
 
@@ -2946,7 +3100,16 @@ function _renderFallbackSections() {
   const upcoming = (window.matches||[]).filter(m =>
                        m.status === 'upcoming' ||
                        (m.status === 'pending' && m.homeId && m.awayId)).slice(0,3);
-  const finished = (window.matches||[]).filter(m => m.status === 'finished').slice(-3).reverse();
+  const finished = (window.matches||[]).filter(m => m.status === 'finished')
+                     .slice()
+                     .sort((a,b) => {
+                       const ta = _tsMs(a.updatedAt), tb = _tsMs(b.updatedAt);
+                       if (ta != null && tb != null) return tb - ta;
+                       if (ta != null) return -1;
+                       if (tb != null) return 1;
+                       return (b.round||0)-(a.round||0) || (b.date||'').localeCompare(a.date||'');
+                     })
+                     .slice(0, 3);
   const set = (id, items, label) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -2958,7 +3121,7 @@ function _renderFallbackSections() {
   };
   set('homeLiveSection',     live,     '');
   set('homeUpcomingSection', upcoming, '⏳ القادمة');
-  set('homeResultsSection',  finished, '✅ آخر النتائج');
+  set('homeResultsSection',  finished, '✅︎ آخر النتائج');
 }
 
 // ── عداد البطاقات ──────────────────────────────────────────────
@@ -2969,10 +3132,10 @@ function _startCard2Clock(m) {
     const latest = (window.matches||[]).find(x => x.id === m.id);
     const d = latest && latest.liveData;
     if (!d) return;
-    // ✅ توقّف فوري عند بلوغ سقف بدل الضائع المُحدَّد — بلا انتظار تحديث الصفحة
+    // ✅︎ توقّف فوري عند بلوغ سقف بدل الضائع المُحدَّد — بلا انتظار تحديث الصفحة
     const c = window.TimerCore && window.TimerCore.compute(d, window.settings);
     const frozen = !!(c && c.shouldAutoEnd);
-    // ✅ الإيقاف المؤقت: TimerCore يُرجع phaseSeconds الثابتة، فالساعة تتجمّد تلقائياً
+    // ✅︎ الإيقاف المؤقت: TimerCore يُرجع phaseSeconds الثابتة، فالساعة تتجمّد تلقائياً
     const paused = !!d.timerPaused;
     // بطاقة الرئيسية
     const homeEl = document.getElementById('mc2-clock-' + m.id);
@@ -3074,9 +3237,9 @@ if (!window._renderAllV2Patched) {
       // ══ البث ══
       if (tabId === 'stream') {
         const embed = typeof window._buildViewerEmbed === 'function' ? window._buildViewerEmbed(d.streamUrl, d.streamPlatform) : '';
-        const icons  = {youtube:'▶️',facebook:'📘',twitch:'🎮',other:'📺'};
+        const icons  = {youtube:'▶︎️',facebook:'📘',twitch:'🎮',other:'📺'};
         return embed || `<a href="${d.streamUrl}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:14px;background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.3);border-radius:14px;padding:16px;text-decoration:none">
-          <span style="font-size:28px">${icons[d.streamPlatform]||'▶️'}</span>
+          <span style="font-size:28px">${icons[d.streamPlatform]||'▶︎️'}</span>
           <span style="flex:1"><div style="font-size:14px;font-weight:900;color:#C0392B">شاهد البث المباشر</div>
           <div style="font-size:11px;color:var(--t3);margin-top:3px">${d.streamPlatform||'اضغط للمشاهدة'}</div></span>
           <span style="font-size:18px;color:var(--t3)">←</span></a>`;
@@ -3107,7 +3270,7 @@ if (!window._renderAllV2Patched) {
         // ── خط زمني رأسي: كل الأحداث بترتيب متسلسل بمسافات ثابتة
         //    (وليس بحسب الفارق الزمني الحقيقي) — أهداف الفريق الأول يساراً،
         //    أهداف الفريق الثاني يميناً، وبقية الأحداث كبطاقة وسط الخط ──
-        // ✅ نقرأ من المصدر الموحّد: يدعم أحداث الإدخال السريع (m.events)
+        // ✅︎ نقرأ من المصدر الموحّد: يدعم أحداث الإدخال السريع (m.events)
         //    وأحداث صفحة البث المباشر (m.liveData.events) معاً.
         const evs = _matchEvents(m).slice();
 
@@ -3186,6 +3349,23 @@ if (!window._renderAllV2Patched) {
           }
           // بطاقات / تبديلات / إصابات / فار — بطاقة صغيرة في منتصف الخط
           const sideLbl = _evSide(ev) === 'away' ? at.name : ht.name;
+
+          // ── التبديل: عرض احترافي بسهمين (داخل أخضر / خارج أحمر) ──
+          if (ev.type === 'sub') {
+            const inName  = ev.playerIn  || ev.player2 || '';
+            const outName = ev.playerOut || ev.player  || '';
+            return `<div class="vt-row vt-row-mid">
+              <div class="vt-chip vt-chip-sub">
+                <span class="vt-sub-min">${minLabel(ev)}</span>
+                <span class="vt-sub-body">
+                  <span class="vt-sub-line vt-sub-in"><span class="vt-sub-arrow">▲</span>${inName}</span>
+                  <span class="vt-sub-line vt-sub-out"><span class="vt-sub-arrow">▼</span>${outName}</span>
+                </span>
+                <span class="vt-chip-team">(${sideLbl})</span>
+              </div>
+            </div>`;
+          }
+
           return `<div class="vt-row vt-row-mid">
             <div class="vt-chip vt-chip-event">
               <span class="vt-chip-ic">${_evIcon(ev, 13)}</span>
@@ -3205,37 +3385,45 @@ if (!window._renderAllV2Patched) {
         let penHtml = '';
         if (d && d.penalties && (d.matchStatus === 'penalties' || isF)) {
           const hp = d.penalties.home || [], ap = d.penalties.away || [];
-          const hGoals = hp.filter(r => r === 'goal').length;
-          const aGoals = ap.filter(r => r === 'goal').length;
+          // يدعم النص القديم ('goal') والكائن الجديد ({result, player})
+          const _isGoal = r => (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal');
+          const _nameOf = r => (typeof r === 'object' && r && r.player) ? String(r.player) : '';
+          const hGoals = hp.filter(_isGoal).length;
+          const aGoals = ap.filter(_isGoal).length;
           const winnerName = hGoals !== aGoals ? (hGoals > aGoals ? ht.name : at.name) : '';
 
-          function kickRow(list) {
+          // صف تفصيلي لكل ركلة: رقم + أيقونة + اسم اللاعب (إن وُجد)
+          function kickList(list) {
             if (!list.length) return '<div class="pen-empty">—</div>';
-            return `<div class="pen-kicks">${list.map((r, i) => `
-              <span class="pen-kick ${r === 'goal' ? 'pen-in' : 'pen-out'}" title="ركلة ${i + 1}">
-                ${window.Icon ? window.Icon(r === 'goal' ? 'check' : 'close', 12) : ''}
-              </span>`).join('')}</div>`;
+            return `<div class="pen-klist">${list.map((r, i) => {
+              const inn = _isGoal(r);
+              const nm  = _nameOf(r);
+              return `<div class="pen-krow ${inn ? 'pen-in' : 'pen-out'}">
+                <span class="pen-knum">${i + 1}</span>
+                <span class="pen-kmark">${window.Icon ? window.Icon(inn ? 'check' : 'close', 11) : (inn ? '✓' : '✗')}</span>
+                <span class="pen-kname">${nm || (inn ? 'سجّل' : 'ضيّع')}</span>
+              </div>`;
+            }).join('')}</div>`;
           }
 
           penHtml = `<div class="pen-card">
             <div class="pen-head">
               <span class="pen-head-ic">${window.Icon ? window.Icon('target', 15) : ''}</span>
               <span>ركلات الترجيح</span>
+              <span class="pen-head-score">${hGoals} - ${aGoals}</span>
             </div>
             <div class="pen-teams">
               <div class="pen-team">
                 <div class="pen-team-name">${ht.name}</div>
-                <div class="pen-team-score">${hGoals}</div>
-                ${kickRow(hp)}
+                ${kickList(hp)}
               </div>
-              <div class="pen-sep">—</div>
+              <div class="pen-vsep"></div>
               <div class="pen-team">
                 <div class="pen-team-name">${at.name}</div>
-                <div class="pen-team-score">${aGoals}</div>
-                ${kickRow(ap)}
+                ${kickList(ap)}
               </div>
             </div>
-            ${winnerName ? `<div class="pen-winner">${winnerName} يتأهل بركلات الترجيح</div>` : ''}
+            ${winnerName ? `<div class="pen-winner">🏆 ${winnerName} يتأهل بركلات الترجيح</div>` : ''}
           </div>`;
         }
 
@@ -3331,16 +3519,21 @@ function renderPitchViewer(lineup, isAway) {
             const aBrd = isGK ? '#9B59B6'              : brdClr;
             const aTxt = isGK ? '#CE9FFC'              : txtClr;
             const cap  = lineup.captain && p.name && p.name === lineup.captain;
+            const side = isAway ? 'away' : 'home';
+            const badges = window._playerMatchBadges ? window._playerMatchBadges(m.events, side, p.name, num) : '';
             return `<div style="position:absolute;left:${x}%;top:${y}%;
                 transform:translate(-50%,-50%);display:flex;flex-direction:column;
                 align-items:center;gap:2px;z-index:5">
-              <div style="width:30px;height:30px;border-radius:50%;
-                background:${aBg};border:2px solid ${aBrd};
-                display:flex;align-items:center;justify-content:center;
-                font-size:11px;font-weight:900;color:${aTxt};
-                font-family:Tajawal,sans-serif;
-                box-shadow:0 2px 8px rgba(0,0,0,.6)">
-                ${cap ? '©' : num}
+              <div style="position:relative">
+                <div style="width:30px;height:30px;border-radius:50%;
+                  background:${aBg};border:2px solid ${aBrd};
+                  display:flex;align-items:center;justify-content:center;
+                  font-size:11px;font-weight:900;color:${aTxt};
+                  font-family:Tajawal,sans-serif;
+                  box-shadow:0 2px 8px rgba(0,0,0,.6)">
+                  ${cap ? '©' : num}
+                </div>
+                ${badges}
               </div>
               <div style="font-size:7px;font-weight:700;color:#fff;
                 background:rgba(0,0,0,.8);border-radius:3px;
@@ -3351,13 +3544,16 @@ function renderPitchViewer(lineup, isAway) {
             </div>`;
           }).join('');
 
-          // البدلاء
-          const subsHtml = subs.length ? `
+          // البدلاء — تظهر فقط إذا فعّلها المنظّم (showBench)
+          const _benchAllowed = lineup.showBench !== false;
+          const subsHtml = (_benchAllowed && subs.length) ? `
             <div style="margin-top:10px;background:var(--s2);border:1px solid var(--b2);
               border-radius:10px;padding:10px">
               <div style="font-size:9px;font-weight:700;color:var(--t3);
                 letter-spacing:1px;margin-bottom:6px">BENCH</div>
-              ${subs.map(p => `
+              ${subs.map(p => {
+                const _sBadges = window._playerMatchBadges ? window._playerMatchBadges(m.events, isAway?'away':'home', p.name, p.number) : '';
+                return `
                 <div style="display:flex;align-items:center;gap:8px;padding:5px 0;
                   border-bottom:1px solid var(--b1)">
                   <div style="width:22px;height:22px;border-radius:5px;
@@ -3366,14 +3562,15 @@ function renderPitchViewer(lineup, isAway) {
                     font-size:9px;font-weight:900;color:var(--t3);flex-shrink:0">
                     ${p.number||'—'}
                   </div>
-                  <div style="font-size:11px;font-weight:700;color:var(--t2);flex:1">
-                    ${p.name||'—'}
+                  <div style="font-size:11px;font-weight:700;color:var(--t2);flex:1;display:flex;align-items:center;gap:6px">
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||'—'}</span>
+                    ${_sBadges ? `<span class="pl-bench-badges">${_sBadges}</span>` : ''}
                   </div>
                   <div style="font-size:9px;color:var(--t3)">${p.position||''}</div>
                   ${p.status==='injured'   ? `<span style="font-size:8px;color:#C0392B;background:rgba(192,57,43,.1);border-radius:4px;padding:1px 5px">🤕</span>` : ''}
                   ${p.status==='suspended' ? `<span style="font-size:8px;color:#C9A02B;background:rgba(201,160,43,.1);border-radius:4px;padding:1px 5px">🟨</span>` : ''}
-                  ${p.status==='absent'    ? `<span style="font-size:8px;color:#666;background:rgba(0,0,0,.2);border-radius:4px;padding:1px 5px">❌</span>` : ''}
-                </div>`).join('')}
+                  ${p.status==='absent'    ? `<span style="font-size:8px;color:#666;background:rgba(0,0,0,.2);border-radius:4px;padding:1px 5px">❌︎</span>` : ''}
+                </div>`;}).join('')}
             </div>` : '';
 
           return `
@@ -3440,7 +3637,7 @@ function renderPitchViewer(lineup, isAway) {
               border:1px solid var(--b2);
               background:var(--s2);color:var(--t3);
               font-size:11px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">
-              ✈️ ${at.name} ${hasAL ? '' : '(لم تُدخَل)'}
+              ✈︎️ ${at.name} ${hasAL ? '' : '(لم تُدخَل)'}
             </button>
           </div>
           <div id="vlu-home-${_uid}">${renderPitchViewer(hl, false)}</div>
@@ -3616,7 +3813,7 @@ function renderPitchViewer(lineup, isAway) {
     });
 
     // ── تجميع HTML ──
-    // ✅ badge اسم المرحلة لمباريات الشجرة
+    // ✅︎ badge اسم المرحلة لمباريات الشجرة
     const knockoutBadgeHtml = m.isKnockout && m.knockoutRoundName
       ? `<div style="text-align:center;margin-bottom:10px">
            <span style="font-size:11px;font-weight:800;color:#9b59b6;background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.25);border-radius:20px;padding:4px 14px">
@@ -3624,7 +3821,7 @@ function renderPitchViewer(lineup, isAway) {
            </span>
          </div>`
       : '';
-    // ✅ بطاقة الراعي — راعي المباراة يتقدّم على راعي البطولة
+    // ✅︎ بطاقة الراعي — راعي المباراة يتقدّم على راعي البطولة
     const _spHtml = (typeof window._spMatchHTML === 'function') ? window._spMatchHTML(m) : '';
     body.innerHTML = knockoutBadgeHtml + headerHtml + _spHtml + tabsHtml + contentHtml;
 
@@ -3660,15 +3857,15 @@ function renderPitchViewer(lineup, isAway) {
 })();
 
 
-/* ✅ تصدير لـ matches-tabs.js — هذه الدوال module-scoped فلا تراها
+/* ✅︎ تصدير لـ matches-tabs.js — هذه الدوال module-scoped فلا تراها
    الملفات الأخرى. renderMatches تُستبدَل، والاثنتان الأخريان تُستدعيان. */
-/* ✅ تصدير — match-share-card.js و matches-tabs.js تقرأ هذه.
+/* ✅︎ تصدير — match-share-card.js و matches-tabs.js تقرأ هذه.
    بلا التصدير ترجع undefined صامتة (نفس فخ OVERRIDES.md).
    نُحدّثها مع كل snapshot عبر _syncGlobals(). */
 window.LEAGUE_ID = LEAGUE_ID;
 window.formatTimeTo12H = formatTimeTo12H;
 function _syncGlobals() {
-  /* ✅ matches/teams عندها getter بس (Object.defineProperty فوق بالملف) —
+  /* ✅︎ matches/teams عندها getter بس (Object.defineProperty فوق بالملف) —
      محاولة الكتابة فيها هنا كانت تطلع TypeError فورية (وضع الموديول صارم)،
      فتنهار renderAll() بأول سطر ولا يشتغل أي تحديث بعدها إطلاقاً —
      هذا كان السبب الحقيقي لعدم ظهور المباريات للجمهور. الاثنان أصلاً
@@ -3685,7 +3882,7 @@ window._startCard2Clock = _startCard2Clock;
 // ── عداد صفحة التفاصيل ──────────────────────────────────────────
 const _detailClocks = {};
 
-/* ✅ FIX 10 — إعادة رسم فورية لكل الساعات.
+/* ✅︎ FIX 10 — إعادة رسم فورية لكل الساعات.
    المتصفح يخنق setInterval في التبويب الخلفي فتظهر فجوة عند العودة.
    يستدعيها clock-sync.js عند visibilitychange/pageshow. الساعة تُحسب
    من الطابع الزمني، فتصحّح نفسها لحظة الرسم. */
@@ -3727,4 +3924,4 @@ window._calcMatchSecs     = _calcMatchSecs;
 window._startDetailClock2 = _startDetailClock2;
 window._buildUnifiedStatsHtml = _buildUnifiedStatsHtml;
 
-// console.log('[VIEWER V3] ✅ النظام الموحّد النهائي — بدون بنرات أو تكرار');
+// console.log('[VIEWER V3] ✅︎ النظام الموحّد النهائي — بدون بنرات أو تكرار');

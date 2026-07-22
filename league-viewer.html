@@ -2,6 +2,13 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8"/>
+<!-- ⚡ تسريع التحميل: اتصال مبكر بالمصادر الخارجية + تحميل مسبق للسكربت الرئيسي -->
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin/>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="modulepreload" href="viewer.js"/>
+<link rel="preload" href="viewer.css" as="style"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <title>منصة بطولات</title>
 <meta name="description" content="تابع نتائج وترتيب منصة بطولات مباشرة"/>
@@ -23,7 +30,7 @@
 <link rel="manifest" href="manifest-viewer.json"/>
 <link rel="icon" href="icon-192.png"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<!-- ✅ أداء: preconnect يوفّر ~300ms على 3G (DNS+TLS مسبقاً)
+<!-- ✅︎ أداء: preconnect يوفّر ~300ms على 3G (DNS+TLS مسبقاً)
      والخط يُحمَّل بلا حجب الرسم — النص يظهر فوراً بخط النظام ثم يُستبدل -->
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -176,7 +183,7 @@ if('serviceWorker' in navigator) {
       <div class="fp active" onclick="filterMatches('all',this)">الكل</div>
       <div class="fp" onclick="filterMatches('live',this)">🔴 مباشر</div>
       <div class="fp" onclick="filterMatches('upcoming',this)">🟡 قادمة</div>
-      <div class="fp" onclick="filterMatches('finished',this)">✅ انتهت</div>
+      <div class="fp" onclick="filterMatches('finished',this)">✅︎ انتهت</div>
     </div>
     <div class="matches-section" id="matchesList"></div>
   </div>
@@ -267,7 +274,7 @@ if('serviceWorker' in navigator) {
       <div class="pm-stat"><div class="pm-stat-val" id="pmGoals">0</div><div class="pm-stat-lbl">⚽ أهداف</div></div>
       <div class="pm-stat"><div class="pm-stat-val" id="pmMatches">0</div><div class="pm-stat-lbl">🗓 مباريات</div></div>
       <div class="pm-stat"><div class="pm-stat-val" id="pmAvg">0.0</div><div class="pm-stat-lbl">📈 معدل</div></div>
-      <div class="pm-stat"><div class="pm-stat-val" id="pmMOM">0</div><div class="pm-stat-lbl">⭐ رجل</div></div>
+      <div class="pm-stat"><div class="pm-stat-val" id="pmMOM">0</div><div class="pm-stat-lbl">⭐︎ رجل</div></div>
     </div>
     <div class="pm-section-title">📋 سجل المباريات</div>
     <div id="pmMatchList"></div>
@@ -457,7 +464,7 @@ if('serviceWorker' in navigator) {
     // معيار التطبيقات الرياضية (365Scores / SofaScore / FlashScore):
     //   الساعة الرئيسية تتجمّد عند حد الفترة (45:00 / 90:00 / 105:00 / 120:00)
     //   ولا تتجاوزه إطلاقاً، ويعمل بجانبها عدّاد منفصل +1:23 يعدّ لحاله.
-    // ❌ الخطأ الشائع: 46:00 ، 47:00 (الساعة تكمل) — هذا ليس سلوك التطبيقات.
+    // ❌︎ الخطأ الشائع: 46:00 ، 47:00 (الساعة تكمل) — هذا ليس سلوك التطبيقات.
     var cap  = capOf(phase);
     var xSec = s - phase.dur * 60;
     var xm   = Math.floor(xSec / 60);
@@ -472,9 +479,9 @@ if('serviceWorker' in navigator) {
 
     return {
       phase: phase, inStoppage: true,
-      // ✅ الساعة الرئيسية متجمّدة تماماً عند الحد — دقائق وثواني
+      // ✅︎ الساعة الرئيسية متجمّدة تماماً عند الحد — دقائق وثواني
       displayMin: limit, displaySec: 0,
-      // ✅ عدّاد بدل الضائع مستقل — يعدّ لحاله بلا سقف على العرض
+      // ✅︎ عدّاد بدل الضائع مستقل — يعدّ لحاله بلا سقف على العرض
       stoppageMin: xm, stoppageSec: xs,
       shouldAutoEnd: announced && xSec >= cap * 60 + 5,
       clock: pad(limit) + ':00',
@@ -622,7 +629,7 @@ if('serviceWorker' in navigator) {
     }
 
     matches.filter(function (m) { return m.status === 'finished'; }).forEach(function (m) {
-      // ✅ المصدر الموحّد: أحداث صفحة البث المباشر (m.liveData.events) أو
+      // ✅︎ المصدر الموحّد: أحداث صفحة البث المباشر (m.liveData.events) أو
       // أحداث الإدخال السريع (m.events في أعلى مستوى الوثيقة) — أيهما متوفر.
       var liveEv = (m.liveData && m.liveData.events) || [];
       var ev = liveEv.length ? liveEv : (Array.isArray(m.events) ? m.events : []);
@@ -631,7 +638,7 @@ if('serviceWorker' in navigator) {
       });
 
       if (goalEvents.length) {
-        // ✅ المصدر الأدق — يحتوي على هوية اللاعب
+        // ✅︎ المصدر الأدق — يحتوي على هوية اللاعب
         goalEvents.forEach(function (e) {
           // بعض الأنظمة تكتب `team` وبعضها `side`
           var evSide = e.team || e.side || 'home';
@@ -917,32 +924,32 @@ if('serviceWorker' in navigator) {
 
   /* ── خريطة الإيموجي → الأيقونة ── */
   var MAP = {
-    '✅':'check','✓':'check','☑️':'check','❌':'close','✕':'close','✖️':'close',
+    '✅︎':'check','✓':'check','☑️':'check','❌︎':'close','✕':'close','✖️':'close',
     '⚽':'ball','🥅':'goal','🏆':'trophy','🏅':'medal','🥇':'medal','🥈':'medal','🥉':'medal',
     '👥':'users','👤':'user','🧑':'user','👨':'user','🔴':'live','🟢':'dot','🟡':'dot','🟠':'dot',
     '⚪':'dot','⚫':'dot','🔵':'dot','🟣':'dot','🔷':'dot','🔶':'dot','🟦':'dot','🟩':'dot',
     '🟪':'dot','🟫':'dot','🟨':'card','🟥':'card','🎴':'card','💳':'money','💼':'money',
     '📋':'list','☰':'menu','📊':'chart','📈':'trend','📉':'trend','📅':'calendar','🗓':'calendar',
     '📆':'calendar','⏰':'clock','⏱':'clock','⏲':'clock','🕐':'clock','⏸':'pause','⏸️':'pause',
-    '▶':'play','▶️':'play','🏁':'finish','⚡':'bolt','🔒':'lock','🔐':'lock','🔓':'unlock',
+    '▶︎':'play','▶︎️':'play','🏁':'finish','⚡':'bolt','🔒':'lock','🔐':'lock','🔓':'unlock',
     '🔑':'key','⚠️':'alert','⚠':'alert','💡':'bulb','ℹ️':'info','❓':'info','❔':'info',
-    '⚙️':'settings','⚙':'settings','🔧':'settings','🎛':'settings','✏️':'edit','📝':'edit','✍️':'edit',
-    '🗑':'trash','🗑️':'trash','💾':'save','➕':'plus','➖':'minus','🔍':'search','🔗':'link',
+    '⚙︎️':'settings','⚙︎':'settings','🔧':'settings','🎛':'settings','✏︎️':'edit','📝':'edit','✍️':'edit',
+    '🗑':'trash','🗑️':'trash','💾':'save','➕︎':'plus','➖︎':'minus','🔍':'search','🔗':'link',
     '📤':'share','📲':'share','🔔':'bell','🔕':'bellOff','🔄':'refresh','🔁':'refresh',
     '🖼':'image','🖼️':'image','📸':'camera','📷':'camera','🏷️':'tag','🏷':'tag',
     '🏠':'home','🌐':'globe','🌍':'globe','🌎':'globe','🌏':'globe','📱':'phone','📧':'mail',
-    '📡':'signal','📺':'tv','👁':'eye','👁️':'eye','☀️':'sun','🌙':'moon','⬆️':'upload','⬇️':'download','⬇':'download',
-    '🌳':'tree','🎯':'target','⭐':'star','🌟':'star','✨':'star','✦':'star','👑':'crown',
+    '📡':'signal','📺':'tv','👁':'eye','👁️':'eye','☀︎️':'sun','🌙':'moon','⬆︎️':'upload','⬇︎️':'download','⬇︎':'download',
+    '🌳':'tree','🎯':'target','⭐︎':'star','🌟':'star','✨':'star','✦':'star','👑':'crown',
     '🛡️':'shield','🛡':'shield','⚔️':'swords','⚔':'swords','🎲':'dice','🎨':'palette',
     '🚀':'rocket','🤝':'handshake','🏟':'stadium','🏟️':'stadium','⛳':'flag','🚩':'flag',
-    '🤕':'injury','🎙':'mic','🎙️':'mic','🎤':'mic','✈️':'plane','☕':'coffee','📘':'doc','📄':'doc',
+    '🤕':'injury','🎙':'mic','🎙️':'mic','🎤':'mic','✈︎️':'plane','☕':'coffee','📘':'doc','📄':'doc',
     '📦':'package','👕':'shirt','⚖️':'whistle','👨‍⚖️':'whistle','🦵':'ball','🥊':'swords',
     '📢':'signal','🎉':'star','🧠':'bulb','💎':'star','🔥':'bolt','⭕':'dot','🔽':'chevronD',
     '➡️':'chevronL','⬅️':'chevronR','👆':'chevronD','👇':'chevronD','😔':'info','🎪':'star',
     '🎮':'dice','🧤':'shield','🚦':'dot','💪':'shield','🎖️':'medal','🔮':'star','🌈':'star',
     '🛈':'info','⛔':'close','📌':'tag','ℹ':'info',
-    '⚖':'whistle','🎖':'medal','✖':'close','☀':'sun','⬅':'chevronR','☑':'check',
-    '⬆':'upload','✍':'edit','✈':'plane','➡':'chevronL','⏳':'clock','✏':'edit'
+    '⚖':'whistle','🎖':'medal','✖':'close','☀︎':'sun','⬅':'chevronR','☑':'check',
+    '⬆︎':'upload','✍':'edit','✈︎':'plane','➡':'chevronL','⏳':'clock','✏︎':'edit'
   };
 
   function svg(name, size, color) {
@@ -984,9 +991,9 @@ if('serviceWorker' in navigator) {
   new MutationObserver(function(){hydrate();}).observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
-<script src="./viewer-emoji-svg.js"></script>
+<script defer src="./viewer-emoji-svg.js"></script>
 <script type="module" src="viewer.js"></script>
-<script src="./all-fixes.js"></script>
+<script defer src="./all-fixes.js"></script>
 <script>
 /* ===== sponsor-viewer (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════
@@ -1034,7 +1041,7 @@ if('serviceWorker' in navigator) {
     document.addEventListener('DOMContentLoaded', function () { setTimeout(window._spRender, 300); });
   else setTimeout(window._spRender, 300);
 
-  console.log('[sponsor-viewer] ✅ جاهز');
+  console.log('[sponsor-viewer] ✅︎ جاهز');
 })();
 </script>
 <script>
@@ -1125,7 +1132,7 @@ if('serviceWorker' in navigator) {
     window.buildScorersRanked = function () {
       return SC.withRanks(window.buildScorersData());
     };
-    console.log('[scorers] ✅ الهدافون بمفتاح الهوية (لا دمج بالاسم)');
+    console.log('[scorers] ✅︎ الهدافون بمفتاح الهوية (لا دمج بالاسم)');
   }
 
   // ثبّت فوراً، ثم أعد التثبيت بعد أي سكربت متأخر يحاول الكتابة فوقها
@@ -1188,7 +1195,7 @@ if('serviceWorker' in navigator) {
         <div style="width:10px;height:10px;border-radius:50%;background:var(--green)"></div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
-        <span style="font-size:22px">✅</span>
+        <span style="font-size:22px">✅︎</span>
         <div style="flex:1"><div style="font-size:13px;font-weight:700">نهاية المباراة</div><div style="font-size:10px;color:var(--muted2)">النتيجة النهائية فور الانتهاء</div></div>
         <div style="width:10px;height:10px;border-radius:50%;background:var(--green)"></div>
       </div>
@@ -1202,12 +1209,12 @@ if('serviceWorker' in navigator) {
   </div>
 </div>
 
-<script src="./clock-sync.js"></script>
-<script src="./date-groups.js"></script>
-<script src="./matches-tabs.js"></script>
-<script src="./viewer-perf.js"></script>
-<script src="./match-share-card.js"></script>
-<script src="./viewport-lock.js"></script>
-<script src="./pwa-install.js"></script>
+<script defer src="./clock-sync.js"></script>
+<script defer src="./date-groups.js"></script>
+<script defer src="./matches-tabs.js"></script>
+<script defer src="./viewer-perf.js"></script>
+<script defer src="./match-share-card.js"></script>
+<script defer src="./viewport-lock.js"></script>
+<script defer src="./pwa-install.js"></script>
 </body>
 </html>

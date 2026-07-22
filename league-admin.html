@@ -192,7 +192,7 @@ if('serviceWorker' in navigator) {
 
   <div class="topbar">
     <div class="tb-brand">
-      <!-- ✅ زر القائمة — يفتح التنقل الجانبي على الجوال (بديل شريط الإيموجي) -->
+      <!-- ✅︎ زر القائمة — يفتح التنقل الجانبي على الجوال (بديل شريط الإيموجي) -->
       <button class="tb-menu" id="tbMenuBtn" onclick="toggleAdminDrawer()" aria-label="القائمة">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <path d="M3 6h18M3 12h18M3 18h18"/>
@@ -205,13 +205,13 @@ if('serviceWorker' in navigator) {
       </div>
     </div>
     <div class="tb-actions">
-      <button class="tb-btn" id="viewerBtn" onclick="openViewer()"><svg class="ic ic-eye" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="vertical-align:-3px;margin-left:4px"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.8"/></svg>الجمهور ↗</button>
+      <button class="tb-btn" id="viewerBtn" onclick="openViewer()"><svg class="ic ic-eye" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="vertical-align:-3px;margin-left:4px"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.8"/></svg>الجمهور ↗︎</button>
       <button class="tb-btn danger" onclick="doLogout()">خروج</button>
     </div>
   </div>
 
   <div class="layout">
-    <!-- ✅ خلفية الدرج (جوال) -->
+    <!-- ✅︎ خلفية الدرج (جوال) -->
     <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeAdminDrawer()"></div>
     <script>
       window.toggleAdminDrawer = function () {
@@ -273,7 +273,7 @@ if('serviceWorker' in navigator) {
           <div><div class="vlb-label">🌐 رابط الجمهور</div><div class="vlb-url" id="viewerLinkDisplay">league-viewer.html?id=...</div></div>
           <div class="vlb-actions">
             <button class="copy-btn" onclick="copyViewerLink()">📋 نسخ</button>
-            <button class="open-btn" onclick="openViewer()">فتح ↗</button>
+            <button class="open-btn" onclick="openViewer()">فتح ↗︎</button>
           </div>
         </div>
         <div class="stats-grid">
@@ -335,7 +335,7 @@ if('serviceWorker' in navigator) {
           <div class="page-title"><span class="pt-ic" data-ic="list"></span>جدول الترتيب</div>
           <div class="page-sub">يتحدث تلقائياً عند إدخال النتائج</div>
           <div class="page-actions">
-            <button class="btn btn-outline" onclick="showPage('zones',null)">⚙️ مناطق</button>
+            <button class="btn btn-outline" onclick="showPage('zones',null)">⚙︎️ مناطق</button>
             <button class="btn btn-gold" onclick="shareStandings()">📤 مشاركة</button>
           </div>
         </div>
@@ -474,7 +474,7 @@ if('serviceWorker' in navigator) {
             <div class="card-body">
               <div class="form-group"><label class="form-label">اسم البطولة</label><input class="form-input" id="setName" placeholder="اسم البطولة"/></div>
 
-              <!-- ✅ شعار البطولة — المصدر الوحيد. يُطبَّق على البطاقات وواجهة الجمهور -->
+              <!-- ✅︎ شعار البطولة — المصدر الوحيد. يُطبَّق على البطاقات وواجهة الجمهور -->
               <div class="form-group">
                 <label class="form-label">شعار البطولة</label>
                 <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
@@ -699,7 +699,7 @@ if('serviceWorker' in navigator) {
             <p style="font-size:11px;color:var(--muted2);margin-bottom:14px">المجموع يجب أن يساوي عدد الفرق</p>
             <div class="zone-builder">
               <div class="zone-row"><div class="zone-color" style="background:var(--gold)"></div><div class="zone-name">🏆 المتوج</div><input class="zone-count" type="number" value="1" min="0" id="z_champion" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فريق</span></div>
-              <div class="zone-row"><div class="zone-color" style="background:var(--green)"></div><div class="zone-name">✅ متأهل</div><input class="zone-count" type="number" value="2" min="0" id="z_qualify" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فرق</span></div>
+              <div class="zone-row"><div class="zone-color" style="background:var(--green)"></div><div class="zone-name">✅︎ متأهل</div><input class="zone-count" type="number" value="2" min="0" id="z_qualify" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فرق</span></div>
               <div class="zone-row"><div class="zone-color" style="background:var(--blue)"></div><div class="zone-name">🔵 مشروط</div><input class="zone-count" type="number" value="1" min="0" id="z_cond" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فرق</span></div>
               <div class="zone-row"><div class="zone-color" style="background:#888"></div><div class="zone-name">⚪ عادي</div><input class="zone-count" type="number" value="0" min="0" id="z_normal" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فرق</span></div>
               <div class="zone-row"><div class="zone-color" style="background:var(--orange)"></div><div class="zone-name">🟠 ملعب الهبوط</div><input class="zone-count" type="number" value="1" min="0" id="z_playoff" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فريق</span></div>
@@ -748,14 +748,14 @@ if('serviceWorker' in navigator) {
             <button class="btn btn-danger" onclick="resetStandings()">🔄 إعادة ضبط الترتيب</button>
           </div></div>
 
-          <!-- ✅ §13: مسح جميع البيانات -->
+          <!-- ✅︎ §13: مسح جميع البيانات -->
           <div class="card" style="border-color:var(--red2)"><div class="card-body">
             <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">🗑 مسح جميع البيانات</div>
             <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">حذف جميع الفرق والمباريات والأحداث والإحصائيات — مع الإبقاء على نوع البطولة وإعداداتها</div>
             <button class="btn btn-danger" onclick="wipeAllData()">🗑 مسح جميع البيانات</button>
           </div></div>
 
-          <!-- ✅ §13: إعادة ضبط البطولة — رجوع لمعالج الإنشاء -->
+          <!-- ✅︎ §13: إعادة ضبط البطولة — رجوع لمعالج الإنشاء -->
           <div class="card" style="border-color:var(--red2)"><div class="card-body">
             <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">♻️ إعادة ضبط البطولة بالكامل</div>
             <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">حذف كل شيء وإرجاع البطولة لنقطة البداية — شاشة اختيار نوع البطولة ومعالج الإنشاء، وكأنها بطولة جديدة</div>
@@ -797,7 +797,7 @@ if('serviceWorker' in navigator) {
 <!-- MODALS -->
 <div class="modal-overlay" id="modal-team">
   <div class="modal-box" style="max-width:480px;max-height:90vh;overflow-y:auto">
-    <div class="modal-header"><div class="modal-title">➕ إضافة فريق</div><button class="modal-close" onclick="closeModal('modal-team')">✕</button></div>
+    <div class="modal-header"><div class="modal-title">➕︎ إضافة فريق</div><button class="modal-close" onclick="closeModal('modal-team')">✕</button></div>
     <div class="modal-body">
 
       <!-- الشعار -->
@@ -869,7 +869,7 @@ if('serviceWorker' in navigator) {
 <!-- MODAL تعديل فريق -->
 <div class="modal-overlay" id="modal-edit-team">
   <div class="modal-box" style="max-width:480px;max-height:90vh;overflow-y:auto">
-    <div class="modal-header"><div class="modal-title">✏️ تعديل بيانات الفريق</div><button class="modal-close" onclick="closeModal('modal-edit-team')">✕</button></div>
+    <div class="modal-header"><div class="modal-title">✏︎️ تعديل بيانات الفريق</div><button class="modal-close" onclick="closeModal('modal-edit-team')">✕</button></div>
     <div class="modal-body">
       <input type="hidden" id="editTeamId"/>
       <!-- الشعار -->
@@ -922,13 +922,13 @@ if('serviceWorker' in navigator) {
 
 <div class="modal-overlay" id="modal-match">
   <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto">
-    <div class="modal-header"><div class="modal-title">➕ إضافة مباراة</div><button class="modal-close" onclick="closeModal('modal-match')">✕</button></div>
+    <div class="modal-header"><div class="modal-title">➕︎ إضافة مباراة</div><button class="modal-close" onclick="closeModal('modal-match')">✕</button></div>
     <div class="modal-body">
       <!-- الفريقان -->
       <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px">⚽ الفريقان</div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">الفريق الأول 🏠</label><select class="form-select" id="matchHome"></select></div>
-        <div class="form-group"><label class="form-label">الفريق الثاني ✈️</label><select class="form-select" id="matchAway"></select></div>
+        <div class="form-group"><label class="form-label">الفريق الثاني ✈︎️</label><select class="form-select" id="matchAway"></select></div>
       </div>
       <!-- الوقت والمكان -->
       <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">📅 الوقت والمكان</div>
@@ -1156,7 +1156,7 @@ if('serviceWorker' in navigator) {
     // معيار التطبيقات الرياضية (365Scores / SofaScore / FlashScore):
     //   الساعة الرئيسية تتجمّد عند حد الفترة (45:00 / 90:00 / 105:00 / 120:00)
     //   ولا تتجاوزه إطلاقاً، ويعمل بجانبها عدّاد منفصل +1:23 يعدّ لحاله.
-    // ❌ الخطأ الشائع: 46:00 ، 47:00 (الساعة تكمل) — هذا ليس سلوك التطبيقات.
+    // ❌︎ الخطأ الشائع: 46:00 ، 47:00 (الساعة تكمل) — هذا ليس سلوك التطبيقات.
     var cap  = capOf(phase);
     var xSec = s - phase.dur * 60;
     var xm   = Math.floor(xSec / 60);
@@ -1171,9 +1171,9 @@ if('serviceWorker' in navigator) {
 
     return {
       phase: phase, inStoppage: true,
-      // ✅ الساعة الرئيسية متجمّدة تماماً عند الحد — دقائق وثواني
+      // ✅︎ الساعة الرئيسية متجمّدة تماماً عند الحد — دقائق وثواني
       displayMin: limit, displaySec: 0,
-      // ✅ عدّاد بدل الضائع مستقل — يعدّ لحاله بلا سقف على العرض
+      // ✅︎ عدّاد بدل الضائع مستقل — يعدّ لحاله بلا سقف على العرض
       stoppageMin: xm, stoppageSec: xs,
       shouldAutoEnd: announced && xSec >= cap * 60 + 5,
       clock: pad(limit) + ':00',
@@ -1327,7 +1327,7 @@ if('serviceWorker' in navigator) {
       });
 
       if (goalEvents.length) {
-        // ✅ المصدر الأدق — يحتوي على هوية اللاعب
+        // ✅︎ المصدر الأدق — يحتوي على هوية اللاعب
         goalEvents.forEach(function (e) {
           var teamId = e.teamId || (e.team === 'home' ? m.homeId : m.awayId);
           var pid    = e.playerId || null;
@@ -1614,25 +1614,25 @@ if('serviceWorker' in navigator) {
   var MAP = {
     '\uD83D\uDC54':'shirt', '\u267B\uFE0F':'refresh', '\u267B':'refresh',
     '\uD83E\uDDD1\u200D\uD83D\uDCBC':'user',
-    '✅':'check','✓':'check','☑️':'check','❌':'close','✕':'close','✖️':'close',
+    '✅︎':'check','✓':'check','☑️':'check','❌︎':'close','✕':'close','✖️':'close',
     '⚽':'ball','🥅':'goal','🏆':'trophy','🏅':'medal','🥇':'medal','🥈':'medal','🥉':'medal',
     '👥':'users','👤':'user','🧑':'user','👨':'user','🔴':'live','🟢':'dot','🟡':'dot','🟠':'dot',
     '⚪':'dot','⚫':'dot','🔵':'dot','🟣':'dot','🔷':'dot','🔶':'dot','🟦':'dot','🟩':'dot',
     '🟪':'dot','🟫':'dot','🟨':'card','🟥':'card','🎴':'card','💳':'money','💼':'money',
     '📋':'list','☰':'menu','📊':'chart','📈':'trend','📉':'trend','📅':'calendar','🗓':'calendar',
     '📆':'calendar','⏰':'clock','⏱':'clock','⏲':'clock','🕐':'clock','⏸':'pause','⏸️':'pause',
-    '▶':'play','▶️':'play','🏁':'finish','⚡':'bolt','🔒':'lock','🔐':'lock','🔓':'unlock',
+    '▶︎':'play','▶︎️':'play','🏁':'finish','⚡':'bolt','🔒':'lock','🔐':'lock','🔓':'unlock',
     '🔑':'key','⚠️':'alert','⚠':'alert','💡':'bulb','ℹ️':'info','❓':'info','❔':'info',
-    '⚙️':'settings','⚙':'settings','🔧':'settings','🎛':'settings','✏️':'edit','📝':'edit','✍️':'edit',
-    '🗑':'trash','🗑️':'trash','💾':'save','➕':'plus','➖':'minus','🔍':'search','🔗':'link',
+    '⚙︎️':'settings','⚙︎':'settings','🔧':'settings','🎛':'settings','✏︎️':'edit','📝':'edit','✍️':'edit',
+    '🗑':'trash','🗑️':'trash','💾':'save','➕︎':'plus','➖︎':'minus','🔍':'search','🔗':'link',
     '📤':'share','📲':'share','🔔':'bell','🔕':'bellOff','🔄':'refresh','🔁':'refresh',
     '🖼':'image','🖼️':'image','📸':'camera','📷':'camera','🏷️':'tag','🏷':'tag',
     '🏠':'home','🌐':'globe','🌍':'globe','🌎':'globe','🌏':'globe','📱':'phone','📧':'mail',
-    '📡':'signal','📺':'tv','👁':'eye','👁️':'eye','☀️':'sun','🌙':'moon','⬆️':'upload','⬇️':'download','⬇':'download',
-    '🌳':'tree','🎯':'target','⭐':'star','🌟':'star','✨':'star','✦':'star','👑':'crown',
+    '📡':'signal','📺':'tv','👁':'eye','👁️':'eye','☀︎️':'sun','🌙':'moon','⬆︎️':'upload','⬇︎️':'download','⬇︎':'download',
+    '🌳':'tree','🎯':'target','⭐︎':'star','🌟':'star','✨':'star','✦':'star','👑':'crown',
     '🛡️':'shield','🛡':'shield','⚔️':'swords','⚔':'swords','🎲':'dice','🎨':'palette',
     '🚀':'rocket','🤝':'handshake','🏟':'stadium','🏟️':'stadium','⛳':'flag','🚩':'flag',
-    '🤕':'injury','🎙':'mic','🎙️':'mic','🎤':'mic','✈️':'plane','☕':'coffee','📘':'doc','📄':'doc',
+    '🤕':'injury','🎙':'mic','🎙️':'mic','🎤':'mic','✈︎️':'plane','☕':'coffee','📘':'doc','📄':'doc',
     '📦':'package','👕':'shirt','⚖️':'whistle','👨‍⚖️':'whistle','🦵':'ball','🥊':'swords',
     '📢':'signal','🎉':'star','🧠':'bulb','💎':'star','🔥':'bolt','⭕':'dot','🔽':'chevronD',
     '➡️':'chevronL','⬅️':'chevronR','👆':'chevronD','👇':'chevronD','😔':'info','🎪':'star',
@@ -1673,7 +1673,7 @@ if('serviceWorker' in navigator) {
     autoIcons(root);
   }
 
-  /* ✅ تحويل تلقائي للإيموجي النصي إلى SVG.
+  /* ✅︎ تحويل تلقائي للإيموجي النصي إلى SVG.
      ICON_MAP كان مبنياً (163 رمزاً) ولا يُستخدم إطلاقاً — فبقيت
      عشرات الإيموجي نصاً خاماً في العناوين والأزرار وحقول الإعدادات
      (مثل ➡️ 🔁 في «نظام مباريات المجموعات»).
@@ -1746,8 +1746,8 @@ if('serviceWorker' in navigator) {
     { t:'حيوانات', v:['🦅','🦁','🐯','🐻','🦊','🐺','🦈','🐬','🦉','🦋','🐉','🦄','🐆','🦌','🐎','🦂'] },
     { t:'قوة',     v:['⚡','🔥','💎','👑','🛡️','⚔️','💪','🚀','🏹','⚓','🗡️','🔱'] },
     { t:'رياضة',   v:['⚽','🏆','🥇','🎯','🥊','🏅','🎖️','🏟️','👕','🧤'] },
-    { t:'طبيعة',   v:['🌟','🌙','☀️','🌊','🏔️','🌹','🌴','🍀','🌵','❄️','🌺','🌪️'] },
-    { t:'رموز',    v:['🎪','🎭','🎨','🎲','♠️','♦️','🔰','⭐','✨','🌈','🔆','🎵'] }
+    { t:'طبيعة',   v:['🌟','🌙','☀︎️','🌊','🏔️','🌹','🌴','🍀','🌵','❄️','🌺','🌪️'] },
+    { t:'رموز',    v:['🎪','🎭','🎨','🎲','♠️','♦️','🔰','⭐︎','✨','🌈','🔆','🎵'] }
   ];
   window.openIconPicker = function(){
     var ov = document.getElementById('iconPickerOv');
@@ -1914,7 +1914,7 @@ if('serviceWorker' in navigator) {
         if (timerEl) timerEl.textContent = c.clock;
         if (extraEl) {
           if (c.inStoppage && c.showStoppage) {
-            /* ✅ نفس تنسيق الجمهور: +5 و +2:14 جنب بعض فوق · 45:00 تحت */
+            /* ✅︎ نفس تنسيق الجمهور: +5 و +2:14 جنب بعض فوق · 45:00 تحت */
             extraEl.style.display = 'flex';
             extraEl.style.color = '';
             extraEl.style.fontWeight = '';
@@ -1978,7 +1978,7 @@ if('serviceWorker' in navigator) {
         window._lpUpdateTimerDisplay(matchId);
         window._lpUpdateStatusUI(matchId);
         await window._lpSaveV2(matchId);
-        window.showToast && window.showToast('▶ بدأت المباراة', 'success');
+        window.showToast && window.showToast('▶︎ بدأت المباراة', 'success');
       };
 
       /* ══ الشوط الثاني — يبدأ عدّاده من الصفر، والإزاحة عند العرض ══ */
@@ -2001,7 +2001,7 @@ if('serviceWorker' in navigator) {
         window._lpUpdateTimerDisplay(matchId);
         tick(matchId);
         await window._lpSaveV2(matchId);
-        window.showToast && window.showToast('▶️ بدأ الشوط الثاني', 'success');
+        window.showToast && window.showToast('▶︎️ بدأ الشوط الثاني', 'success');
       };
 
       /* ══ بين الشوطين ══ */
@@ -2075,7 +2075,7 @@ if('serviceWorker' in navigator) {
       };
 
       /* ══ إيقاف / استئناف ══
-         ✅ عند الإيقاف: نفتح نافذة السبب أولاً (لو متاحة).
+         ✅︎ عند الإيقاف: نفتح نافذة السبب أولاً (لو متاحة).
             هذه النسخة تُحمَّل بعد admin.js فكانت تلغي نافذة السبب تماماً. */
       window.lpPauseMatch = function (matchId) {
         var st = window._liveMatches[matchId];
@@ -2118,7 +2118,7 @@ if('serviceWorker' in navigator) {
           if (st.matchStatus === 'extratime1') st.et1StartedAt = now - off;
           if (st.matchStatus === 'extratime2') st.et2StartedAt = now - off;
           tick(matchId);
-          window.showToast && window.showToast('▶️ تم استئناف المباراة', 'success');
+          window.showToast && window.showToast('▶︎️ تم استئناف المباراة', 'success');
         }
         window._lpUpdateStatusUI(matchId);
         window._lpUpdateTimerDisplay(matchId);
@@ -2169,7 +2169,7 @@ if('serviceWorker' in navigator) {
 
         window.lpCloseAddTime(matchId);
         window._lpUpdateTimerDisplay(matchId);
-        window.showToast && window.showToast('➕ بدل الضائع: ' + mins + ' دقيقة', 'success');
+        window.showToast && window.showToast('➕︎ بدل الضائع: ' + mins + ' دقيقة', 'success');
         await window._lpSaveV2(matchId);
       };
 
@@ -2207,7 +2207,7 @@ if('serviceWorker' in navigator) {
         return _origSave(matchId);
       };
 
-      console.log('[timer-admin] ✅ موحّد على TimerCore');
+      console.log('[timer-admin] ✅︎ موحّد على TimerCore');
     }
   );
 })();
@@ -2300,7 +2300,7 @@ if('serviceWorker' in navigator) {
     window.buildScorersRanked = function () {
       return SC.withRanks(window.buildScorersData());
     };
-    console.log('[scorers] ✅ الهدافون بمفتاح الهوية (لا دمج بالاسم)');
+    console.log('[scorers] ✅︎ الهدافون بمفتاح الهوية (لا دمج بالاسم)');
   }
 
   // ثبّت فوراً، ثم أعد التثبيت بعد أي سكربت متأخر يحاول الكتابة فوقها
@@ -2475,10 +2475,11 @@ if('serviceWorker' in navigator) {
   window.spSetMatchLogo = function (matchId, data) { _mLogoData[matchId] = data || null; };
   window.spGetMatchLogo = function (matchId) { return _mLogoData[matchId] || null; };
 
-  console.log('[sponsor-admin] ✅ جاهز');
+  console.log('[sponsor-admin] ✅︎ جاهز');
 })();
 </script>
 <script src="./cards-system.js"></script>
+<script src="./substitution-system.js"></script>
 <script>
 // ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
 window.lvOpenLineupFromLive = function() {
@@ -2500,7 +2501,7 @@ window.lvOpenLineupFromLive = function() {
     // الملف لم يُحمَّل بعد — انتظر ثانية وحاول ثانية
     setTimeout(() => {
       if (typeof openLineupDragDrop === 'function') openLineupDragDrop(matchId);
-      else if (typeof showToast === 'function') showToast('❌ نظام التشكيلات لم يُحمَّل', 'error');
+      else if (typeof showToast === 'function') showToast('❌︎ نظام التشكيلات لم يُحمَّل', 'error');
     }, 1000);
   }
 };
@@ -2512,7 +2513,7 @@ window.lvOpenLineupFromLive = function() {
 window._lvEventMatchId = null;
 window.lvSaveEvent = async function() {
   const matchId = window._lvEventMatchId;
-  if (!matchId) { typeof showToast==='function' && showToast('❌ لم تُحدد مباراة', 'error'); return; }
+  if (!matchId) { typeof showToast==='function' && showToast('❌︎ لم تُحدد مباراة', 'error'); return; }
   const type   = window._lvCurrentEventType?.[matchId] || 'goal';
   const icon   = window._lvCurrentEventIcon?.[matchId] || '⚽';
   const label  = window._lvCurrentEventLabel?.[matchId] || 'حدث';
@@ -2591,7 +2592,7 @@ window.openMatchLineup = function(matchId) {
       </div>
       <div style="display:flex;gap:10px">
         <button onclick="lvCloseAddTimeModal()" style="flex:1;background:var(--card3);border:1px solid var(--border2);border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:var(--muted);font-family:'Tajawal',sans-serif;cursor:pointer">إلغاء</button>
-        <button onclick="lvConfirmAddTime()" style="flex:2;background:linear-gradient(135deg,var(--gold2),var(--gold));border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:900;color:#000;font-family:'Tajawal',sans-serif;cursor:pointer">✅ تأكيد الإضافة</button>
+        <button onclick="lvConfirmAddTime()" style="flex:2;background:linear-gradient(135deg,var(--gold2),var(--gold));border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:900;color:#000;font-family:'Tajawal',sans-serif;cursor:pointer">✅︎ تأكيد الإضافة</button>
       </div>
     </div>
   </div>

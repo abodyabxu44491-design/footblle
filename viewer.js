@@ -2739,7 +2739,7 @@ if (LEAGUE_ID) { try { _installDynamicManifest(null); } catch(e){} }
 (function(){
   try{
     var b=document.createElement('div');
-    b.textContent='build v69';
+    b.textContent='build v70';
     b.style.cssText='position:fixed;bottom:6px;left:6px;z-index:99999;'
       +'background:rgba(0,0,0,.6);color:#C9A02B;font:700 9px Tajawal,sans-serif;'
       +'padding:2px 7px;border-radius:6px;pointer-events:none;opacity:.7';
@@ -3131,6 +3131,9 @@ function _matchCard(m) {
     ? `<div class="mc2-round"><span class="mc2-rb mc2-rb-ko">${m.knockoutRoundName}</span></div>`
     : (m.round ? `<div class="mc2-round"><span class="mc2-rb">الجولة ${m.round}</span></div>` : '');
 
+  // شارة التوقّع (مسابقة التوقّع المحلية)
+  const predB = (typeof window.predBadge === 'function') ? window.predBadge(m.id) : '';
+
   return `
     <div class="mc2 ${isL?'mc2-live':''} ${isF?'mc2-fin':''}" onclick="openMatchDetail('${m.id}')">
       ${roundBadge}
@@ -3143,6 +3146,7 @@ function _matchCard(m) {
         <div class="mc2-logo">${_logo(at.logo, 40)}</div>
         <div class="mc2-name ${aw?'mc2-win':''}">${at.name}</div>
       </div>
+      ${predB ? `<div class="mc2-pred">${predB}</div>` : ''}
     </div>`;
 }
 

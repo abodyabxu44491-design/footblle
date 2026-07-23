@@ -80,6 +80,8 @@ if('serviceWorker' in navigator) {
       <div style="display:flex;gap:6px;align-items:center">
         <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
         <button class="notif-bell" id="notifBell" onclick="toggleNotifications()" title="الإشعارات" style="background:transparent;border:1px solid var(--border2);color:var(--muted2);border-radius:8px;padding:6px 10px;font-size:16px;cursor:pointer">🔔</button>
+        <button id="myPredBtn" onclick="openMyPredictions()" title="توقّعاتي"
+          style="background:transparent;border:1px solid var(--border2);color:var(--muted2);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">توقّعاتي</button>
         <button class="header-share" onclick="showSharePanel()">📤 مشاركة</button>
       </div>
     </div>
@@ -1217,6 +1219,7 @@ if('serviceWorker' in navigator) {
 <script defer src="./matches-tabs.js"></script>
 <script defer src="./viewer-perf.js"></script>
 <script defer src="./match-share-card.js"></script>
+<script defer src="./predictions.js"></script>
 <script defer src="./viewport-lock.js"></script>
 <script defer src="./pwa-install.js"></script>
 </body>

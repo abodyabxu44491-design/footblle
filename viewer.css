@@ -2325,6 +2325,8 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
   width:2px;background:var(--live);border-radius:0 2px 2px 0;
 }
 .mc2{position:relative}
+/* صف شارة التوقّع — يمتد عبر أعمدة البطاقة الثلاثة */
+.mc2-pred{grid-column:1 / -1;display:flex;justify-content:center;margin-top:2px}
 
 .mc2-round{grid-column:1/-1;text-align:center;margin-bottom:var(--sp1)}
 .mc2-rb{

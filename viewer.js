@@ -288,10 +288,25 @@ async function init() {
     return;
   }
 
-  const [leagueDoc, settDoc] = await Promise.all([
-    getDoc(doc(db,'leagues',LEAGUE_ID)),
-    getDoc(doc(db,'leagues',LEAGUE_ID,'config','settings')),
-  ]);
+  /* ⚡ التحميل الأولي مع صمود أمام ضعف الشبكة:
+     كان فشل الاتصال يرمي خطأً غير معالَج فتبقى الصفحة فارغة/عالقة.
+     الآن نُعيد المحاولة تلقائياً بفواصل متزايدة. */
+  let leagueDoc, settDoc;
+  try {
+    [leagueDoc, settDoc] = await Promise.all([
+      getDoc(doc(db,'leagues',LEAGUE_ID)),
+      getDoc(doc(db,'leagues',LEAGUE_ID,'config','settings')),
+    ]);
+  } catch (e) {
+    window._initTries = (window._initTries || 0) + 1;
+    if (window._initTries <= 5) {
+      setTimeout(init, Math.min(2000 * window._initTries, 10000));
+      return;
+    }
+    showError('تعذّر الاتصال', 'تحقّق من الإنترنت وأعد فتح الصفحة.');
+    return;
+  }
+  window._initTries = 0;
 
   if(!leagueDoc.exists()) { showError('البطولة غير موجودة'); return; }
   league = _sanitizeDoc({id: leagueDoc.id, ...leagueDoc.data()});
@@ -332,19 +347,48 @@ async function init() {
   let teamsLoaded = false, matchesLoaded = false;
   const checkHide = () => { if(teamsLoaded && matchesLoaded) hideLoader(); };
 
-  onSnapshot(collection(db,'leagues',LEAGUE_ID,'teams'), snap => {
-    teams = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()}));
-    teamsLoaded = true; window.renderAll(); checkHide();
-  }, () => { teamsLoaded = true; checkHide(); });
+  /* ⚡ صمود أمام ضعف الشبكة:
+     عند فشل المستمع لا نمسح البيانات المعروضة ولا نترك الصفحة فارغة —
+     نُبقي آخر نسخة ونُعيد الاشتراك تلقائياً بفواصل متزايدة حتى يعود
+     الاتصال. (كان الفشل يترك المباريات فارغة بلا أي محاولة استرجاع.) */
+  window._vwRetries = window._vwRetries || {};
+  function _resilient(key, build, apply, maxDelay) {
+    maxDelay = maxDelay || 30000;
+    let stop = null;
+    const start = () => {
+      try {
+        stop = onSnapshot(build(), snap => {
+          window._vwRetries[key] = 0;
+          apply(snap);
+        }, () => {
+          const n = (window._vwRetries[key] = (window._vwRetries[key] || 0) + 1);
+          if (key === 'teams')   { teamsLoaded = true; }
+          if (key === 'matches') { matchesLoaded = true; }
+          checkHide();
+          const delay = Math.min(2000 * n, maxDelay);
+          setTimeout(() => { try { stop && stop(); } catch(e){} start(); }, delay);
+        });
+      } catch (e) {
+        setTimeout(start, 5000);
+      }
+    };
+    start();
+  }
 
-  onSnapshot(
-    query(collection(db,'leagues',LEAGUE_ID,'matches'), orderBy('round'), orderBy('date')),
+  _resilient('teams',
+    () => collection(db,'leagues',LEAGUE_ID,'teams'),
+    snap => {
+      teams = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()}));
+      teamsLoaded = true; window.renderAll(); checkHide();
+    });
+
+  _resilient('matches',
+    () => query(collection(db,'leagues',LEAGUE_ID,'matches'), orderBy('round'), orderBy('date')),
     snap => {
       matches = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()}));
       matches.sort((a,b)=>(a.round||0)-(b.round||0)||(a.date||'').localeCompare(b.date||''));
       matchesLoaded = true; window.renderAll(); checkHide();
-    }, () => { matchesLoaded = true; checkHide(); }
-  );
+    });
 
   onSnapshot(collection(db,'leagues',LEAGUE_ID,'groups'), snap => {
     groups = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));
@@ -2695,7 +2739,7 @@ if (LEAGUE_ID) { try { _installDynamicManifest(null); } catch(e){} }
 (function(){
   try{
     var b=document.createElement('div');
-    b.textContent='build v65';
+    b.textContent='build v69';
     b.style.cssText='position:fixed;bottom:6px;left:6px;z-index:99999;'
       +'background:rgba(0,0,0,.6);color:#C9A02B;font:700 9px Tajawal,sans-serif;'
       +'padding:2px 7px;border-radius:6px;pointer-events:none;opacity:.7';

@@ -36,6 +36,14 @@ const durationCustom = { nl: false, sub: false, renew: false };
 let _renewingSubId = null;
 
 function todayISO() { return new Date().toISOString().split('T')[0]; }
+/* ✅ تفسير endDate كنهاية اليوم بالتوقيت المحلي (لا UTC) */
+function subEndLocal(endDate) {
+  if (!endDate) return null;
+  const m = String(endDate).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3], 23, 59, 59, 999);
+  const d = new Date(endDate);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 function addMonthsISO(startISO, months) {
   const d = startISO ? new Date(startISO) : new Date();
@@ -201,7 +209,7 @@ function updateStats() {
 function subStatus(s) {
   if(s.status === 'cancelled') return 'cancelled';
   if(!s.endDate) return s.status === 'active' ? 'active' : 'expired';
-  const diff = (new Date(s.endDate) - new Date()) / (1000*60*60*24);
+  const diff = (subEndLocal(s.endDate) - new Date()) / (1000*60*60*24);
   if(diff <= 0) return 'expired';
   if(diff <= 14) return 'soon';
   return 'active';
@@ -225,7 +233,7 @@ function updateSubStats() {
 function leagueSubDaysLabel(leagueId) {
   const sub = allSubs.find(s => s.leagueId === leagueId);
   if(!sub || !sub.endDate) return '—';
-  const diff = Math.ceil((new Date(sub.endDate) - new Date()) / (1000*60*60*24));
+  const diff = Math.ceil((subEndLocal(sub.endDate) - new Date()) / (1000*60*60*24));
   if(diff <= 0) return 'منتهي';
   return diff + ' يوم';
 }
@@ -392,7 +400,7 @@ function renderExpiringOverview() {
   const el = document.getElementById('expiringSubsOverview');
   const soon = allSubs.filter(s => {
     if(!s.endDate) return false;
-    const diff = (new Date(s.endDate) - new Date()) / (1000*60*60*24);
+    const diff = (subEndLocal(s.endDate) - new Date()) / (1000*60*60*24);
     return diff > 0 && diff <= 14;
   });
   if(soon.length === 0) {
@@ -400,7 +408,7 @@ function renderExpiringOverview() {
     return;
   }
   el.innerHTML = soon.map(s => {
-    const diff = Math.ceil((new Date(s.endDate) - new Date()) / (1000*60*60*24));
+    const diff = Math.ceil((subEndLocal(s.endDate) - new Date()) / (1000*60*60*24));
     return `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border)">
       <div>
@@ -441,7 +449,7 @@ function renderSubs() {
   tbody.innerHTML = rows.map(s => {
     const st = subStatus(s);
     const [cls, lbl] = META[st] || META.active;
-    const end = s.endDate ? new Date(s.endDate) : null;
+    const end = subEndLocal(s.endDate);
     const days = end ? Math.ceil((end - new Date()) / 86400000) : null;
     const text = st === 'soon' ? `${days} يوم` : lbl;
     const isDone = st === 'cancelled';
@@ -491,13 +499,23 @@ window.confirmRenewSub = async function() {
   const newEnd = document.getElementById('renew_end')?.value;
   if(!newEnd) { showToast('حدد تاريخ الانتهاء الجديد', 'error'); return; }
   try {
+    const _renewSub = allSubs.find(x => x.id === _renewingSubId);
     await updateDoc(doc(db, 'subscriptions', _renewingSubId), {
       endDate: newEnd,
       status: 'active',
       updatedAt: serverTimestamp()
     });
+    /* ✅ الأهم: إعادة تفعيل البطولة نفسها.
+       كان التجديد يُفعّل الاشتراك فقط بينما تبقى البطولة موقوفة
+       (suspended) من الإيقاف التلقائي — فيظل الجمهور والأدمن مقفلين
+       رغم التجديد. */
+    if (_renewSub && _renewSub.leagueId) {
+      await updateDoc(doc(db, 'leagues', _renewSub.leagueId), {
+        status: 'active', locked: false, updatedAt: serverTimestamp()
+      });
+    }
     closeModal('modal-renew-sub');
-    showToast('تم تجديد الاشتراك ✓', 'success');
+    showToast('تم تجديد الاشتراك وإعادة تفعيل البطولة ✓', 'success');
     _renewingSubId = null;
   } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
 };
@@ -512,22 +530,53 @@ window.cancelSub = async function(id) {
 
 // ══ فحص الاشتراكات المنتهية تلقائياً ══
 async function autoCheckExpiredSubs() {
-  const now = new Date().toISOString().split('T')[0];
+  /* ✅ تاريخ اليوم بالتوقيت المحلي (لا UTC) — كان الاشتراك يُنهى قبل
+     يومه الأخير في المناطق ذات الإزاحة الموجبة. والمقارنة بـ «<» تعني
+     أن يوم الانتهاء نفسه يبقى نشطاً كاملاً. */
+  const d = new Date();
+  const now = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   allSubs.forEach(async (s) => {
     if(s.status !== 'active') return;
     if(s.endDate && s.endDate < now) {
       try {
         // تحديث حالة الاشتراك
         await updateDoc(doc(db, 'subscriptions', s.id), { status: 'expired', updatedAt: serverTimestamp() });
-        // إيقاف البطولة المرتبطة تلقائياً
+        /* ✅ انتهاء الاشتراك يقفل لوحة الإدارة فقط (locked) — ولا يوقف
+           البطولة (suspended) حتى تبقى صفحة الجمهور تعمل للمتابعين.
+           الإيقاف الكامل يبقى قراراً يدوياً للمسؤول. */
         if(s.leagueId) {
-          await updateDoc(doc(db, 'leagues', s.leagueId), { status: 'suspended', updatedAt: serverTimestamp() });
+          await updateDoc(doc(db, 'leagues', s.leagueId), { locked: true, updatedAt: serverTimestamp() });
         }
-        showToast(`⏰ انتهى اشتراك ${s.leagueName || s.leagueId} وتم إيقاف البطولة`, 'error');
+        showToast(`⏰ انتهى اشتراك ${s.leagueName || s.leagueId} — قُفلت الإدارة وبقيت صفحة الجمهور`, 'error');
       } catch(e) { }
     }
   });
 }
+
+/* ✅ إصلاح تلقائي: بطولة موقوفة/مقفلة رغم أن اشتراكها ساري تُستعاد.
+   يعالج البطولات التي أوقفها النظام سابقاً ولم تُستعد بعد التجديد. */
+async function autoRestoreActiveSubs() {
+  const nowTs = Date.now();
+  for (const s of (allSubs || [])) {
+    if (s.status !== 'active' || !s.leagueId) continue;
+    const end = subEndLocal(s.endDate);
+    /* ✅ منع التذبذب: لا نستعيد إلا إذا بقي يوم كامل على الأقل.
+       بلا هذا الهامش قد يقفل autoCheckExpiredSubs ويفتح هذا في نفس
+       الدقيقة فيتصارعان (يوقف ويرجع ويوقف). */
+    if (!end || (end.getTime() - nowTs) < 24 * 60 * 60 * 1000) continue;
+    try {
+      const lref = doc(db, 'leagues', s.leagueId);
+      const lsnap = await getDoc(lref);
+      if (!lsnap.exists()) continue;
+      const ld = lsnap.data();
+      if (ld.status === 'suspended' || ld.locked) {
+        await updateDoc(lref, { status: 'active', locked: false, updatedAt: serverTimestamp() });
+        showToast(`✓ أُعيد تفعيل ${s.leagueName || s.leagueId} (اشتراكه ساري)`, 'success');
+      }
+    } catch (e) { /* تجاهل */ }
+  }
+}
+setTimeout(autoRestoreActiveSubs, 5000);
 
 // تشغيل الفحص كل ساعة
 setInterval(autoCheckExpiredSubs, 3600000);

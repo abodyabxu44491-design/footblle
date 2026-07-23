@@ -6658,6 +6658,25 @@ window.addEventListener('error', (e) => {
   try { console.error('WindowError:', e.message); } catch(_) {}
 });
 
+/* ══ حساب انتهاء الاشتراك — إصلاح فرق المنطقة الزمنية ══
+   endDate يُخزَّن كنص "YYYY-MM-DD". و new Date("2026-08-15") يُفسَّر
+   UTC منتصف الليل، فيُقارَن بوقت محلي متقدّم عليه → الاشتراك يُقفل
+   قبل انتهائه بيوم كامل. الحل: نعتبره نهاية ذلك اليوم بالتوقيت المحلي
+   (23:59:59) فيبقى نشطاً طوال يوم انتهائه كما يتوقّع المستخدم. */
+window._subEndLocal = function(endDate) {
+  if (!endDate) return null;
+  const s = String(endDate).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], 23, 59, 59, 999);
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+};
+window._subDaysLeft = function(endDate) {
+  const end = window._subEndLocal(endDate);
+  if (!end) return 999;               // بلا تاريخ = لا نقفل
+  return Math.ceil((end - new Date()) / (1000 * 60 * 60 * 24));
+};
+
 // ══ SUBSCRIPTION CHECK ══
 async function checkSubscription() {
   if(!LEAGUE_ID) return;
@@ -6665,22 +6684,51 @@ async function checkSubscription() {
     // جلب الاشتراك المرتبط بالبطولة
     const subsSnap = await getDocs(query(collection(db, 'subscriptions'), where('leagueId', '==', LEAGUE_ID)));
     if(subsSnap.empty) {
-      // لا يوجد اشتراك — أظهر overlay
+      /* قد تكون قراءة فاشلة/متأخّرة لا غياباً حقيقياً للاشتراك.
+         نُعيد المحاولة مرة قبل قفل اللوحة على المنظّم. */
+      if (!window._subEmptyRetried) {
+        window._subEmptyRetried = true;
+        setTimeout(checkSubscription, 3500);
+        return;
+      }
       showLockedOverlay('لا يوجد اشتراك نشط', `لم يتم تفعيل اشتراك لهذه البطولة في منصة ${PLATFORM_NAME}. تواصل مع المسؤول.`);
       renderSubscriptionInfo(null);
       return;
     }
-    const sub = subsSnap.docs[0].data();
-    const now = new Date();
-    const end = sub.endDate ? new Date(sub.endDate) : null;
-    const diff = end ? Math.ceil((end - now) / (1000*60*60*24)) : 999;
+    window._subEmptyRetried = false;
+    // ✅ نختار الاشتراك الأبعد انتهاءً (لو تعدّدت السجلات لنفس البطولة
+    //    بعد التجديد، كان يأخذ الأول عشوائياً فيقفل رغم وجود تجديد ساري)
+    /* ✅ نختار الاشتراك الأفضل: غير الملغى أولاً، ثم الأبعد انتهاءً.
+       كان يأخذ أول سجل عشوائياً — فلو بقي سجل قديم منتهٍ بجانب تجديد
+       ساري، يُقفل المنظّم رغم تجديده (سبب «يوقف قبل الانتهاء بشهر»). */
+    const _allSubs = subsSnap.docs.map(d => d.data());
+    const _rank = (x) => {
+      const e = window._subEndLocal(x.endDate);
+      return { alive: (x.status !== 'cancelled' && x.status !== 'expired') ? 1 : 0,
+               t: e ? e.getTime() : 0 };
+    };
+    _allSubs.sort((a, b) => {
+      const ra = _rank(a), rb = _rank(b);
+      return (rb.alive - ra.alive) || (rb.t - ra.t);
+    });
+    const sub = _allSubs[0];
+    const diff = window._subDaysLeft(sub.endDate);
 
     renderSubscriptionInfo(sub, diff);
 
     if(sub.status === 'cancelled' || sub.status === 'expired' || diff <= 0) {
+      /* ⚡ تأكيد مزدوج قبل القفل: قراءة واحدة قد تأتي من كاش قديم أو
+         بيانات ناقصة بسبب ضعف الشبكة. نتحقّق مرة ثانية بعد ثوانٍ حتى
+         لا يُقفل منظّم اشتراكه ساري. */
+      if (!window._subExpiryConfirmed) {
+        window._subExpiryConfirmed = true;
+        setTimeout(checkSubscription, 5000);
+        return;
+      }
       showLockedOverlay('انتهى الاشتراك', `انتهى اشتراكك في منصة ${PLATFORM_NAME} بتاريخ ${sub.endDate || '—'}. تواصل مع المسؤول لتجديده.`);
       return;
     }
+    window._subExpiryConfirmed = false;   // اشتراك سليم — صفّر التأكيد
 
     // تحذير إذا أقل من 7 أيام
     if(diff <= 7) {
@@ -6695,7 +6743,14 @@ async function checkSubscription() {
     if(leagueDoc.exists()) {
       const ld = leagueDoc.data();
       if(ld.locked) {
-        showLockedOverlay('البطولة مقفلة', `قام المسؤول بقفل هذه البطولة. لا يمكن إجراء أي تعديلات حتى يتم رفع القفل.`);
+        // القفل يأتي من انتهاء الاشتراك أو من المسؤول — نوضّح السبب الأرجح
+        const _expired = (diff <= 0) || sub.status === 'expired' || sub.status === 'cancelled';
+        showLockedOverlay(
+          _expired ? 'انتهى الاشتراك' : 'البطولة مقفلة',
+          _expired
+            ? `انتهى اشتراكك بتاريخ ${sub.endDate || '—'}. صفحة الجمهور ما زالت تعمل، لكن الإدارة مقفلة حتى التجديد.`
+            : `قام المسؤول بقفل هذه البطولة. لا يمكن إجراء أي تعديلات حتى يتم رفع القفل.`
+        );
         return;
       }
       if(ld.status === 'suspended') {
@@ -6703,7 +6758,12 @@ async function checkSubscription() {
         return;
       }
     }
-  } catch(e) { }
+    window._subRetryCount = 0;
+  } catch(e) {
+    console.warn('[subscription] فشل الفحص — إعادة المحاولة:', e && e.message);
+    window._subRetryCount = (window._subRetryCount || 0) + 1;
+    if (window._subRetryCount <= 3) setTimeout(checkSubscription, 4000 * window._subRetryCount);
+  }
 }
 
 // ══ عرض تفاصيل الاشتراك في صفحة الإعدادات ══

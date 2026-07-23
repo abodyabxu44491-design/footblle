@@ -5,7 +5,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, initializeFirestore, persistentLocalCache,
-  persistentMultipleTabManager, collection, doc, getDoc, onSnapshot, query, orderBy }
+  persistentMultipleTabManager, collection, doc, getDoc, getDocs, onSnapshot, query, orderBy }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 /* ✅︎ أداء: analytics و messaging كانا يُستوردان ثابتاً (~90KB) فيؤخّران
    ظهور الصفحة على كل زائر. analytics لا يُستخدم إطلاقاً (getAnalytics فقط)،
@@ -2130,8 +2130,26 @@ window.openTeamProfile = function(teamId) {
   const finished = teamMatches.filter(m=>m.status==='finished').slice(-5).reverse();
   const upcoming = teamMatches.filter(m=>m.status==='upcoming').slice(0,3);
 
-  // لاعبو الفريق
-  const players = t.players || [];
+  // لاعبو الفريق: من الكشف الرسمي المحمّل (roster) أو الحقل القديم
+  window._teamRosters = window._teamRosters || {};
+  const players = (window._teamRosters[teamId] && window._teamRosters[teamId].length)
+    ? window._teamRosters[teamId]
+    : (t.players || []);
+  // حمّل الكشف من قاعدة البيانات أول مرة ثم أعد الرسم ليظهر
+  if (!window._teamRosters[teamId]) {
+    window._teamRosters[teamId] = [];
+    getDocs(query(collection(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster'), orderBy('number', 'asc')))
+      .then(snap => {
+        const list = [];
+        snap.forEach(dd => list.push(_sanitizeDoc({ id: dd.id, ...dd.data() })));
+        window._teamRosters[teamId] = list;
+        const ov = document.getElementById('teamProfileOverlay');
+        if (list.length && ov && ov.style.display !== 'none') {
+          window.openTeamProfile(teamId); // أعد الرسم بالكشف الكامل
+        }
+      })
+      .catch(() => {});
+  }
 
   // هدافو الفريق من المباريات
   const scorersMap = {};
@@ -2160,6 +2178,32 @@ window.openTeamProfile = function(teamId) {
       <div style="font-size:20px;font-weight:900;color:var(--t1);margin-bottom:4px">${t.name}</div>
       <div style="font-size:11px;color:var(--t3)">المركز ${pos} · ${league?.name||'البطولة'}</div>
     </div>
+
+    ${(function(){
+      // ── معلومات النادي المسجّلة (تظهر فقط ما أدخله المنظّم) ──
+      const _ic = (n) => window.Icon ? window.Icon(n, 14) : '';
+      const rows = [
+        ['المدرب',        t.coach,     _ic('user')],
+        ['المدير',        t.manager,   _ic('users')],
+        ['الملعب',        t.stadium,   _ic('stadium')],
+        ['سنة التأسيس',   t.founded,   _ic('calendar')],
+        ['الاسم المختصر', t.shortName, _ic('tag')],
+        ['إنستغرام',      t.insta,     _ic('camera')],
+      ].filter(r => r[1] && String(r[1]).trim());
+      const bio = (t.bio && String(t.bio).trim()) ? String(t.bio).trim() : '';
+      if (!rows.length && !bio) return '';
+      return `
+      <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:14px 16px;margin-bottom:6px">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">معلومات النادي</div>
+        ${rows.map(([lbl,val,ic])=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--b1)">
+            <span style="width:20px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:var(--t3)">${ic}</span>
+            <span style="font-size:11px;color:var(--t3);flex:0 0 auto">${lbl}</span>
+            <span style="flex:1;text-align:end;font-size:12px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${val}</span>
+          </div>`).join('')}
+        ${bio ? `<div style="margin-top:10px;padding:10px;border-radius:9px;background:var(--s2);font-size:11.5px;line-height:1.9;color:var(--t2)">${bio}</div>` : ''}
+      </div>`;
+    })()}
 
     <!-- إحصائيات سريعة -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);background:var(--s1);border-bottom:1px solid var(--b1);margin-bottom:6px">
@@ -2275,7 +2319,7 @@ window.openTeamProfile = function(teamId) {
           <div style="width:28px;height:28px;border-radius:7px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--t2)">${p.number||'—'}</div>
           <div style="flex:1">
             <div style="font-size:13px;font-weight:700;color:var(--t1)">${p.name||'لاعب'}</div>
-            <div style="font-size:10px;color:var(--t3);margin-top:1px">${p.position||''}</div>
+            <div style="font-size:10px;color:var(--t3);margin-top:1px">${({GK:'حارس مرمى',DEF:'مدافع',MID:'وسط',FWD:'مهاجم',SUB:'بديل'})[p.position]||p.position||''}</div>
           </div>
           ${p.position==='GK'?'<span style="font-size:9px;background:rgba(142,68,173,.14);color:#8E44AD;border:1px solid rgba(142,68,173,.3);border-radius:5px;padding:2px 6px;font-weight:700">GK</span>':''}
           ${p.status==='injured'?'<span style="font-size:9px;background:var(--lv-bg);color:var(--live);border:1px solid var(--lv-br);border-radius:5px;padding:2px 6px;font-weight:700">مصاب</span>':''}
@@ -2421,6 +2465,8 @@ function buildScorersData() {
     const _evsFallback = _matchEvents(m);
     if (!hasTextScorers && _evsFallback.length) {
       _evsFallback.forEach(ev => {
+        // ⛔ أهداف ركلات الترجيح لا تُحتسب في ترتيب الهدافين
+        if (ev.type === 'penalty' || ev.isShootout || ev.shootout) return;
         if (ev.type !== 'goal') return;
         const name = (ev.player || '').trim();
         if (!name || name === '—' || name === '؟' || name === '?') return;
@@ -2444,7 +2490,8 @@ function renderScorers() {
     const el = document.getElementById(id);
     if (!el) return;
     const isHome = id === 'homeScorers';
-    const list = isHome ? data.slice(0, 5) : data;
+    // الرئيسية: أفضل ٥ · قسم الهدافين: أفضل ١٠ فقط (لا القائمة كاملة)
+    const list = isHome ? data.slice(0, 5) : data.slice(0, 10);
     if (!list.length) {
       el.innerHTML = '<div class="empty-state" style="padding:30px 20px;text-align:center;color:var(--t3)"><div style="font-size:36px;margin-bottom:8px;opacity:.3">⚽</div><div>لا توجد أهداف بعد</div></div>';
       return;
@@ -2648,7 +2695,7 @@ if (LEAGUE_ID) { try { _installDynamicManifest(null); } catch(e){} }
 (function(){
   try{
     var b=document.createElement('div');
-    b.textContent='build v58';
+    b.textContent='build v65';
     b.style.cssText='position:fixed;bottom:6px;left:6px;z-index:99999;'
       +'background:rgba(0,0,0,.6);color:#C9A02B;font:700 9px Tajawal,sans-serif;'
       +'padding:2px 7px;border-radius:6px;pointer-events:none;opacity:.7';
@@ -2981,8 +3028,9 @@ function _matchCard(m) {
   const d   = m.liveData;
   const isL = m.status === 'live' && d && _LIVE.includes(d.matchStatus);
   const isF = m.status === 'finished';
-  const hw  = isF && (m.homeScore || 0) > (m.awayScore || 0);
-  const aw  = isF && (m.awayScore || 0) > (m.homeScore || 0);
+  const _psM = _penScore(m);
+  const hw  = isF && (_psM ? _psM.h > _psM.a : (m.homeScore || 0) > (m.awayScore || 0));
+  const aw  = isF && (_psM ? _psM.a > _psM.h : (m.awayScore || 0) > (m.homeScore || 0));
 
   // ── وسط البطاقة ──
   let center = '';
@@ -3025,7 +3073,7 @@ function _matchCard(m) {
           <span class="mc2-sep">:</span>
           <span class="${aw?'mc2-win':''}">${m.awayScore ?? 0}</span>
         </div>
-        <div class="mc2-note">انتهت</div>
+        ${_psM ? `<div class="mc2-note" style="color:var(--gold);font-weight:800">ركلات الترجيح ${_psM.h}-${_psM.a}</div>` : `<div class="mc2-note">انتهت</div>`}
       </div>`;
   } else {
     center = `
@@ -3335,6 +3383,36 @@ if (!window._renderAllV2Patched) {
           || (isF && (m.penaltyScoreHome != null || m.penaltyScoreAway != null));
         if (reachedPens) {
           rows.push({ minute: 998, order: 0.95, kind: 'marker', label: 'بدأت ركلات الترجيح' });
+
+          // ── ركلات الترجيح داخل الخط الزمني نفسه (بنفس تنسيق الأهداف) ──
+          const _pIsGoal = r => (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal');
+          const _pName   = r => (typeof r === 'object' && r && r.player) ? String(r.player) : '';
+          const _ph = (_pdMark && _pdMark.home) || [];
+          const _pa = (_pdMark && _pdMark.away) || [];
+          const _maxK = Math.max(_ph.length, _pa.length);
+          let _ord = 0.96;
+          for (let i = 0; i < _maxK; i++) {
+            if (_ph[i] !== undefined) {
+              rows.push({ minute: 998, order: (_ord += 0.001), kind: 'pen',
+                penSide: 'home', penNo: i + 1,
+                penGoal: _pIsGoal(_ph[i]), penName: _pName(_ph[i]) });
+            }
+            if (_pa[i] !== undefined) {
+              rows.push({ minute: 998, order: (_ord += 0.001), kind: 'pen',
+                penSide: 'away', penNo: i + 1,
+                penGoal: _pIsGoal(_pa[i]), penName: _pName(_pa[i]) });
+            }
+          }
+          const _phG = _ph.filter(_pIsGoal).length;
+          const _paG = _pa.filter(_pIsGoal).length;
+          const _aggPs = (typeof _penScore === 'function') ? _penScore(m) : null;
+          const _fh = _maxK ? _phG : (_aggPs ? _aggPs.h : 0);
+          const _fa = _maxK ? _paG : (_aggPs ? _aggPs.a : 0);
+          if (_maxK || _aggPs) {
+            const _win = _fh !== _fa ? (_fh > _fa ? ht.name : at.name) : '';
+            rows.push({ minute: 998, order: 0.98, kind: 'penresult',
+              label: `ركلات الترجيح ${_fh} - ${_fa}`, winner: _win });
+          }
         }
 
         // ── علامة تقدّم المباراة الحيّة — تُدرَج في مكانها الزمني ضمن التسلسل ──
@@ -3363,6 +3441,30 @@ if (!window._renderAllV2Patched) {
               <div class="vt-chip vt-chip-live"><span class="vt-live-dot"></span>${r.label}</div>
             </div>`;
           }
+          // ── ركلة ترجيح: نفس تنسيق الهدف (يمين/يسار) بأيقونة ✓/✗ ──
+          if (r.kind === 'pen') {
+            const side = r.penSide === 'away' ? 'right' : 'left';
+            const nm = r.penName || (r.penGoal ? 'سجّل' : 'ضيّع');
+            const content = `<div class="vt-goal vt-pen-${r.penGoal ? 'in' : 'out'}">
+              <span class="vt-goal-name">${nm}</span>
+              <span class="vt-goal-min">رك ${r.penNo}</span>
+            </div>`;
+            return `<div class="vt-row vt-row-${side}">
+              <div class="vt-side vt-side-left">${side === 'left' ? content : ''}</div>
+              <div class="vt-marker"><span class="vt-dot ${r.penGoal ? 'vt-dot-penin' : 'vt-dot-penout'}">${window.Icon ? window.Icon(r.penGoal ? 'check' : 'close', 11) : (r.penGoal ? '✓' : '✗')}</span></div>
+              <div class="vt-side vt-side-right">${side === 'right' ? content : ''}</div>
+            </div>`;
+          }
+          // ── نتيجة ركلات الترجيح النهائية ──
+          if (r.kind === 'penresult') {
+            return `<div class="vt-row vt-row-mid">
+              <div class="vt-chip vt-chip-penres">
+                <span>${r.label}</span>
+                ${r.winner ? `<span class="vt-penres-win">${window.Icon ? window.Icon('trophy', 12) : ''} ${r.winner}</span>` : ''}
+              </div>
+            </div>`;
+          }
+
           const ev = r.ev;
           if (r.kind === 'goal') {
             const side = _evSide(ev) === 'away' ? 'right' : 'left';
@@ -3387,8 +3489,8 @@ if (!window._renderAllV2Patched) {
               <div class="vt-chip vt-chip-sub">
                 <span class="vt-sub-min">${minLabel(ev)}</span>
                 <span class="vt-sub-body">
-                  <span class="vt-sub-line vt-sub-in"><span class="vt-sub-arrow">▲</span>${inName}</span>
-                  <span class="vt-sub-line vt-sub-out"><span class="vt-sub-arrow">▼</span>${outName}</span>
+                  <span class="vt-sub-line vt-sub-in"><span class="vt-sub-arrow">${window.Icon ? window.Icon('upload', 10) : '▲'}</span>${inName}</span>
+                  <span class="vt-sub-line vt-sub-out"><span class="vt-sub-arrow">${window.Icon ? window.Icon('download', 10) : '▼'}</span>${outName}</span>
                 </span>
                 <span class="vt-chip-team">(${sideLbl})</span>
               </div>
@@ -3411,65 +3513,7 @@ if (!window._renderAllV2Patched) {
           ? '<div class="vt-empty">لا توجد أحداث بعد</div>'
           : '';
 
-        // ── ركلات الترجيح: تعمل من أي مصدر (بث/إدخال سريع، جارية/منتهية) ──
-        // مصدر التفاصيل: liveData.penalties أو m.penalties. مصدر النتيجة:
-        // أي منهما أو penaltyScoreHome (الإدخال السريع). تظهر طالما هناك أي أثر.
-        let penHtml = '';
-        (function buildPen() {
-          const pd = (d && d.penalties) || m.penalties || (m.liveData && m.liveData.penalties) || null;
-          const hasDetails = !!(pd && ((pd.home || []).length || (pd.away || []).length));
-          const psAgg = (typeof _penScore === 'function') ? _penScore(m) : null;
-          const inPenPhase = d && (d.matchStatus === 'penalties');
-          // شرط الظهور: تفاصيل موجودة، أو نتيجة ركلات، وحالة منتهية/طور ركلات
-          const show = (hasDetails || psAgg) && (isF || inPenPhase);
-          if (!show) return;
-
-          const _isGoal = r => (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal');
-          const _nameOf = r => (typeof r === 'object' && r && r.player) ? String(r.player) : '';
-          const hp = hasDetails ? (pd.home || []) : [];
-          const ap = hasDetails ? (pd.away || []) : [];
-          const hGoals = hasDetails ? hp.filter(_isGoal).length : (psAgg ? psAgg.h : 0);
-          const aGoals = hasDetails ? ap.filter(_isGoal).length : (psAgg ? psAgg.a : 0);
-          const winnerName = hGoals !== aGoals ? (hGoals > aGoals ? ht.name : at.name) : '';
-
-          function kickList(list) {
-            if (!list.length) return '<div class="pen-empty">—</div>';
-            return `<div class="pen-klist">${list.map((r, i) => {
-              const inn = _isGoal(r);
-              const nm  = _nameOf(r);
-              return `<div class="pen-krow ${inn ? 'pen-in' : 'pen-out'}">
-                <span class="pen-knum">${i + 1}</span>
-                <span class="pen-kmark">${window.Icon ? window.Icon(inn ? 'check' : 'close', 11) : (inn ? '✓' : '✗')}</span>
-                <span class="pen-kname">${nm || (inn ? 'سجّل' : 'ضيّع')}</span>
-              </div>`;
-            }).join('')}</div>`;
-          }
-
-          // جسم البطاقة: تفاصيل لو وُجدت، وإلا النتيجة الإجمالية الكبيرة
-          const body = hasDetails
-            ? `<div class="pen-teams">
-                 <div class="pen-team"><div class="pen-team-name">${ht.name}</div>${kickList(hp)}</div>
-                 <div class="pen-vsep"></div>
-                 <div class="pen-team"><div class="pen-team-name">${at.name}</div>${kickList(ap)}</div>
-               </div>`
-            : `<div class="pen-aggscore">
-                 <div class="pen-agg-team"><div class="pen-team-name">${ht.name}</div><div class="pen-agg-num">${hGoals}</div></div>
-                 <div class="pen-agg-sep">-</div>
-                 <div class="pen-agg-team"><div class="pen-team-name">${at.name}</div><div class="pen-agg-num">${aGoals}</div></div>
-               </div>`;
-
-          penHtml = `<div class="pen-card">
-            <div class="pen-head">
-              <span class="pen-head-ic">${window.Icon ? window.Icon('target', 15) : ''}</span>
-              <span>ركلات الترجيح</span>
-              <span class="pen-head-score">${hGoals} - ${aGoals}</span>
-            </div>
-            ${body}
-            ${winnerName ? `<div class="pen-winner">🏆 ${winnerName} يتأهل بركلات الترجيح</div>` : ''}
-          </div>`;
-        })();
-
-        return `<div class="vt-timeline">${teamsHeader}<div class="vt-line"></div>${rowsHtml}</div>${emptyHtml}${penHtml}`;
+        return `<div class="vt-timeline">${teamsHeader}<div class="vt-line"></div>${rowsHtml}</div>${emptyHtml}`;
       }
 
       if (tabId === 'lineup') {

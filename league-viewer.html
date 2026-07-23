@@ -634,7 +634,10 @@ if('serviceWorker' in navigator) {
       var liveEv = (m.liveData && m.liveData.events) || [];
       var ev = liveEv.length ? liveEv : (Array.isArray(m.events) ? m.events : []);
       var goalEvents = ev.filter(function (e) {
-        return e && e.type === 'goal' && !isPlaceholder(e.player);
+        if (!e) return false;
+        // ⛔ أهداف ركلات الترجيح لا تُحتسب في ترتيب الهدافين (قاعدة رسمية)
+        if (e.type === 'penalty' || e.isShootout || e.shootout) return false;
+        return e.type === 'goal' && !isPlaceholder(e.player);
       });
 
       if (goalEvents.length) {

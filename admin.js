@@ -1297,7 +1297,10 @@ window._redCardedNames = function(events, sideOrTeam) {
 // اللاعب المصاب/الموقوف (حالته في القائمة الدائمة) لا يُستبعد بل يبقى ظاهراً بشكل باهت مع أيقونة تنبيه،
 // حتى تنتبه له الإدارة قبل الاختيار دون ما تفقد القدرة على اختياره لو كانت الحالة غير دقيقة.
 window._renderRosterPickButtons = function(players, inputId, excludeNames) {
-  const excl = excludeNames || new Set();
+  // يقبل Set أو Array أو null — تحويل آمن لتفادي [].has is not a function
+  const excl = excludeNames instanceof Set ? excludeNames
+    : Array.isArray(excludeNames) ? new Set(excludeNames)
+    : new Set();
   const visible = (players || []).filter(p => !excl.has(p.name));
   if (!visible.length) {
     const msg = (players && players.length)
@@ -1621,7 +1624,7 @@ function renderMatchCard(m) {
   ${isFin ? `<!-- زر التراجع — للمباريات المنتهية فقط -->
   <div style="padding:0 12px 12px">
     <button onclick="mcv2UndoMatch('${m.id}')" style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(230,126,34,.35);background:rgba(230,126,34,.08);color:#e67e22;cursor:pointer;font-family:Tajawal,sans-serif;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px">
-      ↩️ تراجع — إرجاع المباراة كأنها لم تُلعب
+      ${window.Icon ? window.Icon('refresh', 14) : ''} تراجع — إرجاع المباراة كأنها لم تُلعب
     </button>
   </div>` : ''}
 
@@ -1946,11 +1949,11 @@ function renderQuickEntry() {
         <button onclick="qeEvent('${m.id}','yellow','🟨','${at.name}','away')" style="padding:8px 3px;border-radius:9px;background:rgba(243,156,18,.08);border:1px solid rgba(243,156,18,.25);color:#D35400;font-size:11px;cursor:pointer;font-family:Tajawal,sans-serif;text-align:center">🟨<div style="font-size:9px;margin-top:2px">${at.name.split(' ')[0]}</div></button>
         <button onclick="qeEvent('${m.id}','red','🟥','${at.name}','away')" style="padding:8px 3px;border-radius:9px;background:rgba(220,50,50,.08);border:1px solid rgba(220,50,50,.25);color:#C0392B;font-size:11px;cursor:pointer;font-family:Tajawal,sans-serif;text-align:center">🟥<div style="font-size:9px;margin-top:2px">${at.name.split(' ')[0]}</div></button>
       </div>
-      <div style="font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:1px;margin:12px 0 8px">🔄 تبديل</div>
+      <div style="font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:1px;margin:12px 0 8px;display:flex;align-items:center;gap:5px">${window.Icon?window.Icon('refresh',11):''} تبديل</div>
       <div style="display:grid;grid-template-columns:1fr 24px 1fr;gap:5px;align-items:center">
-        <button onclick="qeEvent('${m.id}','sub','🔄','${ht.name}','home')" style="padding:9px 3px;border-radius:9px;background:rgba(52,152,219,.08);border:1px solid rgba(52,152,219,.28);color:#3498db;font-size:11px;cursor:pointer;font-family:Tajawal,sans-serif;text-align:center;font-weight:700">🔄 تبديل<div style="font-size:9px;margin-top:2px;color:var(--muted)">${ht.name.split(' ')[0]}</div></button>
+        <button onclick="qeEvent('${m.id}','sub','🔄','${ht.name}','home')" style="padding:9px 3px;border-radius:9px;background:rgba(52,152,219,.08);border:1px solid rgba(52,152,219,.28);color:#3498db;font-size:11px;cursor:pointer;font-family:Tajawal,sans-serif;text-align:center;font-weight:700"><span style="display:inline-flex;align-items:center;gap:4px">${window.Icon?window.Icon('refresh',12):''} تبديل</span><div style="font-size:9px;margin-top:2px;color:var(--muted)">${ht.name.split(' ')[0]}</div></button>
         <div style="text-align:center;color:var(--border2);font-size:18px">│</div>
-        <button onclick="qeEvent('${m.id}','sub','🔄','${at.name}','away')" style="padding:9px 3px;border-radius:9px;background:rgba(52,152,219,.08);border:1px solid rgba(52,152,219,.28);color:#3498db;font-size:11px;cursor:pointer;font-family:Tajawal,sans-serif;text-align:center;font-weight:700">🔄 تبديل<div style="font-size:9px;margin-top:2px;color:var(--muted)">${at.name.split(' ')[0]}</div></button>
+        <button onclick="qeEvent('${m.id}','sub','🔄','${at.name}','away')" style="padding:9px 3px;border-radius:9px;background:rgba(52,152,219,.08);border:1px solid rgba(52,152,219,.28);color:#3498db;font-size:11px;cursor:pointer;font-family:Tajawal,sans-serif;text-align:center;font-weight:700"><span style="display:inline-flex;align-items:center;gap:4px">${window.Icon?window.Icon('refresh',12):''} تبديل</span><div style="font-size:9px;margin-top:2px;color:var(--muted)">${at.name.split(' ')[0]}</div></button>
       </div>
     </div>`;
 
@@ -2071,7 +2074,7 @@ function _qeEventsListHtml(m) {
   return evs.map((e, i) => {
     const label = e.extraMinute ? `${e.minute}+${e.extraMinute}'` : `${e.minute || 0}'`;
     const nameHtml = e.type === 'sub'
-      ? `<span style="color:#e05252">▼${e.playerOut || e.player || '؟'}</span> <span style="color:#2ecc71">▲${e.playerIn || e.player2 || '؟'}</span>`
+      ? `<span style="color:#e05252">${window.Icon?window.Icon('download',10):''} ${e.playerOut || e.player || '؟'}</span> <span style="color:#2ecc71">${window.Icon?window.Icon('upload',10):''} ${e.playerIn || e.player2 || '؟'}</span>`
       : `${e.player || '؟'}`;
     return `<div style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border2)">
       <span style="min-width:38px;font-size:11px;font-weight:900;color:var(--gold)">${label}</span>
@@ -2327,6 +2330,13 @@ window.qeSave = async function(id) {
   const hsc = document.getElementById(`qe_hsc_${id}`)?.value || '';
   const asc = document.getElementById(`qe_asc_${id}`)?.value || '';
   if (isNaN(hs) || isNaN(as_)) { showToast('أدخل النتيجة أولاً', 'error'); return; }
+
+  // ⛔ مباريات الإقصاء لا تقبل التعادل
+  const _koM = matches.find(x => x.id === id);
+  if (_koM && _koM.isKnockout && hs === as_) {
+    showToast('⛔ مباراة إقصائية لا تنتهي بالتعادل — حدّد الفائز بركلات الترجيح', 'error');
+    return;
+  }
 
   // ── اقرأ الإحصائيات من _qeStats (نظام +/-) ──
   const qst = window._qeStats && window._qeStats[id];
@@ -2617,7 +2627,7 @@ function renderScorers() {
     el.innerHTML = `<div class="empty-state"><div class="e-icon">⚽</div><div>لا توجد أهداف مسجلة بعد</div></div>`;
     return;
   }
-  el.innerHTML = sorted.map((s, i) => `
+  el.innerHTML = sorted.slice(0, 10).map((s, i) => `
     <div class="card" style="margin-bottom:10px;${i === 0 ? 'border-color:var(--gold);background:linear-gradient(135deg,#141000,var(--card))' : ''}">
       <div class="card-body" style="display:flex;align-items:center;gap:14px">
         <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;background:${i === 0 ? 'linear-gradient(135deg,var(--gold2),var(--gold3))' : i === 1 ? '#333' : i === 2 ? '#2a1a0a' : 'var(--card2)'};color:${i === 0 ? '#000' : i === 1 ? '#ccc' : i === 2 ? '#b87333' : '#555'}">${i + 1}</div>
@@ -4429,7 +4439,7 @@ function _buildLivePage(matchId, match, ht, at) {
             <button class="lp-ev-btn lp-ev-goal" onclick="lpOpenEvent('${mId}','goal','⚽','هدف')">⚽ هدف</button>
             <button class="lp-ev-btn lp-ev-yellow" onclick="lpOpenEvent('${mId}','yellow','🟡','بطاقة صفراء')">🟡 صفراء</button>
             <button class="lp-ev-btn lp-ev-red" onclick="lpOpenEvent('${mId}','red','🔴','بطاقة حمراء')">🔴 حمراء</button>
-            <button class="lp-ev-btn lp-ev-sub" onclick="lpOpenEvent('${mId}','sub','🔄','تبديل')">🔄 تبديل</button>
+            <button class="lp-ev-btn lp-ev-sub" onclick="lpOpenEvent('${mId}','sub','🔄','تبديل')">${window.Icon?window.Icon('refresh',12):''} تبديل</button>
             <button class="lp-ev-btn lp-ev-inj" onclick="lpOpenEvent('${mId}','injury','🤕','إصابة')">🤕 إصابة</button>
             <button class="lp-ev-btn lp-ev-var" onclick="lpOpenEvent('${mId}','var','📺','VAR')">📺 VAR</button>
           </div>
@@ -4909,7 +4919,7 @@ window._lpRenderEvents = function _lpRenderEvents(matchId) {
   }
   container.innerHTML = events.map(ev => {
     const desc = ev.type === 'sub'
-      ? `<span style="color:#e05252">▼ ${ev.playerOut || ev.player || ''}</span> <span style="color:#2ecc71">▲ ${ev.playerIn || ev.player2 || ''}</span> · ${ev.teamName || ''}`
+      ? `<span style="color:#e05252">${window.Icon?window.Icon('download',10):''} ${ev.playerOut || ev.player || ''}</span> <span style="color:#2ecc71">${window.Icon?window.Icon('upload',10):''} ${ev.playerIn || ev.player2 || ''}</span> · ${ev.teamName || ''}`
       : `<strong>${ev.player}</strong>${ev.player2 ? ' ← ' + ev.player2 : ''} · ${ev.teamName || ''}`;
     return `
     <div class="lp-ev-item">
@@ -6080,6 +6090,8 @@ function _buildScorersFromEvents(events, side) {
   if (!events || !events.length) return '';
   const goalMap = {}; // name → count
   events.forEach(function(ev) {
+    // ⛔ أهداف ركلات الترجيح لا تُحتسب في ترتيب الهدافين (قاعدة رسمية)
+    if (ev.type === 'penalty' || ev.isShootout || ev.shootout) return;
     if (ev.type !== 'goal') return;
     if (ev.team !== side) return;
     const name = (ev.player || '').trim();
@@ -6092,9 +6104,24 @@ function _buildScorersFromEvents(events, side) {
 }
 
 window.lpEndMatch = async function(matchId) {
-  if (!(await window.confirmDialog({ title: '⚠️ تأكيد', message: 'هل تريد إنهاء المباراة نهائياً؟', confirmText: 'تأكيد', danger: true }))) return;
   const st = _liveMatches[matchId];
   if (!st) return;
+
+  // ⛔ مباريات الإقصاء لا تنتهي بالتعادل — لازم فائز (نتيجة أو ركلات ترجيح)
+  const _koMatch = matches.find(function(x){ return x.id === matchId; });
+  if (_koMatch && _koMatch.isKnockout && (st.homeScore || 0) === (st.awayScore || 0)) {
+    const _pIsGoal = r => (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal');
+    const _ph = st.penalties ? (st.penalties.home || []).filter(_pIsGoal).length : 0;
+    const _pa = st.penalties ? (st.penalties.away || []).filter(_pIsGoal).length : 0;
+    const _hasPens = !!(st.penalties && ((st.penalties.home||[]).length || (st.penalties.away||[]).length));
+    if (!_hasPens || _ph === _pa) {
+      window.showToast && window.showToast(
+        '⛔ مباراة إقصائية لا تنتهي بالتعادل — ابدأ ركلات الترجيح وحدّد الفائز', 'error');
+      return;
+    }
+  }
+
+  if (!(await window.confirmDialog({ title: '⚠️ تأكيد', message: 'هل تريد إنهاء المباراة نهائياً؟', confirmText: 'تأكيد', danger: true }))) return;
   clearInterval(st.timerInterval);
   st.timerPaused = false;
   st.matchStatus = 'ended';
@@ -10308,11 +10335,12 @@ window.importRosterToLineup = function(teamId) {
     }
     return evs.map((e) => {
       const realIdx = m.events.indexOf(e);
-      let ic = '🟨', body = e.player || '؟';
-      if (e.type === 'red') ic = '🟥';
+      const _card = (c) => `<span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:${c};vertical-align:-1px"></span>`;
+      let ic = _card('#f1c40f'), body = e.player || '؟';
+      if (e.type === 'red') ic = _card('#e74c3c');
       if (e.type === 'sub') {
-        ic = '🔄';
-        body = `<span style="color:#e05252">▼${e.playerOut || e.player || '؟'}</span> <span style="color:#2ecc71">▲${e.playerIn || e.player2 || '؟'}</span>`;
+        ic = window.Icon ? window.Icon('refresh', 13) : '';
+        body = `<span style="color:#e05252">${window.Icon?window.Icon('download',10):''} ${e.playerOut || e.player || '؟'}</span> <span style="color:#2ecc71">${window.Icon?window.Icon('upload',10):''} ${e.playerIn || e.player2 || '؟'}</span>`;
       }
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid #1a1a1a">
         <span style="min-width:30px;font-size:11px;font-weight:900;color:#C9A02B">${e.minute || 0}'</span>
@@ -10372,7 +10400,7 @@ window.importRosterToLineup = function(teamId) {
     setTimeout(() => document.getElementById('qrCardPlayer')?.focus(), 60);
     const roster = teamId ? await window._loadTeamRoster(teamId) : [];
     const box = document.getElementById('qrCardRosterBox');
-    if (box) box.innerHTML = window._renderRosterPickButtons(roster, 'qrCardPlayer', []);
+    if (box) box.innerHTML = window._renderRosterPickButtons(roster, 'qrCardPlayer', new Set());
   };
 
   window.qrCommitCard = function(matchId, side, cardType, icon, teamName) {
@@ -10400,7 +10428,7 @@ window.importRosterToLineup = function(teamId) {
     ov.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:18px';
     ov.innerHTML = `
       <div style="width:100%;max-width:360px;background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:16px;font-family:Tajawal,sans-serif;max-height:82vh;display:flex;flex-direction:column">
-        <div style="font-size:15px;font-weight:900;color:#3498db;text-align:center">🔄 تبديل لاعب</div>
+        <div style="font-size:15px;font-weight:900;color:#3498db;text-align:center">${window.Icon?window.Icon('refresh',15):''} تبديل لاعب</div>
         <div style="font-size:11px;color:#888;text-align:center;margin-bottom:12px">${t.name}</div>
         <div style="overflow-y:auto;flex:1">${window._subBuildPickerHtml ? window._subBuildPickerHtml(matchId, side) : ''}</div>
         <div style="font-size:10px;color:#888;margin:10px 0 5px">الدقيقة</div>
@@ -10600,6 +10628,9 @@ window.importRosterToLineup = function(teamId) {
     <div style="display:flex;gap:8px;margin-top:12px">
       ${_qrET ? `<button id="qr-et-btn-${matchId}" class="mcv2-toggle-btn ${wentET?'mcv2-toggle-on':''}" onclick="mcv2QToggleET('${matchId}')" style="flex:1;padding:10px;border-radius:10px;border:1px solid #333;background:#161616;color:#ccc;font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer">⏱ احتاجت وقت إضافي؟</button>` : ''}
       ${_qrPen ? `<button id="qr-pen-btn-${matchId}" class="mcv2-toggle-btn ${wentPen?'mcv2-toggle-on':''}" onclick="mcv2QTogglePen('${matchId}')" style="flex:1;padding:10px;border-radius:10px;border:1px solid #333;background:#161616;color:#ccc;font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer">🥅 وصلت ركلات ترجيح؟</button>` : ''}
+    </div>
+    <div style="margin-top:8px;padding:8px 12px;background:rgba(230,126,34,.07);border:1px solid rgba(230,126,34,.2);border-radius:9px;font-size:10px;color:#e67e22;text-align:center;font-weight:700">
+      ⛔ مباراة إقصائية — لا تُحفظ بالتعادل، لازم فائز (بالنتيجة أو بركلات الترجيح)
     </div>` : `
     <div style="margin-top:12px;padding:9px 12px;background:rgba(255,255,255,.03);border-radius:9px;font-size:10px;color:#777;text-align:center">
       ℹ️ مباراة مجموعات — التعادل نتيجة نهائية (نقطة لكل فريق)
@@ -10636,20 +10667,20 @@ window.importRosterToLineup = function(teamId) {
     <input type="hidden" id="qr-asc-${matchId}" value="${m.awayScorers || ''}"/>
 
     <!-- 🟨 بطاقات وتبديلات -->
-    <div class="mcv2-sec" style="color:#e67e22">🟨 بطاقات وتبديلات</div>
+    <div class="mcv2-sec" style="color:#e67e22">بطاقات وتبديلات</div>
     <div style="background:#111;border-radius:10px;padding:10px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div style="display:flex;flex-direction:column;gap:6px">
           <div style="font-size:10px;color:#888;text-align:center;font-weight:700;margin-bottom:2px">${ht.name}</div>
-          <button onclick="qrAddCard('${matchId}','home','yellow')" style="padding:8px;border-radius:9px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:#f1c40f;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🟨 بطاقة صفراء</button>
-          <button onclick="qrAddCard('${matchId}','home','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🟥 بطاقة حمراء</button>
-          <button onclick="qrAddSub('${matchId}','home')" style="padding:8px;border-radius:9px;background:rgba(52,152,219,.1);border:1px solid rgba(52,152,219,.3);color:#3498db;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🔄 تبديل</button>
+          <button onclick="qrAddCard('${matchId}','home','yellow')" style="padding:8px;border-radius:9px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:#f1c40f;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#f1c40f;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة صفراء</button>
+          <button onclick="qrAddCard('${matchId}','home','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#e74c3c;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة حمراء</button>
+          <button onclick="qrAddSub('${matchId}','home')" style="padding:8px;border-radius:9px;background:rgba(52,152,219,.1);border:1px solid rgba(52,152,219,.3);color:#3498db;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">${window.Icon?window.Icon('refresh',12):''} تبديل</button>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <div style="font-size:10px;color:#888;text-align:center;font-weight:700;margin-bottom:2px">${at.name}</div>
-          <button onclick="qrAddCard('${matchId}','away','yellow')" style="padding:8px;border-radius:9px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:#f1c40f;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🟨 بطاقة صفراء</button>
-          <button onclick="qrAddCard('${matchId}','away','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🟥 بطاقة حمراء</button>
-          <button onclick="qrAddSub('${matchId}','away')" style="padding:8px;border-radius:9px;background:rgba(52,152,219,.1);border:1px solid rgba(52,152,219,.3);color:#3498db;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🔄 تبديل</button>
+          <button onclick="qrAddCard('${matchId}','away','yellow')" style="padding:8px;border-radius:9px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:#f1c40f;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#f1c40f;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة صفراء</button>
+          <button onclick="qrAddCard('${matchId}','away','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#e74c3c;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة حمراء</button>
+          <button onclick="qrAddSub('${matchId}','away')" style="padding:8px;border-radius:9px;background:rgba(52,152,219,.1);border:1px solid rgba(52,152,219,.3);color:#3498db;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">${window.Icon?window.Icon('refresh',12):''} تبديل</button>
         </div>
       </div>
       <div id="qr-cardevents-${matchId}" style="margin-top:10px">${window._qrCardEventsHtml(m)}</div>
@@ -10708,6 +10739,16 @@ window.importRosterToLineup = function(teamId) {
       statsObj['home_'+d.k] = st[d.k+'Home'] ?? 0;
       statsObj['away_'+d.k] = st[d.k+'Away'] ?? 0;
     });
+
+    // ⛔ مباريات الإقصاء لا تقبل التعادل — لازم فائز (بالنتيجة أو بركلات الترجيح)
+    if (m.isKnockout && hs === as_) {
+      const _penDecides = (penH != null && penA != null && penH !== penA);
+      if (!_penDecides) {
+        window.showToast && window.showToast(
+          '⛔ مباراة إقصائية لا تنتهي بالتعادل — فعّل ركلات الترجيح وحدّد الفائز', 'error');
+        return;
+      }
+    }
 
     const updateData = {
       homeScore: hs, awayScore: as_,

@@ -2469,6 +2469,20 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .vt-goal{ display:flex; align-items:baseline; gap:6px; direction:rtl }
 .vt-goal-name{ font-size:12px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
 .vt-goal-min{ font-size:11px; font-weight:700; color:var(--t3); flex:0 0 auto }
+/* ── ركلات الترجيح داخل الخط الزمني (نفس تنسيق الأهداف) ── */
+.vt-dot-penin, .vt-dot-penout{
+  width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background:var(--bg); border:2px solid; box-shadow:none;
+}
+.vt-dot-penin{ border-color:#2ecc71; color:#2ecc71 }
+.vt-dot-penout{ border-color:#e5533d; color:#e5533d }
+.vt-pen-out{ opacity:.7 }
+.vt-pen-out .vt-goal-name{ text-decoration:line-through; text-decoration-color:rgba(229,83,61,.6) }
+.vt-chip-penres{
+  color:var(--gold); border-color:rgba(201,160,43,.35); background:rgba(201,160,43,.07);
+  font-weight:900; gap:8px;
+}
+.vt-penres-win{ color:var(--t1); font-weight:800; font-size:11px }
 
 .vt-row-mid{ justify-content:center; padding:5px 0 }
 .vt-chip{
@@ -2497,7 +2511,7 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .vt-sub-line{ display:flex; align-items:center; gap:4px; font-size:11px; font-weight:800;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.25 }
 .vt-sub-in{ color:#2ecc71 } .vt-sub-out{ color:#e05252 }
-.vt-sub-arrow{ font-size:8px; flex:0 0 auto }
+.vt-sub-arrow{ font-size:8px; flex:0 0 auto; display:flex; align-items:center }
 .vt-empty{ text-align:center; padding:20px; color:var(--t3); font-size:11px }
 /* ─ شارات اللاعب على التشكيلة (هدف/بطاقة) ─ */
 .pl-badges{ position:absolute; top:-5px; left:-7px; display:flex; flex-direction:column; gap:2px; z-index:6 }
@@ -2514,59 +2528,50 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 
 /* ══ بطاقة ركلات الترجيح ══ */
 .pen-card{
-  margin-top:14px; background:rgba(155,89,182,.06);
-  border:1px solid rgba(155,89,182,.25); border-radius:var(--r); padding:16px 14px;
+  margin-top:14px; background:var(--s2); 
+  border:1px solid var(--b2); border-radius:var(--r); padding:14px 12px;
 }
 .pen-head{
-  display:flex; align-items:center; justify-content:center; gap:7px;
-  font-size:12px; font-weight:800; color:#b579d1; letter-spacing:.3px; margin-bottom:14px;
+  display:flex; align-items:center; gap:7px;
+  font-size:12px; font-weight:800; color:var(--gold); letter-spacing:.2px; margin-bottom:12px;
+  padding-bottom:10px; border-bottom:1px solid var(--b1);
 }
-.pen-head-ic{ display:flex; align-items:center }
-.pen-teams{ display:flex; align-items:stretch; justify-content:center; gap:14px }
-.pen-team{ flex:1; min-width:0; text-align:center }
+.pen-head-ic{ display:flex; align-items:center; color:var(--gold) }
+.pen-head-score{ margin-inline-start:auto; font-size:16px; font-weight:900; color:var(--t1); font-family:'Tajawal',sans-serif }
+.pen-teams{ display:flex; align-items:flex-start; justify-content:center; gap:12px }
+.pen-team{ flex:1; min-width:0 }
 .pen-team-name{
-  font-size:11.5px; font-weight:700; color:var(--t1); margin-bottom:4px;
+  font-size:11.5px; font-weight:800; color:var(--t1); margin-bottom:8px; text-align:center;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  padding-bottom:6px; border-bottom:1px solid var(--b1);
 }
-.pen-team-score{
-  font-size:30px; font-weight:900; color:#b579d1; font-family:'Tajawal',sans-serif;
-  line-height:1.1; margin-bottom:8px;
-}
-.pen-sep{ font-size:16px; color:var(--t3); padding-top:26px; flex:0 0 auto }
-.pen-kicks{ display:flex; flex-wrap:wrap; gap:5px; justify-content:center }
-.pen-kick{
-  width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  border:1.5px solid var(--b2); box-shadow:none;
-}
-.pen-kick.pen-in{ border-color:var(--green); color:var(--green) }
-.pen-kick.pen-out{ border-color:var(--live); color:var(--live) }
-.pen-empty{ font-size:10px; color:var(--t3) }
-.pen-winner{
-  text-align:center; margin-top:14px; padding-top:12px; border-top:1px solid rgba(155,89,182,.2);
-  font-size:12px; font-weight:800; color:#b579d1;
-}
-/* ── عرض ركلات الترجيح التفصيلي (رقم + نتيجة + اسم اللاعب) ── */
-.pen-head-score{ margin-inline-start:auto; font-size:15px; font-weight:900; color:#b579d1 }
-.pen-vsep{ width:1px; align-self:stretch; background:rgba(155,89,182,.2); flex:0 0 auto }
-.pen-klist{ display:flex; flex-direction:column; gap:5px; margin-top:6px }
+.pen-vsep{ width:1px; align-self:stretch; background:var(--b1); flex:0 0 auto }
+.pen-empty{ font-size:10px; color:var(--t3); text-align:center; padding:8px 0 }
+/* صفوف الركلات — بأسلوب صفوف الأهداف: نظيف، متناسق */
+.pen-klist{ display:flex; flex-direction:column; gap:6px }
 .pen-krow{
-  display:flex; align-items:center; gap:6px; padding:4px 6px; border-radius:7px;
-  background:rgba(255,255,255,.03); font-size:10.5px; font-weight:700;
+  display:flex; align-items:center; gap:7px; padding:6px 7px; border-radius:8px;
+  background:var(--s3); font-size:11px; font-weight:700; border:1px solid var(--b1);
 }
-.pen-krow.pen-in{ color:var(--green) }
-.pen-krow.pen-out{ color:var(--live); opacity:.85 }
 .pen-knum{
-  flex:0 0 auto; width:15px; height:15px; border-radius:4px; font-size:8px; font-weight:900;
+  flex:0 0 auto; width:16px; height:16px; border-radius:5px; font-size:9px; font-weight:900;
   display:flex; align-items:center; justify-content:center;
-  background:rgba(255,255,255,.06); color:var(--t3);
+  background:var(--s1); color:var(--t3);
 }
 .pen-kmark{ flex:0 0 auto; display:flex; align-items:center }
+.pen-krow.pen-in  .pen-kmark{ color:#2ecc71 }
+.pen-krow.pen-out .pen-kmark{ color:#e5533d }
 .pen-kname{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:start; color:var(--t1) }
-.pen-krow.pen-out .pen-kname{ text-decoration:line-through; text-decoration-color:rgba(231,76,60,.5) }
-/* عرض النتيجة الإجمالية (حين لا تتوفر تفاصيل كل ركلة — الإدخال السريع) */
-.pen-aggscore{ display:flex; align-items:center; justify-content:center; gap:18px; padding:6px 0 2px }
+.pen-krow.pen-out{ opacity:.7 }
+.pen-krow.pen-out .pen-kname{ text-decoration:line-through; text-decoration-color:rgba(229,83,61,.6) }
+.pen-winner{
+  text-align:center; margin-top:12px; padding-top:11px; border-top:1px solid var(--b1);
+  font-size:12px; font-weight:800; color:var(--gold);
+}
+/* النتيجة الإجمالية (الإدخال السريع — بلا تفاصيل) */
+.pen-aggscore{ display:flex; align-items:center; justify-content:center; gap:20px; padding:4px 0 2px }
 .pen-agg-team{ text-align:center; flex:1; min-width:0 }
-.pen-agg-num{ font-size:30px; font-weight:900; color:#b579d1; font-family:Tajawal,sans-serif; margin-top:2px }
+.pen-agg-num{ font-size:32px; font-weight:900; color:var(--gold); font-family:'Tajawal',sans-serif; margin-top:4px }
 .pen-agg-sep{ font-size:20px; color:var(--t3); font-weight:900 }
 
 /* ══ لوحة معلومات المباراة (المباريات القادمة) ══ */

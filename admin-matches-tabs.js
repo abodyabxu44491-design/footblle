@@ -30,7 +30,8 @@
     if (live.some(function (m) { return !isKO(m); })) {
       out.push({ id: 'gr', label: S().type === 'groups' ? '👥 المجموعات' : '⚽ المباريات' });
     }
-    out.push({ id: 'fin', label: '🏁 المنتهية' });
+    // ✅ «المنتهية» يظهر فقط لو فيه مباريات منتهية فعلاً
+    if (all.some(isFin)) out.push({ id: 'fin', label: '🏁 المنتهية' });
     return out;
   }
 
@@ -136,7 +137,11 @@
     list.forEach(function (m) {
       var k, sk;
       if (active === 'ko' || (active === 'fin' && isKO(m))) {
-        k = m.knockoutRoundName || 'الإقصاء'; sk = -1;
+        k = m.knockoutRoundName || 'الإقصاء';
+        /* ✅ الإقصاء يُلعب بعد المجموعات — نعطيه مفتاحه الزمني في «المنتهية»
+           بدل -1 الذي كان يدفعه لأسفل القائمة. */
+        sk = (active === 'fin' && byDate && DG) ? (DG.sortKey(m.date) || 0)
+                                                : (m.knockoutOrder || m.round || 0);
       } else if (byDate) {
         k = DG.label(m.date); sk = DG.sortKey(m.date);
       } else {

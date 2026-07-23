@@ -42,7 +42,8 @@
       var t = (window.settings && window.settings.type) || '';
       tabs.push({ id: 'gr', label: t === 'groups' ? '👥 المجموعات' : '⚽ المباريات' });
     }
-    tabs.push({ id: 'fin', label: '🏁 المنتهية' });
+    // ✅ تبويب «المنتهية» يظهر فقط لو فيه مباريات منتهية فعلاً
+    if (list.some(isFinished)) tabs.push({ id: 'fin', label: '🏁 المنتهية' });
     return tabs;
   }
 
@@ -65,7 +66,12 @@
     if (!host) return;
 
     var tabs = availableTabs();
-    if (!tabs.length) return;
+    // لا توجد مباريات إطلاقاً — رسالة واضحة بدل قسم فارغ
+    if (!tabs.length) {
+      host.innerHTML = '<div class="mt-empty"><div class="mt-empty-ic">\u26BD</div>' +
+                       '<div>\u0644\u0645 \u062a\u064f\u0636\u064e\u0641 \u0645\u0628\u0627\u0631\u064a\u0627\u062a \u0628\u0639\u062f</div></div>';
+      return;
+    }
 
     var active = window[STATE_KEY];
     if (!active || !tabs.some(function (t) { return t.id === active; })) {
@@ -122,14 +128,20 @@
        أهم ما يريده المتابع هو «ما الذي يُلعب اليوم؟» — لا رقم الجولة.
        المنتهية تُجمَّع بالتاريخ تنازلياً (الأحدث أولاً)،
        والإقصاء يبقى بالدور لأن الشجرة أوضح من التاريخ. */
-    var byDate = DG && tab !== 'ko';
+    /* ✅ التجميع بالتاريخ يحتاج تواريخ فعلية. لو أغلب المباريات بلا تاريخ
+       نعود للتجميع بالجولة حتى لا يختلّ الترتيب (الجولة ١ ثم ٢ ثم ٣...). */
+    var withDate = list.filter(function (m) { return m && m.date; }).length;
+    var byDate = DG && tab !== 'ko' && list.length > 0 && (withDate / list.length) >= 0.5;
 
     var buckets = {}, meta = {};
     list.forEach(function (m) {
       var key, sk;
       if (tab === 'ko' || (tab === 'fin' && isKO(m))) {
         key = m.knockoutRoundName || 'الإقصاء';
-        sk  = 0;
+        /* ✅ الإقصاء يأتي بعد المجموعات زمنياً — لا يُدفع للأسفل بمفتاح 0.
+           في «المنتهية» نستخدم تاريخ المباراة ليأخذ ترتيبه الزمني الصحيح،
+           وفي تبويب «الإقصاء» يكفي ترتيب الأدوار. */
+        sk = (tab === 'fin' && DG) ? (DG.sortKey(m.date) || 0) : (m.knockoutOrder || m.round || 0);
       } else if (byDate) {
         key = DG.label(m.date);
         sk  = DG.sortKey(m.date);

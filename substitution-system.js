@@ -90,11 +90,11 @@
     return `
       <div class="sub-pk-wrap">
         <div class="sub-pk-col">
-          <div class="sub-pk-head sub-pk-head-out">⬅️ خارج (من الأساسي)</div>
+          <div class="sub-pk-head sub-pk-head-out">${window.Icon?window.Icon('download',11):''} خارج (من الأساسي)</div>
           <div class="sub-pk-list">${outHtml}</div>
         </div>
         <div class="sub-pk-col">
-          <div class="sub-pk-head sub-pk-head-in">➡️ داخل (من الدكة)</div>
+          <div class="sub-pk-head sub-pk-head-in">${window.Icon?window.Icon('upload',11):''} داخل (من الدكة)</div>
           <div class="sub-pk-list">${inHtml}</div>
         </div>
       </div>
@@ -117,7 +117,7 @@
       const o = window._subSelected.out, i = window._subSelected.in;
       pv.innerHTML = (o || i)
         ? `<span class="sub-pk-pv-out">${o || '—'}</span>
-           <span class="sub-pk-pv-arrow">⇄</span>
+           <span class="sub-pk-pv-arrow">${window.Icon?window.Icon('refresh',12):'⇄'}</span>
            <span class="sub-pk-pv-in">${i || '—'}</span>`
         : 'اختر لاعباً خارجاً ولاعباً داخلاً';
     }
@@ -131,7 +131,9 @@
   const css = `
     .sub-pk-wrap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 2px}
     .sub-pk-col{min-width:0}
-    .sub-pk-head{font-size:11px;font-weight:900;text-align:center;padding:6px;border-radius:8px;margin-bottom:7px}
+    .sub-pk-head{font-size:11px;font-weight:900;text-align:center;padding:6px;border-radius:8px;margin-bottom:7px;display:flex;align-items:center;justify-content:center;gap:5px}
+    .sub-pk-head svg{flex:none}
+    .sub-pk-pv-arrow{display:inline-flex;align-items:center;vertical-align:middle}
     .sub-pk-head-out{background:rgba(220,50,50,.10);color:#e05252;border:1px solid rgba(220,50,50,.25)}
     .sub-pk-head-in{background:rgba(39,174,96,.12);color:#2ecc71;border:1px solid rgba(39,174,96,.3)}
     .sub-pk-list{display:flex;flex-direction:column;gap:6px;max-height:210px;overflow-y:auto;padding:2px}

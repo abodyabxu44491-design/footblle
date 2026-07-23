@@ -49,9 +49,13 @@ service cloud.firestore {
              && get(/databases/$(database)/documents/leagues/$(lid)).data.ownerUid == request.auth.uid;
     }
 
-    // البطولة نشطة؟ (السوبر أدمن يضبط status='suspended' عند انتهاء الاشتراك)
+    /* البطولة قابلة للإدارة؟
+       ✅ انتهاء الاشتراك يضع locked=true (ولا يوقف البطولة) حتى تبقى
+          صفحة الجمهور تعمل للمتابعين. لذلك نفحص الاثنين معاً:
+          status=='active' (لم تُوقف يدوياً) و locked != true (اشتراك ساري). */
     function leagueActive(lid) {
-      return get(/databases/$(database)/documents/leagues/$(lid)).data.status == 'active';
+      return get(/databases/$(database)/documents/leagues/$(lid)).data.status == 'active'
+             && get(/databases/$(database)/documents/leagues/$(lid)).data.locked != true;
     }
 
     /* ✅ الصلاحية = منظّم البطولة + البطولة نشطة.
@@ -82,12 +86,19 @@ service cloud.firestore {
          الحالة: يُسمح بإبقائها كما هي، أو الأرشفة الطوعية فقط
          (active → archived — زر «إغلاق البطولة»).
          يُمنع منعاً باتّاً: suspended → active  (فكّ إيقاف اشتراكه بنفسه). */
+      /* ✅ ولا يفكّ القفل عن نفسه: locked يبقى كما هو (أو false أول مرة).
+            فكّ القفل من صلاحية السوبر أدمن وحده. */
       allow update: if canEditLeagueDoc(lid)
                     && request.resource.data.ownerUid == resource.data.ownerUid
                     && (
                          request.resource.data.status == resource.data.status
                          || (resource.data.status == 'active'
                              && request.resource.data.status == 'archived')
+                       )
+                    && (
+                         !('locked' in resource.data)
+                         ? request.resource.data.get('locked', false) == false
+                         : request.resource.data.get('locked', false) == resource.data.locked
                        );
 
       allow create, delete: if false;   // السوبر أدمن فقط

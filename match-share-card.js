@@ -241,9 +241,19 @@
     if (isLive || isFin) {
       var hs = isLive ? (d.homeScore ?? 0) : (m.homeScore ?? 0);
       var as = isLive ? (d.awayScore ?? 0) : (m.awayScore ?? 0);
+      /* ✅ إصلاح انعكاس النتيجة: ctx.direction='rtl' يعكس ترتيب النص
+         فتظهر "2 : 1" كأنها "1 : 2". نرسم كل رقم في موضعه المستقل
+         بعد تحييد الاتجاه، فيبقى المضيف يميناً والضيف يساراً. */
+      ctx.save();
+      ctx.direction = 'ltr';
       ctx.font = '900 92px Tajawal, Arial, sans-serif';
       ctx.fillStyle = T1;
-      ctx.fillText(hs + '  :  ' + as, cx, teamsY + 22);
+      ctx.textAlign = 'center';
+      ctx.fillText(String(hs), cx - 78, teamsY + 22);
+      ctx.fillText(String(as), cx + 78, teamsY + 22);
+      ctx.font = '900 62px Tajawal, Arial, sans-serif';
+      ctx.fillText(':', cx, teamsY + 14);
+      ctx.restore();
 
       if (isLive) {
         ctx.font = '700 26px Tajawal, Arial, sans-serif';
@@ -254,7 +264,12 @@
       } else if (m.penaltyScoreHome != null && m.penaltyScoreAway != null) {
         ctx.font = '700 26px Tajawal, Arial, sans-serif';
         ctx.fillStyle = T2;
-        ctx.fillText('ركلات الترجيح  ' + m.penaltyScoreHome + ' : ' + m.penaltyScoreAway, cx, teamsY + 70);
+        /* نفس إصلاح الانعكاس: النص العربي rtl والأرقام ltr */
+        ctx.fillText('ركلات الترجيح', cx, teamsY + 70);
+        ctx.save();
+        ctx.direction = 'ltr';
+        ctx.fillText(m.penaltyScoreHome + ' : ' + m.penaltyScoreAway, cx, teamsY + 104);
+        ctx.restore();
       }
     } else {
       ctx.font = '900 40px Tajawal, Arial, sans-serif';

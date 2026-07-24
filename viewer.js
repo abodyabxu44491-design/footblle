@@ -2739,7 +2739,7 @@ if (LEAGUE_ID) { try { _installDynamicManifest(null); } catch(e){} }
 (function(){
   try{
     var b=document.createElement('div');
-    b.textContent='build v74';
+    b.textContent='build v75';
     b.style.cssText='position:fixed;bottom:6px;left:6px;z-index:99999;'
       +'background:rgba(0,0,0,.6);color:#C9A02B;font:700 9px Tajawal,sans-serif;'
       +'padding:2px 7px;border-radius:6px;pointer-events:none;opacity:.7';

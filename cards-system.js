@@ -708,7 +708,12 @@
     ctx.textAlign = 'center'; ctx.fillStyle = centerColor || accent;
     ctx.shadowColor = `rgba(${hexToRgb(centerColor||accent)},0.55)`;
     ctx.shadowBlur = 28;
+    /* ✅ اتجاه صريح ltr للنتيجة — بدونه قد يرث الكانفس اتجاه الصفحة (rtl)
+       فينعكس ترتيب الرقمين وتظهر نتيجة المضيف مكان الضيف. */
+    ctx.save();
+    ctx.direction = 'ltr';
     ctx.fillText(centerText, W/2, LCY + (centerText.includes('–') ? 30 : 20));
+    ctx.restore();
     ctx.shadowBlur = 0;
 
     // أسماء الفرق

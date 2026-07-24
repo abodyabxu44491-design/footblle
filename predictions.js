@@ -402,10 +402,13 @@
 
     // الأرقام كلٌّ في جهته والشرطة في المنتصف — لا تخرج عن الإطار
     var midY = LY + sbH / 2 + 26;
+    x.save();
+    x.direction = 'ltr';
     x.fillStyle = '#ffffff';
     x.font = '900 76px Tajawal, sans-serif';
     x.fillText(String(p.h), W / 2 - 82, midY);
     x.fillText(String(p.a), W / 2 + 82, midY);
+    x.restore();
     x.fillStyle = 'rgba(201,160,43,.8)';
     x.font = '900 40px Tajawal, sans-serif';
     x.fillText('-', W / 2, midY - 10);

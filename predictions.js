@@ -292,10 +292,11 @@
     x.restore();
 
     if (!img) return;
-    // احتواء الصورة داخل الإطار مع الحفاظ على نسبتها
-    var pad = 14, box = size - pad * 2;
+    /* يملأ الإطار بالكامل مثل object-fit:cover في واجهة الجمهور —
+       فتخرج كل الشعارات بنفس المقاس والشكل مهما اختلفت أبعادها
+       (بدل أن يظهر الطويل ضيقاً والعريض مسطحاً). */
     var iw = img.width || 1, ih = img.height || 1;
-    var sc = Math.min(box / iw, box / ih);
+    var sc = Math.max(size / iw, size / ih);
     var w = iw * sc, h = ih * sc;
     var dx = cx - w / 2, dy = cy + (size - h) / 2;
     x.save();

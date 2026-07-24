@@ -26,9 +26,9 @@
     try { localStorage.setItem(leagueKey(), JSON.stringify(o)); } catch (e) {}
   }
   function getPred(id) { return loadAll()[id] || null; }
-  function setPred(id, h, a) {
+  function setPred(id, h, a, pen) {
     var all = loadAll();
-    all[id] = { h: h, a: a, at: Date.now() };
+    all[id] = { h: h, a: a, pen: pen || '', at: Date.now() };
     saveAll(all);
   }
 
@@ -43,10 +43,35 @@
 
   function outcome(h, a) { return h > a ? 'h' : (a > h ? 'a' : 'd'); }
 
+  /* نتيجة ركلات الترجيح الفعلية (من أي مصدر) */
+  function realPen(m) {
+    if (!m) return null;
+    if (m.penaltyScoreHome != null && m.penaltyScoreAway != null)
+      return { h: m.penaltyScoreHome, a: m.penaltyScoreAway };
+    var pd = m.penalties || (m.liveData && m.liveData.penalties);
+    if (pd && ((pd.home || []).length || (pd.away || []).length)) {
+      var g = function (r) { return (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal'); };
+      return { h: (pd.home || []).filter(g).length, a: (pd.away || []).filter(g).length };
+    }
+    return null;
+  }
+
   function evaluate(m, p) {
     if (!m || !p || m.status !== 'finished') return null;
     var mh = m.homeScore != null ? m.homeScore : 0;
     var ma = m.awayScore != null ? m.awayScore : 0;
+
+    /* مباراة إقصاء انتهت بالتعادل وحُسمت بركلات الترجيح:
+       نقارن الفائز المتوقّع بالفائز الفعلي. */
+    var rp = (mh === ma) ? realPen(m) : null;
+    if (rp && rp.h !== rp.a) {
+      var realWin = rp.h > rp.a ? 'h' : 'a';
+      var exactScore = (p.h === mh && p.a === ma);
+      if (exactScore && p.pen === realWin) return { points: 3, exact: true, correct: true };
+      if (p.pen === realWin) return { points: 1, exact: false, correct: true };
+      return { points: 0, exact: false, correct: false };
+    }
+
     if (p.h === mh && p.a === ma) return { points: 3, exact: true,  correct: true };
     if (outcome(p.h, p.a) === outcome(mh, ma)) return { points: 1, exact: false, correct: true };
     return { points: 0, exact: false, correct: false };
@@ -94,10 +119,15 @@
         : '';
     }
     var r = evaluate(m, p);
-    if (!r) return '<span class="pr-badge pr-mine">توقّعك ' + p.h + '-' + p.a + '</span>';
+    var penTxt = '';
+    if (p.h === p.a && p.pen) {
+      var wt = p.pen === 'h' ? teamOf(m, 'home') : teamOf(m, 'away');
+      penTxt = ' (ترجيح: ' + wt.name + ')';
+    }
+    if (!r) return '<span class="pr-badge pr-mine">توقّعك ' + p.h + '-' + p.a + penTxt + '</span>';
     var cls = r.exact ? 'pr-exact' : (r.correct ? 'pr-ok' : 'pr-bad');
     var lbl = r.exact ? 'إصابة كاملة' : (r.correct ? 'اتجاه صحيح' : 'توقّع خاطئ');
-    return '<span class="pr-badge ' + cls + '">' + lbl + ' · ' + p.h + '-' + p.a + '</span>';
+    return '<span class="pr-badge ' + cls + '">' + lbl + ' · ' + p.h + '-' + p.a + penTxt + '</span>';
   };
 
   /* ── نافذة التوقّع (تطلب الاسم أول مرة) ── */
@@ -149,6 +179,15 @@
           '</div>' +
         '</div>' +
 
+        (m.isKnockout ?
+        '<div class="pr-penbox" id="prPenBox" style="display:none">' +
+          '<div class="pr-penlbl">تعادل — من يفوز بركلات الترجيح؟</div>' +
+          '<div class="pr-penrow">' +
+            '<button id="prPenH" class="pr-penbtn" onclick="_predPen(\'h\')">' + esc(ht.name) + '</button>' +
+            '<button id="prPenA" class="pr-penbtn" onclick="_predPen(\'a\')">' + esc(at.name) + '</button>' +
+          '</div>' +
+        '</div>' : '') +
+
         '<div class="pr-note">3 نقاط للنتيجة الصحيحة تماماً · نقطة واحدة إذا توقّعت الفائز فقط</div>' +
         '<div class="pr-actions">' +
           '<button class="pr-cancel" onclick="document.getElementById(\'predOverlay\').remove()">إلغاء</button>' +
@@ -156,8 +195,32 @@
         '</div>' +
       '</div>';
     document.body.appendChild(ov);
+    window._predIsKO = !!m.isKnockout;
+    window._predPenPick = (prev && prev.pen) || '';
+    _predSyncPen();
     ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
     if (!nm) setTimeout(function () { var i = document.getElementById('prName'); if (i) i.focus(); }, 80);
+  };
+
+  /* يُظهر/يُخفي اختيار ركلات الترجيح حسب التعادل (للإقصاء فقط) */
+  function _predSyncPen() {
+    var box = document.getElementById('prPenBox');
+    if (!box || !window._predIsKO) return;
+    var eh = document.getElementById('prH'), ea = document.getElementById('prA');
+    var h = parseInt(eh ? eh.textContent : '0', 10) || 0;
+    var a = parseInt(ea ? ea.textContent : '0', 10) || 0;
+    var tie = (h === a);
+    box.style.display = tie ? 'block' : 'none';
+    if (!tie) window._predPenPick = '';
+    var bh = document.getElementById('prPenH'), ba = document.getElementById('prPenA');
+    if (bh) bh.classList.toggle('pr-penon', window._predPenPick === 'h');
+    if (ba) ba.classList.toggle('pr-penon', window._predPenPick === 'a');
+  }
+  window._predSyncPen = _predSyncPen;
+
+  window._predPen = function (side) {
+    window._predPenPick = (window._predPenPick === side) ? '' : side;
+    _predSyncPen();
   };
 
   window._predAdj = function (which, delta) {
@@ -165,6 +228,7 @@
     if (!el) return;
     var v = Math.max(0, Math.min(20, (parseInt(el.textContent, 10) || 0) + delta));
     el.textContent = v;
+    _predSyncPen();
   };
 
   window._predSave = function (matchId) {
@@ -179,7 +243,13 @@
     var eh = document.getElementById('prH'), ea = document.getElementById('prA');
     var h = parseInt(eh ? eh.textContent : '0', 10) || 0;
     var a = parseInt(ea ? ea.textContent : '0', 10) || 0;
-    setPred(matchId, h, a);
+    // في الإقصاء: التعادل يتطلّب تحديد الفائز بركلات الترجيح
+    var pen = window._predPenPick || '';
+    if (window._predIsKO && h === a && !pen) {
+      if (window.showToast) window.showToast('حدّد من يفوز بركلات الترجيح', 'error');
+      return;
+    }
+    setPred(matchId, h, a, pen);
     var ov = document.getElementById('predOverlay');
     if (ov) ov.remove();
     if (window.showToast) window.showToast('تم حفظ توقّعك ' + h + '-' + a, 'success');
@@ -208,103 +278,197 @@
     ctx.closePath();
   }
 
+  /* إطار شعار أنيق يحافظ على نسبة الصورة (لا تشويه ولا قصّ) */
+  function drawLogoBox(x, img, cx, cy, size) {
+    var r = 24;
+    // خلفية الإطار
+    x.save();
+    rr(x, cx - size / 2, cy, size, size, r);
+    x.fillStyle = '#17171c';
+    x.fill();
+    x.strokeStyle = 'rgba(255,255,255,.07)';
+    x.lineWidth = 2;
+    x.stroke();
+    x.restore();
+
+    if (!img) return;
+    // احتواء الصورة داخل الإطار مع الحفاظ على نسبتها
+    var pad = 14, box = size - pad * 2;
+    var iw = img.width || 1, ih = img.height || 1;
+    var sc = Math.min(box / iw, box / ih);
+    var w = iw * sc, h = ih * sc;
+    var dx = cx - w / 2, dy = cy + (size - h) / 2;
+    x.save();
+    rr(x, cx - size / 2, cy, size, size, r);
+    x.clip();
+    x.drawImage(img, dx, dy, w, h);
+    x.restore();
+  }
+
+  /* تقصير النص ليناسب عرضاً محدداً */
+  function fitText(x, text, maxW) {
+    var t = String(text || '');
+    if (x.measureText(t).width <= maxW) return t;
+    while (t.length > 1 && x.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+    return t + '…';
+  }
+
+  /* اسم الدور/الجولة */
+  function roundLabel(m) {
+    if (m.isKnockout && m.knockoutRoundName) return m.knockoutRoundName;
+    if (m.isKnockout) return 'دور إقصائي';
+    if (m.round) return 'الجولة ' + m.round;
+    return '';
+  }
+
   async function drawCard(m) {
     var W = 1080, H = 1080;
     var c = document.createElement('canvas');
     c.width = W; c.height = H;
     var x = c.getContext('2d');
 
+    /* الخلفية */
     var g = x.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#0b0b0d'); g.addColorStop(1, '#141418');
+    g.addColorStop(0, '#0a0a0c');
+    g.addColorStop(1, '#15151a');
     x.fillStyle = g; x.fillRect(0, 0, W, H);
-    x.strokeStyle = 'rgba(201,160,43,.35)'; x.lineWidth = 3;
-    rr(x, 30, 30, W - 60, H - 60, 34); x.stroke();
+    x.strokeStyle = 'rgba(201,160,43,.30)'; x.lineWidth = 3;
+    rr(x, 28, 28, W - 56, H - 56, 36); x.stroke();
 
     var ht = teamOf(m, 'home'), at = teamOf(m, 'away');
     var p  = getPred(m.id) || { h: 0, a: 0 };
     var r  = evaluate(m, p);
     var L  = (window.league && window.league.name) || 'البطولة';
     var nm = getName();
+    var rl = roundLabel(m);
 
     x.textAlign = 'center';
+
+    /* ① العنوان: توقّعات */
     x.fillStyle = '#C9A02B';
-    x.font = '800 34px Tajawal, sans-serif';
-    x.fillText(L, W / 2, 104);
+    x.font = '900 46px Tajawal, sans-serif';
+    x.fillText(r ? 'نتيجة التوقّع' : 'توقّعات', W / 2, 108);
 
-    // اسم المتوقّع
-    if (nm) {
-      x.fillStyle = '#fff';
-      x.font = '900 42px Tajawal, sans-serif';
-      x.fillText(nm, W / 2, 164);
-      x.fillStyle = '#8a8a8a';
+    /* ② اسم البطولة */
+    x.fillStyle = '#ffffff';
+    x.font = '800 32px Tajawal, sans-serif';
+    x.fillText(fitText(x, L, W - 200), W / 2, 158);
+
+    /* ③ اسم الدور */
+    if (rl) {
+      var rw = x.measureText(rl).width;
       x.font = '700 24px Tajawal, sans-serif';
-      x.fillText(r ? 'نتيجة توقّعه' : 'توقّعه للمباراة', W / 2, 202);
-    } else {
-      x.fillStyle = '#8a8a8a';
-      x.font = '700 26px Tajawal, sans-serif';
-      x.fillText(r ? 'نتيجة التوقّع' : 'التوقّع', W / 2, 168);
+      rw = x.measureText(rl).width + 44;
+      x.globalAlpha = 0.10; x.fillStyle = '#C9A02B';
+      rr(x, W / 2 - rw / 2, 178, rw, 44, 22); x.fill();
+      x.globalAlpha = 1;
+      x.strokeStyle = 'rgba(201,160,43,.30)'; x.lineWidth = 1.5;
+      rr(x, W / 2 - rw / 2, 178, rw, 44, 22); x.stroke();
+      x.fillStyle = '#C9A02B';
+      x.fillText(rl, W / 2, 208);
     }
 
-    var hi = await loadImg(ht.logo), ai = await loadImg(at.logo);
-    var LY = 262, LS = 146;
-    function badge(img, cx, name) {
-      x.save();
-      rr(x, cx - LS / 2, LY, LS, LS, 26); x.clip();
-      x.fillStyle = '#1c1c22'; x.fillRect(cx - LS / 2, LY, LS, LS);
-      if (img) x.drawImage(img, cx - LS / 2, LY, LS, LS);
-      x.restore();
-      x.fillStyle = '#fff';
-      x.font = '800 29px Tajawal, sans-serif';
-      var t = name.length > 14 ? name.slice(0, 13) + '…' : name;
-      x.fillText(t, cx, LY + LS + 46);
+    /* ④ اسم المتوقّع */
+    var nameY = rl ? 282 : 250;
+    if (nm) {
+      x.fillStyle = '#7d7d85';
+      x.font = '700 22px Tajawal, sans-serif';
+      x.fillText('المتوقّع', W / 2, nameY);
+      x.fillStyle = '#ffffff';
+      x.font = '900 44px Tajawal, sans-serif';
+      x.fillText(fitText(x, nm, W - 240), W / 2, nameY + 50);
     }
-    badge(hi, W / 2 - 232, ht.name);
-    badge(ai, W / 2 + 232, at.name);
 
-    x.fillStyle = '#fff';
-    x.font = '900 126px Tajawal, sans-serif';
-    x.fillText(p.h + '  -  ' + p.a, W / 2, LY + 126);
+    /* ⑤ الفريقان والنتيجة — الشعارات على الأطراف والنتيجة في صندوق وسط */
+    var LY = nameY + (nm ? 96 : 20);
+    var LS = 140;
+    var SIDE = 320;
+    drawLogoBox(x, await loadImg(ht.logo), W / 2 - SIDE, LY, LS);
+    drawLogoBox(x, await loadImg(at.logo), W / 2 + SIDE, LY, LS);
 
-    var boxY = 600;
+    x.fillStyle = '#e9e9ee';
+    x.font = '800 27px Tajawal, sans-serif';
+    x.fillText(fitText(x, ht.name, 230), W / 2 - SIDE, LY + LS + 44);
+    x.fillText(fitText(x, at.name, 230), W / 2 + SIDE, LY + LS + 44);
+
+    // صندوق النتيجة في المنتصف — واضح ومفصول
+    var sbW = 320, sbH = LS, sbX = W / 2 - sbW / 2;
+    x.globalAlpha = 0.5; x.fillStyle = '#0e0e12';
+    rr(x, sbX, LY, sbW, sbH, 20); x.fill();
+    x.globalAlpha = 1;
+    x.strokeStyle = 'rgba(201,160,43,.28)'; x.lineWidth = 2;
+    rr(x, sbX, LY, sbW, sbH, 20); x.stroke();
+
+    // الأرقام كلٌّ في جهته والشرطة في المنتصف — لا تخرج عن الإطار
+    var midY = LY + sbH / 2 + 26;
+    x.fillStyle = '#ffffff';
+    x.font = '900 76px Tajawal, sans-serif';
+    x.fillText(String(p.h), W / 2 - 82, midY);
+    x.fillText(String(p.a), W / 2 + 82, midY);
+    x.fillStyle = 'rgba(201,160,43,.8)';
+    x.font = '900 40px Tajawal, sans-serif';
+    x.fillText('-', W / 2, midY - 10);
+
+    // شارة الفائز بركلات الترجيح (للإقصاء المتعادل)
+    if (p.h === p.a && p.pen) {
+      var pw = p.pen === 'h' ? ht.name : at.name;
+      x.fillStyle = '#C9A02B';
+      x.font = '800 24px Tajawal, sans-serif';
+      x.fillText(fitText(x, 'يفوز ' + pw + ' بركلات الترجيح', W - 340),
+                 W / 2, LY + sbH + 96);
+    }
+
+    /* ⑥ الحالة */
+    var boxY = LY + LS + ((p.h === p.a && p.pen) ? 130 : 96);
+    var bw = W - 300;
     if (r) {
       var col = r.exact ? '#27ae60' : (r.correct ? '#C9A02B' : '#C0392B');
       var txt = r.exact ? 'إصابة كاملة' : (r.correct ? 'اتجاه صحيح' : 'توقّع خاطئ');
-      x.globalAlpha = 0.14; x.fillStyle = col;
-      rr(x, 140, boxY, W - 280, 126, 22); x.fill();
+      x.globalAlpha = 0.13; x.fillStyle = col;
+      rr(x, W / 2 - bw / 2, boxY, bw, 118, 22); x.fill();
       x.globalAlpha = 1;
       x.strokeStyle = col; x.lineWidth = 2;
-      rr(x, 140, boxY, W - 280, 126, 22); x.stroke();
+      rr(x, W / 2 - bw / 2, boxY, bw, 118, 22); x.stroke();
       x.fillStyle = col;
-      x.font = '900 44px Tajawal, sans-serif';
-      x.fillText(txt + '  ·  ' + r.points + ' نقطة', W / 2, boxY + 80);
+      x.font = '900 42px Tajawal, sans-serif';
+      x.fillText(txt + '  ·  ' + r.points + ' نقطة', W / 2, boxY + 74);
 
-      x.fillStyle = '#9a9a9a';
-      x.font = '700 30px Tajawal, sans-serif';
+      x.fillStyle = '#8d8d95';
+      x.font = '700 28px Tajawal, sans-serif';
       var fh = m.homeScore != null ? m.homeScore : 0;
       var fa = m.awayScore != null ? m.awayScore : 0;
-      x.fillText('النتيجة الفعلية: ' + fh + ' - ' + fa, W / 2, boxY + 176);
+      x.fillText('النتيجة الفعلية: ' + fh + ' - ' + fa, W / 2, boxY + 162);
     } else {
-      x.globalAlpha = 0.10; x.fillStyle = '#C9A02B';
-      rr(x, 140, boxY, W - 280, 118, 22); x.fill();
+      x.globalAlpha = 0.09; x.fillStyle = '#C9A02B';
+      rr(x, W / 2 - bw / 2, boxY, bw, 108, 22); x.fill();
       x.globalAlpha = 1;
-      x.strokeStyle = 'rgba(201,160,43,.5)'; x.lineWidth = 2;
-      rr(x, 140, boxY, W - 280, 118, 22); x.stroke();
+      x.strokeStyle = 'rgba(201,160,43,.45)'; x.lineWidth = 2;
+      rr(x, W / 2 - bw / 2, boxY, bw, 108, 22); x.stroke();
       x.fillStyle = '#C9A02B';
-      x.font = '800 38px Tajawal, sans-serif';
-      x.fillText('في انتظار المباراة', W / 2, boxY + 74);
+      x.font = '800 36px Tajawal, sans-serif';
+      x.fillText('في انتظار المباراة', W / 2, boxY + 68);
     }
 
+    /* ⑦ سجلّ المتوقّع */
     var s = stats();
     if (s.done > 0) {
-      x.fillStyle = '#7a7a7a';
-      x.font = '700 27px Tajawal, sans-serif';
-      x.fillText('سجلّه: ' + s.points + ' نقطة · دقة ' + s.accuracy + '% من ' + s.done + ' مباراة',
-                 W / 2, 862);
+      x.fillStyle = '#6f6f77';
+      x.font = '700 26px Tajawal, sans-serif';
+      x.fillText(s.points + ' نقطة  ·  دقة ' + s.accuracy + '%  ·  ' + s.done + ' مباراة',
+                 W / 2, H - 168);
     }
 
-    x.fillStyle = '#5a5a5a';
-    x.font = '700 26px Tajawal, sans-serif';
-    x.fillText('توقّع أنت أيضاً — ' + L, W / 2, 985);
+    /* ⑧ التوقيع */
+    x.strokeStyle = 'rgba(255,255,255,.08)'; x.lineWidth = 1;
+    x.beginPath(); x.moveTo(180, H - 132); x.lineTo(W - 180, H - 132); x.stroke();
+
+    x.fillStyle = '#9a8437';
+    x.font = '800 27px Tajawal, sans-serif';
+    x.fillText(fitText(x, L, W - 260), W / 2, H - 92);
+
+    x.fillStyle = '#54545c';
+    x.font = '700 22px Tajawal, sans-serif';
+    x.fillText('منصة بطولات — تطوير عبدالله السكني', W / 2, H - 56);
 
     return c;
   }
@@ -421,6 +585,14 @@
   '.pr-ctrl button{width:32px;height:32px;border-radius:9px;border:1px solid var(--b2,#2a2a2a);' +
   'background:var(--s2,#1a1a1a);color:var(--gold,#C9A02B);font-size:17px;font-weight:900;cursor:pointer}' +
   '.pr-ctrl span{min-width:34px;font-size:24px;font-weight:900;color:#fff;text-align:center}' +
+  '.pr-penbox{margin-top:14px;padding:12px;border-radius:12px;'+
+  'background:rgba(201,160,43,.06);border:1px solid rgba(201,160,43,.25)}'+
+  '.pr-penlbl{font-size:11px;font-weight:800;color:#C9A02B;text-align:center;margin-bottom:9px}'+
+  '.pr-penrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}'+
+  '.pr-penbtn{padding:10px 6px;border-radius:10px;border:1px solid var(--b2,#2a2a2a);'+
+  'background:var(--s2,#1a1a1a);color:var(--t2,#bbb);font-family:Tajawal,sans-serif;'+
+  'font-weight:800;font-size:11.5px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'+
+  '.pr-penbtn.pr-penon{background:rgba(201,160,43,.16);border-color:#C9A02B;color:#C9A02B}'+
   '.pr-note{font-size:10px;color:var(--t3,#888);text-align:center;margin:16px 0 4px;line-height:1.8}' +
   '.pr-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}' +
   '.pr-modal-wide .pr-actions{grid-template-columns:1fr}' +

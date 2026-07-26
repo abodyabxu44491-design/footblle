@@ -3326,21 +3326,41 @@ function renderTiebreakUI() {
     else { const di = order.indexOf('draw'); if (di >= 0) order.splice(di, 0, k); else order.push(k); }
   }});
   settings.tiebreakOrder = order;
+  const disabled = settings.tiebreakDisabled || (settings.tiebreakDisabled = []);
+
+  // القواعد الفعّالة فقط تُرقّم (القرعة دائماً الحل الأخير ولا تُخفى)
+  let activeIdx = 0;
   container.innerHTML = order.map((key, i) => {
     const info = TIEBREAK_LABELS[key] || { label: key, desc: '' };
-    return `<div class="tb-item" data-key="${key}" style="display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;cursor:grab;user-select:none">
-      <div style="font-size:16px;color:var(--muted);flex-shrink:0">☰</div>
-      <div style="flex:1">
-        <div style="font-size:12px;font-weight:700;color:var(--text)">${info.label}</div>
+    const isDraw = key === 'draw';
+    const off = !isDraw && disabled.indexOf(key) !== -1;
+    const rank = off ? '' : `<div style="flex-shrink:0;width:22px;height:22px;border-radius:6px;background:var(--gold,#C9A02B);color:#000;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center">${++activeIdx}</div>`;
+    const upDisabled = off || i === 0;
+    const downDisabled = off || i >= order.length - 1;
+    return `<div class="tb-item" data-key="${key}" style="display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid ${off?'var(--border)':'var(--border2)'};border-radius:11px;padding:10px 12px;opacity:${off?'.5':'1'};transition:opacity .15s">
+      ${rank || '<div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--muted)">—</div>'}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">${info.label}${isDraw?' <span style="font-size:9px;color:var(--muted)">(دائماً)</span>':''}</div>
         <div style="font-size:10px;color:var(--muted2)">${info.desc}</div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:4px">
-        ${i > 0 ? `<button onclick="moveTbItem('${key}',-1)" style="background:var(--card3);border:1px solid var(--border2);border-radius:5px;width:24px;height:22px;cursor:pointer;font-size:11px;color:var(--text)">↑</button>` : '<div style="width:24px;height:22px"></div>'}
-        ${i < order.length - 1 ? `<button onclick="moveTbItem('${key}',1)" style="background:var(--card3);border:1px solid var(--border2);border-radius:5px;width:24px;height:22px;cursor:pointer;font-size:11px;color:var(--text)">↓</button>` : '<div style="width:24px;height:22px"></div>'}
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        ${isDraw ? '' : `<button onclick="toggleTbItem('${key}')" title="${off?'تفعيل':'إخفاء'}" style="background:${off?'var(--card3)':'rgba(201,160,43,.14)'};border:1px solid ${off?'var(--border2)':'rgba(201,160,43,.4)'};border-radius:6px;width:30px;height:26px;cursor:pointer;font-size:13px;color:${off?'var(--muted)':'var(--gold,#C9A02B)'}">${off?'🚫':'👁'}</button>`}
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <button onclick="moveTbItem('${key}',-1)" ${upDisabled?'disabled':''} style="background:var(--card3);border:1px solid var(--border2);border-radius:5px;width:24px;height:20px;cursor:${upDisabled?'default':'pointer'};font-size:10px;color:var(--text);opacity:${upDisabled?'.3':'1'}">↑</button>
+          <button onclick="moveTbItem('${key}',1)" ${downDisabled?'disabled':''} style="background:var(--card3);border:1px solid var(--border2);border-radius:5px;width:24px;height:20px;cursor:${downDisabled?'default':'pointer'};font-size:10px;color:var(--text);opacity:${downDisabled?'.3':'1'}">↓</button>
+        </div>
       </div>
     </div>`;
   }).join('');
 }
+
+window.toggleTbItem = function(key) {
+  if (key === 'draw') return; // القرعة لا تُخفى
+  const dis = settings.tiebreakDisabled || (settings.tiebreakDisabled = []);
+  const i = dis.indexOf(key);
+  if (i === -1) dis.push(key); else dis.splice(i, 1);
+  renderTiebreakUI();
+};
 
 window.moveTbItem = function(key, dir) {
   const order = settings.tiebreakOrder || ['gd','gf','h2h','wins','cards','draw'];
@@ -3375,7 +3395,9 @@ window._teamCardCount = function(teamId, matchList) {
 // a,b كائنات تحوي {id,name,gf,ga,w,...}. ترجع سالب لو a يتقدّم.
 window.applyTiebreak = function(a, b, matchList) {
   const s = window.settings || {};
-  const order = s.tiebreakOrder || ['gd','gf','h2h','wins','cards','draw'];
+  const dis = s.tiebreakDisabled || [];
+  const order = (s.tiebreakOrder || ['gd','gf','h2h','wins','cards','draw'])
+    .filter(r => r === 'draw' || dis.indexOf(r) === -1);
   const ml = matchList || window.matches || [];
   for (const rule of order) {
     if (rule === 'h2h') {
@@ -3447,6 +3469,7 @@ window.saveSettings = async function() {
       typeLocked: true,
       zones: settings.zones,
       tiebreakOrder: settings.tiebreakOrder,
+      tiebreakDisabled: settings.tiebreakDisabled || [],
       defaultVenue,
       updatedAt: serverTimestamp()
     }, { merge: true });
@@ -4515,7 +4538,7 @@ function _buildLivePage(matchId, match, ht, at) {
                 style="flex:1;min-width:0;padding:9px 11px;border-radius:9px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-family:Tajawal,sans-serif;direction:ltr;text-align:left">
               <button onclick="lpSaveVideoUrl('${mId}')" style="flex:0 0 auto;padding:9px 14px;border-radius:9px;border:1px solid rgba(201,160,43,.4);background:rgba(201,160,43,.14);color:var(--gold);font-weight:800;font-size:12px;cursor:pointer;font-family:Tajawal,sans-serif">حفظ</button>
             </div>
-            <div style="font-size:10px;color:var(--muted);margin-top:6px">يوتيوب/فيسبوك/تويتش يظهر داخل الصفحة. تيك توك وغيره يظهر كزر «شاهد البث».</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:6px">يوتيوب وتويتش يظهران داخل الصفحة. فيسبوك وتيك توك يظهران كزر «شاهد البث».</div>
             <button onclick="lpShareMatchLink('${mId}')" style="width:100%;margin-top:10px;padding:10px;border-radius:9px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:Tajawal,sans-serif">🔗 مشاركة رابط المباراة</button>
           </div>
 

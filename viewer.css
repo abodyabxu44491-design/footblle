@@ -313,12 +313,16 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 /* GROUPS */
 .group-card{background:var(--s1);border-bottom:1px solid var(--b1);margin-bottom:6px}
 /* ── لوحة حسم التعادل للجمهور ── */
-.tbn-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:12px 14px;margin:10px 0 4px}
-.tbn-title{font-size:12px;font-weight:900;color:var(--gold);margin-bottom:9px}
-.tbn-steps{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-.tbn-step{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--t2);background:var(--s2,rgba(255,255,255,.03));border:1px solid var(--b1);border-radius:999px;padding:4px 10px}
-.tbn-n{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--gold);color:#000;font-size:9px;font-weight:900;flex:0 0 auto}
-.tbn-arrow{color:var(--t3);font-size:11px;font-weight:900}
+.tbn-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:14px 16px;margin:12px 0 6px}
+.tbn-title{font-size:13px;font-weight:900;color:var(--gold);margin-bottom:2px}
+.tbn-sub{font-size:10px;color:var(--t3);margin-bottom:12px}
+.tbn-list{display:flex;flex-direction:column;gap:8px}
+.tbn-row{display:flex;align-items:center;gap:11px;background:var(--s2,rgba(255,255,255,.02));border:1px solid var(--b1);border-radius:12px;padding:9px 12px}
+.tbn-n{flex:0 0 auto;width:22px;height:22px;border-radius:7px;background:var(--gold);color:#000;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.tbn-ic{flex:0 0 auto;width:24px;text-align:center;font-size:15px;font-weight:900;color:var(--t2)}
+.tbn-txt{display:flex;flex-direction:column;min-width:0;line-height:1.5}
+.tbn-txt b{font-size:12.5px;font-weight:800;color:var(--t1)}
+.tbn-txt small{font-size:10px;color:var(--t3)}
 .group-header{padding:10px 14px;background:var(--s2);border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between}
 .group-title{font-size:12px;font-weight:900;color:var(--gold)}
 .group-sub{font-size:10px;color:var(--t3)}
@@ -553,6 +557,36 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .lp-badge.gk{background:rgba(142,68,173,.14);color:#8E44AD;border:1px solid rgba(142,68,173,.3)}
 .lp-badge.inj{background:var(--lv-bg);color:var(--live);border:1px solid var(--lv-br)}
 .lp-badge.sus{background:var(--g-bg);color:var(--gold);border:1px solid var(--g-br)}
+.lp-badge.sub-in{background:rgba(39,174,96,.14);color:#2ecc71;border:1px solid rgba(39,174,96,.35)}
+.lp-badge.sub-out{background:rgba(229,83,61,.14);color:#e5533d;border:1px solid rgba(229,83,61,.35)}
+
+/* ── شارة سهم التبديل على لاعب الملعب ── */
+.player-avatar{position:relative}
+.player-sub-badge{
+  position:absolute;top:-6px;right:-10px;
+  display:inline-flex;align-items:center;gap:1px;
+  font-size:8px;font-weight:900;line-height:1;
+  padding:2px 4px;border-radius:8px;color:#fff;
+  border:1.5px solid var(--bg,#0d0e11);
+}
+.player-sub-badge.out{background:#e5533d}
+.player-sub-badge.in{background:#27ae60}
+.player-sub-badge span{font-size:7px}
+
+/* ── قسم التبديلات (خرج ← دخل) ── */
+.subs-section{margin:4px 12px 0;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:12px 14px}
+.subs-title{font-size:12px;font-weight:900;color:var(--t2);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.subs-title span{background:var(--s3);color:var(--t3);font-size:10px;font-weight:800;border-radius:999px;padding:1px 8px}
+.sub-row{display:flex;align-items:center;gap:12px;padding:7px 0;border-top:1px solid var(--b1)}
+.sub-row:first-of-type{border-top:0}
+.sub-min{flex:0 0 auto;font-size:12px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums;min-width:34px}
+.sub-players{display:flex;flex-direction:column;gap:3px;min-width:0}
+.sub-in,.sub-out{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub-in{color:var(--t1)}
+.sub-out{color:var(--t3)}
+.sub-ar{font-size:12px;font-weight:900;flex:0 0 auto}
+.sub-ar.in{color:#27ae60}
+.sub-ar.out{color:#e5533d}
 
 
 /* EMPTY */

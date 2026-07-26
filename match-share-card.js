@@ -22,6 +22,8 @@
   var T2     = '#9BA3AD';
   var T3     = '#666E78';
   var GOLD   = '#C9A02B';
+  var GOLD2  = '#F0C84A';
+  var STEEL  = '#3A4A5E';
   var LIVE   = '#D64541';
   var GREEN  = '#2E9E5B';
   var BLUE   = '#3B7DBF';
@@ -170,30 +172,94 @@
     var ctx = canvas.getContext('2d');
     ctx.direction = 'rtl';
 
-    // خلفية مسطّحة
+    // خلفية مسطّحة مع لمسة عمق علوية هادئة (فولاذي)
     ctx.fillStyle = BG;
     ctx.fillRect(0, 0, W, H);
+    var vg = ctx.createRadialGradient(W/2, -H*0.12, 0, W/2, -H*0.12, W*0.95);
+    vg.addColorStop(0, 'rgba(58,74,94,0.16)');
+    vg.addColorStop(0.6, 'rgba(58,74,94,0.04)');
+    vg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
-    // شريط علوي رفيع بلون الحالة (مسطّح، بلا تدرّج)
+    // ── خلفية ملعب شفّافة أنيقة (مرسومة بالكانفس، بلا صور خارجية) ──
+    (function drawPitch(){
+      ctx.save();
+      ctx.globalAlpha = 1;
+      // مسحة خضراء خفيفة جداً في وسط البطاقة (شعور العشب)
+      var pg = ctx.createLinearGradient(0, H*0.18, 0, H*0.92);
+      pg.addColorStop(0,   'rgba(30,70,45,0.10)');
+      pg.addColorStop(0.5, 'rgba(24,58,38,0.06)');
+      pg.addColorStop(1,   'rgba(18,44,30,0.10)');
+      ctx.fillStyle = pg;
+      ctx.fillRect(40, H*0.16, W-80, H*0.76);
+
+      // أشرطة العشب (خطوط أفقية متناوبة خفيفة)
+      ctx.fillStyle = 'rgba(255,255,255,0.012)';
+      var bandH = 84, top = H*0.16, bot = H*0.92;
+      for (var by = top; by < bot; by += bandH*2) {
+        ctx.fillRect(40, by, W-80, bandH);
+      }
+
+      // خطوط الملعب البيضاء الشفّافة
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 2;
+      var mx = 60, mw = W - 120;                 // حدود الملعب الأفقية
+      var pTop = H*0.20, pBot = H*0.88, pMidY = (pTop+pBot)/2;
+      // الإطار الخارجي
+      roundRect(ctx, mx, pTop, mw, pBot-pTop, 10); ctx.stroke();
+      // خط المنتصف
+      ctx.beginPath(); ctx.moveTo(mx, pMidY); ctx.lineTo(mx+mw, pMidY); ctx.stroke();
+      // دائرة المنتصف
+      ctx.beginPath(); ctx.arc(W/2, pMidY, 90, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(W/2, pMidY, 4, 0, Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fill();
+      // منطقتا الجزاء (أعلى وأسفل)
+      var boxW = mw*0.44, boxH = 90, boxX = W/2 - boxW/2;
+      ctx.strokeRect(boxX, pTop, boxW, boxH);
+      ctx.strokeRect(boxX, pBot-boxH, boxW, boxH);
+      ctx.restore();
+    })();
+
+    // شريط علوي مزدوج: لون الحالة العريض فوق خيط فولاذي
     ctx.fillStyle = meta.color;
     ctx.fillRect(0, 0, W, 6);
+    ctx.fillStyle = 'rgba(58,74,94,0.55)';
+    ctx.fillRect(0, 6, W, 2);
+
+    // إطار خارجي رفيع (طبقتان) — هيبة هادئة
+    (function(){
+      var pad = 26;
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(201,160,43,0.20)';
+      roundRect(ctx, pad, pad, W - pad*2, H - pad*2, 28); ctx.stroke();
+      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      roundRect(ctx, pad+7, pad+7, W - (pad+7)*2, H - (pad+7)*2, 24); ctx.stroke();
+    })();
 
     var cx = W / 2;
-    var y = 70;
+    var y = 78;
 
-    // ── شعار + اسم البطولة ──
+    // ── ترويسة البطولة: شعار داخل قرص + اسم + عنوان فرعي (مرتّبة ومتمركزة) ──
     var leagueLogoImg = league.logo ? await loadImage(league.logo) : null;
     if (leagueLogoImg) {
-      drawLogoCircle(ctx, leagueLogoImg, league.name, cx, y + 44, 44, LINE);
-      y += 110;
+      // قرص خلفي + حلقة ذهبية رفيعة
+      ctx.beginPath(); ctx.arc(cx, y + 52, 60, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(201,160,43,0.45)'; ctx.stroke();
+      drawLogoCircle(ctx, leagueLogoImg, league.name, cx, y + 52, 48, null);
+      y += 132;
     } else {
-      y += 20;
+      // بلا شعار: أيقونة كأس أنيقة
+      ctx.font = '54px Arial'; ctx.textAlign = 'center';
+      ctx.fillText('🏆', cx, y + 52); y += 96;
     }
     ctx.fillStyle = T1;
-    ctx.font = '900 40px Tajawal, Arial, sans-serif';
+    ctx.font = '900 42px Tajawal, Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(fitText(ctx, league.name || 'بطولة', W - 160), cx, y);
-    y += 40;
+    ctx.fillText(fitText(ctx, league.name || 'بطولة', W - 200), cx, y);
+    y += 18;
+    // خط ذهبي رفيع قصير تحت الاسم (فاصل أنيق)
+    ctx.strokeStyle = 'rgba(201,160,43,0.5)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx - 60, y); ctx.lineTo(cx + 60, y); ctx.stroke();
+    y += 30;
 
     var typeMap = { league: 'دوري نقاط', groups: 'مجموعات', knockout: 'كأس إقصائي' };
     var sub = [];
@@ -202,9 +268,9 @@
     if (m.round && !m.isKnockout) sub.push('الجولة ' + m.round);
     if (m.isKnockout && m.knockoutRoundName) sub.push(m.knockoutRoundName);
     if (sub.length) {
-      ctx.fillStyle = T3;
-      ctx.font = '600 24px Tajawal, Arial, sans-serif';
-      ctx.fillText(sub.join('  ·  '), cx, y);
+      ctx.fillStyle = T2;
+      ctx.font = '700 24px Tajawal, Arial, sans-serif';
+      ctx.fillText(sub.join('   ·   '), cx, y);
     }
     y += 46;
 
@@ -246,12 +312,19 @@
          بعد تحييد الاتجاه، فيبقى المضيف يميناً والضيف يساراً. */
       ctx.save();
       ctx.direction = 'ltr';
+      // قرصان خفيفان خلف الرقمين (لمسة فخامة بلا ظل)
+      [cx - 78, cx + 78].forEach(function(dx){
+        ctx.beginPath(); ctx.arc(dx, teamsY + (-8), 56, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.035)'; ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(201,160,43,0.28)'; ctx.stroke();
+      });
       ctx.font = '900 92px Tajawal, Arial, sans-serif';
       ctx.fillStyle = T1;
       ctx.textAlign = 'center';
       ctx.fillText(String(hs), cx - 78, teamsY + 22);
       ctx.fillText(String(as), cx + 78, teamsY + 22);
       ctx.font = '900 62px Tajawal, Arial, sans-serif';
+      ctx.fillStyle = GOLD;
       ctx.fillText(':', cx, teamsY + 14);
       ctx.restore();
 
@@ -319,10 +392,10 @@
       }
       y += 14;
     } else {
-      if (isLive && d.streamActive && d.streamUrl) {
+      if (isLive && (m.videoUrl || (d && d.videoUrl))) {
         ctx.fillStyle = LIVE;
         ctx.font = '700 26px Tajawal, Arial, sans-serif';
-        ctx.fillText('البث المباشر متاح الآن على المنصة', cx, y);
+        ctx.fillText('🔴 البث المباشر متاح الآن', cx, y);
         y += 50;
       }
 
@@ -414,35 +487,72 @@
   function buildShareText(m) {
     var league = window.league || {};
     var ht = team(m, 'home'), at = team(m, 'away');
-    var url = siteUrl() + 'league-viewer.html?id=' + (window.LEAGUE_ID || '');
-    var lines = [];
+    var url = siteUrl() + 'league-viewer.html?id=' + (window.LEAGUE_ID || '') + '&match=' + encodeURIComponent(m.id || '');
+    var L = [];
+
+    // سطر البطولة + الجولة/الدور
+    var head = league.name || 'البطولة';
+    if (m.isKnockout && m.knockoutRoundName) head += ' — ' + m.knockoutRoundName;
+    else if (m.round) head += ' — الجولة ' + m.round;
+
+    // سطر النتيجة المرتّب: «المضيف  ٢ - ١  الضيف» (يُقرأ يميناً لليسار)
+    function scoreLine(hs, as) {
+      return ht.name + '  ' + hs + ' - ' + as + '  ' + at.name;
+    }
 
     if (m.status === 'live') {
       var d = m.liveData || {};
       var hs = d.homeScore ?? 0, as = d.awayScore ?? 0;
-      lines.push('مباشر الآن: ' + ht.name + '  ' + hs + ' - ' + as + '  ' + at.name);
-      lines.push(league.name || 'البطولة');
-      lines.push('تابع البث المباشر والتفاصيل كاملة:');
-      lines.push(url);
+      var per = periodLabel(d);
+      var clk = liveClock(d);
+      var timeBit = [per, clk ? ('الدقيقة ' + clk) : ''].filter(Boolean).join(' · ');
+      L.push('🔴 مباشر الآن');
+      L.push(head);
+      L.push('⚽ ' + scoreLine(hs, as));
+      if (timeBit) L.push('⏱️ ' + timeBit);
+      // الهدّافون إن وُجدوا
+      var sc = scorers(m);
+      var allSc = []
+        .concat(sc.home.map(function(x){ return x.name + ' ' + x.min + "'"; }))
+        .concat(sc.away.map(function(x){ return x.name + ' ' + x.min + "'"; }));
+      if (allSc.length) L.push('🥅 ' + allSc.join('، '));
+      L.push('');
+      L.push('▶️ تابع البث والتفاصيل لحظة بلحظة:');
+      L.push(url);
+
     } else if (m.status === 'finished') {
-      lines.push('نتيجة المباراة: ' + ht.name + '  ' + (m.homeScore ?? 0) + ' - ' + (m.awayScore ?? 0) + '  ' + at.name);
-      lines.push(league.name || 'البطولة');
-      lines.push('كل تفاصيل المباراة والهدافين:');
-      lines.push(url);
+      var hs2 = m.homeScore ?? 0, as2 = m.awayScore ?? 0;
+      L.push('✅ انتهت المباراة');
+      L.push(head);
+      L.push('⚽ ' + scoreLine(hs2, as2));
+      if (m.penaltyScoreHome != null && m.penaltyScoreAway != null) {
+        L.push('🥅 ركلات الترجيح: ' + m.penaltyScoreHome + ' - ' + m.penaltyScoreAway);
+      }
+      var mom = (m.liveData && m.liveData.manOfMatch) || m.manOfMatch;
+      if (mom) L.push('🌟 رجل المباراة: ' + mom);
+      L.push('');
+      L.push('📊 كل التفاصيل والهدّافين:');
+      L.push(url);
+
     } else {
       var when = [];
       if (m.date) when.push((window.DateGroups && window.DateGroups.label) ? window.DateGroups.label(m.date) : m.date);
       if (m.time) when.push((window.formatTimeTo12H ? window.formatTimeTo12H(m.time) : m.time));
-      lines.push('مباراة قادمة: ' + ht.name + '  ضد  ' + at.name);
-      if (when.length) lines.push(when.join(' — '));
-      lines.push(league.name || 'البطولة');
-      lines.push('تابع كل التفاصيل:');
-      lines.push(url);
+      L.push('📅 مباراة قادمة');
+      L.push(head);
+      L.push('⚔️ ' + ht.name + '  ضد  ' + at.name);
+      if (when.length) L.push('🕐 ' + when.join(' — '));
+      if (m.stadium) L.push('🏟️ ' + m.stadium);
+      L.push('');
+      L.push('🔔 لا تفوّت المباراة — تابعها هنا:');
+      L.push(url);
     }
 
-    lines.push('');
-    lines.push(CREDIT);
-    return lines.join('\n');
+    // إعلان المنصة (فاصل أنيق)
+    L.push('');
+    L.push('━━━━━━━━━━━━━━');
+    L.push('🏆 ' + CREDIT);
+    return L.join('\n');
   }
 
   function canvasToBlob(canvas) {

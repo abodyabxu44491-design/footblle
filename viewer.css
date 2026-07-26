@@ -312,6 +312,13 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* GROUPS */
 .group-card{background:var(--s1);border-bottom:1px solid var(--b1);margin-bottom:6px}
+/* ── لوحة حسم التعادل للجمهور ── */
+.tbn-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:12px 14px;margin:10px 0 4px}
+.tbn-title{font-size:12px;font-weight:900;color:var(--gold);margin-bottom:9px}
+.tbn-steps{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.tbn-step{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--t2);background:var(--s2,rgba(255,255,255,.03));border:1px solid var(--b1);border-radius:999px;padding:4px 10px}
+.tbn-n{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--gold);color:#000;font-size:9px;font-weight:900;flex:0 0 auto}
+.tbn-arrow{color:var(--t3);font-size:11px;font-weight:900}
 .group-header{padding:10px 14px;background:var(--s2);border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between}
 .group-title{font-size:12px;font-weight:900;color:var(--gold)}
 .group-sub{font-size:10px;color:var(--t3)}
@@ -2372,6 +2379,14 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .mc2-done{color:var(--t2)}
 .mc2-time{font-size:14px;font-weight:800;color:var(--t2);font-variant-numeric:tabular-nums}
 .mc2-note{font-size:9px;color:var(--t3);font-weight:600}
+/* ── عدّاد تنازلي داخل البطاقة (خلال ٢٤ ساعة) ── */
+.mc2-cd{font-size:15px;font-weight:900;color:var(--gold);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.5px}
+.mc2-cd-lbl{font-size:9px;color:var(--t3);font-weight:700;margin-top:1px}
+/* ── على وشك البدء ── */
+.mc2-verge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:900;color:#E5533D;
+  background:rgba(229,83,61,.1);border:1px solid rgba(229,83,61,.28);border-radius:999px;padding:3px 9px;line-height:1}
+.mc2-verge-dot{width:6px;height:6px;border-radius:50%;background:#E5533D;animation:mc2VergePulse 1.1s ease-in-out infinite}
+@keyframes mc2VergePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
 .mc2-stream{
   font-size:9px;font-weight:700;color:var(--live);
   background:var(--lv-bg);border-radius:10px;padding:1px 7px;
@@ -2453,8 +2468,10 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
   padding:14px 10px 16px; margin-bottom:12px;
   position:relative; direction:ltr; /* يضمن يسار/يمين فعليَّين بصرف النظر عن اتجاه الصفحة */
 }
-.vt-teams{ display:flex; justify-content:space-between; padding:0 8px 12px; }
-.vt-teams span{ font-size:11px; font-weight:800; color:var(--t2); direction:rtl }
+.vt-teams{ display:flex; justify-content:space-between; align-items:center; padding:0 8px 12px; }
+.vt-team-h{ display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:800; color:var(--t2); direction:rtl; min-width:0; }
+.vt-team-h b{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:96px; }
+.vt-team-h img{ flex:0 0 auto; border-radius:5px; object-fit:cover; }
 .vt-line{
   position:absolute; top:52px; bottom:14px; left:50%; width:2px;
   background:var(--b2); transform:translateX(-50%); border-radius:2px; z-index:0;

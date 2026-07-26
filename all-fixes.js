@@ -80,9 +80,9 @@
           const sbZones = document.getElementById('sb-zones');
           if (sbZones) sbZones.style.display = (type === 'league') ? 'flex' : 'none';
 
-          // tiebreakCard — فقط للدوري العادي
+          // tiebreakCard — للدوري والمجموعات (كلاهما يحتاج حسم التعادل بالنقاط)
           const tiebreakCard = document.getElementById('tiebreakCard');
-          if (tiebreakCard) tiebreakCard.style.display = (type === 'league') ? '' : 'none';
+          if (tiebreakCard) tiebreakCard.style.display = (type === 'league' || type === 'groups') ? '' : 'none';
 
           // console.log('[FIX-2] ✅ UI مُكيَّف لنوع البطولة:', type);
         };
@@ -158,12 +158,14 @@
               }
             });
 
-            // ترتيب حسب النقاط ثم فارق الأهداف
+            // ترتيب حسب النقاط ثم قواعد الحسم المختارة (فارق الأهداف، أهداف، مواجهات، انتصارات، بطاقات)
             const sortedTeams = [...groupTeams].sort((a, b) => {
               const sa = statsMap[a.id] || {}, sb = statsMap[b.id] || {};
               if ((sb.pts||0) !== (sa.pts||0)) return (sb.pts||0) - (sa.pts||0);
-              const gdB = (sb.gf||0)-(sb.ga||0), gdA = (sa.gf||0)-(sa.ga||0);
-              return gdB - gdA;
+              const fa = { ...a, ...sa }, fb = { ...b, ...sb };
+              return (typeof window.applyTiebreak === 'function')
+                ? window.applyTiebreak(fa, fb, matches)
+                : ((sb.gf||0)-(sb.ga||0)) - ((sa.gf||0)-(sa.ga||0));
             });
 
             const manualQ = new Set(g.qualifiedTeamIds || []);
@@ -205,7 +207,7 @@
                         return `
                           <div style="display:grid;grid-template-columns:20px 1fr 28px 28px 28px 28px 30px 34px 60px;padding:7px 8px;border-bottom:1px solid var(--border);border-right:3px solid ${isQ?'var(--green)':'transparent'};background:${isQ?'rgba(39,174,96,.04)':''}">
                             <span style="font-size:10px;font-weight:900;color:${qColor}">${i+1}</span>
-                            <span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700">${logoFn(t.logo,16,4)} ${t.name}</span>
+                            <span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;cursor:pointer" onclick="adminOpenTeamInfo('${t.id}')">${logoFn(t.logo,16,4)} ${t.name} <span style="font-size:10px;color:var(--muted)">ⓘ</span></span>
                             <span style="text-align:center;font-size:11px">${s.p||0}</span>
                             <span style="text-align:center;font-size:11px;color:var(--green)">${s.w||0}</span>
                             <span style="text-align:center;font-size:11px">${s.d||0}</span>

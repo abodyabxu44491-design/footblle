@@ -51,7 +51,7 @@ let teams = [];
 let matches = [];
 window.matches = matches; // يستخدمه mcv2
 let scorers = {};
-let settings = { winPts: 3, drawPts: 1, lossePts: 0, type: 'league', zones: { champion: 1, qualify: 2, cond: 1, normal: 0, playoff: 1, relegate: 1 }, tiebreakOrder: ['h2h','gd','gf','draw'] };
+let settings = { winPts: 3, drawPts: 1, lossePts: 0, type: 'league', zones: { champion: 1, qualify: 2, cond: 1, normal: 0, playoff: 1, relegate: 1 }, tiebreakOrder: ['gd','gf','h2h','wins','cards','draw'] };
 window.settings = settings;
 const ZONE_COLORS = ['var(--gold)', 'var(--green)', 'var(--blue)', '#888', 'var(--orange)', 'var(--red)'];
 const ZONE_KEYS = ['champion', 'qualify', 'cond', 'normal', 'playoff', 'relegate'];
@@ -2554,7 +2554,9 @@ function renderStandings() {
 
   const sorted = [...teams].sort((a, b) => {
     if(b.pts !== a.pts) return b.pts - a.pts;
-    return (b.gf - b.ga) - (a.gf - a.ga);
+    return (typeof window.applyTiebreak === 'function')
+      ? window.applyTiebreak(a, b, window.matches)
+      : (b.gf - b.ga) - (a.gf - a.ga);
   });
 
   const html = `
@@ -2571,9 +2573,9 @@ function renderStandings() {
     ${sorted.map((t, i) => {
       const zc = getZoneColor(i);
       const gd = t.gf - t.ga;
-      return `<div class="sp-row" style="grid-template-columns:28px 1fr 30px 30px 30px 30px 30px 38px;border-right:3px solid ${zc}">
+      return `<div class="sp-row" style="grid-template-columns:28px 1fr 30px 30px 30px 30px 30px 38px;border-right:3px solid ${zc};cursor:pointer" onclick="adminOpenTeamInfo('${t.id}')">
         <span class="sp-pos" style="color:${zc}">${i + 1}</span>
-        <span class="sp-team"><span class="sp-logo">${logoHtml(t.logo, 16, 4)}</span><span style="font-size:12px;font-weight:700">${t.name}</span></span>
+        <span class="sp-team"><span class="sp-logo">${logoHtml(t.logo, 16, 4)}</span><span style="font-size:12px;font-weight:700">${t.name}</span><span style="font-size:11px;color:var(--muted);margin-inline-start:4px">ⓘ</span></span>
         <span class="sp-val">${t.p || 0}</span>
         <span class="sp-val" style="color:var(--green)">${t.w || 0}</span>
         <span class="sp-val">${t.d || 0}</span>
@@ -2599,6 +2601,77 @@ function renderStandings() {
 }
 // ✅︎ تصدير — استدعاءات admin.js تمر عبر window ليُطبَّق override في all-fixes.js
 window.renderStandings = renderStandings;
+
+// ══ معلومات الفريق (الأدمن) — سجّل/استقبل/فارق + بطاقات صفراء/حمراء ══
+window._teamCardsSplit = function(teamId) {
+  let y = 0, r = 0;
+  (window.matches || []).forEach(m => {
+    if (m.status !== 'finished') return;
+    if (m.homeId !== teamId && m.awayId !== teamId) return;
+    const side = m.homeId === teamId ? 'home' : 'away';
+    const evs = (m.liveData && Array.isArray(m.liveData.events)) ? m.liveData.events
+              : (Array.isArray(m.events) ? m.events : []);
+    evs.forEach(ev => {
+      const s = (ev && (ev.team || ev.side)) || 'home';
+      if (s !== side) return;
+      if (ev.type === 'yellow') y++;
+      else if (ev.type === 'red') r++;
+    });
+  });
+  return { y, r };
+};
+
+window._teamAggStats = function(teamId) {
+  let p=0,w=0,d=0,l=0,gf=0,ga=0;
+  (window.matches || []).filter(m => m.status==='finished' && (m.homeId===teamId||m.awayId===teamId))
+    .forEach(m => {
+      const isHome = m.homeId===teamId;
+      const my = isHome?(m.homeScore||0):(m.awayScore||0);
+      const op = isHome?(m.awayScore||0):(m.homeScore||0);
+      p++; gf+=my; ga+=op;
+      if (my>op) w++; else if (my===op) d++; else l++;
+    });
+  return { p,w,d,l,gf,ga,gd:gf-ga };
+};
+
+window.adminOpenTeamInfo = function(teamId) {
+  const t = (window.teams||[]).find(x => x.id === teamId);
+  if (!t) return;
+  const s = window._teamAggStats(teamId);
+  const c = window._teamCardsSplit(teamId);
+  document.getElementById('_teamInfoOverlay')?.remove();
+  const ov = document.createElement('div');
+  ov.id = '_teamInfoOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px';
+  const cell = (lbl,val,clr) => `<div style="padding:12px 4px;text-align:center">
+      <div style="font-size:20px;font-weight:900;font-family:Tajawal,sans-serif;color:${clr};line-height:1">${val}</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:3px">${lbl}</div></div>`;
+  ov.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--border2);border-radius:16px;max-width:400px;width:100%;overflow:hidden" onclick="event.stopPropagation()">
+      <div style="padding:18px 16px;text-align:center;border-bottom:1px solid var(--border)">
+        <div style="width:60px;height:60px;border-radius:14px;background:var(--card2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;margin:0 auto 10px">${(window.logoHtml||((l)=>l||'⚽'))(t.logo,44,10)}</div>
+        <div style="font-size:17px;font-weight:900;color:var(--text)">${t.name}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border)">
+        ${cell('نقطة', t.pts||0, 'var(--gold)')}
+        ${cell('لعب', s.p, 'var(--text)')}
+        ${cell('فوز', s.w, 'var(--green)')}
+        ${cell('خسر', s.l, 'var(--red)')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr)">
+        ${cell('سجّل', s.gf, 'var(--green)')}
+        ${cell('استقبل', s.ga, 'var(--red)')}
+        ${cell('± الفارق', (s.gd>0?'+':'')+s.gd, s.gd>0?'var(--green)':s.gd<0?'var(--red)':'var(--text)')}
+        ${cell('🟨 صفراء', c.y, '#E5B800')}
+        ${cell('🟥 حمراء', c.r, '#E5533D')}
+      </div>
+      <div style="padding:12px 16px;border-top:1px solid var(--border)">
+        <button onclick="document.getElementById('_teamInfoOverlay').remove()" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-weight:700;font-size:13px;cursor:pointer;font-family:Tajawal,sans-serif">إغلاق</button>
+      </div>
+    </div>`;
+  ov.addEventListener('click', () => ov.remove());
+  document.body.appendChild(ov);
+};
 
 // ══ RENDER SCORERS ══
 function renderScorers() {
@@ -3237,13 +3310,22 @@ const TIEBREAK_LABELS = {
   h2h:  { label: '⚔️ المواجهات المباشرة', desc: 'النتيجة بين الفريقين' },
   gd:   { label: '± فارق الأهداف',        desc: 'مسجلة – مستقبلة' },
   gf:   { label: '⚽ الأهداف المسجلة',    desc: 'إجمالي الأهداف' },
+  wins: { label: '🏅 عدد الانتصارات',     desc: 'الأكثر فوزاً' },
+  cards:{ label: '🟨 اللعب النظيف',        desc: 'الأقل بطاقات (صفراء+حمراء)' },
   draw: { label: '🎲 القرعة',             desc: 'عشوائي (آخر حل)' }
 };
 
 function renderTiebreakUI() {
   const container = document.getElementById('tiebreakList');
   if (!container) return;
-  const order = settings.tiebreakOrder || ['h2h','gd','gf','draw'];
+  // ✅︎ ضمّ أي معايير جديدة غير محفوظة في الترتيب القديم (wins/cards) قبل النهاية (draw)
+  let order = (settings.tiebreakOrder || []).slice();
+  const ALL = ['h2h','gd','gf','wins','cards','draw'];
+  ALL.forEach(k => { if (!order.includes(k)) {
+    if (k === 'draw') order.push(k);
+    else { const di = order.indexOf('draw'); if (di >= 0) order.splice(di, 0, k); else order.push(k); }
+  }});
+  settings.tiebreakOrder = order;
   container.innerHTML = order.map((key, i) => {
     const info = TIEBREAK_LABELS[key] || { label: key, desc: '' };
     return `<div class="tb-item" data-key="${key}" style="display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;cursor:grab;user-select:none">
@@ -3261,7 +3343,7 @@ function renderTiebreakUI() {
 }
 
 window.moveTbItem = function(key, dir) {
-  const order = settings.tiebreakOrder || ['h2h','gd','gf','draw'];
+  const order = settings.tiebreakOrder || ['gd','gf','h2h','wins','cards','draw'];
   const idx = order.indexOf(key);
   if (idx < 0) return;
   const newIdx = idx + dir;
@@ -3269,6 +3351,58 @@ window.moveTbItem = function(key, dir) {
   [order[idx], order[newIdx]] = [order[newIdx], order[idx]];
   settings.tiebreakOrder = order;
   renderTiebreakUI();
+};
+
+// ══ حسم التعادل الموحّد (نفس منطق الجمهور) — يُستخدم في ترتيب المجموعات ══
+window._teamCardCount = function(teamId, matchList) {
+  let pts = 0;
+  (matchList || window.matches || []).forEach(m => {
+    if (m.status !== 'finished') return;
+    if (m.homeId !== teamId && m.awayId !== teamId) return;
+    const side = m.homeId === teamId ? 'home' : 'away';
+    const evs = (m.liveData && Array.isArray(m.liveData.events)) ? m.liveData.events
+              : (Array.isArray(m.events) ? m.events : []);
+    evs.forEach(ev => {
+      const s = (ev && (ev.team || ev.side)) || 'home';
+      if (s !== side) return;
+      if (ev.type === 'yellow') pts += 1;
+      else if (ev.type === 'red') pts += 3;
+    });
+  });
+  return pts;
+};
+
+// a,b كائنات تحوي {id,name,gf,ga,w,...}. ترجع سالب لو a يتقدّم.
+window.applyTiebreak = function(a, b, matchList) {
+  const s = window.settings || {};
+  const order = s.tiebreakOrder || ['gd','gf','h2h','wins','cards','draw'];
+  const ml = matchList || window.matches || [];
+  for (const rule of order) {
+    if (rule === 'h2h') {
+      let aP = 0, bP = 0;
+      ml.filter(m => m.status === 'finished' &&
+        ((m.homeId === a.id && m.awayId === b.id) || (m.homeId === b.id && m.awayId === a.id)))
+        .forEach(m => {
+          const aHome = m.homeId === a.id;
+          const aG = aHome ? (m.homeScore||0) : (m.awayScore||0);
+          const bG = aHome ? (m.awayScore||0) : (m.homeScore||0);
+          if (aG > bG) aP += s.winPts||3; else if (aG < bG) bP += s.winPts||3;
+          else { aP += s.drawPts||1; bP += s.drawPts||1; }
+        });
+      if (aP !== bP) return bP - aP;
+    } else if (rule === 'gd') {
+      const agd = (a.gf||0)-(a.ga||0), bgd = (b.gf||0)-(b.ga||0);
+      if (agd !== bgd) return bgd - agd;
+    } else if (rule === 'gf') {
+      if ((a.gf||0) !== (b.gf||0)) return (b.gf||0)-(a.gf||0);
+    } else if (rule === 'wins') {
+      if ((a.w||0) !== (b.w||0)) return (b.w||0)-(a.w||0);
+    } else if (rule === 'cards') {
+      const ca = window._teamCardCount(a.id, ml), cb = window._teamCardCount(b.id, ml);
+      if (ca !== cb) return ca - cb;
+    }
+  }
+  return (a.name||'').localeCompare(b.name||'');
 };
 
 window.saveSettings = async function() {
@@ -3302,7 +3436,7 @@ window.saveSettings = async function() {
   document.querySelectorAll('#tiebreakList .tb-item').forEach(item => {
     tiebreakOrder.push(item.dataset.key);
   });
-  settings.tiebreakOrder = tiebreakOrder.length ? tiebreakOrder : ['h2h','gd','gf','draw'];
+  settings.tiebreakOrder = tiebreakOrder.length ? tiebreakOrder : ['gd','gf','h2h','wins','cards','draw'];
 
   try {
     if(name) await updateDoc(doc(db, 'leagues', LEAGUE_ID), { name, season, updatedAt: serverTimestamp() });
@@ -4283,6 +4417,43 @@ window.closeLivePage = async function(matchId) {
 // ─────────────────────────────────────────────────────────────────
 // بناء صفحة البث HTML
 // ─────────────────────────────────────────────────────────────────
+// 🎥 حفظ رابط بث الفيديو للمباراة
+window.lpSaveVideoUrl = async function(matchId) {
+  const inp = document.getElementById('lp-video-' + matchId);
+  if (!inp) return;
+  const url = inp.value.trim();
+  const LEAGUE_ID = window._getLeagueId ? window._getLeagueId() : '';
+  try {
+    await window._firestoreUpdateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', matchId), { videoUrl: url });
+    const mm = (window.matches || []).find(x => x.id === matchId);
+    if (mm) mm.videoUrl = url;
+    showToast(url ? '✅︎ تم حفظ رابط البث' : '✅︎ تم حذف رابط البث', 'success');
+  } catch (e) {
+    showToast('تعذّر الحفظ: ' + e.message, 'error');
+  }
+};
+
+// 🔗 مشاركة رابط المباراة المباشر
+window.lpShareMatchLink = async function(matchId) {
+  const LEAGUE_ID = window._getLeagueId ? window._getLeagueId() : '';
+  const base = location.origin + location.pathname.replace(/[^/]*$/, '') + 'league-viewer.html';
+  const link = `${base}?id=${encodeURIComponent(LEAGUE_ID)}&match=${encodeURIComponent(matchId)}`;
+  const mm = (window.matches || []).find(x => x.id === matchId) || {};
+  const ht = (window.teams || []).find(t => t.id === mm.homeId) || { name: mm.homeName || '' };
+  const at = (window.teams || []).find(t => t.id === mm.awayId) || { name: mm.awayName || '' };
+  const text = `🔴 تابع مباراة ${ht.name} × ${at.name} مباشرة:\n${link}`;
+  try {
+    if (navigator.share) { await navigator.share({ title: 'بث المباراة', text, url: link }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  try {
+    await navigator.clipboard.writeText(link);
+    showToast('✅︎ تم نسخ رابط المباراة', 'success');
+  } catch (e) {
+    // fallback: واتساب
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  }
+};
+
 function _buildLivePage(matchId, match, ht, at) {
   const overlay = document.createElement('div');
   overlay.className = 'live-page-overlay';
@@ -4334,6 +4505,19 @@ function _buildLivePage(matchId, match, ht, at) {
           <!-- ✅︎ الأزرار تُبنى ديناميكياً عبر _updateTimeControlBtns حسب حالة المباراة
                (وهي التي تُظهر زر «⏱️ بدل الضائع» أثناء الشوطين والوقت الإضافي) -->
           <div class="lp-time-controls" id="lp-time-controls-${mId}"></div>
+
+          <!-- 🎥 أدوات البث: رابط الفيديو + مشاركة رابط المباراة -->
+          <div style="margin-top:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:12px;font-family:Tajawal,sans-serif">
+            <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px">🎥 بث الفيديو (اختياري)</div>
+            <div style="display:flex;gap:8px">
+              <input id="lp-video-${mId}" type="url" inputmode="url" placeholder="رابط يوتيوب / فيسبوك / تويتش أو رابط مباشر"
+                value="${(match.videoUrl||'').replace(/"/g,'&quot;')}"
+                style="flex:1;min-width:0;padding:9px 11px;border-radius:9px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-family:Tajawal,sans-serif;direction:ltr;text-align:left">
+              <button onclick="lpSaveVideoUrl('${mId}')" style="flex:0 0 auto;padding:9px 14px;border-radius:9px;border:1px solid rgba(201,160,43,.4);background:rgba(201,160,43,.14);color:var(--gold);font-weight:800;font-size:12px;cursor:pointer;font-family:Tajawal,sans-serif">حفظ</button>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-top:6px">يوتيوب/فيسبوك/تويتش يظهر داخل الصفحة. تيك توك وغيره يظهر كزر «شاهد البث».</div>
+            <button onclick="lpShareMatchLink('${mId}')" style="width:100%;margin-top:10px;padding:10px;border-radius:9px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:Tajawal,sans-serif">🔗 مشاركة رابط المباراة</button>
+          </div>
 
 <!-- ✅︎ قسم ركلات الترجيح الكامل -->
           <div id="lp-pen-section-${mId}" style="display:none;margin-top:10px;
@@ -4453,25 +4637,6 @@ function _buildLivePage(matchId, match, ht, at) {
           </div>
           <div id="lp-events-list-${mId}" class="lp-events-list">
             <div class="lp-no-events">لا توجد أحداث بعد</div>
-          </div>
-        </div>
-
-        <!-- البث المباشر -->
-        <div class="lp-stream-section">
-          <div class="lp-stream-label">📡 البث المباشر</div>
-          <div class="lp-platforms" id="lp-platforms-${mId}">
-            <button class="lp-plt sel-yt" id="lp-plt-yt-${mId}" onclick="lpSetPlatform('${mId}','youtube')">▶︎️ YouTube</button>
-            <button class="lp-plt" id="lp-plt-fb-${mId}" onclick="lpSetPlatform('${mId}','facebook')">📘 Facebook</button>
-            <button class="lp-plt" id="lp-plt-tw-${mId}" onclick="lpSetPlatform('${mId}','twitch')">🎮 Twitch</button>
-            <button class="lp-plt" id="lp-plt-ot-${mId}" onclick="lpSetPlatform('${mId}','other')">📺 أخرى</button>
-          </div>
-          <input class="lp-stream-input" id="lp-stream-url-${mId}" placeholder="الصق رابط البث هنا..." value="${match.liveData?.streamUrl || ''}"/>
-          <div class="lp-stream-hint">مثال: https://www.youtube.com/watch?v=XXXXX</div>
-          <button class="lp-stream-activate" id="lp-stream-act-${mId}" onclick="lpActivateStream('${mId}')">📡 تفعيل البث للجمهور</button>
-          <div class="lp-stream-active-bar" id="lp-stream-bar-${mId}" style="display:none">
-            <div class="lp-stream-dot"></div>
-            <span>البث مفعّل للجمهور</span>
-            <button onclick="lpStopStream('${mId}')">إيقاف</button>
           </div>
         </div>
 
@@ -4617,10 +4782,7 @@ function _buildLivePage(matchId, match, ht, at) {
   _lpUpdateStatusUI(matchId);
 
   // restore stream bar
-  if (st.streamActive) {
-    const bar = document.getElementById('lp-stream-bar-' + matchId);
-    if (bar) bar.style.display = 'flex';
-  }
+  // (أُزيل تحديث شريط البث القديم)
 }
 
 // ── Logo helper ──
@@ -4824,7 +4986,18 @@ window.lpOpenEvent = function(matchId, type, icon, label) {
       window._lpSubMatchId = matchId; // ليعرف مستمع الفريق أي مباراة يعيد بناءها
     }
   }
-  if (minEl) minEl.value = st ? Math.floor(st.timerSeconds / 60) : '';
+  if (minEl) {
+    // ✅︎ FIX: الدقيقة المعروضة تحترم إزاحة الشوط (60' في الشوط الثاني وليس 15').
+    // كانت timerSeconds/60 تعطي دقيقة الفترة وحدها → كل كرت/تبديل يُسجَّل بدقيقة خاطئة.
+    let _pf = '';
+    if (st) {
+      try {
+        const _m = window._evMinute ? window._evMinute(st) : null;
+        _pf = _m && _m.minute != null ? _m.minute : Math.floor((st.timerSeconds || 0) / 60);
+      } catch (_e) { _pf = Math.floor((st.timerSeconds || 0) / 60); }
+    }
+    minEl.value = _pf;
+  }
   if (playerEl) playerEl.value = '';
   if (noteEl) noteEl.value = '';
   if (modal) modal.style.display = 'flex';
@@ -4951,39 +5124,7 @@ window.lpClearEvents = async function(matchId) {
 // ─────────────────────────────────────────────────────────────────
 // STREAM
 // ─────────────────────────────────────────────────────────────────
-window.lpSetPlatform = function(matchId, platform) {
-  const st = _liveMatches[matchId];
-  if (!st) return;
-  st.streamPlatform = platform;
-  const platforms = { youtube: 'lp-plt-yt', facebook: 'lp-plt-fb', twitch: 'lp-plt-tw', other: 'lp-plt-ot' };
-  Object.entries(platforms).forEach(([k, id]) => {
-    const el = document.getElementById(id + '-' + matchId);
-    if (el) el.className = 'lp-plt' + (k === platform ? ' lp-plt-active' : '');
-  });
-};
-
-window.lpActivateStream = async function(matchId) {
-  const st = _liveMatches[matchId];
-  if (!st) return;
-  const url = document.getElementById('lp-stream-url-' + matchId)?.value.trim();
-  if (!url) { showToast('أدخل رابط البث أولاً', 'error'); return; }
-  st.streamUrl = url;
-  st.streamActive = true;
-  const bar = document.getElementById('lp-stream-bar-' + matchId);
-  if (bar) bar.style.display = 'flex';
-  await _lpSave(matchId);
-  showToast('📡 تم تفعيل البث!', 'success');
-};
-
-window.lpStopStream = async function(matchId) {
-  const st = _liveMatches[matchId];
-  if (!st) return;
-  st.streamActive = false;
-  const bar = document.getElementById('lp-stream-bar-' + matchId);
-  if (bar) bar.style.display = 'none';
-  await _lpSave(matchId);
-  showToast('تم إيقاف البث', 'success');
-};
+// ── (أُزيلت دوال البث القديمة lpSetPlatform/lpActivateStream/lpStopStream — اعتُمد النظام الجديد) ──
 
 // ─────────────────────────────────────────────────────────────────
 // LINEUP

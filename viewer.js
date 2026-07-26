@@ -54,6 +54,18 @@ try {
 // ══ STATE ══
 const params   = new URLSearchParams(location.search);
 const LEAGUE_ID = params.get('id') || '';
+
+// 🔗 فتح مباراة محددة من الرابط (?id=..&match=..) — مرة واحدة فقط
+let _deepLinkOpened = false;
+function _maybeOpenDeepLinkMatch() {
+  if (_deepLinkOpened) return;
+  const mid = params.get('match');
+  if (!mid) return;
+  const found = (window.matches || []).some(x => x.id === mid);
+  if (!found) return; // ننتظر تحميل المباريات
+  _deepLinkOpened = true;
+  try { if (typeof openMatchDetail === 'function') openMatchDetail(mid); } catch(e){}
+}
 const SITE_URL  = location.origin + location.pathname.replace(/\/[^/]*$/, '/');
 
 // ══ حماية من حقن HTML في بيانات المنظّم (XSS) ══
@@ -112,7 +124,7 @@ function _evSide(ev) {
   return (ev && (ev.team || ev.side)) || 'home';
 }
 
-let settings = { winPts:3, drawPts:1, zones:{ champion:1, qualify:2, cond:1, normal:0, playoff:1, relegate:1 }, bracketPublished: false, tiebreakOrder: ['h2h','gd','gf','draw'] };
+let settings = { winPts:3, drawPts:1, zones:{ champion:1, qualify:2, cond:1, normal:0, playoff:1, relegate:1 }, bracketPublished: false, tiebreakOrder: ['gd','gf','h2h','wins','cards','draw'] };
 window.settings = settings;
 let matchFilter   = 'all';
 let searchQuery   = '';
@@ -388,6 +400,8 @@ async function init() {
       matches = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()}));
       matches.sort((a,b)=>(a.round||0)-(b.round||0)||(a.date||'').localeCompare(b.date||''));
       matchesLoaded = true; window.renderAll(); checkHide();
+      // 🔗 رابط مباراة مباشر: افتح المباراة المحددة في الرابط تلقائياً (مرة واحدة)
+      _maybeOpenDeepLinkMatch();
     });
 
   onSnapshot(collection(db,'leagues',LEAGUE_ID,'groups'), snap => {
@@ -789,29 +803,7 @@ function showGoalToast(msg) {
 
 
 // ── Embed builder ──
-function _buildViewerEmbed(url, platform) {
-  try {
-    if (!url) return '';
-    // YouTube
-    const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/);
-    if (ytMatch) {
-      return `<div style="position:relative;padding-bottom:56.25%;height:0;border-radius:12px;overflow:hidden;margin-bottom:8px">
-        <iframe src="https://www.youtube.com/embed/${ytMatch[1]}?autoplay=0" frameborder="0" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%"></iframe>
-      </div>`;
-    }
-    // YouTube Live
-    const ytLive = url.match(/youtube\.com\/live\/([\w-]{11})/);
-    if (ytLive) {
-      return `<div style="position:relative;padding-bottom:56.25%;height:0;border-radius:12px;overflow:hidden;margin-bottom:8px">
-        <iframe src="https://www.youtube.com/embed/${ytLive[1]}?autoplay=0" frameborder="0" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%"></iframe>
-      </div>`;
-    }
-    return ''; // fallback to link card
-  } catch(e) { return ''; }
-}
-
-// ── كشف _buildViewerEmbed على window ────────────────────────────
-window._buildViewerEmbed = _buildViewerEmbed;
+// ── (أُزيل نظام البث القديم _buildViewerEmbed — اعتُمد النظام الجديد) ──
 
 // [openMatchDetail patch removed — live data injected inside main openMatchDetail]
 
@@ -1181,7 +1173,30 @@ function renderGroupsStandings() {
       }).join('')}
       ${gmHtml}
     </div>`;
-  }).join('');
+  }).join('') + _tiebreakNoteHtml();
+}
+
+// ── لوحة توضّح للجمهور طريقة الحسم عند التساوي بالنقاط ──
+function _tiebreakNoteHtml() {
+  const LBL = {
+    h2h:  'المواجهات المباشرة',
+    gd:   'فارق الأهداف',
+    gf:   'الأهداف المسجّلة',
+    wins: 'عدد الانتصارات',
+    cards:'اللعب النظيف (الأقل بطاقات)',
+    draw: 'القرعة'
+  };
+  const order = (settings.tiebreakOrder || ['gd','gf','h2h','wins','cards','draw'])
+    .filter(k => LBL[k]);
+  if (!order.length) return '';
+  const steps = order.map((k, i) =>
+    `<span class="tbn-step"><span class="tbn-n">${i+1}</span>${LBL[k]}</span>`
+  ).join('<span class="tbn-arrow">←</span>');
+  return `
+    <div class="tbn-card">
+      <div class="tbn-title">⚖️ عند التساوي بالنقاط — ترتيب الحسم</div>
+      <div class="tbn-steps">${steps}</div>
+    </div>`;
 }
 
 
@@ -2154,6 +2169,22 @@ function getTeamForm(teamId, count) {
 // ════════════════════════════════════════
 //  TEAM PROFILE OVERLAY
 // ════════════════════════════════════════
+// ── عدّ البطاقات الصفراء/الحمراء لفريق عبر كل مبارياته المنتهية ──
+function _teamCardsSplit(teamId) {
+  let y = 0, r = 0;
+  (matches || []).forEach(m => {
+    if (m.status !== 'finished') return;
+    if (m.homeId !== teamId && m.awayId !== teamId) return;
+    const side = m.homeId === teamId ? 'home' : 'away';
+    _matchEvents(m).forEach(ev => {
+      if (_evSide(ev) !== side) return;
+      if (ev.type === 'yellow') y++;
+      else if (ev.type === 'red') r++;
+    });
+  });
+  return { y, r };
+}
+
 window.openTeamProfile = function(teamId) {
   const t = teams.find(x=>x.id===teamId);
   if(!t) return;
@@ -2262,6 +2293,26 @@ window.openTeamProfile = function(teamId) {
           <div style="font-size:9px;color:var(--t3);margin-top:2px">${lbl}</div>
         </div>`).join('')}
     </div>
+
+    <!-- سجّل / استقبل / فارق / بطاقات -->
+    ${(function(){
+      const c = _teamCardsSplit(teamId);
+      const cells = [
+        ['سجّل',     stats.gf, 'var(--green)'],
+        ['استقبل',   stats.ga, 'var(--red)'],
+        ['± الفارق', (stats.gd>0?'+':'')+stats.gd, stats.gd>0?'var(--green)':stats.gd<0?'var(--red)':'var(--t2)'],
+        ['🟨 صفراء', c.y, '#E5B800'],
+        ['🟥 حمراء', c.r, '#E5533D'],
+      ];
+      return `
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);background:var(--s1);border-bottom:1px solid var(--b1);margin-bottom:6px">
+        ${cells.map(([lbl,val,clr])=>`
+          <div style="padding:12px 4px;text-align:center">
+            <div style="font-size:19px;font-weight:900;font-family:'Tajawal',sans-serif;color:${clr};line-height:1">${val}</div>
+            <div style="font-size:9px;color:var(--t3);margin-top:3px">${lbl}</div>
+          </div>`).join('')}
+      </div>`;
+    })()}
 
     <!-- الفورم -->
     <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:14px 16px;margin-bottom:6px">
@@ -2413,14 +2464,32 @@ window.closeMatchDetail = function() {
   document.getElementById('matchDetailOverlay')?.classList.remove('show');
   document.body.style.overflow = '';
   Object.values(_detailClocks||{}).forEach(t => clearInterval(t));
+  if (_pmgTimer) { clearInterval(_pmgTimer); _pmgTimer = null; }
 };
 
 // ── closeLiveOverlay (stub — لا توجد overlay بث منفصلة) ──
 window.closeLiveOverlay = function() {};
 
 // ── applyTiebreak ─────────────────────────────────────────
+function _teamCardCount(teamId, matchList) {
+  // عدد البطاقات (صفراء=1، حمراء=3 كوزن عادل) لفريق عبر كل مبارياته المنتهية
+  let pts = 0;
+  (matchList || matches).forEach(m => {
+    if (m.status !== 'finished') return;
+    if (m.homeId !== teamId && m.awayId !== teamId) return;
+    const side = m.homeId === teamId ? 'home' : 'away';
+    const evs = _matchEvents(m);
+    evs.forEach(ev => {
+      if (_evSide(ev) !== side) return;
+      if (ev.type === 'yellow') pts += 1;
+      else if (ev.type === 'red') pts += 3;
+    });
+  });
+  return pts;
+}
+
 function applyTiebreak(a, b, matchList) {
-  const order = settings.tiebreakOrder || ['h2h','gd','gf','draw'];
+  const order = settings.tiebreakOrder || ['gd','gf','h2h','wins','cards','draw'];
   for (const rule of order) {
     if (rule === 'h2h') {
       const h2h = (matchList||matches).filter(m =>
@@ -2443,10 +2512,16 @@ function applyTiebreak(a, b, matchList) {
       if (agd !== bgd) return bgd - agd;
     } else if (rule === 'gf') {
       if ((a.gf||0) !== (b.gf||0)) return (b.gf||0)-(a.gf||0);
+    } else if (rule === 'wins') {
+      if ((a.w||0) !== (b.w||0)) return (b.w||0)-(a.w||0);
+    } else if (rule === 'cards') {
+      const ca = _teamCardCount(a.id, matchList), cb = _teamCardCount(b.id, matchList);
+      if (ca !== cb) return ca - cb; // الأقل بطاقات يتقدّم
     }
   }
   return (a.name||'').localeCompare(b.name||'');
 }
+window.applyTiebreak = applyTiebreak;
 
 // ── جمع كشوف اللاعبين (كشف الفريق الرسمي + تشكيلات المباريات) ──
 // يُستخدم لإيجاد هوية اللاعب (id) حتى لو تشابهت الأسماء بين فريقين.
@@ -3066,6 +3141,50 @@ window._playerMatchBadges = _playerMatchBadges;
 // في نافذة تفاصيل المباراة — أُزيلت بطلب الإدارة (الهدف يظهر الآن فقط
 // داخل الخط الزمني بتبويب "الأحداث").
 
+// ── وقت انطلاق المباراة من التاريخ + الوقت ──
+function _matchStartTime(m) {
+  if (!m || !m.date) return null;
+  const [y, mo, dd] = String(m.date).split('-').map(Number);
+  const [h, mi]     = String(m.time || '00:00').split(':').map(Number);
+  const t = new Date(y, (mo || 1) - 1, dd || 1, h || 0, mi || 0, 0, 0);
+  return isNaN(t.getTime()) ? null : t;
+}
+
+// ── تنسيق العدّ التنازلي: يوم/ساعة/دقيقة/ثانية حسب المتبقّي ──
+function _fmtCountdown(diff) {
+  if (diff == null || diff < 0) diff = 0;
+  const p = n => String(n).padStart(2, '0');
+  const D = Math.floor(diff / 86400000);
+  const H = Math.floor((diff % 86400000) / 3600000);
+  const M = Math.floor((diff % 3600000) / 60000);
+  const S = Math.floor((diff % 60000) / 1000);
+  if (D > 0) return `${D}ي ${p(H)}:${p(M)}:${p(S)}`;
+  return `${p(H)}:${p(M)}:${p(S)}`;
+}
+
+// ── مؤقّت موحّد لكل بطاقات العدّ التنازلي (تحديث كل ثانية بلا إعادة رسم) ──
+let _cardCdTimer = null;
+function _scheduleCardCountdown() {
+  if (_cardCdTimer) return;
+  _cardCdTimer = setInterval(() => {
+    const nodes = document.querySelectorAll('.mc2-cd[data-cd]');
+    if (!nodes.length) { clearInterval(_cardCdTimer); _cardCdTimer = null; return; }
+    const now = Date.now();
+    nodes.forEach(el => {
+      const target = parseInt(el.getAttribute('data-cd'), 10);
+      const diff = target - now;
+      if (diff <= 5 * 60 * 1000) {
+        // دخلت مرحلة "على وشك البدء" — أعد رسم القسم لتحديث الحالة
+        if (typeof window._refreshHome === 'function') window._refreshHome();
+        else if (typeof renderHomeSection === 'function') renderHomeSection();
+        clearInterval(_cardCdTimer); _cardCdTimer = null;
+        return;
+      }
+      el.textContent = _fmtCountdown(diff);
+    });
+  }, 1000);
+}
+
 function _matchCard(m) {
   const ht  = (window.teams||[]).find(t => t.id === m.homeId) || { name: m.homeName||'؟', logo: m.homeLogo||'' };
   const at  = (window.teams||[]).find(t => t.id === m.awayId) || { name: m.awayName||'؟', logo: m.awayLogo||'' };
@@ -3107,7 +3226,6 @@ function _matchCard(m) {
         </div>
         ${isPenScore ? `<div class="mc2-note">(${d.homeScore ?? 0}-${d.awayScore ?? 0} بعد الوقت الأصلي)</div>` : ''}
         ${isPaused && pReason ? `<div class="mc2-pause-reason">🛈 ${pReason}</div>` : ''}
-        ${d.streamActive && d.streamUrl ? `<div class="mc2-stream">بث مباشر</div>` : ''}
       </div>`;
   } else if (isF) {
     center = `
@@ -3120,11 +3238,32 @@ function _matchCard(m) {
         ${_psM ? `<div class="mc2-note" style="color:var(--gold);font-weight:800">ركلات الترجيح ${_psM.h}-${_psM.a}</div>` : `<div class="mc2-note">انتهت</div>`}
       </div>`;
   } else {
-    center = `
-      <div class="mc2-mid">
-        <div class="mc2-time">${m.time ? formatTimeTo12H(m.time) : 'VS'}</div>
-        ${m.date ? `<div class="mc2-note">${m.date}</div>` : ''}
-      </div>`;
+    // ── عدّاد تنازلي داخل البطاقة إذا كانت المباراة خلال ٢٤ ساعة ──
+    const _target = _matchStartTime(m);
+    const _diff   = _target ? (_target - new Date()) : null;
+    const _within24 = _diff != null && _diff > 0 && _diff <= 86400000;
+    const _verge    = _diff != null && _diff <= 5 * 60 * 1000 && _diff > -30 * 60 * 1000;
+
+    if (_verge) {
+      center = `
+        <div class="mc2-mid">
+          <div class="mc2-verge"><span class="mc2-verge-dot"></span>على وشك البدء</div>
+          ${m.time ? `<div class="mc2-note">${formatTimeTo12H(m.time)}</div>` : ''}
+        </div>`;
+    } else if (_within24) {
+      center = `
+        <div class="mc2-mid">
+          <div class="mc2-cd" data-cd="${_target.getTime()}" data-mid="${m.id}">${_fmtCountdown(_diff)}</div>
+          <div class="mc2-cd-lbl">${m.time ? formatTimeTo12H(m.time) : ''}</div>
+        </div>`;
+      _scheduleCardCountdown();
+    } else {
+      center = `
+        <div class="mc2-mid">
+          <div class="mc2-time">${m.time ? formatTimeTo12H(m.time) : 'VS'}</div>
+          ${m.date ? `<div class="mc2-note">${m.date}</div>` : ''}
+        </div>`;
+    }
   }
 
   const roundBadge = m.isKnockout && m.knockoutRoundName
@@ -3314,6 +3453,195 @@ if (!window._renderAllV2Patched) {
 // ══════════════════════════════════════════════════════════════
 //  openMatchDetail — واجهة احترافية مع تبويبات
 // ══════════════════════════════════════════════════════════════
+
+// ── تحويل رابط بث إلى iframe مضمّن (يوتيوب/فيسبوك/تويتش/رابط مباشر) ──
+function _toEmbedUrl(url) {
+  if (!url) return null;
+  url = String(url).trim();
+  try {
+    // YouTube: watch?v= / youtu.be/ / live/
+    let m = url.match(/(?:youtube\.com\/(?:watch\?v=|live\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+    if (m) return { type:'iframe', src:`https://www.youtube.com/embed/${m[1]}?autoplay=1&playsinline=1` };
+    // YouTube channel live: youtube.com/@handle/live أو /channel/ID/live — نفتح الرابط كما هو
+    if (/youtube\.com\/.+\/live/.test(url)) return { type:'iframe', src:url.replace('/live','/embed/live_stream') };
+    // Twitch
+    m = url.match(/twitch\.tv\/([A-Za-z0-9_]+)/);
+    if (m) return { type:'iframe', src:`https://player.twitch.tv/?channel=${m[1]}&parent=${location.hostname}&autoplay=true` };
+    // Facebook (video/live)
+    if (/facebook\.com\/|fb\.watch\//.test(url)) return { type:'iframe', src:`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&autoplay=true` };
+    // رابط فيديو مباشر (mp4/m3u8/webm)
+    if (/\.(mp4|webm|m3u8)(\?|$)/i.test(url)) return { type:'video', src:url };
+    // منصات تمنع التضمين المباشر للبث → زر «شاهد البث» يفتح تطبيقها
+    if (/tiktok\.com|instagram\.com|snapchat\.com|(?:^|\/\/)(?:www\.)?(?:x|twitter)\.com|kwai|likee/i.test(url)) {
+      let platform = 'المنصة';
+      if (/tiktok/i.test(url))          platform = 'تيك توك';
+      else if (/instagram/i.test(url))  platform = 'إنستغرام';
+      else if (/snapchat/i.test(url))   platform = 'سناب شات';
+      else if (/x\.com|twitter/i.test(url)) platform = 'إكس (تويتر)';
+      return { type:'link', src:url, platform };
+    }
+  } catch(e) {}
+  // غير معروف → زر «شاهد البث» (أأمن من iframe فارغ)
+  return { type:'link', src:url, platform:'الرابط' };
+}
+
+// ── بناء قسم الفيديو المضمّن داخل صفحة المباراة ──
+function _buildVideoEmbed(m) {
+  const url = m && (m.videoUrl || (m.liveData && m.liveData.videoUrl));
+  if (!url) return '';
+  // يظهر الفيديو في كل الحالات ما دام هناك رابط:
+  //  - قبل البدء: تحاليل/إحماء/استوديو ما قبل المباراة
+  //  - أثناء البث: البث المباشر
+  //  - بعد الانتهاء: إعادة
+  const emb = _toEmbedUrl(url);
+  if (!emb) return '';
+  const isLive = m.status === 'live';
+  const isFin  = m.status === 'finished';
+  let badge;
+  if (isLive) {
+    badge = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:900;color:#E5533D;background:rgba(229,83,61,.12);border:1px solid rgba(229,83,61,.3);border-radius:999px;padding:3px 10px"><span style="width:6px;height:6px;border-radius:50%;background:#E5533D;display:inline-block"></span>مباشر الآن</span>';
+  } else if (isFin) {
+    badge = '<span style="font-size:11px;font-weight:700;color:var(--t3)">📼 إعادة</span>';
+  } else {
+    badge = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;color:var(--gold);background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.3);border-radius:999px;padding:3px 10px">🎙️ ما قبل المباراة</span>';
+  }
+  const title = isLive ? '🎥 البث المباشر' : (isFin ? '🎥 إعادة المباراة' : '🎥 تحليلات ما قبل المباراة');
+
+  // منصات تمنع التضمين (تيك توك…) → زر «شاهد البث» يفتح تطبيقها
+  if (emb.type === 'link') {
+    const verb = isLive ? 'شاهد البث المباشر' : (isFin ? 'شاهد الإعادة' : 'شاهد التحليلات');
+    return `
+      <div style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:12px;font-weight:900;color:var(--t2)">${title}</span>
+          ${badge}
+        </div>
+        <a href="${emb.src}" target="_blank" rel="noopener"
+           style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-decoration:none;
+                  padding:30px 16px;border-radius:14px;background:linear-gradient(135deg,rgba(229,83,61,.12),rgba(201,160,43,.08));
+                  border:1px solid var(--b1)">
+          <div style="width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:28px">▶️</div>
+          <div style="font-size:15px;font-weight:900;color:var(--t1)">${verb}</div>
+          <div style="font-size:12px;color:var(--t3)">على ${emb.platform} — يفتح في التطبيق</div>
+        </a>
+      </div>`;
+  }
+
+  const player = emb.type === 'video'
+    ? `<video src="${emb.src}" controls autoplay playsinline style="width:100%;height:100%;border:0;background:#000"></video>`
+    : `<iframe src="${emb.src}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen frameborder="0" style="width:100%;height:100%;border:0"></iframe>`;
+
+  // شريط النتيجة والوقت فوق الفيديو (للمباريات المباشرة فقط)
+  const ht = (window.teams||[]).find(t => t.id === m.homeId) || { name:m.homeName||'', logo:m.homeLogo||'' };
+  const at = (window.teams||[]).find(t => t.id === m.awayId) || { name:m.awayName||'', logo:m.awayLogo||'' };
+  const d  = m.liveData;
+  let scoreBar = '';
+  if (isLive && d) {
+    const _lg = (l) => l
+      ? `<img src="${l}" style="width:20px;height:20px;border-radius:4px;object-fit:cover" alt="">`
+      : `<span style="width:20px;height:20px;border-radius:4px;background:rgba(255,255,255,.15);display:inline-flex;align-items:center;justify-content:center;font-size:11px">⚽</span>`;
+    const clockTxt = (typeof _clock === 'function') ? _clock(d) : '';
+    scoreBar = `
+      <div style="position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:center;gap:10px;
+                  padding:7px 12px;background:linear-gradient(180deg,rgba(0,0,0,.78),rgba(0,0,0,0));pointer-events:none">
+        <span style="display:inline-flex;align-items:center;gap:6px;color:#fff;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif">${_lg(ht.logo)}${ht.name}</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:2px 10px">
+          <b id="md-vsh-${m.id}" style="color:#fff;font-size:15px;font-family:Tajawal,sans-serif">${d.homeScore ?? 0}</b>
+          <span style="color:#fff;opacity:.6">:</span>
+          <b id="md-vsa-${m.id}" style="color:#fff;font-size:15px;font-family:Tajawal,sans-serif">${d.awayScore ?? 0}</b>
+        </span>
+        <span style="display:inline-flex;align-items:center;gap:6px;color:#fff;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif">${at.name}${_lg(at.logo)}</span>
+        <span id="md-vtimer-${m.id}" style="display:inline-flex;align-items:center;gap:4px;color:#E5533D;font-size:12px;font-weight:900;font-variant-numeric:tabular-nums;background:rgba(0,0,0,.5);border-radius:6px;padding:2px 8px">${clockTxt}</span>
+      </div>`;
+    if (typeof _startDetailClock2 === 'function') setTimeout(() => _startDetailClock2(m.id), 0);
+  }
+  return `
+    <div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:900;color:var(--t2)">${title}</span>
+        ${badge}
+      </div>
+      <div id="md-video-wrap-${m.id}" style="position:relative;width:100%;padding-top:56.25%;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--b1)">
+        <div style="position:absolute;inset:0">${player}</div>
+        ${scoreBar}
+        <button onclick="_toggleVideoFullscreen('${m.id}')" title="ملء الشاشة"
+          style="position:absolute;bottom:8px;left:8px;z-index:6;width:34px;height:34px;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">⛶</button>
+      </div>
+      <a href="${url}" target="_blank" rel="noopener"
+         style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;padding:9px;border-radius:10px;
+                background:var(--s1);border:1px solid var(--b1);text-decoration:none;color:var(--t2);font-size:12px;font-weight:800">
+        ▶️ لم يظهر البث؟ شاهده على المصدر ↗
+      </a>
+    </div>`;
+}
+
+// ملء الشاشة لمشغّل الفيديو
+function _toggleVideoFullscreen(matchId) {
+  const wrap = document.getElementById('md-video-wrap-' + matchId);
+  if (!wrap) return;
+  const el = wrap.querySelector('video') || wrap;
+  try {
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    if (el.requestFullscreen) el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    else if (el.webkitEnterFullscreen) el.webkitEnterFullscreen(); // iOS video
+    else wrap.requestFullscreen && wrap.requestFullscreen();
+  } catch(e) {}
+}
+window._toggleVideoFullscreen = _toggleVideoFullscreen;
+
+// ── بوابة ما قبل البدء: تظهر للمباريات التي لم تبدأ بعد ──
+function _buildPrematchGate(m) {
+  if (!m || m.status !== 'upcoming') return '';
+  const hasVideo = !!(m.videoUrl || (m.liveData && m.liveData.videoUrl));
+  const start = (typeof _matchStartTime === 'function') ? _matchStartTime(m) : null;
+  const diff  = start ? (start - new Date()) : null;
+
+  // إن وُجد فيديو (تحاليل ما قبل المباراة): بوابة مصغّرة أسفل الفيديو
+  if (hasVideo) {
+    if (diff != null && diff > 0) {
+      _schedulePrematchGate();
+      return `
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 14px;margin-bottom:14px;background:var(--s1);border:1px solid var(--b1);border-radius:12px">
+          <span style="font-size:12px;color:var(--t2);font-weight:700">⏳ تبدأ المباراة خلال</span>
+          <span class="pmg-cd" data-cd="${start.getTime()}" style="font-size:15px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums">${_fmtCountdown(diff)}</span>
+        </div>`;
+    }
+    return `
+      <div style="text-align:center;padding:10px 14px;margin-bottom:14px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;font-size:12px;font-weight:700;color:var(--t2)">
+        ⏳ في انتظار انطلاق المباراة
+      </div>`;
+  }
+
+  // بلا فيديو: لوحة البوابة الكاملة
+  let inner;
+  if (diff != null && diff > 0) {
+    inner = `
+      <div style="font-size:13px;color:var(--t2);margin-bottom:10px">⏳ البث لم يبدأ بعد</div>
+      <div class="pmg-cd" data-cd="${start.getTime()}" style="font-size:30px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums;letter-spacing:1px">${_fmtCountdown(diff)}</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:8px">${m.date||''}${m.time?(' · '+formatTimeTo12H(m.time)):''}</div>`;
+    _schedulePrematchGate();
+  } else {
+    inner = `
+      <div style="font-size:14px;font-weight:800;color:var(--t2)">⏳ في انتظار بدء البث</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:8px">ستبدأ المباراة قريباً — ابقَ على هذه الصفحة</div>`;
+  }
+  return `
+    <div style="text-align:center;padding:26px 16px;margin-bottom:14px;background:var(--s1);border:1px solid var(--b1);border-radius:16px">
+      ${inner}
+    </div>`;
+}
+
+let _pmgTimer = null;
+function _schedulePrematchGate() {
+  if (_pmgTimer) return;
+  _pmgTimer = setInterval(() => {
+    const el = document.querySelector('.pmg-cd[data-cd]');
+    if (!el) { clearInterval(_pmgTimer); _pmgTimer = null; return; }
+    const diff = parseInt(el.getAttribute('data-cd'), 10) - Date.now();
+    el.textContent = diff <= 0 ? '00:00:00' : _fmtCountdown(diff);
+  }, 1000);
+}
 (function() {
   if (window._matchDetailV3Fixed) return;
   window._matchDetailV3Fixed = true;
@@ -3339,8 +3667,6 @@ if (!window._renderAllV2Patched) {
     // المباراة عند الضغط عليه فقط — لا يظهر تلقائياً)، وبعد بدء المباراة
     // يتحوّل تلقائياً إلى "مجريات المباراة" (الخط الزمني الفعلي للأحداث).
     const tabs = [];
-    // البث — أولاً لو مباشر
-    if (d && isL && d.streamActive && d.streamUrl) tabs.push({id:'stream', label:'البث'});
     tabs.push({id:'events', label: isUpcoming ? 'الأحداث' : 'مجريات المباراة'});
     if (!isUpcoming) tabs.push({id:'stats', label:'الإحصائيات'});
     tabs.push({id:'lineup', label:'التشكيلات'});
@@ -3356,17 +3682,6 @@ if (!window._renderAllV2Patched) {
 
     // ── بناء محتوى كل تبويب ──
     function buildTabContent(tabId) {
-
-      // ══ البث ══
-      if (tabId === 'stream') {
-        const embed = typeof window._buildViewerEmbed === 'function' ? window._buildViewerEmbed(d.streamUrl, d.streamPlatform) : '';
-        const icons  = {youtube:'▶︎️',facebook:'📘',twitch:'🎮',other:'📺'};
-        return embed || `<a href="${d.streamUrl}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:14px;background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.3);border-radius:14px;padding:16px;text-decoration:none">
-          <span style="font-size:28px">${icons[d.streamPlatform]||'▶︎️'}</span>
-          <span style="flex:1"><div style="font-size:14px;font-weight:900;color:#C0392B">شاهد البث المباشر</div>
-          <div style="font-size:11px;color:var(--t3);margin-top:3px">${d.streamPlatform||'اضغط للمشاهدة'}</div></span>
-          <span style="font-size:18px;color:var(--t3)">←</span></a>`;
-      }
 
       // ══ الإحصائيات — يدعم كلا التنسيقين + يحترم statsEnabled ══
       if (tabId === 'stats') {
@@ -3491,7 +3806,7 @@ if (!window._renderAllV2Patched) {
           }
           // ── ركلة ترجيح: نفس تنسيق الهدف (يمين/يسار) بأيقونة ✓/✗ ──
           if (r.kind === 'pen') {
-            const side = r.penSide === 'away' ? 'right' : 'left';
+            const side = r.penSide === 'away' ? 'left' : 'right';
             const nm = r.penName || (r.penGoal ? 'سجّل' : 'ضيّع');
             const content = `<div class="vt-goal vt-pen-${r.penGoal ? 'in' : 'out'}">
               <span class="vt-goal-name">${nm}</span>
@@ -3515,7 +3830,7 @@ if (!window._renderAllV2Patched) {
 
           const ev = r.ev;
           if (r.kind === 'goal') {
-            const side = _evSide(ev) === 'away' ? 'right' : 'left';
+            const side = _evSide(ev) === 'away' ? 'left' : 'right';
             const content = `<div class="vt-goal">
               <span class="vt-goal-name">${ev.player || '—'}</span>
               <span class="vt-goal-min">${minLabel(ev)}</span>
@@ -3556,7 +3871,12 @@ if (!window._renderAllV2Patched) {
         }
 
         const rowsHtml = rows.map(rowHtml).join('');
-        const teamsHeader = `<div class="vt-teams"><span>${ht.name}</span><span>${at.name}</span></div>`;
+        // ✅︎ FIX: الحاوية direction:ltr، والأهداف الآن: المضيف يميناً / الضيف يساراً
+        //    (نفس ترتيب لوحة النتيجة RTL فوق). لذا الترويسة: الضيف يسار، المضيف يمين.
+        const teamsHeader = `<div class="vt-teams">
+          <span class="vt-team-h">${at.logo ? _logo(at.logo, 18) : ''}<b>${at.name}</b></span>
+          <span class="vt-team-h">${ht.logo ? _logo(ht.logo, 18) : ''}<b>${ht.name}</b></span>
+        </div>`;
         const emptyHtml = !evs.length
           ? '<div class="vt-empty">لا توجد أحداث بعد</div>'
           : '';
@@ -3907,7 +4227,6 @@ function renderPitchViewer(lineup, isAway) {
       <div class="mdh ${isL ? 'mdh-live' : ''}">
         ${isL ? `<div class="mdh-top">
           <span class="mdh-tag"><span class="mc-live-dot"></span>${statusLabel}</span>
-          ${d.streamActive && d.streamUrl ? `<span class="mdh-stream">بث مباشر</span>` : ''}
         </div>` : ''}
         <div class="mdh-grid">
           <div class="mdh-team">
@@ -3957,7 +4276,11 @@ function renderPitchViewer(lineup, isAway) {
       : '';
     // ✅︎ بطاقة الراعي — راعي المباراة يتقدّم على راعي البطولة
     const _spHtml = (typeof window._spMatchHTML === 'function') ? window._spMatchHTML(m) : '';
-    body.innerHTML = knockoutBadgeHtml + headerHtml + _spHtml + tabsHtml + contentHtml;
+    // 🎥 بث فيديو مضمّن — يظهر فقط إن وُجد رابط والمباراة مباشرة/منتهية
+    const _videoHtml = _buildVideoEmbed(m);
+    // ⏳ بوابة ما قبل البدء: للمباريات التي لم تبدأ بعد
+    const _gateHtml = _buildPrematchGate(m);
+    body.innerHTML = knockoutBadgeHtml + headerHtml + _videoHtml + _gateHtml + _spHtml + tabsHtml + contentHtml;
 
     overlay.classList.add('show');
     document.body.style.overflow = 'hidden';
@@ -4036,9 +4359,19 @@ function _startDetailClock2(matchId) {
   clearInterval(_detailClocks[matchId]);
   _detailClocks[matchId] = setInterval(() => {
     const clockEl = document.getElementById('md-timer-' + matchId);
-    if (!clockEl) { clearInterval(_detailClocks[matchId]); return; }
+    const vEl     = document.getElementById('md-vtimer-' + matchId); // مؤقّت شريط الفيديو
+    if (!clockEl && !vEl) { clearInterval(_detailClocks[matchId]); return; }
     const m = (window.matches||[]).find(x => x.id === matchId);
-    if (m && m.liveData) clockEl.innerHTML = _clock(m.liveData);
+    if (m && m.liveData) {
+      const txt = _clock(m.liveData);
+      if (clockEl) clockEl.innerHTML = txt;
+      if (vEl) vEl.innerHTML = txt;
+      // تحديث نتيجة شريط الفيديو لحظياً
+      const sh = document.getElementById('md-vsh-' + matchId);
+      const sa = document.getElementById('md-vsa-' + matchId);
+      if (sh) sh.textContent = m.liveData.homeScore ?? 0;
+      if (sa) sa.textContent = m.liveData.awayScore ?? 0;
+    }
   }, 500);
 }
 

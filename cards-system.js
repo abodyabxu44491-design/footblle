@@ -10,6 +10,7 @@
   // ─── ثوابت التصميم ────────────────────────────────────────────────
   const GOLD   = '#C9A02B';
   const GOLD2  = '#F0C84A';
+  const STEEL  = '#3A4A5E'; // لون ثانوي هادئ للعمق والتفاصيل الثانوية
   const DARK   = '#080808';
 
   // ─── ألوان نوع البطاقة ────────────────────────────────────────────
@@ -417,25 +418,20 @@
 
   // ── كتابة نص ─────────────────────────────────────────────────────
   function drawText(ctx, text, x, y, font, color, align, shadowColor, shadowBlur) {
+    // ✅︎ إعادة تصميم: بلا ظلال أو توهج — نص نظيف حاد فقط
     ctx.font = font; ctx.textAlign = align || 'center';
-    if (shadowColor) { ctx.shadowColor = shadowColor; ctx.shadowBlur = shadowBlur || 12; }
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
     ctx.fillStyle = color;
     ctx.fillText(text, x, y);
-    ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
   }
 
-  // ── فاصل أفقي ────────────────────────────────────────────────────
+  // ── فاصل أفقي نظيف (خط رفيع ثابت) ────────────────────────────────
   function drawDivider(ctx, W, y, opacity, accent) {
-    const ac  = accent || _state.accentColor || GOLD;
-    const rgb = hexToRgb(ac);
-    const g   = ctx.createLinearGradient(0, y, W, y);
-    g.addColorStop(0,   'transparent');
-    g.addColorStop(0.2, `rgba(${rgb},${opacity || 0.3})`);
-    g.addColorStop(0.5, `rgba(${rgb},${(opacity||0.3)*1.5})`);
-    g.addColorStop(0.8, `rgba(${rgb},${opacity || 0.3})`);
-    g.addColorStop(1,   'transparent');
-    ctx.strokeStyle = g; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(60, y); ctx.lineTo(W-60, y); ctx.stroke();
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(80, y + 0.5); ctx.lineTo(W - 80, y + 0.5); ctx.stroke();
+    ctx.restore();
   }
 
   // ── رسم شعار فريق ────────────────────────────────────────────────
@@ -451,45 +447,75 @@
     }
   }
 
+  // ── شعار داخل قرص دائري نظيف بحلقة موحّدة (مظهر أفخم) ──────────────
+  function drawLogoFramed(ctx, img, emoji, cx, cy, size, accent, highlight) {
+    const rgb = hexToRgb(accent || GOLD);
+    const R   = size/2;
+    // قرص خلفي
+    ctx.beginPath(); ctx.arc(cx, cy, R+14, 0, Math.PI*2);
+    ctx.fillStyle = highlight ? `rgba(${rgb},0.08)` : 'rgba(255,255,255,0.03)';
+    ctx.fill();
+    // حلقة خارجية
+    ctx.beginPath(); ctx.arc(cx, cy, R+14, 0, Math.PI*2);
+    ctx.strokeStyle = highlight ? `rgba(${rgb},0.55)` : 'rgba(255,255,255,0.10)';
+    ctx.lineWidth = highlight ? 2.5 : 1.5;
+    ctx.stroke();
+    // الشعار داخل قصّ دائري
+    if (img) {
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.clip();
+      ctx.drawImage(img, cx-R, cy-R, size, size); ctx.restore();
+    } else {
+      ctx.font = `${size*0.62}px Arial`; ctx.textAlign = 'center';
+      ctx.fillText(emoji || '⚽', cx, cy+size*0.22);
+    }
+    // شارة "الفائز" صغيرة أعلى الشعار
+    if (highlight) {
+      const by = cy - R - 14;
+      ctx.font = '700 15px Tajawal,Arial';
+      const t = '★ الفائز';
+      const tw = ctx.measureText(t).width + 22;
+      roundRect(ctx, cx-tw/2, by-14, tw, 28, 14);
+      ctx.fillStyle = accent || GOLD; ctx.fill();
+      drawText(ctx, t, cx, by+5, '700 15px Tajawal,Arial', '#0c0c0d', 'center');
+    }
+  }
+
   // ════════════════════════════════════════════════════════════════
   //  رسم خلفية البطاقة الموحدة
   // ════════════════════════════════════════════════════════════════
   function drawBackground(ctx, W, H, accent) {
     const ac  = accent || _state.accentColor || GOLD;
     const rgb = hexToRgb(ac);
+    const st  = hexToRgb(STEEL);
 
-    // خلفية داكنة أساسية
+    // تدرّج عمودي خفيف جداً — عمق بلا ضجيج
     const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0,   '#0b0b0b');
-    bg.addColorStop(0.5, '#0d0d0d');
-    bg.addColorStop(1,   '#080808');
+    bg.addColorStop(0,   '#101216');
+    bg.addColorStop(0.5, '#0c0d0f');
+    bg.addColorStop(1,   '#090a0c');
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
 
-    // شبكة خفيفة
-    ctx.strokeStyle = 'rgba(255,255,255,0.018)'; ctx.lineWidth = 1;
-    for (let x=0; x<W; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-    for (let y=0; y<H; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    // إضاءة علوية ناعمة بلون فولاذي — إحساس فخامة هادئ
+    const vg = ctx.createRadialGradient(W/2, -H*0.15, 0, W/2, -H*0.15, W*0.9);
+    vg.addColorStop(0, `rgba(${st},0.16)`);
+    vg.addColorStop(0.6, `rgba(${st},0.04)`);
+    vg.addColorStop(1, 'transparent');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
-    // توهج مركزي خفيف
-    const glow = ctx.createRadialGradient(W/2, H*0.45, 0, W/2, H*0.45, W*0.65);
-    glow.addColorStop(0, `rgba(${rgb},0.07)`);
-    glow.addColorStop(0.5, `rgba(${rgb},0.02)`);
-    glow.addColorStop(1, 'transparent');
-    ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+    // شريط علوي مزدوج: ذهبي عريض فوق خيط فولاذي
+    ctx.fillStyle = ac; ctx.fillRect(0, 0, W, 6);
+    ctx.fillStyle = `rgba(${st},0.55)`; ctx.fillRect(0, 6, W, 2);
 
-    // إطار خارجي
-    const pad = 16;
-    ctx.strokeStyle = ac; ctx.lineWidth = 2;
-    ctx.strokeRect(pad, pad, W-pad*2, H-pad*2);
-
-    // زوايا مزخرفة
-    const cs = 30, cp = pad;
-    ctx.strokeStyle = ac; ctx.lineWidth = 3;
-    [[cp,cp],[W-cp-cs,cp],[cp,H-cp-cs],[W-cp-cs,H-cp-cs]].forEach(([cx,cy]) => {
-      const ir = cx > W/2, ib = cy > H/2;
-      ctx.beginPath(); ctx.moveTo(cx+(ir?cs:0), cy); ctx.lineTo(cx+(ir?cs:0), cy+cs); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx, cy+(ib?cs:0)); ctx.lineTo(cx+cs, cy+(ib?cs:0)); ctx.stroke();
-    });
+    // إطار خارجي رفيع + إطار داخلي أخفت (طبقتان = هيبة)
+    const pad = 24;
+    ctx.strokeStyle = `rgba(${rgb},0.22)`;
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, pad, pad, W - pad*2, H - pad*2, 24);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, pad+6, pad+6, W - (pad+6)*2, H - (pad+6)*2, 20);
+    ctx.stroke();
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -504,22 +530,15 @@
     const BH     = 72;
 
     // خلفية الشريط
-    const bbg = ctx.createLinearGradient(0, topY, W, topY+BH);
-    bbg.addColorStop(0, `rgba(${rgb},0.15)`);
-    bbg.addColorStop(0.5, `rgba(${rgb},0.22)`);
-    bbg.addColorStop(1, `rgba(${rgb},0.12)`);
-    ctx.fillStyle = bbg;
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
     ctx.fillRect(0, topY, W, BH);
 
-    // خط سفلي فاصل
-    const lineG = ctx.createLinearGradient(0, topY+BH, W, topY+BH);
-    lineG.addColorStop(0, 'transparent');
-    lineG.addColorStop(0.15, `rgba(${rgb},0.5)`);
-    lineG.addColorStop(0.5, `rgba(${rgb},0.9)`);
-    lineG.addColorStop(0.85, `rgba(${rgb},0.5)`);
-    lineG.addColorStop(1, 'transparent');
-    ctx.strokeStyle = lineG; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(0, topY+BH); ctx.lineTo(W, topY+BH); ctx.stroke();
+    // خط سفلي فاصل — ذهبي رفيع فوق ظل فولاذي
+    ctx.strokeStyle = `rgba(${hexToRgb(_state.accentColor||GOLD)},0.35)`;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(80, topY+BH+0.5); ctx.lineTo(W-80, topY+BH+0.5); ctx.stroke();
+    ctx.strokeStyle = `rgba(${hexToRgb(STEEL)},0.4)`;
+    ctx.beginPath(); ctx.moveTo(120, topY+BH+2.5); ctx.lineTo(W-120, topY+BH+2.5); ctx.stroke();
 
     const cy = topY + BH / 2;
     const logoSz = 48;
@@ -541,24 +560,21 @@
       ctx.arc(startX+logoSz/2, cy, logoSz/2, 0, Math.PI*2); ctx.clip();
       ctx.drawImage(lgImg, startX, cy-logoSz/2, logoSz, logoSz); ctx.restore();
 
-      // حلقة
-      ctx.strokeStyle = `rgba(${rgb},0.6)`; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(startX+logoSz/2, cy, logoSz/2+2, 0, Math.PI*2); ctx.stroke();
+      // حلقة رفيعة هادئة
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(startX+logoSz/2, cy, logoSz/2+1.5, 0, Math.PI*2); ctx.stroke();
 
       // اسم البطولة
       ctx.font = 'bold 28px Tajawal,Arial';
       ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = `rgba(${rgb},0.7)`; ctx.shadowBlur = 18;
       ctx.fillText(name, startX+logoSz+gap, cy+10);
-      ctx.shadowBlur = 0; ctx.textAlign = 'center';
+      ctx.textAlign = 'center';
 
     } else {
       // بدون شعار
       ctx.font = '32px Arial'; ctx.textAlign = 'center'; ctx.fillText('🏆', W/2-100, cy+11);
       ctx.font = 'bold 28px Tajawal,Arial'; ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = `rgba(${rgb},0.6)`; ctx.shadowBlur = 16;
       ctx.fillText(name, W/2+20, cy+11);
-      ctx.shadowBlur = 0;
     }
 
     return BH;
@@ -578,16 +594,16 @@
     const bx = W/2 - tw/2;
 
     // خلفية الشارة
-    ctx.fillStyle = `rgba(${rgb},0.08)`;
-    ctx.strokeStyle = `rgba(${rgb},0.3)`;
-    ctx.lineWidth = 1.5;
-    roundRect(ctx, bx, y+4, tw, BH-8, 22); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = `rgba(${rgb},0.10)`;
+    ctx.strokeStyle = `rgba(${rgb},0.35)`;
+    ctx.lineWidth = 1;
+    roundRect(ctx, bx, y+4, tw, BH-8, 18); ctx.fill(); ctx.stroke();
 
-    // نقطة مضيئة يمين النص
+    // نقطة يمين النص
     ctx.fillStyle = accent;
     ctx.beginPath(); ctx.arc(bx+18, y+BH/2, 4, 0, Math.PI*2); ctx.fill();
 
-    drawText(ctx, stageLabel, W/2+8, y+BH/2+7, '700 20px Tajawal,Arial', accent, 'center', `rgba(${rgb},0.4)`, 10);
+    drawText(ctx, stageLabel, W/2+8, y+BH/2+7, '700 20px Tajawal,Arial', accent, 'center');
     return BH;
   }
 
@@ -595,43 +611,22 @@
   //  شريط فوتر موحد أسفل البطاقة
   // ════════════════════════════════════════════════════════════════
   function drawBottomBar(ctx, W, H) {
-    const accent = _state.accentColor || GOLD;
-    const rgb    = hexToRgb(accent);
-    // ✅ 66px بدل 48 — يتّسع لسطرَي الحقوق دون قصّ
-    const BH     = 66;
-    const by     = H - BH;
+    const BH = 66;
+    const by = H - BH;
 
-    // خلفية الشريط
-    const bg2 = ctx.createLinearGradient(0, by, 0, H);
-    bg2.addColorStop(0, 'rgba(0,0,0,0)');
-    bg2.addColorStop(0.4, 'rgba(0,0,0,0.6)');
-    bg2.addColorStop(1, 'rgba(0,0,0,0.75)');
-    ctx.fillStyle = bg2; ctx.fillRect(0, by, W, BH);
+    // خط علوي رفيع فقط
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(80, by+0.5); ctx.lineTo(W-80, by+0.5); ctx.stroke();
 
-    // خط علوي
-    const lg = ctx.createLinearGradient(0, by, W, by);
-    lg.addColorStop(0, 'transparent');
-    lg.addColorStop(0.15, `rgba(${rgb},0.35)`);
-    lg.addColorStop(0.5, `rgba(${rgb},0.7)`);
-    lg.addColorStop(0.85, `rgba(${rgb},0.35)`);
-    lg.addColorStop(1, 'transparent');
-    ctx.strokeStyle = lg; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, by); ctx.lineTo(W, by); ctx.stroke();
-
-    // نقاط زينة
-    [W*0.2, W*0.5, W*0.8].forEach(dx => {
-      ctx.fillStyle = `rgba(${rgb},0.6)`;
-      ctx.beginPath(); ctx.arc(dx, by, 2.5, 0, Math.PI*2); ctx.fill();
-    });
-
-    // ✅ حقوق المنصة — سطران: الاسم ثم المطوّر
+    // حقوق المنصة — سطران
     ctx.textAlign = 'center';
     ctx.font = '700 15px Tajawal,Arial';
-    ctx.fillStyle = 'rgba(255,255,255,0.38)';
-    ctx.fillText('منصة بطولات', W/2, by + 28);
+    ctx.fillStyle = 'rgba(255,255,255,0.42)';
+    ctx.fillText('منصة بطولات', W/2, by + 30);
     ctx.font = '400 12px Tajawal,Arial';
-    ctx.fillStyle = 'rgba(255,255,255,0.22)';
-    ctx.fillText('تطوير وبرمجة عبدالله السكني', W/2, by + 47);
+    ctx.fillStyle = 'rgba(255,255,255,0.24)';
+    ctx.fillText('تطوير وبرمجة عبدالله السكني', W/2, by + 49);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -651,16 +646,13 @@
       const cx = SIDE + i*(cw+GAP);
 
       // خلفية
-      ctx.fillStyle = 'rgba(255,255,255,0.04)';
-      ctx.strokeStyle = `rgba(${rgb},0.2)`;
-      ctx.lineWidth = 1.5;
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1;
       roundRect(ctx, cx, startY, cw, H_CELL, 14); ctx.fill(); ctx.stroke();
 
-      // خط علوي ملون
-      const tg = ctx.createLinearGradient(cx, startY, cx+cw, startY);
-      tg.addColorStop(0, 'transparent'); tg.addColorStop(0.3, `rgba(${rgb},0.55)`);
-      tg.addColorStop(0.7, `rgba(${rgb},0.55)`); tg.addColorStop(1, 'transparent');
-      ctx.strokeStyle = tg; ctx.lineWidth = 2;
+      // خط علوي ملون رفيع
+      ctx.strokeStyle = `rgba(${rgb},0.5)`; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(cx+18, startY+1); ctx.lineTo(cx+cw-18, startY+1); ctx.stroke();
 
       // التسمية
@@ -682,56 +674,54 @@
   // ════════════════════════════════════════════════════════════════
   /* ✅ hEmoji/aEmoji: أيقونة كل فريق الحقيقية. كانت مثبّتة على '⚽'
      فتضيع الأيقونة التي اختارها المنظّم لكل فريق في كل البطاقات. */
-  function drawTeamsSection(ctx, W, topY, hImg, aImg, htName, atName, centerText, centerColor, accent, logoSize, hEmoji, aEmoji) {
+  function drawTeamsSection(ctx, W, topY, hImg, aImg, htName, atName, centerText, centerColor, accent, logoSize, hEmoji, aEmoji, winnerSide) {
     const rgb    = hexToRgb(accent);
     const LS     = logoSize || 210;
     const HCX    = W/2 - 272;
     const ACX    = W/2 + 272;
     const LTY    = topY;
     const LCY    = LTY + LS/2;
+    const isScore = typeof centerText === 'string' && centerText.includes('–');
 
-    // هالتان خلف الشعارين
-    [HCX, ACX].forEach(cx => {
-      const g = ctx.createRadialGradient(cx, LCY, 0, cx, LCY, LS*0.75);
-      g.addColorStop(0, `rgba(${rgb},0.13)`);
-      g.addColorStop(0.5, `rgba(${rgb},0.05)`);
-      g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, LCY, LS*0.75, 0, Math.PI*2); ctx.fill();
-    });
+    // الشعارات داخل أقراص مؤطّرة (بلا تمييز فائز)
+    drawLogoFramed(ctx, hImg, hEmoji || '⚽', HCX, LCY, LS, accent, false);
+    drawLogoFramed(ctx, aImg, aEmoji || '⚽', ACX, LCY, LS, accent, false);
 
-    // رسم الشعارين
-    drawLogo(ctx, hImg, hEmoji || '⚽', HCX-LS/2, LTY, LS);
-    drawLogo(ctx, aImg, aEmoji || '⚽', ACX-LS/2, LTY, LS);
-
-    // نص مركزي (VS أو النتيجة)
-    ctx.font = typeof centerText === 'string' && centerText.includes('–') ? 'bold 84px Tajawal,Arial' : 'bold 58px Tajawal,Arial';
-    ctx.textAlign = 'center'; ctx.fillStyle = centerColor || accent;
-    ctx.shadowColor = `rgba(${hexToRgb(centerColor||accent)},0.55)`;
-    ctx.shadowBlur = 28;
-    /* ✅ اتجاه صريح ltr للنتيجة — بدونه قد يرث الكانفس اتجاه الصفحة (rtl)
-       فينعكس ترتيب الرقمين وتظهر نتيجة المضيف مكان الضيف. */
+    // النتيجة — أضخم مع قرص خلف كل رقم (للنتيجة فقط)
     ctx.save();
     ctx.direction = 'ltr';
-    ctx.fillText(centerText, W/2, LCY + (centerText.includes('–') ? 30 : 20));
+    if (isScore) {
+      const parts = centerText.split('–').map(s => s.trim());
+      const gap = 70, discR = 52;
+      const cxL = W/2 - gap, cxR = W/2 + gap, cyc = LCY - 4;
+      [[cxL, parts[0]], [cxR, parts[1]]].forEach(([cx, num]) => {
+        ctx.beginPath(); ctx.arc(cx, cyc, discR, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fill();
+        ctx.strokeStyle = `rgba(${rgb},0.28)`; ctx.lineWidth = 1.5; ctx.stroke();
+        drawText(ctx, num, cx, cyc + 32, 'bold 90px Tajawal,Arial', '#ffffff', 'center');
+      });
+      drawText(ctx, '–', W/2, cyc + 26, 'bold 60px Tajawal,Arial', `rgba(${rgb},0.9)`, 'center');
+    } else {
+      drawText(ctx, centerText, W/2, LCY + 20, 'bold 58px Tajawal,Arial', centerColor || accent, 'center');
+    }
     ctx.restore();
-    ctx.shadowBlur = 0;
 
-    // أسماء الفرق
-    const NY = LTY + LS + 22;
-    const drawName = (name, cx, highlight) => {
-      ctx.font = 'bold 26px Tajawal,Arial';
+    // أسماء الفرق — بلا تمييز فائز (كلاهما بنفس النمط)
+    const NY = LTY + LS + 40;
+    const drawName = (name, cx) => {
+      ctx.font = 'bold 27px Tajawal,Arial';
       const tw = ctx.measureText(name).width;
-      const bw = tw + 40, bh = 40;
-      ctx.fillStyle   = highlight ? `rgba(${rgb},0.12)` : 'rgba(255,255,255,0.05)';
-      ctx.strokeStyle = highlight ? `rgba(${rgb},0.38)` : `rgba(255,255,255,0.07)`;
-      ctx.lineWidth   = 1.2;
-      roundRect(ctx, cx-bw/2, NY-28, bw, bh, 20); ctx.fill(); ctx.stroke();
-      drawText(ctx, name, cx, NY, 'bold 26px Tajawal,Arial', highlight ? accent : '#dddddd', 'center', `rgba(${rgb},0.2)`, 6);
+      const bw = tw + 44, bh = 44;
+      ctx.fillStyle   = 'rgba(255,255,255,0.04)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth   = 1;
+      roundRect(ctx, cx-bw/2, NY-28, bw, bh, 12); ctx.fill(); ctx.stroke();
+      drawText(ctx, name, cx, NY+1, 'bold 27px Tajawal,Arial', '#dddddd', 'center');
     };
-    drawName(htName, HCX, false);
-    drawName(atName, ACX, false);
+    drawName(htName, HCX);
+    drawName(atName, ACX);
 
-    return NY + 22; // Y بعد الأسماء
+    return NY + 26;
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -824,7 +814,10 @@
 
     // ─ 3) قسم الفرق + النتيجة
     const scoreStr  = `${hs}  –  ${as_}`;
-    const afterTeams = drawTeamsSection(ctx, W, curY, hImg, aImg, ht.name, at.name, scoreStr, '#ffffff', accent, 192, ht.logo, at.logo);
+    const _winSide = hasPens
+      ? (m.penaltyScoreHome > m.penaltyScoreAway ? 'home' : 'away')
+      : (hw ? 'home' : aw ? 'away' : null);
+    const afterTeams = drawTeamsSection(ctx, W, curY, hImg, aImg, ht.name, at.name, scoreStr, '#ffffff', accent, 192, ht.logo, at.logo, _winSide);
     curY = afterTeams;
 
     // ركلات الترجيح
@@ -900,58 +893,39 @@
     const accent = _state.accentColor || GOLD;
     const rgb    = hexToRgb(accent);
 
-    // خلفية خاصة برجل المباراة
-    const bg = ctx.createRadialGradient(W/2, H*0.4, 0, W/2, H*0.4, W*0.75);
-    bg.addColorStop(0, '#161200'); bg.addColorStop(0.5, '#0d0d0a'); bg.addColorStop(1, '#080808');
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = 'rgba(255,255,255,0.018)'; ctx.lineWidth = 1;
-    for (let x=0; x<W; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-    const pad = 16;
-    ctx.strokeStyle = accent; ctx.lineWidth = 2;
-    ctx.strokeRect(pad, pad, W-pad*2, H-pad*2);
-    const cs = 30, cp = pad;
-    ctx.lineWidth = 3;
-    [[cp,cp],[W-cp-cs,cp],[cp,H-cp-cs],[W-cp-cs,H-cp-cs]].forEach(([cx,cy]) => {
-      const ir=cx>W/2, ib=cy>H/2;
-      ctx.beginPath(); ctx.moveTo(cx+(ir?cs:0), cy); ctx.lineTo(cx+(ir?cs:0), cy+cs); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx, cy+(ib?cs:0)); ctx.lineTo(cx+cs, cy+(ib?cs:0)); ctx.stroke();
-    });
+    // خلفية نظيفة موحّدة (بلا شبكة/توهج/زوايا)
+    drawBackground(ctx, W, H, accent);
 
     // 1) هوية
     const ID_TOP = 16;
     const idH    = await drawTopIdentityBar(ctx, W, ID_TOP, lgImg);
-    let curY     = ID_TOP + idH + 16;
-    drawDivider(ctx, W, curY, 0.2);
-    curY += 20;
+    let curY     = ID_TOP + idH + 40;
 
     // 2) أيقونة + عنوان
-    drawText(ctx, '🌟', W/2, curY+56, '68px Arial', '#fff', 'center');
-    curY += 72;
-    drawText(ctx, 'رجل المباراة', W/2, curY+8, 'bold 30px Tajawal,Arial', accent, 'center', `rgba(${rgb},0.4)`, 14);
-    curY += 32;
-    drawText(ctx, `${ht.name}  ×  ${at.name}`, W/2, curY+6, '700 17px Tajawal,Arial', '#666', 'center');
-    curY += 24;
-    drawDivider(ctx, W, curY, 0.18);
-    curY += 20;
+    drawText(ctx, '🌟', W/2, curY+56, '72px Arial', '#fff', 'center');
+    curY += 96;
+    drawText(ctx, 'رجل المباراة', W/2, curY, 'bold 34px Tajawal,Arial', accent, 'center');
+    curY += 34;
+    drawText(ctx, `${ht.name}  ×  ${at.name}`, W/2, curY+4, '700 18px Tajawal,Arial', '#777', 'center');
+    curY += 34;
+    drawDivider(ctx, W, curY); curY += 44;
 
-    // 3) اسم اللاعب
-    ctx.font = 'bold 70px Tajawal,Arial'; ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = accent; ctx.shadowBlur = 42;
-    ctx.fillText(mom, W/2, curY + 70);
-    ctx.shadowBlur = 0; curY += 82;
+    // 3) اسم اللاعب (بلا توهج — نص أبيض حاد)
+    drawText(ctx, mom, W/2, curY + 24, 'bold 76px Tajawal,Arial', '#ffffff', 'center');
+    curY += 60;
 
     if (momTeam) {
-      const tw = ctx.measureText(momTeam).width + 40;
       ctx.font = '700 18px Tajawal,Arial';
-      ctx.fillStyle = `rgba(${rgb},0.1)`;
-      ctx.strokeStyle = `rgba(${rgb},0.25)`; ctx.lineWidth = 1;
-      roundRect(ctx, W/2-tw/2, curY, tw, 34, 17); ctx.fill(); ctx.stroke();
-      drawText(ctx, momTeam, W/2, curY+23, '700 17px Tajawal,Arial', accent, 'center');
-      curY += 46;
+      const tw = ctx.measureText(momTeam).width + 44;
+      ctx.fillStyle = `rgba(${rgb},0.10)`;
+      ctx.strokeStyle = `rgba(${rgb},0.30)`; ctx.lineWidth = 1;
+      roundRect(ctx, W/2-tw/2, curY, tw, 36, 12); ctx.fill(); ctx.stroke();
+      drawText(ctx, momTeam, W/2, curY+24, '700 17px Tajawal,Arial', accent, 'center');
+      curY += 52;
     }
 
-    drawDivider(ctx, W, curY, 0.2); curY += 22;
+    curY += 6;
+    drawDivider(ctx, W, curY); curY += 40;
 
     // 4) إحصائيات
     const stats = [
@@ -961,23 +935,31 @@
     ].filter(Boolean);
 
     if (stats.length) {
-      const cw = Math.min(210, (W-120)/stats.length);
+      const cw = Math.min(220, (W-140)/stats.length);
       const sx = W/2 - (cw*stats.length)/2;
       stats.forEach((s,i) => {
         const cx = sx + i*cw + cw/2;
-        ctx.fillStyle = `rgba(${rgb},0.08)`;
-        ctx.strokeStyle = `rgba(${rgb},0.18)`; ctx.lineWidth = 1;
-        roundRect(ctx, cx-cw/2+6, curY, cw-12, 88, 14); ctx.fill(); ctx.stroke();
-        drawText(ctx, String(s.val), cx, curY+54, 'bold 42px Tajawal,Arial', accent, 'center');
-        drawText(ctx, s.label,       cx, curY+76, '600 14px Tajawal,Arial', '#666', 'center');
+        ctx.fillStyle = 'rgba(255,255,255,0.03)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+        roundRect(ctx, cx-cw/2+8, curY, cw-16, 96, 14); ctx.fill(); ctx.stroke();
+        // خط علوي ذهبي رفيع
+        ctx.strokeStyle = `rgba(${rgb},0.5)`; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(cx-cw/2+26, curY+1); ctx.lineTo(cx+cw/2-26, curY+1); ctx.stroke();
+        drawText(ctx, String(s.val), cx, curY+60, 'bold 46px Tajawal,Arial', GOLD2, 'center');
+        drawText(ctx, s.label,       cx, curY+84, '600 15px Tajawal,Arial', `rgba(${hexToRgb(STEEL)},1)`, 'center');
       });
-      curY += 102;
+      curY += 116;
     }
 
+    curY += 8;
+    drawDivider(ctx, W, curY); curY += 44;
+
     // 5) النتيجة والمباراة
-    drawText(ctx, `${m.homeScore??0}  –  ${m.awayScore??0}`, W/2, curY+10, 'bold 52px Tajawal,Arial', '#fff', 'center', 'rgba(0,0,0,.3)', 8);
-    curY += 52;
-    drawText(ctx, `${ht.name}  ×  ${at.name}`, W/2, curY+2, '600 17px Tajawal,Arial', '#555', 'center');
+    ctx.save(); ctx.direction = 'ltr';
+    drawText(ctx, `${m.homeScore??0}  –  ${m.awayScore??0}`, W/2, curY+10, 'bold 54px Tajawal,Arial', '#fff', 'center');
+    ctx.restore();
+    curY += 56;
+    drawText(ctx, `${ht.name}  ×  ${at.name}`, W/2, curY+4, '600 17px Tajawal,Arial', '#666', 'center');
 
     drawBottomBar(ctx, W, H);
     return canvas;
@@ -1004,26 +986,8 @@
     const accent = _state.accentColor || GOLD;
     const rgb    = hexToRgb(accent);
 
-    // خلفية احتفالية
-    const bg = ctx.createRadialGradient(W/2, H*0.45, 0, W/2, H*0.45, W*0.8);
-    bg.addColorStop(0,'#121200'); bg.addColorStop(0.4,'#0e0e0c'); bg.addColorStop(1,'#080808');
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-    for (let r=80; r<W; r+=75) {
-      ctx.strokeStyle = `rgba(${rgb},${0.028*(1-r/W)})`;
-      ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(W/2, H*0.45, r, 0, Math.PI*2); ctx.stroke();
-    }
-    ctx.strokeStyle = 'rgba(255,255,255,0.018)'; ctx.lineWidth = 1;
-    for (let x=0; x<W; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-    const pad = 16;
-    ctx.strokeStyle = accent; ctx.lineWidth = 2;
-    ctx.strokeRect(pad, pad, W-pad*2, H-pad*2);
-    const cs=30, cp=pad;
-    ctx.lineWidth = 3;
-    [[cp,cp],[W-cp-cs,cp],[cp,H-cp-cs],[W-cp-cs,H-cp-cs]].forEach(([cx,cy])=>{
-      const ir=cx>W/2, ib=cy>H/2;
-      ctx.beginPath(); ctx.moveTo(cx+(ir?cs:0),cy); ctx.lineTo(cx+(ir?cs:0),cy+cs); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx,cy+(ib?cs:0)); ctx.lineTo(cx+cs,cy+(ib?cs:0)); ctx.stroke();
-    });
+    // خلفية نظيفة موحّدة
+    drawBackground(ctx, W, H, accent);
 
     // 1) هوية
     const ID_TOP = 16;
@@ -1049,10 +1013,8 @@
     // 3) شعار الفائز
     const ls = 200;
     if (wImg) {
-      ctx.fillStyle = `rgba(${rgb},0.1)`;
-      ctx.beginPath(); ctx.arc(W/2, curY+ls/2, ls/2+16, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = `rgba(${rgb},0.3)`; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(W/2, curY+ls/2, ls/2+7, 0, Math.PI*2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(W/2, curY+ls/2, ls/2+6, 0, Math.PI*2); ctx.stroke();
       ctx.save(); ctx.beginPath(); ctx.arc(W/2, curY+ls/2, ls/2, 0, Math.PI*2); ctx.clip();
       ctx.drawImage(wImg, W/2-ls/2, curY, ls, ls); ctx.restore();
     } else {
@@ -1060,12 +1022,10 @@
     }
     curY += ls + 22;
 
-    // 4) اسم المتأهل
-    ctx.font = 'bold 54px Tajawal,Arial'; ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffffff'; ctx.shadowColor = accent; ctx.shadowBlur = 38;
-    ctx.fillText(qualName, W/2, curY); ctx.shadowBlur = 0;
+    // 4) اسم المتأهل (بلا توهج)
+    drawText(ctx, qualName, W/2, curY, 'bold 54px Tajawal,Arial', '#ffffff', 'center');
     curY += 28;
-    drawDivider(ctx, W, curY, 0.22); curY += 24;
+    drawDivider(ctx, W, curY); curY += 24;
 
     // 5) نتيجة المباراة
     const sLabel = `${ht.name}  ${hs} – ${as_}  ${at.name}`;

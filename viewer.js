@@ -878,20 +878,22 @@ window.showLineupTeam = function(side, btn) {
     const hp=hl?.players||[], ap=al?.players||[];
     const hpos=FORMATION_POSITIONS[hf]||getDynamicPositions(hp.length);
     const apos=FORMATION_POSITIONS[af]||getDynamicPositions(ap.length);
+    const hSubMap=_subMap(_teamSubs(m,'home')), aSubMap=_subMap(_teamSubs(m,'away'));
+    const hStats=_playerStatsMap(m,'home'), aStats=_playerStatsMap(m,'away');
     contentEl.innerHTML=`
       <div class="lineup-both-wrap">
         <div class="lineup-both-col">
           <div class="lineup-both-title">${logoHtml(ht.logo,16,4)} ${ht.name} · <span>${hf}</span></div>
           <div class="pitch pitch-half">
             ${renderPitchLines(hp.length)}
-            ${renderPlayersOnPitch(hp,hpos,false)}
+            ${renderPlayersOnPitch(hp,hpos,false,hSubMap,hStats)}
           </div>
         </div>
         <div class="lineup-both-col">
           <div class="lineup-both-title">${logoHtml(at.logo,16,4)} ${at.name} · <span>${af}</span></div>
           <div class="pitch pitch-half">
             ${renderPitchLines(ap.length)}
-            ${renderPlayersOnPitch(ap,apos,true)}
+            ${renderPlayersOnPitch(ap,apos,true,aSubMap,aStats)}
           </div>
         </div>
       </div>`;
@@ -917,6 +919,7 @@ window.showLineupTeam = function(side, btn) {
   const positions=FORMATION_POSITIONS[formation]||getDynamicPositions(playerCount);
   const subs=_teamSubs(m, side);
   const subMap=_subMap(subs);
+  const statsMap=_playerStatsMap(m, side);
 
   contentEl.innerHTML=`
     <div class="lineup-formation-bar">
@@ -927,10 +930,10 @@ window.showLineupTeam = function(side, btn) {
     </div>
     <div class="pitch" id="pitchCanvas">
       ${renderPitchLines(playerCount)}
-      ${renderPlayersOnPitch(players,positions,side==='away',subMap)}
+      ${renderPlayersOnPitch(players,positions,side==='away',subMap,statsMap)}
     </div>
     ${renderSubsSection(subs)}
-    <div style="padding:0 0 80px">${renderLineupList(players,subMap)}</div>
+    <div style="padding:0 0 80px">${renderLineupList(players,subMap,statsMap)}</div>
   `;
 };
 
@@ -985,29 +988,73 @@ function _teamSubs(m, side) {
   });
   return subs;
 }
+// تطبيع اسم اللاعب للمطابقة (إزالة المسافات الزائدة والتشكيل والتطويل)
+function _normName(s) {
+  return (s || '')
+    .replace(/[\u064B-\u0652\u0640]/g, '') // تشكيل + تطويل
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+// مطابقة احتياطية: إن لم يوجد تطابق تام، طابق إن بدأ أحد الاسمين بالآخر (كامل ↔ مختصر)
+function _looseLookup(map, key) {
+  if (!key || !map) return null;
+  const keys = Object.keys(map);
+  for (const k of keys) if (k === key) return map[k];
+  for (const k of keys) {
+    if (k.length >= 3 && key.length >= 3 && (k.indexOf(key) === 0 || key.indexOf(k) === 0)) return map[k];
+  }
+  return null;
+}
+
 // خريطة اسم اللاعب → {dir:'in'|'out', min} لعرض السهم على الملعب
 function _subMap(subs) {
   const map = {};
   (subs || []).forEach(s => {
-    if (s.out) map[s.out] = { dir: 'out', min: s.min };
-    if (s.in)  map[s.in]  = { dir: 'in',  min: s.min };
+    if (s.out) map[_normName(s.out)] = { dir: 'out', min: s.min };
+    if (s.in)  map[_normName(s.in)]  = { dir: 'in',  min: s.min };
   });
   return map;
 }
 
-function renderPlayersOnPitch(players, positions, isAway=false, subMap={}) {
+// ── خريطة أهداف/كروت كل لاعب في الفريق (اسم مُطبّع → {goals, yellow, red}) ──
+function _playerStatsMap(m, side) {
+  const evs = _matchEvents(m);
+  const map = {};
+  const bump = (n, f) => { const k = _normName(n); if (!k) return; (map[k] = map[k] || { goals:0, yellow:0, red:0 })[f]++; };
+  (evs || []).forEach(ev => {
+    if (!ev) return;
+    if (_evSide(ev) !== side) return;
+    if (ev.type === 'goal' || ev.type === 'penalty') bump(ev.player, 'goals');
+    else if (ev.type === 'yellow') bump(ev.player, 'yellow');
+    else if (ev.type === 'red') bump(ev.player, 'red');
+  });
+  return map;
+}
+
+function renderPlayersOnPitch(players, positions, isAway=false, subMap={}, statsMap={}) {
   return players.slice(0, positions.length).map((p,i)=>{
     const pos=positions[i]||{x:50,y:50,pos:'?'};
     const y=isAway?(105-pos.y):pos.y;
     const isGK=pos.pos==='GK';
     const num=p.number||(i+1);
     const name=(p.name||'').split(' ').slice(-1)[0];
-    const sub = subMap[(p.name||'').trim()];
+    const key=_normName(p.name);
+    const sub = subMap[key] || _looseLookup(subMap, key);
+    const st  = statsMap[key] || _looseLookup(statsMap, key) || {};
+    // شارة التبديل (أعلى يمين)
     const subBadge = sub
-      ? `<div class="player-sub-badge ${sub.dir}" title="${sub.dir==='out'?'خرج':'دخل'} ${sub.min}'">${sub.dir==='out'?'↓':'↑'}<span>${sub.min}'</span></div>`
+      ? `<div class="player-sub-badge ${sub.dir}" title="${sub.dir==='out'?'خرج':'دخل'} ${sub.min}'">${sub.dir==='out'?'↓':'↑'}</div>`
       : '';
+    // أيقونات الأهداف والكروت (أعلى يسار / أسفل)
+    let icons = '';
+    if (st.goals)  icons += `<span class="pmark goal">⚽${st.goals>1?'<b>'+st.goals+'</b>':''}</span>`;
+    if (st.red)    icons += `<span class="pmark red"></span>`;
+    else if (st.yellow) icons += `<span class="pmark yel"></span>`;
+    const marks = icons ? `<div class="player-marks">${icons}</div>` : '';
     return `<div class="player-dot" style="left:${pos.x}%;top:${y}%" onclick="showToast('${num} · ${(p.name||'').replace(/'/g,"\\'")} · ${pos.pos}')">
-      <div class="player-avatar ${isGK?'gk':''} ${isAway?'away':''}">${num}${subBadge}</div>
+      <div class="player-avatar ${isGK?'gk':''} ${isAway?'away':''}">${num}${subBadge}${marks}</div>
       <div class="player-name-tag">${name}</div>
     </div>`;
   }).join('');
@@ -1031,7 +1078,7 @@ function renderSubsSection(subs) {
     </div>`;
 }
 
-function renderLineupList(players, subMap={}) {
+function renderLineupList(players, subMap={}, statsMap={}) {
   if(!players||!players.length) return '';
   const posMap={GK:'GK',CB:'DEF',LB:'DEF',RB:'DEF',LWB:'DEF',RWB:'DEF',DM:'MID',CM:'MID',CAM:'MID',LM:'MID',RM:'MID',LW:'FWD',RW:'FWD',ST:'FWD'};
   const posLabels={GK:'حارس المرمى',DEF:'الدفاع',MID:'خط الوسط',FWD:'الهجوم',SUB:'البدلاء'};
@@ -1041,11 +1088,18 @@ function renderLineupList(players, subMap={}) {
     <div class="lineup-pos-group">
       <div class="lineup-pos-label">${posLabels[grp]||grp}</div>
       ${arr.map(p=>{
-        const sub=subMap[(p.name||'').trim()];
+        const key=_normName(p.name);
+        const sub=subMap[key] || _looseLookup(subMap, key);
+        const st=statsMap[key] || _looseLookup(statsMap, key) || {};
         const subTag=sub?`<div class="lp-badge sub-${sub.dir}">${sub.dir==='out'?'↓':'↑'} ${sub.min}'</div>`:'';
+        let stTag='';
+        if(st.goals) stTag+=`<span class="lp-mk">⚽${st.goals>1?' '+st.goals:''}</span>`;
+        if(st.yellow) stTag+=`<span class="lp-mk yel"></span>`;
+        if(st.red) stTag+=`<span class="lp-mk red"></span>`;
         return `<div class="lineup-player-row">
         <div class="lp-num">${p.number||'—'}</div>
         <div class="lp-info"><div class="lp-name">${p.name||'لاعب'}</div><div class="lp-pos">${p.position||''}</div></div>
+        ${stTag?`<div class="lp-marks">${stTag}</div>`:''}
         ${subTag}
         ${p.position==='GK'?'<div class="lp-badge gk">GK</div>':''}
         ${p.status==='injured'?'<div class="lp-badge inj">مصاب</div>':''}
@@ -3752,7 +3806,7 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
         const rows = evs.map(ev => ({
           minute: ev.minute || 0,
           order: (ev.extraMinute || 0) * 0.01,
-          kind: ev.type === 'goal' ? 'goal' : 'chip',
+          kind: (ev.type === 'goal' || ev.type === 'own') ? 'goal' : 'chip',
           ev
         }));
 
@@ -3863,8 +3917,10 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
           const ev = r.ev;
           if (r.kind === 'goal') {
             const side = _evSide(ev) === 'away' ? 'left' : 'right';
+            const isOwn = ev.type === 'own';
+            const goalName = isOwn ? 'هدف عكسي' : (ev.player || '—');
             const content = `<div class="vt-goal">
-              <span class="vt-goal-name">${ev.player || '—'}</span>
+              <span class="vt-goal-name"${isOwn?' style="color:var(--t3);font-style:italic"':''}>${goalName}</span>
               <span class="vt-goal-min">${minLabel(ev)}</span>
             </div>`;
             return `<div class="vt-row vt-row-${side}">

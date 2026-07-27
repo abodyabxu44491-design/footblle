@@ -181,41 +181,42 @@
     vg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
-    // ── خلفية ملعب شفّافة أنيقة (مرسومة بالكانفس، بلا صور خارجية) ──
+    // ── خلفية ملعب شفّافة أنيقة تملأ الصورة كاملة (مرسومة بالكانفس) ──
     (function drawPitch(){
       ctx.save();
       ctx.globalAlpha = 1;
-      // مسحة خضراء خفيفة جداً في وسط البطاقة (شعور العشب)
-      var pg = ctx.createLinearGradient(0, H*0.18, 0, H*0.92);
-      pg.addColorStop(0,   'rgba(30,70,45,0.10)');
-      pg.addColorStop(0.5, 'rgba(24,58,38,0.06)');
-      pg.addColorStop(1,   'rgba(18,44,30,0.10)');
+      // مسحة عشب خضراء تغطّي كامل البطاقة
+      var pg = ctx.createLinearGradient(0, 0, 0, H);
+      pg.addColorStop(0,   'rgba(28,66,42,0.14)');
+      pg.addColorStop(0.5, 'rgba(22,54,36,0.08)');
+      pg.addColorStop(1,   'rgba(16,42,28,0.14)');
       ctx.fillStyle = pg;
-      ctx.fillRect(40, H*0.16, W-80, H*0.76);
+      ctx.fillRect(0, 0, W, H);
 
-      // أشرطة العشب (خطوط أفقية متناوبة خفيفة)
-      ctx.fillStyle = 'rgba(255,255,255,0.012)';
-      var bandH = 84, top = H*0.16, bot = H*0.92;
-      for (var by = top; by < bot; by += bandH*2) {
-        ctx.fillRect(40, by, W-80, bandH);
+      // أشرطة العشب المتناوبة على كامل الارتفاع
+      ctx.fillStyle = 'rgba(255,255,255,0.013)';
+      var bandH = 96;
+      for (var by = 0; by < H; by += bandH*2) {
+        ctx.fillRect(0, by, W, bandH);
       }
 
-      // خطوط الملعب البيضاء الشفّافة
-      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      // خطوط الملعب البيضاء الشفّافة (تملأ الإطار كاملاً)
+      ctx.strokeStyle = 'rgba(255,255,255,0.045)';
       ctx.lineWidth = 2;
-      var mx = 60, mw = W - 120;                 // حدود الملعب الأفقية
-      var pTop = H*0.20, pBot = H*0.88, pMidY = (pTop+pBot)/2;
-      // الإطار الخارجي
-      roundRect(ctx, mx, pTop, mw, pBot-pTop, 10); ctx.stroke();
-      // خط المنتصف
-      ctx.beginPath(); ctx.moveTo(mx, pMidY); ctx.lineTo(mx+mw, pMidY); ctx.stroke();
-      // دائرة المنتصف
-      ctx.beginPath(); ctx.arc(W/2, pMidY, 90, 0, Math.PI*2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(W/2, pMidY, 4, 0, Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fill();
+      var mx = 46, mw = W - 92;
+      var pTop = 46, pBot = H - 46, pMidY = (pTop + pBot) / 2;
+      roundRect(ctx, mx, pTop, mw, pBot - pTop, 14); ctx.stroke();
+      // خط المنتصف + دائرة المنتصف
+      ctx.beginPath(); ctx.moveTo(mx, pMidY); ctx.lineTo(mx + mw, pMidY); ctx.stroke();
+      ctx.beginPath(); ctx.arc(W/2, pMidY, 100, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(W/2, pMidY, 5, 0, Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.055)'; ctx.fill();
       // منطقتا الجزاء (أعلى وأسفل)
-      var boxW = mw*0.44, boxH = 90, boxX = W/2 - boxW/2;
+      var boxW = mw*0.5, boxH = 130, boxX = W/2 - boxW/2;
       ctx.strokeRect(boxX, pTop, boxW, boxH);
-      ctx.strokeRect(boxX, pBot-boxH, boxW, boxH);
+      ctx.strokeRect(boxX, pBot - boxH, boxW, boxH);
+      // قوسا منطقة الجزاء
+      ctx.beginPath(); ctx.arc(W/2, pTop + boxH, 46, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.arc(W/2, pBot - boxH, 46, 1.15*Math.PI, 1.85*Math.PI); ctx.stroke();
       ctx.restore();
     })();
 
@@ -234,33 +235,47 @@
       roundRect(ctx, pad+7, pad+7, W - (pad+7)*2, H - (pad+7)*2, 24); ctx.stroke();
     })();
 
-    var cx = W / 2;
+    var cx = Math.round(W / 2);
     var y = 78;
 
-    // ── ترويسة البطولة: شعار داخل قرص + اسم + عنوان فرعي (مرتّبة ومتمركزة) ──
+    // ── ترويسة البطولة: شعار متمركز + اسم تحته بمحاذاة دقيقة ──
     var leagueLogoImg = league.logo ? await loadImage(league.logo) : null;
+    var lr = 52;                          // نصف قطر الشعار
+    var lcy = y + lr;                     // مركز الشعار عمودياً
+    // القرص الخلفي + الحلقة الذهبية (متمركزان على cx تماماً)
+    ctx.beginPath(); ctx.arc(cx, lcy, lr + 9, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fill();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(201,160,43,0.5)'; ctx.stroke();
     if (leagueLogoImg) {
-      // قرص خلفي + حلقة ذهبية رفيعة
-      ctx.beginPath(); ctx.arc(cx, y + 52, 60, 0, Math.PI*2);
-      ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fill();
-      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(201,160,43,0.45)'; ctx.stroke();
-      drawLogoCircle(ctx, leagueLogoImg, league.name, cx, y + 52, 48, null);
-      y += 132;
+      drawLogoCircle(ctx, leagueLogoImg, league.name, cx, lcy, lr, null);
     } else {
-      // بلا شعار: أيقونة كأس أنيقة
-      ctx.font = '54px Arial'; ctx.textAlign = 'center';
-      ctx.fillText('🏆', cx, y + 52); y += 96;
+      ctx.fillStyle = 'rgba(255,255,255,0.04)';
+      ctx.beginPath(); ctx.arc(cx, lcy, lr, 0, Math.PI * 2); ctx.fill();
+      ctx.font = Math.round(lr * 0.9) + 'px Arial';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🏆', cx, lcy + 2);
+      ctx.textBaseline = 'alphabetic';
     }
-    ctx.fillStyle = T1;
-    ctx.font = '900 42px Tajawal, Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(fitText(ctx, league.name || 'بطولة', W - 200), cx, y);
-    y += 18;
-    // خط ذهبي رفيع قصير تحت الاسم (فاصل أنيق)
-    ctx.strokeStyle = 'rgba(201,160,43,0.5)'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(cx - 60, y); ctx.lineTo(cx + 60, y); ctx.stroke();
-    y += 30;
 
+    // اسم البطولة — متمركز تحت الشعار بمسافة ثابتة
+    var nameY = lcy + lr + 40;
+    ctx.fillStyle = T1;
+    ctx.font = '900 44px Tajawal, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    var leagueName = fitText(ctx, league.name || 'بطولة', W - 220);
+    ctx.fillText(leagueName, cx, nameY);
+    var nameW = ctx.measureText(leagueName).width;
+    ctx.textBaseline = 'alphabetic';
+
+    // خط ذهبي رفيع بعرض متناسب مع الاسم (محاذاة مركزية)
+    var underlineY = nameY + 34;
+    var ulHalf = Math.min(Math.max(nameW * 0.32, 45), 120);
+    ctx.strokeStyle = 'rgba(201,160,43,0.55)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx - ulHalf, underlineY); ctx.lineTo(cx + ulHalf, underlineY); ctx.stroke();
+    y = underlineY + 32;
+
+    // العنوان الفرعي (الموسم · النوع · الجولة)
     var typeMap = { league: 'دوري نقاط', groups: 'مجموعات', knockout: 'كأس إقصائي' };
     var sub = [];
     if (league.season) sub.push(String(league.season));
@@ -269,10 +284,13 @@
     if (m.isKnockout && m.knockoutRoundName) sub.push(m.knockoutRoundName);
     if (sub.length) {
       ctx.fillStyle = T2;
-      ctx.font = '700 24px Tajawal, Arial, sans-serif';
+      ctx.font = '700 23px Tajawal, Arial, sans-serif';
+      ctx.textAlign = 'center';
       ctx.fillText(sub.join('   ·   '), cx, y);
+      y += 40;
+    } else {
+      y += 6;
     }
-    y += 46;
 
     // ── شارة الحالة ──
     ctx.font = '800 24px Tajawal, Arial, sans-serif';
@@ -399,36 +417,76 @@
         y += 50;
       }
 
-      // ── الهدافون: عمودان (مضيف | ضيف) ──
+      // ── الهدافون: عمودان مستقلّان، أهداف كل فريق مرتّبة تحته ──
       var sc = scorers(m);
       if (sc.home.length || sc.away.length) {
-        y += 10;
-        drawDivider(ctx, cx, y, W - 140); y += 44;
-        ctx.font = '700 24px Tajawal, Arial, sans-serif';
-        ctx.fillStyle = T3;
-        ctx.fillText('الهدافون', cx, y);
-        y += 44;
+        y += 12;
+        drawDivider(ctx, cx, y, W - 140); y += 40;
+        ctx.textAlign = 'center';
+        ctx.font = '800 24px Tajawal, Arial, sans-serif';
+        ctx.fillStyle = GOLD;
+        ctx.fillText('⚽ الهدافون', cx, y);
+        y += 40;
 
-        var rows = Math.max(sc.home.length, sc.away.length, 1);
-        var lh = 40;
-        var colLeftX = W * 0.28, colRightX = W * 0.72;
-        for (var i = 0; i < rows; i++) {
-          var hRow = sc.home[i], aRow = sc.away[i];
-          if (hRow) {
-            ctx.font = '700 26px Tajawal, Arial, sans-serif';
-            ctx.fillStyle = T1;
-            ctx.textAlign = 'center';
-            ctx.fillText(fitText(ctx, hRow.name, 260) + '  ' + hRow.min + "'", colLeftX, y);
+        var colHomeX = W * 0.72;   // المضيف يمين (RTL)
+        var colAwayX = W * 0.28;   // الضيف يسار
+        var headY = y;
+
+        // رؤوس الأعمدة: اسم كل فريق
+        ctx.font = '800 22px Tajawal, Arial, sans-serif';
+        ctx.fillStyle = T2;
+        ctx.fillText(fitText(ctx, ht.name, 300), colHomeX, headY);
+        ctx.fillText(fitText(ctx, at.name, 300), colAwayX, headY);
+        // خط رفيع تحت كل رأس
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+        [colHomeX, colAwayX].forEach(function(colX){
+          ctx.beginPath(); ctx.moveTo(colX - 120, headY + 14); ctx.lineTo(colX + 120, headY + 14); ctx.stroke();
+        });
+
+        var listY = headY + 46;
+        var lh = 38;
+        function drawCol(list, colX) {
+          var yy = listY;
+          if (!list.length) {
+            ctx.font = '400 20px Tajawal, Arial, sans-serif';
+            ctx.fillStyle = T3;
+            ctx.fillText('—', colX, yy);
+            return yy + lh;
           }
-          if (aRow) {
-            ctx.font = '700 26px Tajawal, Arial, sans-serif';
-            ctx.fillStyle = T1;
+          list.forEach(function(r){
             ctx.textAlign = 'center';
-            ctx.fillText(fitText(ctx, aRow.name, 260) + '  ' + aRow.min + "'", colRightX, y);
-          }
-          y += lh;
+            // الاسم
+            ctx.font = '700 24px Tajawal, Arial, sans-serif';
+            ctx.fillStyle = T1;
+            var nm = fitText(ctx, r.name, 220);
+            // الدقيقة داخل شارة صغيرة
+            ctx.font = '800 18px Tajawal, Arial, sans-serif';
+            var minTxt = r.min + "'";
+            var minW = ctx.measureText(minTxt).width + 18;
+            ctx.font = '700 24px Tajawal, Arial, sans-serif';
+            var nmW = ctx.measureText(nm).width;
+            var totalW = nmW + 8 + minW;
+            var startX = colX + totalW/2;
+            // الاسم (يمين المجموعة في RTL)
+            ctx.textAlign = 'right';
+            ctx.fillStyle = T1;
+            ctx.fillText(nm, startX, yy);
+            // شارة الدقيقة (يسار الاسم)
+            var badgeX = startX - nmW - 8 - minW;
+            ctx.fillStyle = 'rgba(201,160,43,0.14)';
+            roundRect(ctx, badgeX, yy - 17, minW, 26, 8); ctx.fill();
+            ctx.textAlign = 'center';
+            ctx.font = '800 18px Tajawal, Arial, sans-serif';
+            ctx.fillStyle = GOLD;
+            ctx.fillText(minTxt, badgeX + minW/2, yy + 1);
+            yy += lh;
+          });
+          return yy;
         }
-        y += 16;
+        var endHome = drawCol(sc.home, colHomeX);
+        var endAway = drawCol(sc.away, colAwayX);
+        y = Math.max(endHome, endAway) + 14;
+        ctx.textAlign = 'center';
       }
 
       // ── تفاصيل إضافية للمباراة المنتهية ──

@@ -573,6 +573,19 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .player-sub-badge.in{background:#27ae60}
 .player-sub-badge span{font-size:7px}
 
+/* ── علامات الأهداف والكروت على لاعب الملعب ── */
+.player-marks{position:absolute;bottom:-7px;left:-8px;display:flex;align-items:center;gap:2px}
+.pmark{display:inline-flex;align-items:center;font-size:10px;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
+.pmark b{font-size:8px;font-weight:900;color:#fff;margin-right:1px}
+.pmark.yel{width:8px;height:11px;border-radius:2px;background:#E5B800;border:1px solid rgba(0,0,0,.3)}
+.pmark.red{width:8px;height:11px;border-radius:2px;background:#E5533D;border:1px solid rgba(0,0,0,.3)}
+
+/* ── علامات في قائمة اللاعبين ── */
+.lp-marks{display:flex;align-items:center;gap:4px;margin-inline-start:auto}
+.lp-mk{display:inline-flex;align-items:center;font-size:13px;font-weight:800;color:var(--t2)}
+.lp-mk.yel{width:11px;height:15px;border-radius:2px;background:#E5B800}
+.lp-mk.red{width:11px;height:15px;border-radius:2px;background:#E5533D}
+
 /* ── قسم التبديلات (خرج ← دخل) ── */
 .subs-section{margin:4px 12px 0;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:12px 14px}
 .subs-title{font-size:12px;font-weight:900;color:var(--t2);margin-bottom:10px;display:flex;align-items:center;gap:6px}

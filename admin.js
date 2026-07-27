@@ -740,8 +740,11 @@ function logoHtml(logo, size, radius) {
    if(logo.startsWith('data:') || logo.startsWith('http://') || logo.startsWith('https://') || logo.startsWith('/')) {
      return '<img src="' + logo + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px;object-fit:cover;display:inline-block;vertical-align:middle" onerror="this.style.display=\'none\';this.nextSibling && (this.nextSibling.style.display=\'inline\')"/><span style="font-size:' + size + 'px;display:none">⚽</span>';
    }
+   // 🛡️ حماية: لو القيمة نص طويل (Base64 بلا بادئة أو أي نص غير إيموجي) لا نطبعه خاماً
+   if (logo.length > 8) return '<span style="font-size:' + size + 'px">⚽</span>';
    return '<span style="font-size:' + size + 'px;line-height:1">' + logo + '</span>';
 }
+window.logoHtml = logoHtml; // ✅︎ متاح دائماً — يمنع ظهور نص Base64 الخام في المجموعات
 
 window.doLogout = async function() {
   if(confirm('هل تريد الخروج؟')) { await signOut(auth); location.reload(); }
@@ -1710,7 +1713,8 @@ window._openScorerPicker = function(matchId, side, teamName, required) {
           عدد: <input id="scorerPickerCount" type="number" min="1" max="9" value="1" style="width:32px;background:transparent;border:none;color:var(--text);font-size:13px;font-weight:900;text-align:center"/>
         </div>
       </div>
-      <div id="scorerPickerSuggestions" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:16px"></div>
+      <div id="scorerPickerSuggestions" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:12px"></div>
+      <button onclick="_spOwnGoal('${matchId}','${side}')" style="width:100%;padding:11px;margin-bottom:12px;background:rgba(229,83,61,.1);border:1px solid rgba(229,83,61,.4);border-radius:12px;color:#e5533d;font-size:13px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">&#9917; هدف عكسي (بدون لاعب)</button>
       <div style="display:flex;gap:8px">
         ${!required ? '<button onclick="document.getElementById(\'scorerPickerOverlay\').remove()" style="flex:1;padding:13px;background:var(--card3);border:1px solid var(--border2);border-radius:12px;color:var(--muted);font-size:13px;font-family:Tajawal,sans-serif;cursor:pointer">تخطي</button>' : ''}
         <button onclick="_spConfirm('${matchId}','${side}')" style="flex:2;padding:13px;background:linear-gradient(135deg,var(--gold2),var(--gold));border:none;border-radius:12px;color:#000;font-size:13px;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer">✅︎ تأكيد</button>
@@ -1751,6 +1755,59 @@ window._spRenderSuggestions = function(names) {
   if (!el) return;
   if (!names.length) { el.innerHTML = '<span style="font-size:11px;color:var(--muted)">اكتب الاسم يدوياً</span>'; return; }
   el.innerHTML = names.map(n => `<button onclick="document.getElementById('scorerPickerInput').value='${n.replace(/'/g, "\\'")}'" style="padding:5px 11px;background:var(--card3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:12px;font-family:Tajawal,sans-serif;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border2)'">${n}</button>`).join('');
+};
+
+// ══ هدف عكسي: يُحسب للفريق الخصم بلا نسبة للاعب ══
+window._spOwnGoal = async function(matchId, side) {
+  document.getElementById('scorerPickerOverlay')?.remove();
+  const m = matches.find(x => x.id === matchId);
+  if (!m) return;
+  // الفريق الذي أحرز في مرماه = side ؛ الهدف يُحسب للفريق الآخر (creditSide)
+  const creditSide = side === 'home' ? 'away' : 'home';
+  const ht = teams.find(t => t.id === m.homeId) || {};
+  const at = teams.find(t => t.id === m.awayId) || {};
+  const creditName = creditSide === 'home' ? (ht.name || m.homeName || 'الأول') : (at.name || m.awayName || 'الثاني');
+
+  const st = window._liveMatches && window._liveMatches[matchId];
+
+  if (st) {
+    // ── صفحة البث: أضِف للحالة الحيّة ──
+    let minute = 1, extra = 0;
+    try { const em = window._evMinute(st); if (em) { minute = em.minute; extra = em.extraMinute || 0; } } catch(e){}
+    const ev = {
+      id: Date.now(), type: 'own', icon: '⚽', label: 'هدف عكسي',
+      team: creditSide, teamName: creditName, player: '', player2: '',
+      minute, extraMinute: extra, half: st.currentHalf,
+      time: new Date().toLocaleTimeString('ar')
+    };
+    st.events.unshift(ev);
+    if (creditSide === 'home') { st.homeScore++; const el = document.getElementById('lp-sh-' + matchId); if (el) el.textContent = st.homeScore; }
+    else { st.awayScore++; const el = document.getElementById('lp-sa-' + matchId); if (el) el.textContent = st.awayScore; }
+    if (typeof _lpRenderEvents === 'function') _lpRenderEvents(matchId);
+    try { await _lpSave(matchId); } catch(e) {}
+    showToast('⚽ هدف عكسي · يُحسب لـ ' + creditName, 'success');
+    return;
+  }
+
+  // ── الإدخال السريع: أضِف لأحداث المباراة مباشرة ──
+  const evs = Array.isArray(m.events) ? m.events.slice() : [];
+  evs.push({
+    id: Date.now(), type: 'own', icon: '⚽', label: 'هدف عكسي',
+    player: '', teamName: creditName, side: creditSide, team: creditSide,
+    minute: 1, time: new Date().toLocaleTimeString('ar')
+  });
+  evs.sort((a, b) => (a.minute || 0) - (b.minute || 0));
+  m.events = evs;
+  const recount = s => evs.filter(e => (e.type === 'goal' || e.type === 'own') && (e.side || e.team) === s).length;
+  m.homeScore = recount('home');
+  m.awayScore = recount('away');
+  try {
+    await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', matchId), {
+      events: evs, homeScore: m.homeScore, awayScore: m.awayScore, updatedAt: serverTimestamp(),
+    });
+    if (typeof _qeRefresh === 'function') _qeRefresh(matchId);
+    showToast('⚽ هدف عكسي · يُحسب لـ ' + creditName, 'success');
+  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
 };
 
 window._spConfirm = function(matchId, side) {
@@ -2100,7 +2157,7 @@ window.qeDeleteEvent = async function(matchId, idx) {
   m.events = evs;
 
   // إعادة احتساب النتيجة من الأحداث (المصدر الوحيد للحقيقة)
-  const recount = side => evs.filter(e => e.type === 'goal' && e.side === side).length;
+  const recount = side => evs.filter(e => (e.type === 'goal' || e.type === 'own') && (e.side||e.team) === side).length;
   m.homeScore = recount('home');
   m.awayScore = recount('away');
   _qeSyncScorerMirrors(m);
@@ -2222,7 +2279,7 @@ window.qeCommitEvent = async function(matchId, type, icon, teamName, side) {
   m.events = evs;
 
   // الأهداف تُحتسب من الأحداث — الهدف العكسي يُحسب للفريق الآخر
-  const recount = s => evs.filter(e => e.type === 'goal' && e.side === s).length;
+  const recount = s => evs.filter(e => (e.type === 'goal' || e.type === 'own') && (e.side||e.team) === s).length;
   m.homeScore = recount('home');
   m.awayScore = recount('away');
   _qeSyncScorerMirrors(m);
@@ -10473,8 +10530,8 @@ window.importRosterToLineup = function(teamId) {
   /* يعيد احتساب النتيجة والمرايا النصية من الأحداث */
   function _qrSync(m) {
     const evs = Array.isArray(m.events) ? m.events : [];
-    m.homeScore = evs.filter(e => e.type === 'goal' && e.side === 'home').length;
-    m.awayScore = evs.filter(e => e.type === 'goal' && e.side === 'away').length;
+    m.homeScore = evs.filter(e => (e.type === 'goal' || e.type === 'own') && (e.side||e.team) === 'home').length;
+    m.awayScore = evs.filter(e => (e.type === 'goal' || e.type === 'own') && (e.side||e.team) === 'away').length;
     // ⚠️ لا نضع الدقيقة هنا بصيغة "الاسم(N)" — كل الأنظمة التي تقرأ هذا
     // النص (ScorersCore, buildScorersData) تُفسِّر الرقم بين القوسين على
     // أنه عدد الأهداف وليس دقيقة التسجيل. كل حدث هدف = هدف واحد فعلاً،

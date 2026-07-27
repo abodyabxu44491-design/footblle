@@ -1713,8 +1713,7 @@ window._openScorerPicker = function(matchId, side, teamName, required) {
           عدد: <input id="scorerPickerCount" type="number" min="1" max="9" value="1" style="width:32px;background:transparent;border:none;color:var(--text);font-size:13px;font-weight:900;text-align:center"/>
         </div>
       </div>
-      <div id="scorerPickerSuggestions" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:12px"></div>
-      <button onclick="_spOwnGoal('${matchId}','${side}')" style="width:100%;padding:11px;margin-bottom:12px;background:rgba(229,83,61,.1);border:1px solid rgba(229,83,61,.4);border-radius:12px;color:#e5533d;font-size:13px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">&#9917; هدف عكسي (بدون لاعب)</button>
+      <div id="scorerPickerSuggestions" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:14px"></div>
       <div style="display:flex;gap:8px">
         ${!required ? '<button onclick="document.getElementById(\'scorerPickerOverlay\').remove()" style="flex:1;padding:13px;background:var(--card3);border:1px solid var(--border2);border-radius:12px;color:var(--muted);font-size:13px;font-family:Tajawal,sans-serif;cursor:pointer">تخطي</button>' : ''}
         <button onclick="_spConfirm('${matchId}','${side}')" style="flex:2;padding:13px;background:linear-gradient(135deg,var(--gold2),var(--gold));border:none;border-radius:12px;color:#000;font-size:13px;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer">✅︎ تأكيد</button>
@@ -1753,8 +1752,25 @@ window._spFilter = function() {
 window._spRenderSuggestions = function(names) {
   const el = document.getElementById('scorerPickerSuggestions');
   if (!el) return;
-  if (!names.length) { el.innerHTML = '<span style="font-size:11px;color:var(--muted)">اكتب الاسم يدوياً</span>'; return; }
-  el.innerHTML = names.map(n => `<button onclick="document.getElementById('scorerPickerInput').value='${n.replace(/'/g, "\\'")}'" style="padding:5px 11px;background:var(--card3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:12px;font-family:Tajawal,sans-serif;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border2)'">${n}</button>`).join('');
+  // خيار «هدف عكسي» مميّز دائماً في المقدّمة (لكل الفرق)
+  const ownBtn = `<button onclick="_spPickOwnGoal()" id="spOwnGoalChip" style="padding:5px 12px;background:rgba(229,83,61,.12);border:1px solid rgba(229,83,61,.45);border-radius:8px;color:#e5533d;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">⚽ هدف عكسي</button>`;
+  const list = names.length
+    ? names.map(n => `<button onclick="document.getElementById('scorerPickerInput').value='${n.replace(/'/g, "\\'")}';_spClearOwn()" style="padding:5px 11px;background:var(--card3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:12px;font-family:Tajawal,sans-serif;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border2)'">${n}</button>`).join('')
+    : '<span style="font-size:11px;color:var(--muted);align-self:center">اكتب الاسم يدوياً</span>';
+  el.innerHTML = ownBtn + list;
+};
+
+// اختيار «هدف عكسي» من القائمة — يضع علامة خاصة في الحقل
+window._spPickOwnGoal = function() {
+  const inp = document.getElementById('scorerPickerInput');
+  if (inp) { inp.value = '⚽ هدف عكسي'; inp.dataset.own = '1'; inp.readOnly = true; inp.style.color = '#e5533d'; inp.style.fontWeight = '800'; }
+  const chip = document.getElementById('spOwnGoalChip');
+  if (chip) { chip.style.background = 'rgba(229,83,61,.28)'; chip.textContent = '✓ هدف عكسي'; }
+};
+// إلغاء علامة الهدف العكسي عند اختيار لاعب عادي
+window._spClearOwn = function() {
+  const inp = document.getElementById('scorerPickerInput');
+  if (inp) { delete inp.dataset.own; inp.readOnly = false; inp.style.color = ''; inp.style.fontWeight = ''; }
 };
 
 // ══ هدف عكسي: يُحسب للفريق الخصم بلا نسبة للاعب ══
@@ -1762,8 +1778,8 @@ window._spOwnGoal = async function(matchId, side) {
   document.getElementById('scorerPickerOverlay')?.remove();
   const m = matches.find(x => x.id === matchId);
   if (!m) return;
-  // الفريق الذي أحرز في مرماه = side ؛ الهدف يُحسب للفريق الآخر (creditSide)
-  const creditSide = side === 'home' ? 'away' : 'home';
+  // الخانة تُفتح للفريق المستفيد ؛ الهدف العكسي يُحسب له مباشرة (بلا نسبة للاعب)
+  const creditSide = side;
   const ht = teams.find(t => t.id === m.homeId) || {};
   const at = teams.find(t => t.id === m.awayId) || {};
   const creditName = creditSide === 'home' ? (ht.name || m.homeName || 'الأول') : (at.name || m.awayName || 'الثاني');
@@ -1811,7 +1827,13 @@ window._spOwnGoal = async function(matchId, side) {
 };
 
 window._spConfirm = function(matchId, side) {
-  const name = (document.getElementById('scorerPickerInput')?.value || '').trim();
+  const inp = document.getElementById('scorerPickerInput');
+  // ⚽ إذا اختار «هدف عكسي» من القائمة → سجّله كهدف عكسي ولا تنسبه للاعب
+  if (inp && inp.dataset && inp.dataset.own === '1') {
+    _spOwnGoal(matchId, side);
+    return;
+  }
+  const name = (inp?.value || '').trim();
   const count = parseInt(document.getElementById('scorerPickerCount')?.value || '1') || 1;
   document.getElementById('scorerPickerOverlay')?.remove();
   if (!name) return;
@@ -4804,6 +4826,9 @@ function _buildLivePage(matchId, match, ht, at) {
           <label>اسم اللاعب</label>
           <input class="lp-evmodal-input" id="lp-evplayer-${mId}" placeholder="اكتب اسم اللاعب..."/>
         </div>
+        <div class="lp-evmodal-row" id="lp-evowngoal-${mId}" style="display:none">
+          <button onclick="lpOwnGoal('${mId}')" style="width:100%;padding:10px;background:rgba(229,83,61,.1);border:1px solid rgba(229,83,61,.4);border-radius:10px;color:#e5533d;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">⚽ هدف عكسي (بدون نسبة للاعب)</button>
+        </div>
         <div id="lp-evsubpicker-${mId}" style="display:none"></div>
         <div class="lp-evmodal-row" id="lp-evplayer2row-${mId}" style="display:none">
           <label>اللاعب الداخل</label>
@@ -5038,6 +5063,36 @@ window._lpCurrentEventType = {};
 window._lpCurrentEventIcon = {};
 window._lpCurrentEventLabel = {};
 
+// ══ هدف عكسي من صفحة البث ══
+window.lpOwnGoal = async function(matchId) {
+  const st = _liveMatches[matchId];
+  if (!st) { showToast('المباراة غير مباشرة', 'error'); return; }
+  // الفريق المختار في النافذة هو المستفيد ؛ يُحسب له الهدف العكسي مباشرة
+  const selTeam = document.getElementById('lp-evteam-' + matchId)?.value || 'home';
+  const creditSide = selTeam;
+  const m = matches.find(x => x.id === matchId) || {};
+  const creditName = creditSide === 'home'
+    ? (teams.find(t => t.id === m.homeId)?.name || m.homeName || 'الأول')
+    : (teams.find(t => t.id === m.awayId)?.name || m.awayName || 'الثاني');
+
+  let minute = 1, extra = 0;
+  try { const em = window._evMinute ? window._evMinute(st) : null; if (em) { minute = em.minute; extra = em.extraMinute || 0; } } catch(e){}
+
+  st.events.unshift({
+    id: Date.now(), type: 'own', icon: '⚽', label: 'هدف عكسي',
+    team: creditSide, teamName: creditName, player: '', player2: '',
+    minute, extraMinute: extra, half: st.currentHalf,
+    time: new Date().toLocaleTimeString('ar')
+  });
+  if (creditSide === 'home') { st.homeScore++; const el = document.getElementById('lp-sh-' + matchId); if (el) el.textContent = st.homeScore; }
+  else { st.awayScore++; const el = document.getElementById('lp-sa-' + matchId); if (el) el.textContent = st.awayScore; }
+
+  if (typeof lpCloseEventModal === 'function') lpCloseEventModal(matchId);
+  if (typeof _lpRenderEvents === 'function') _lpRenderEvents(matchId);
+  try { await _lpSave(matchId); } catch(e) {}
+  showToast('⚽ هدف عكسي · يُحسب لـ ' + creditName, 'success');
+};
+
 window.lpOpenEvent = function(matchId, type, icon, label) {
   window._lpCurrentEventType[matchId] = type;
   window._lpCurrentEventIcon[matchId] = icon;
@@ -5054,6 +5109,9 @@ window.lpOpenEvent = function(matchId, type, icon, label) {
   if (titleEl) titleEl.textContent = icon + ' ' + label;
 
   const isSub = (type === 'sub');
+  // زر الهدف العكسي — يظهر فقط عند تسجيل هدف
+  const ownGoalRow = document.getElementById('lp-evowngoal-' + matchId);
+  if (ownGoalRow) ownGoalRow.style.display = (type === 'goal') ? '' : 'none';
   // في التبديل: نُخفي الحقول النصية ونعرض منتقي الأساسي/الدكة
   if (playerRow)  playerRow.style.display  = isSub ? 'none' : '';
   if (player2Row) player2Row.style.display = 'none'; // لم نعد نستخدم الحقل النصّي للداخل
@@ -5173,7 +5231,9 @@ window._lpRenderEvents = function _lpRenderEvents(matchId) {
   container.innerHTML = events.map(ev => {
     const desc = ev.type === 'sub'
       ? `<span style="color:#e05252">${window.Icon?window.Icon('download',10):''} ${ev.playerOut || ev.player || ''}</span> <span style="color:#2ecc71">${window.Icon?window.Icon('upload',10):''} ${ev.playerIn || ev.player2 || ''}</span> · ${ev.teamName || ''}`
-      : `<strong>${ev.player}</strong>${ev.player2 ? ' ← ' + ev.player2 : ''} · ${ev.teamName || ''}`;
+      : ev.type === 'own'
+        ? `<strong style="color:#e5533d">هدف عكسي</strong> · ${ev.teamName || ''}`
+        : `<strong>${ev.player || ''}</strong>${ev.player2 ? ' ← ' + ev.player2 : ''} · ${ev.teamName || ''}`;
     return `
     <div class="lp-ev-item">
       <div class="lp-ev-min">${ev.minute}'</div>
@@ -10492,7 +10552,7 @@ window.importRosterToLineup = function(teamId) {
 
   // ══ ✅︎ الأهداف في النتيجة السريعة — نظام أحداث زي صفحة البث ══
   window._qrEventsHtml = function(m) {
-    const evs = (Array.isArray(m.events) ? m.events : []).filter(e => e.type === 'goal');
+    const evs = (Array.isArray(m.events) ? m.events : []).filter(e => e.type === 'goal' || e.type === 'own');
     if (!evs.length) {
       return `<div style="text-align:center;padding:12px;color:#666;font-size:11px">
         لا توجد أهداف — اضغط «＋ هدف» لتسجيل هدف باسم اللاعب
@@ -10500,11 +10560,15 @@ window.importRosterToLineup = function(teamId) {
     }
     return evs.map((e) => {
       const realIdx = m.events.indexOf(e);
+      const isOwn = e.type === 'own';
+      const label = isOwn
+        ? `<span style="color:#e5533d;font-weight:800;font-style:italic">هدف عكسي</span><span style="color:#777;font-weight:400"> · ${e.teamName || ''}</span>`
+        : `${e.player || '؟'}<span style="color:#777;font-weight:400"> · ${e.teamName || ''}</span>`;
       return `<div style="display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid #1a1a1a">
         <span style="min-width:34px;font-size:11px;font-weight:900;color:#C9A02B">${e.minute || 0}'</span>
         <span style="font-size:13px">⚽</span>
         <span style="flex:1;font-size:11px;font-weight:700;color:#ddd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-          ${e.player || '؟'}<span style="color:#777;font-weight:400"> · ${e.teamName || ''}</span>
+          ${label}
         </span>
         <button onclick="qrDeleteGoal('${m.id}',${realIdx})" title="حذف"
           style="width:24px;height:24px;border-radius:6px;border:1px solid rgba(220,50,50,.3);background:rgba(220,50,50,.08);color:#C0392B;font-size:11px;cursor:pointer">🗑</button>
@@ -10563,6 +10627,8 @@ window.importRosterToLineup = function(teamId) {
         <div id="qrGoalRosterBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
           <span style="font-size:11px;color:#888">جارِ تحميل قائمة لاعبي ${t.name}...</span>
         </div>
+        <button onclick="qrCommitOwnGoal('${matchId}','${side}','${String(t.name).replace(/'/g,"\\'")}')"
+          style="width:100%;margin-top:10px;padding:11px;border-radius:9px;border:1px solid rgba(229,83,61,.45);background:rgba(229,83,61,.12);color:#e5533d;font-family:Tajawal,sans-serif;font-weight:800;font-size:12px;cursor:pointer">⚽ هدف عكسي (بدون نسبة للاعب)</button>
         <div style="font-size:10px;color:#888;margin:10px 0 5px">الدقيقة</div>
         <input id="qrGoalMinute" type="number" min="1" max="130" value="1"
           style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
@@ -10597,6 +10663,20 @@ window.importRosterToLineup = function(teamId) {
     _qrSync(m);
     window._qrRefresh(matchId);
     window.showToast && window.showToast(`⚽ ${player} · ${teamName}`, 'success');
+  };
+
+  // ⚽ هدف عكسي — يُحسب للفريق بلا نسبة للاعب ولا يدخل جدول الهدّافين
+  window.qrCommitOwnGoal = function(matchId, side, teamName) {
+    const m = _getM(matchId); if (!m) return;
+    const minute = parseInt(document.getElementById('qrGoalMinute')?.value) || 1;
+    document.getElementById('qrGoalOv')?.remove();
+    const evs = Array.isArray(m.events) ? [...m.events] : [];
+    evs.push({ minute, icon: '⚽', player: '', teamName, type: 'own', side, label: 'هدف عكسي' });
+    evs.sort((a, b) => (a.minute || 0) - (b.minute || 0));
+    m.events = evs;
+    _qrSync(m);
+    window._qrRefresh(matchId);
+    window.showToast && window.showToast(`⚽ هدف عكسي · ${teamName}`, 'success');
   };
 
   window.qrDeleteGoal = function(matchId, idx) {

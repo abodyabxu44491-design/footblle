@@ -904,12 +904,19 @@ window.showLineupTeam = function(side, btn) {
   const lineupKey=side==='home'?'homeLineup':'awayLineup';
   const lineup=m[lineupKey];
 
+  // التبديلات تُعرض دائماً لو موجودة (حتى بدون تشكيلة مُدخلة)
+  const subs=_teamSubs(m, side);
+  const subMap=_subMap(subs);
+  const statsMap=_playerStatsMap(m, side);
+
   if(!lineup||!lineup.players||!lineup.players.length) {
-    contentEl.innerHTML=`<div class="empty-state" style="padding:60px 20px">
-      <span class="empty-icon">👥</span>
-      <div>لم تُدخَل التشكيلة بعد</div>
-      <div style="font-size:10px;margin-top:6px;color:var(--t3)">يضيفها مدير البطولة من لوحة التحكم</div>
-    </div>`;
+    contentEl.innerHTML=`
+      ${renderSubsSection(subs)}
+      <div class="empty-state" style="padding:${subs.length?'30px':'60px'} 20px">
+        <span class="empty-icon">👥</span>
+        <div>لم تُدخَل التشكيلة بعد</div>
+        <div style="font-size:10px;margin-top:6px;color:var(--t3)">يضيفها مدير البطولة من لوحة التحكم</div>
+      </div>`;
     return;
   }
 
@@ -917,9 +924,6 @@ window.showLineupTeam = function(side, btn) {
   const players=lineup.players||[];
   const playerCount=players.length;
   const positions=FORMATION_POSITIONS[formation]||getDynamicPositions(playerCount);
-  const subs=_teamSubs(m, side);
-  const subMap=_subMap(subs);
-  const statsMap=_playerStatsMap(m, side);
 
   contentEl.innerHTML=`
     <div class="lineup-formation-bar">
@@ -974,17 +978,20 @@ function renderPitchLines(n=11) {
 // ── استخراج تبديلات فريق من أحداث المباراة ──
 function _teamSubs(m, side) {
   const evs = (typeof _matchEvents === 'function') ? _matchEvents(m) : ((m.liveData && m.liveData.events) || m.events || []);
+  const wantId = side === 'home' ? m.homeId : m.awayId;
   const subs = [];
   (evs || []).forEach(ev => {
     if (!ev || ev.type !== 'sub') return;
-    const s = ev.team || ev.side || 'home';
+    // طابق الفريق بعدة طرق: team / side / teamId
+    let s = ev.team || ev.side;
+    if (!s && ev.teamId != null && wantId != null) s = (ev.teamId === wantId) ? side : (side === 'home' ? 'away' : 'home');
+    if (!s) s = 'home';
     if (s !== side) return;
-    const mn = ev.extraMinute > 0 ? (ev.minute + '+' + ev.extraMinute) : ev.minute;
-    subs.push({
-      out: (ev.playerOut || ev.player || '').trim(),
-      in:  (ev.playerIn  || ev.player2 || '').trim(),
-      min: mn
-    });
+    const mn = ev.extraMinute > 0 ? (ev.minute + '+' + ev.extraMinute) : (ev.minute != null ? ev.minute : '');
+    const out = (ev.playerOut || ev.player || '').trim();
+    const inn = (ev.playerIn  || ev.player2 || '').trim();
+    if (!out && !inn) return; // تبديل فارغ — تجاهل
+    subs.push({ out, in: inn, min: mn });
   });
   return subs;
 }
@@ -1064,16 +1071,16 @@ function renderPlayersOnPitch(players, positions, isAway=false, subMap={}, stats
 function renderSubsSection(subs) {
   if (!subs || !subs.length) return '';
   const rows = subs.map(s => `
-    <div class="sub-row">
-      <span class="sub-min">${s.min}'</span>
-      <div class="sub-players">
-        <span class="sub-in"><span class="sub-ar in">↑</span>${s.in||'—'}</span>
-        <span class="sub-out"><span class="sub-ar out">↓</span>${s.out||'—'}</span>
+    <div class="sub-row2">
+      <span class="sub-min2">${s.min !== '' ? s.min + "'" : ''}</span>
+      <div class="sub-pair">
+        <div class="sub-line in"><span class="sub-ico in">▲</span><span class="sub-nm">${s.in || '—'}</span></div>
+        <div class="sub-line out"><span class="sub-ico out">▼</span><span class="sub-nm">${s.out || '—'}</span></div>
       </div>
     </div>`).join('');
   return `
-    <div class="subs-section">
-      <div class="subs-title">🔄 التبديلات <span>${subs.length}</span></div>
+    <div class="subs-section2">
+      <div class="subs-head"><span>🔄 التبديلات</span><span class="subs-count">${subs.length}</span></div>
       ${rows}
     </div>`;
 }
@@ -3215,34 +3222,46 @@ const _LIVE = ['live','halftime','extratime1','halftime_et','extratime2','penalt
 function _playerMatchBadges(events, side, playerName, number) {
   if (!Array.isArray(events) || !playerName) return '';
   const nm = String(playerName).trim();
+  const nmNorm = (typeof _normName === 'function') ? _normName(nm) : nm.toLowerCase();
   const sideOf = e => e.side || e.team;
   const nameOf = e => String(e.player || '').trim();
+  const normEq = (a) => {
+    const an = (typeof _normName === 'function') ? _normName(a) : String(a||'').toLowerCase();
+    return an === nmNorm || (an.length>=3 && nmNorm.length>=3 && (an.indexOf(nmNorm)===0 || nmNorm.indexOf(an)===0));
+  };
 
-  let goals = 0, yellow = 0, red = false;
+  let goals = 0, yellow = 0, red = false, subOut = null, subIn = null;
   events.forEach(e => {
     if (sideOf(e) !== side) return;
-    if (nameOf(e) !== nm) return;
+    if (e.type === 'sub') {
+      const mn = e.extraMinute > 0 ? (e.minute + '+' + e.extraMinute) : e.minute;
+      if (normEq(e.playerOut || e.player)) subOut = mn;
+      if (normEq(e.playerIn  || e.player2)) subIn = mn;
+      return;
+    }
+    if (nameOf(e) !== nm && !normEq(nameOf(e))) return;
     if (e.type === 'goal') goals++;
     else if (e.type === 'yellow') yellow++;
     else if (e.type === 'red') red = true;
   });
-  // بطاقتان صفراوان = حمراء
   const secondYellow = yellow >= 2;
   const showRed = red || secondYellow;
 
   const badges = [];
-  // كرت (أولوية للحمراء)
   if (showRed) {
     badges.push('<span class="pl-badge pl-badge-red" title="بطاقة حمراء"></span>');
   } else if (yellow === 1) {
     badges.push('<span class="pl-badge pl-badge-yellow" title="بطاقة صفراء"></span>');
   }
-  // كورة الهدف (مع عدّاد لو أكثر من هدف) — أيقونة SVG لتطابق كل الأجهزة
   if (goals > 0) {
     const cnt = goals > 1 ? `<span class="pl-badge-goalcount">${goals}</span>` : '';
     const ball = (window.Icon ? window.Icon('ball', 11) : '⚽');
     badges.push('<span class="pl-badge pl-badge-goal">' + ball + cnt + '</span>');
   }
+  // سهم التبديل
+  if (subOut != null) badges.push(`<span class="pl-badge pl-badge-subout" title="خرج ${subOut}'">▼</span>`);
+  else if (subIn != null) badges.push(`<span class="pl-badge pl-badge-subin" title="دخل ${subIn}'">▲</span>`);
+
   if (!badges.length) return '';
   return '<div class="pl-badges">' + badges.join('') + '</div>';
 }
@@ -4115,6 +4134,25 @@ function renderPitchViewer(lineup, isAway) {
                 </div>`;}).join('')}
             </div>` : '';
 
+          // ── قسم التبديلات (من أحداث المباراة) ──
+          const _subsSide = isAway ? 'away' : 'home';
+          const _matchSubs = (typeof _teamSubs === 'function') ? _teamSubs(m, _subsSide) : [];
+          const subsSection = _matchSubs.length ? `
+            <div style="margin-top:10px;background:var(--s2);border:1px solid var(--b2);border-radius:10px;padding:10px 12px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-size:11px;font-weight:900;color:var(--t1)">🔄 التبديلات</span>
+                <span style="background:var(--gold);color:#000;font-size:10px;font-weight:900;border-radius:999px;padding:1px 8px">${_matchSubs.length}</span>
+              </div>
+              ${_matchSubs.map(s => `
+                <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--b1)">
+                  <span style="min-width:32px;font-size:12px;font-weight:900;color:var(--gold)">${s.min!==''?s.min+"'":''}</span>
+                  <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1">
+                    <span style="font-size:12.5px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#27ae60;font-weight:900">▲</span> ${s.in||'—'}</span>
+                    <span style="font-size:12px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#e5533d;font-weight:900">▼</span> ${s.out||'—'}</span>
+                  </div>
+                </div>`).join('')}
+            </div>` : '';
+
           return `
             <div style="background:var(--s2);border:1px solid var(--b2);border-radius:12px;overflow:hidden">
               <!-- شريط أعلى الملعب -->
@@ -4137,6 +4175,7 @@ function renderPitchViewer(lineup, isAway) {
                 ${dots}
               </div>
             </div>
+            ${subsSection}
             ${subsHtml}`;
         }
 

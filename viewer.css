@@ -601,6 +601,21 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .sub-ar.in{color:#27ae60}
 .sub-ar.out{color:#e5533d}
 
+/* ── قسم التبديلات المُعاد تصميمه ── */
+.subs-section2{margin:12px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:12px 14px}
+.subs-head{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:900;color:var(--t1);margin-bottom:10px}
+.subs-count{background:var(--gold);color:#000;font-size:11px;font-weight:900;border-radius:999px;padding:1px 9px}
+.sub-row2{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--b1)}
+.sub-row2:first-of-type{border-top:0}
+.sub-min2{flex:0 0 auto;min-width:36px;font-size:13px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}
+.sub-pair{display:flex;flex-direction:column;gap:4px;min-width:0}
+.sub-line{display:flex;align-items:center;gap:7px;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub-line.in .sub-nm{color:var(--t1);font-weight:700}
+.sub-line.out .sub-nm{color:var(--t3);font-weight:600}
+.sub-ico{flex:0 0 auto;font-size:11px;font-weight:900}
+.sub-ico.in{color:#27ae60}
+.sub-ico.out{color:#e5533d}
+
 
 /* EMPTY */
 .empty-state{text-align:center;padding:40px 20px;color:var(--t3)}
@@ -2588,6 +2603,8 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
   display:flex; align-items:center; justify-content:center; font-family:Tajawal,sans-serif }
 .pl-badge-yellow, .pl-badge-red{ width:9px; height:12px; border-radius:2px; box-shadow:0 1px 3px rgba(0,0,0,.7) }
 .pl-badge-yellow{ background:#f1c40f } .pl-badge-red{ background:#e74c3c }
+.pl-badge-subout,.pl-badge-subin{ font-size:9px; font-weight:900; line-height:1; text-shadow:0 1px 2px rgba(0,0,0,.8) }
+.pl-badge-subout{ color:#e5533d } .pl-badge-subin{ color:#27ae60 }
 /* الشارات بجانب اسم البديل (في السطر، غير مطلقة) */
 .pl-bench-badges .pl-badges{ position:static; flex-direction:row; gap:4px; align-items:center }
 .pl-bench-badges{ display:inline-flex; align-items:center }

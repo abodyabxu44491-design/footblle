@@ -684,7 +684,7 @@ window.wzConfirmFinal = async function() {
     }, 700);
 
   } catch(e) {
-    showWzError('خطأ في الإنشاء: ' + e.message);
+    showWzError('خطأ في الإنشاء: ' + window._trErr(e));
     if(btn) { btn.disabled = false; btn.textContent = 'تأكيد وإنشاء البطولة'; }
   }
 };
@@ -728,7 +728,7 @@ window.wzConfirmSetup = async function() {
     }
 
   } catch(e) {
-    showWzError('خطأ في الحفظ: ' + e.message);
+    showWzError('خطأ في الحفظ: ' + window._trErr(e));
     if(btn) { btn.disabled = false; btn.textContent = '✅︎ تأكيد وابدأ'; }
   }
 };
@@ -1057,7 +1057,7 @@ window.addTeam = async function() {
     closeModal('modal-team');
     resetTeamForm();
     showToast('✅︎ تمت إضافة ' + name, 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.resetTeamForm = function() {
@@ -1382,7 +1382,7 @@ window.deleteTeam = async function(id) {
       try {
         await deleteDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', id));
         showToast('تم حذف ' + name, 'error');
-      } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+      } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
     }
   );
 };
@@ -1823,7 +1823,7 @@ window._spOwnGoal = async function(matchId, side) {
     });
     if (typeof _qeRefresh === 'function') _qeRefresh(matchId);
     showToast('⚽ هدف عكسي · يُحسب لـ ' + creditName, 'success');
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window._spConfirm = function(matchId, side) {
@@ -2195,7 +2195,7 @@ window.qeDeleteEvent = async function(matchId, idx) {
     });
     _qeRefresh(matchId);
     showToast('🗑 تم حذف الحدث', 'success');
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 /* مرايا نصية للتوافق مع الواجهات القديمة (الجمهور/البطاقات) */
@@ -2317,7 +2317,7 @@ window.qeCommitEvent = async function(matchId, type, icon, teamName, side) {
     });
     _qeRefresh(matchId);
     showToast(type === 'sub' ? `🔄 ${evExtra.playerOut} ⇄ ${evExtra.playerIn} · ${teamName}` : `${icon} ${player} · ${teamName}`, 'success');
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.qeEvent = async function(matchId, type, icon, teamName, side) {
@@ -2381,7 +2381,7 @@ window._qeEventLegacy = async function(matchId, type, icon, teamName, side) {
           ...(side==='home' ? {homeScore: m.homeScore} : {awayScore: m.awayScore}),
         });
         showToast(`⚽ هدف! ${playerName} · ${teamName}`, 'success');
-      } catch(e) { showToast('خطأ: '+e.message,'error'); }
+      } catch(e) { showToast('خطأ: ' + window._trErr(e),'error'); }
     };
     return;
   }
@@ -2400,7 +2400,7 @@ window._qeEventLegacy = async function(matchId, type, icon, teamName, side) {
       events: evs, updatedAt: serverTimestamp(),
     });
     showToast(`${icon} ${type==='yellow'?'بطاقة صفراء':'بطاقة حمراء'} · ${teamName}`, 'success');
-  } catch(e) { showToast('خطأ: '+e.message,'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e),'error'); }
 };
 
 window.qeSave = async function(id) {
@@ -2437,7 +2437,7 @@ window.qeSave = async function(id) {
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', id), upd);
     await recalcStandings();
     showToast('✅︎ تم الحفظ وتحديث الترتيب', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.qeToggleLive = async function(id, isLive) {
@@ -2485,7 +2485,7 @@ window.saveMatchResult = async function(id) {
     // Recalculate standings from all matches
     await recalcStandings();
     showToast('✅︎ تم حفظ النتيجة وتحديث الترتيب', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.setMatchLive = async function(id, isLive) {
@@ -3312,7 +3312,7 @@ window.addMatch = async function() {
       const el = document.getElementById(id); if(el) el.value = '';
     });
     showToast('تمت إضافة المباراة ✓', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ══ AUTO SCHEDULE ══
@@ -3556,7 +3556,7 @@ window.saveSettings = async function() {
     settings.matchSettings = matchSettings;
     settings.defaultVenue = defaultVenue;
     showToast('تم حفظ الإعدادات ✓', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ── حفظ الراعي في config/settings ──
@@ -3577,7 +3577,7 @@ window.saveZones = async function() {
     await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'), { zones, updatedAt: serverTimestamp() }, { merge: true });
     window.renderStandings();
     showToast('تم حفظ المناطق ✓', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.updateZoneTotal = function() {
@@ -3594,7 +3594,7 @@ window.setSquadSize = async function(n) {
   try {
     await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'), { squadSize: n, updatedAt: serverTimestamp() }, { merge: true });
     showToast(`✅︎ نظام التشكيلة: ${n} لاعبين — يطبَّق على كل المباريات`, 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.setLegMode = async function(mode) {
@@ -3604,7 +3604,7 @@ window.setLegMode = async function(mode) {
   try {
     await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'), { legMode: mode, updatedAt: serverTimestamp() }, { merge: true });
     showToast(mode === 'double' ? '✅︎ المباريات القادمة: ذهاب وإياب' : '✅︎ المباريات القادمة: ذهاب فقط', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.updateMatchDurPreview = function() {
@@ -3645,7 +3645,7 @@ window.publishPendingMatches = async function (roundNum) {
     }
     showToast(`تم نشر ${pend.length} مباراة — ظهرت للجمهور`, 'success');
   } catch (e) {
-    showToast('خطأ في النشر: ' + e.message, 'error');
+    showToast('خطأ في النشر: ' + window._trErr(e), 'error');
   }
 };
 
@@ -3688,7 +3688,7 @@ window.clearAllMatches = async function () {
     await updateDoc(doc(db, 'leagues', LEAGUE_ID), { matchesCount: 0 }).catch(() => {});
     showToast(`تم حذف ${all.length} مباراة — يمكنك التوليد من جديد`, 'success');
   } catch (e) {
-    showToast('خطأ في الحذف: ' + e.message, 'error');
+    showToast('خطأ في الحذف: ' + window._trErr(e), 'error');
   }
 };
 
@@ -3757,7 +3757,7 @@ window.resetTournament = async function() {
         }).catch(() => {});
         showToast('✅︎ تمت إعادة الضبط — إعادة التشغيل', 'success');
         setTimeout(() => location.reload(), 900);
-      } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+      } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
     },
     '🔄 إعادة الضبط بالكامل',
     '#C0392B'
@@ -3780,7 +3780,7 @@ window.wipeAllData = async function() {
         }).catch(() => {});
         showToast('✅︎ تم مسح جميع البيانات', 'success');
         setTimeout(() => location.reload(), 900);
-      } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+      } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
     },
     '🗑 مسح كل شيء',
     '#C0392B'
@@ -4097,7 +4097,7 @@ window.wizConfirmGroups = async function() {
     const noteEl = document.getElementById('typeNote');
     if (noteEl) noteEl.textContent = `✅︎ تم إنشاء ${n} مجموعات — انتقل لصفحة المجموعات لإضافة الفرق`;
 
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ══ KNOCKOUT SETUP WIZARD ══
@@ -4212,7 +4212,7 @@ window.wizConfirmKnockout = async function() {
     const noteEl = document.getElementById('typeNote');
     if (noteEl) noteEl.textContent = `⚡ شجرة بدأت من ${rounds[0].name} — انتقل لصفحة الإقصاء لإضافة الفرق`;
 
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 function selectTypeSilent(type) {
@@ -4306,6 +4306,37 @@ window.showPage = function(name, sb, mn) {
 };
 
 let toastT;
+// ── ترجمة رسائل أخطاء Firebase/التخزين الشائعة للعربية ──
+window._trErr = function(e) {
+  const raw = (e && (e.message || e.code || e)) + '';
+  const code = (e && e.code) ? e.code + '' : '';
+  const s = raw.toLowerCase();
+  // حسب الكود أولاً
+  const byCode = {
+    'resource-exhausted': 'تجاوزت الحصة المسموحة للتخزين. جرّب تصغير حجم الصور (الشعارات) أو حذف بيانات غير مستخدمة.',
+    'permission-denied': 'لا تملك صلاحية لهذا الإجراء.',
+    'unauthenticated': 'انتهت الجلسة. سجّل الدخول من جديد.',
+    'unavailable': 'الخدمة غير متاحة مؤقتاً. تأكّد من الاتصال وحاول مرة أخرى.',
+    'deadline-exceeded': 'انتهت مهلة الاتصال. حاول مرة أخرى.',
+    'already-exists': 'هذا العنصر موجود بالفعل.',
+    'not-found': 'العنصر غير موجود.',
+    'cancelled': 'أُلغيت العملية.',
+    'invalid-argument': 'بيانات غير صحيحة. تحقّق من المدخلات.',
+    'failed-precondition': 'تعذّر إتمام العملية في الوضع الحالي.',
+  };
+  for (const k in byCode) { if (code.indexOf(k) !== -1 || s.indexOf(k) !== -1) return byCode[k]; }
+  // حسب نص الرسالة
+  if (s.indexOf('quota') !== -1 || s.indexOf('exceeded your current') !== -1 || (s.indexOf('1 gib') !== -1) || s.indexOf('gigabyte') !== -1 || s.indexOf('storage') !== -1 && s.indexOf('limit') !== -1)
+    return 'تجاوزت مساحة التخزين المسموحة (المستوى المجاني ~١ جيجابايت). قلّل حجم الصور المرفوعة (الشعارات) أو احذف بيانات قديمة، أو رقِّ خطة Firebase.';
+  if (s.indexOf('network') !== -1 || s.indexOf('offline') !== -1 || s.indexOf('failed to fetch') !== -1)
+    return 'مشكلة في الاتصال بالإنترنت. تحقّق من الشبكة وحاول مجدداً.';
+  if (s.indexOf('too large') !== -1 || s.indexOf('payload') !== -1 || s.indexOf('exceeds the maximum') !== -1)
+    return 'حجم البيانات كبير جداً. صغّر حجم الصورة/الشعار وحاول مرة أخرى.';
+  if (s.indexOf('permission') !== -1) return 'لا تملك صلاحية لهذا الإجراء.';
+  // افتراضي: أعِد الرسالة كما هي (قد تكون بالعربية أصلاً)
+  return raw;
+};
+
 window.showToast = function(msg, type = 'success') {
   /* ✅︎ متين: يُنشئ العنصر لو مفقود (كان يرمي استثناء ويكسر الدالة
      المستدعية)، ويُطيل مدة الأخطاء لأنها تحتاج قراءة فعلية. */
@@ -4531,7 +4562,7 @@ window.lpSaveVideoUrl = async function(matchId) {
     if (mm) mm.videoUrl = url;
     showToast(url ? '✅︎ تم حفظ رابط البث' : '✅︎ تم حذف رابط البث', 'success');
   } catch (e) {
-    showToast('تعذّر الحفظ: ' + e.message, 'error');
+    showToast('تعذّر الحفظ: ' + window._trErr(e), 'error');
   }
 };
 
@@ -5442,7 +5473,7 @@ async function _lpSave(matchId) {
     setTimeout(() => { const e2 = document.getElementById('lp-save-' + matchId); if (e2 && !e2.classList.contains('lp-save-saving')) window._lpSetSaveState(matchId, 'idle'); }, 3000);
   } catch(e) {
     window._lpSetSaveState(matchId, 'err');
-    showToast('خطأ في الحفظ: ' + e.message, 'error');
+    showToast('خطأ في الحفظ: ' + window._trErr(e), 'error');
   }
 }
 
@@ -5525,15 +5556,15 @@ setInterval(() => {
     .lp-status-badge.lp-s-ended { background: rgba(39,174,96,.1); border-color: rgba(39,174,96,.3); color: #27ae60; }
     .lp-period { font-size: 11px; color: var(--muted,#666); }
 
-    .lp-sb-teams { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin-bottom: 16px; }
-    .lp-sb-team { text-align: center; flex: 1; }
+    .lp-sb-teams { display: flex; align-items: flex-start; gap: 8px; justify-content: space-between; margin-bottom: 16px; }
+    .lp-sb-team { text-align: center; flex: 1 1 0; min-width: 0; }
     .lp-team-logo { display: flex; justify-content: center; align-items: center; margin-bottom: 8px; }
-    .lp-team-name { font-size: 13px; font-weight: 900; color: var(--text,#eee); }
-    .lp-sb-center { text-align: center; }
-    .lp-score-row { display: flex; align-items: center; gap: 10px; justify-content: center; }
-    .lp-score { font-size: 52px; font-weight: 900; color: var(--gold,#C9A02B); font-family: 'Tajawal',sans-serif; min-width: 60px; text-align: center; }
-    .lp-score-sep { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-    .lp-score-sep span { font-size: 28px; color: var(--muted,#666); }
+    .lp-team-name { font-size: 13px; font-weight: 900; color: var(--text,#eee); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .lp-sb-center { text-align: center; flex: 0 0 auto; }
+    .lp-score-row { display: flex; align-items: center; gap: 8px; justify-content: center; }
+    .lp-score { font-size: 46px; font-weight: 900; color: var(--gold,#C9A02B); font-family: 'Tajawal',sans-serif; width: 52px; text-align: center; font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .lp-score-sep { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 60px; }
+    .lp-score-sep span { font-size: 24px; color: var(--muted,#666); }
     .lp-timer-display { font-size: 16px; font-weight: 900; color: var(--gold,#C9A02B); font-family: 'Tajawal',sans-serif; }
     .lp-extra-time { font-size: 12px; font-weight: 900; color: #f97316; }
     /* ✅︎ تنسيق بدل الضائع: +5 و +2:14 جنب بعض فوق · 45:00 تحت */
@@ -6668,7 +6699,7 @@ async function _lpSaveV2(matchId) {
     setTimeout(() => { const e2 = document.getElementById('lp-save-' + matchId); if (e2 && !e2.classList.contains('lp-save-saving')) window._lpSetSaveState(matchId, 'idle'); }, 3000);
   } catch(e) {
     window._lpSetSaveState(matchId, 'err');
-    window.showToast && window.showToast('خطأ في الحفظ: ' + e.message, 'error');
+    window.showToast && window.showToast('خطأ في الحفظ: ' + window._trErr(e), 'error');
   }
 }
 
@@ -7138,45 +7169,73 @@ let selectedTeamColor = '#C9A02B';
 // teamLogoDataUrl holds either a base64 image (from upload) or null when using emoji
 let teamLogoDataUrl = null;
 
+// ══════════════════════════════════════════════════════════════
+//  ضغط قوي موحّد للصور — يصغّر الأبعاد + يخفض الجودة تكيّفياً حتى
+//  يصل الحجم تحت الحدّ المطلوب، بأقل تأثير ممكن على الوضوح.
+//  targetKB الافتراضي 28KB (مناسب للشعارات وصور الإشعارات).
+// ══════════════════════════════════════════════════════════════
+window._compressImage = function(fileOrDataUrl, opts) {
+  opts = opts || {};
+  const MAX      = opts.maxDim  || 256;     // أقصى بُعد بالبكسل
+  const TARGET   = (opts.targetKB || 28) * 1024; // الحجم المستهدف بالبايت (تقريبي على base64)
+  return new Promise((resolve, reject) => {
+    const _process = (dataUrl) => {
+      const img = new Image();
+      img.onload = function() {
+        let w = img.width, h = img.height;
+        // تصغير الأبعاد مع الحفاظ على النسبة
+        if (w > h && w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        else if (h >= w && h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        // خلفية شفافة محفوظة لـ webp/png؛ تحسين جودة التصغير
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
+
+        // جرّب webp بجودة متناقصة حتى نصل للحجم المستهدف
+        let best = null;
+        const qs = [0.82, 0.7, 0.6, 0.5, 0.42, 0.35];
+        for (let i = 0; i < qs.length; i++) {
+          const out = c.toDataURL('image/webp', qs[i]);
+          if (out.indexOf('data:image/webp') === 0) {
+            best = out;
+            if (out.length <= TARGET) break;
+          }
+        }
+        // لو webp غير مدعوم أو ما وصل الهدف — جرّب jpeg (بلا شفافية)
+        if (!best || best.length > TARGET) {
+          for (let i = 0; i < qs.length; i++) {
+            const out = c.toDataURL('image/jpeg', qs[i]);
+            if (!best || out.length < best.length) best = out;
+            if (out.length <= TARGET) { best = out; break; }
+          }
+        }
+        // احتياط أخير: png (للأيقونات البسيطة)
+        if (!best) best = c.toDataURL('image/png');
+        resolve(best);
+      };
+      img.onerror = () => reject(new Error('تعذّر قراءة الصورة'));
+      img.src = dataUrl;
+    };
+
+    if (typeof fileOrDataUrl === 'string') { _process(fileOrDataUrl); return; }
+    const reader = new FileReader();
+    reader.onload = e => _process(e.target.result);
+    reader.onerror = () => reject(new Error('تعذّر قراءة الملف'));
+    reader.readAsDataURL(fileOrDataUrl);
+  });
+};
+
 
 window.handleTeamLogoUpload = function(input) {
   const file = input.files[0];
   if(!file) return;
   if(!/^image\//.test(file.type)) { showToast('اختر ملف صورة', 'error'); return; }
-  if(file.size > 5 * 1024 * 1024) { showToast('الصورة أكبر من 5MB', 'error'); return; }
-  // ✅︎ ضغط إجباري — بدونه: صورة 2MB تصير 2.67MB بـ base64 وتتجاوز حد وثيقة
-  //    Firestore (1MB)، ويُحمَّل الشعار كاملاً لكل زائر عند كل فتح للصفحة.
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      const MAX = 256;
-      let w = img.width, h = img.height;
-      if (w > h && w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-      else if (h > MAX)     { w = Math.round(w * MAX / h); h = MAX; }
-      const c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      let out = c.toDataURL('image/webp', 0.85);
-      if (out.length > 60000 || out.indexOf('data:image/webp') !== 0) out = c.toDataURL('image/png');
-      if (out.length > 60000) out = c.toDataURL('image/jpeg', 0.8);
-      teamLogoDataUrl = out;
-      const prev = document.getElementById('teamLogoPreview');
-      if(prev) {
-        prev.textContent = '';
-        prev.style.backgroundImage = 'url(' + teamLogoDataUrl + ')';
-        prev.style.backgroundSize = 'cover';
-        prev.style.backgroundPosition = 'center';
-      }
-      const li = document.getElementById('newTeamLogo');
-      if (li) li.value = '';
-      document.querySelectorAll('.ep-btn.sel').forEach(b => b.classList.remove('sel'));
-    };
-    img.onerror = function(){ showToast('تعذّر قراءة الصورة', 'error'); };
-    img.src = e.target.result;
-    return;
-    // (الكود القديم أدناه لم يعد يُنفَّذ)
-    teamLogoDataUrl = e.target.result;
+  if(file.size > 8 * 1024 * 1024) { showToast('الصورة أكبر من 8MB', 'error'); return; }
+  // ✅︎ ضغط قوي موحّد — يصغّر الحجم كثيراً بدون تخريب الوضوح
+  window._compressImage(file, { maxDim: 240, targetKB: 26 }).then(out => {
+    teamLogoDataUrl = out;
     const prev = document.getElementById('teamLogoPreview');
     if(prev) {
       prev.textContent = '';
@@ -7184,10 +7243,10 @@ window.handleTeamLogoUpload = function(input) {
       prev.style.backgroundSize = 'cover';
       prev.style.backgroundPosition = 'center';
     }
-    document.getElementById('newTeamLogo').value = '';
+    const li = document.getElementById('newTeamLogo');
+    if (li) li.value = '';
     document.querySelectorAll('.ep-btn.sel').forEach(b => b.classList.remove('sel'));
-  };
-  reader.readAsDataURL(file);
+  }).catch(err => showToast(err.message || 'تعذّر معالجة الصورة', 'error'));
 };
 window._clearTeamLogoData = function() { teamLogoDataUrl = null; };
 window.updateLogoPreview = function() {
@@ -7258,18 +7317,18 @@ window.openEditTeam = function(id) {
 window.handleEditLogoUpload = function(input) {
   const file = input.files[0];
   if(!file) return;
-  if(file.size > 2 * 1024 * 1024) { showToast('الصورة أكبر من 2MB', 'error'); return; }
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    editLogoDataUrl = e.target.result;
+  if(!/^image\//.test(file.type)) { showToast('اختر ملف صورة', 'error'); return; }
+  if(file.size > 8 * 1024 * 1024) { showToast('الصورة أكبر من 8MB', 'error'); return; }
+  // ✅︎ ضغط قوي — كان يُخزّن الصورة الأصلية كاملة (سبب امتلاء المساحة)
+  window._compressImage(file, { maxDim: 240, targetKB: 26 }).then(out => {
+    editLogoDataUrl = out;
     editLogoDelete = false;
     const prev = document.getElementById('editLogoPreview');
     prev.textContent = '';
     prev.style.backgroundImage = 'url(' + editLogoDataUrl + ')';
     prev.style.backgroundSize = 'cover';
     prev.style.backgroundPosition = 'center';
-  };
-  reader.readAsDataURL(file);
+  }).catch(err => showToast(err.message || 'تعذّر معالجة الصورة', 'error'));
 };
 
 window.deleteEditLogo = function() {
@@ -7337,7 +7396,7 @@ window.saveEditTeam = async function() {
 
     closeModal('modal-edit-team');
     showToast('✅︎ تم تحديث بيانات ' + name, 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 window.selectTeamColor = function(el) {
   selectedTeamColor = el.dataset.color;
@@ -7726,7 +7785,7 @@ window.adminToggleQualified = async function(groupId, teamId) {
       updatedAt: serverTimestamp()
     });
     showToast(updated.includes(teamId) ? '✅︎ حُدد الفريق متأهلاً (لسه ما ظهر للجمهور — اضغط اعتماد ونشر)' : 'تم إلغاء التأهل', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ✅︎ FIX §2: اعتماد المتأهلين رسمياً ونشرهم للجمهور
@@ -7749,7 +7808,7 @@ window.adminPublishQualification = async function(groupId) {
       updatedAt: serverTimestamp()
     });
     showToast(next ? '🌍 تم نشر المتأهلين للجمهور' : '🔒 تم إخفاء المتأهلين عن الجمهور', next ? 'success' : 'error');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.adminAddGroup = async function () {
@@ -7767,7 +7826,7 @@ window.adminDeleteGroup = async function (groupId) {
   try {
     await deleteDoc(doc(db, 'leagues', LEAGUE_ID, 'groups', groupId));
     showToast('تم حذف المجموعة', 'error');
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.adminEditGroup = async function (groupId) {
@@ -7840,7 +7899,7 @@ window.adminSaveGroup = async function () {
       showToast(`✅︎ تمت إضافة المجموعة "${name}"`, 'success');
     }
     closeModal('modal-group-edit');
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.adminAddTeamToGroup = async function (groupId) {
@@ -7868,7 +7927,7 @@ window.adminAddTeamToGroup = async function (groupId) {
     });
     const t = teams.find(x => x.id === teamId);
     showToast(`✅︎ تمت إضافة "${t?.name || teamId}" للمجموعة`, 'success');
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -7989,7 +8048,7 @@ window.gaSave = async function (groupId) {
     showToast(`✅︎ تم حفظ ${ids.length} ${ids.length === 1 ? 'فريق' : 'فرق'} في المجموعة`, 'success');
     try { renderGroupsAdmin && window.renderGroupsAdmin(); } catch (e) {}
   } catch (e) {
-    showToast('❌︎ فشل الحفظ: ' + e.message, 'error');
+    showToast('❌︎ فشل الحفظ: ' + window._trErr(e), 'error');
   }
 };
 
@@ -8004,7 +8063,7 @@ window.adminRemoveTeamFromGroup = async function (groupId, teamId) {
       updatedAt: serverTimestamp()
     });
     showToast('تم إزالة الفريق', 'error');
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.adminUpdateGroupQualify = async function (groupId, value) {
@@ -8015,7 +8074,7 @@ window.adminUpdateGroupQualify = async function (groupId, value) {
       qualify: n, updatedAt: serverTimestamp()
     });
     showToast(`✅︎ تم تحديث المتأهلين: ${n}`, 'success');
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // توزيع الفرق تلقائياً على مجموعات متساوية — يفتح الـ wizard
@@ -8322,7 +8381,7 @@ window._adminPickBracketTeam = async function(roundId, slotIdx, teamId) {
       matchIds: [...(round?.matchIds || []), matchRef.id], updatedAt: serverTimestamp()
     });
     showToast('✅︎ أُنشئت المباراة وتظهر للجمهور الآن', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -8376,7 +8435,7 @@ window.adminConfirmBracketCreate = async function() {
     await batch2.commit();
 
     showToast(`✅︎ تم إنشاء شجرة من ${rounds[0].name}`, 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // إعادة بناء الشجرة من الصفر
@@ -8392,7 +8451,7 @@ window.adminResetBracket = async function() {
     existing.forEach(d => batch.delete(d.ref));
     await batch.commit();
     showToast('تم حذف الشجرة — اختر نوعاً جديداً', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.wizConfirmKnockout = window.adminConfirmBracketCreate;
@@ -8484,7 +8543,7 @@ window.adminSaveKnockoutRound = async function () {
     });
     showToast(`✅︎ تمت إضافة "${name}"`, 'success');
     closeModal('modal-knockout-round');
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ── نشر / إخفاء الشجرة للجمهور ──
@@ -8497,7 +8556,7 @@ window.toggleBracketPublish = async function () {
     settings.bracketPublished = next;
     updateBracketPublishUI(next);
     showToast(next ? '✅︎ تم نشر الشجرة للجمهور' : '🔒 تم إخفاء الشجرة عن الجمهور', next ? 'success' : 'error');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 function updateBracketPublishUI(published) {
@@ -8527,7 +8586,7 @@ window.adminDeleteKnockoutRound = async function (roundId) {
   try {
     await deleteDoc(doc(db, 'leagues', LEAGUE_ID, 'knockoutRounds', roundId));
     showToast('تم حذف الدور', 'error');
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ════════════════════════════════════════════════════════════
@@ -8603,7 +8662,7 @@ window.adminSaveMatchToRound = async function (roundId) {
     if (hEl) hEl.value = '';
     if (aEl) aEl.value = '';
 
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // حذف مباراة من الشجرة — يحذف الـ match document أيضاً
@@ -8620,7 +8679,7 @@ window.adminRemoveMatchFromRound = async function (roundId, matchId) {
       updatedAt: serverTimestamp()
     });
     showToast('تم حذف المباراة', 'success');
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // تحديث نتيجة مباراة الشجرة — يُحدّث الـ match document الحقيقي
@@ -8651,7 +8710,7 @@ window.adminUpdateKnockoutMatchResult = async function (roundId, matchId, homeSc
       await _autoAdvanceWinner(roundId, matchId, finalHs, finalAs);
     }
     await recalcStandings();
-  } catch (e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ── تقدم الفائز تلقائياً للدور التالي ──────────────────────────
@@ -10206,7 +10265,7 @@ window.addRosterPlayer = async function(teamId) {
     if(nameEl) { nameEl.value = ''; nameEl.focus(); }
     if(numEl)  numEl.value = number ? String(number + 1) : '';
     showToast(`✅︎ تمت إضافة ${name}`, 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ── حذف لاعب ──
@@ -10215,7 +10274,7 @@ window.deleteRosterPlayer = async function(teamId, playerId, playerName) {
   try {
     await deleteDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId));
     showToast('تم حذف اللاعب', 'error');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ── تحديث حالة اللاعب ──
@@ -10223,7 +10282,7 @@ window.updateRosterStatus = async function(teamId, playerId, status) {
   try {
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId), { status });
     showToast(`تم تحديث الحالة: ${ROSTER_STATUS[status]?.label || status}`, 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ── تعديل لاعب (inline) ──
@@ -10278,7 +10337,7 @@ window.saveRosterEdit = async function(teamId, playerId) {
     });
     showToast('✅︎ تم تحديث بيانات اللاعب', 'success');
     // الـ listener سيعيد الرسم تلقائياً
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.cancelRosterEdit = function(teamId, playerId) {
@@ -11144,7 +11203,7 @@ window.importRosterToLineup = function(teamId) {
       document.getElementById('mcv2-qr-ov')?.remove();
       window.showToast && window.showToast('✅︎ تم نشر النتيجة للجمهور', 'success');
     } catch(e) {
-      window.showToast && window.showToast('❌︎ خطأ في الحفظ: ' + e.message, 'error');
+      window.showToast && window.showToast('❌︎ خطأ في الحفظ: ' + window._trErr(e), 'error');
     }
   };
 
@@ -11212,7 +11271,7 @@ window.importRosterToLineup = function(teamId) {
       if (typeof renderMatches === 'function') renderMatches();
       window.showToast && window.showToast('↩️ رجعت المباراة — جاهزة للبث من جديد', 'success');
     } catch(e) {
-      window.showToast && window.showToast('خطأ: ' + e.message, 'error');
+      window.showToast && window.showToast('خطأ: ' + window._trErr(e), 'error');
     }
   };
 
@@ -11345,7 +11404,7 @@ window.importRosterToLineup = function(teamId) {
         }
       }
     } catch(e) {
-      window.showToast && window.showToast('خطأ: ' + e.message, 'error');
+      window.showToast && window.showToast('خطأ: ' + window._trErr(e), 'error');
     }
   };
 

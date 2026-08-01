@@ -2335,25 +2335,41 @@ if('serviceWorker' in navigator) {
 
   /* ── ضغط الصورة: يمنع تضخّم Firestore ── */
   function compress(file, cb) {
+    // استخدم الضاغط القوي الموحّد إن توفّر
+    if (window._compressImage) {
+      window._compressImage(file, { maxDim: 220, targetKB: 24 })
+        .then(function (out) { cb(out || null); })
+        .catch(function () { cb(null); });
+      return;
+    }
     var reader = new FileReader();
     reader.onload = function (e) {
       var img = new Image();
       img.onload = function () {
-        var MAX = 256;
+        var MAX = 220;
         var w = img.width, h = img.height;
         if (w > h && w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
         else if (h > MAX)     { w = Math.round(w * MAX / h); h = MAX; }
         var c = document.createElement('canvas');
         c.width = w; c.height = h;
         var ctx = c.getContext('2d');
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
         ctx.clearRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
-        // جرّب webp ثم png (للشفافية)
-        var out = c.toDataURL('image/webp', 0.85);
-        if (out.length > 60000 || out.indexOf('data:image/webp') !== 0)
-          out = c.toDataURL('image/png');
-        if (out.length > 60000) out = c.toDataURL('image/jpeg', 0.8);
-        cb(out);
+        var best = null, qs = [0.8, 0.7, 0.6, 0.5, 0.42, 0.35], LIMIT = 30000;
+        for (var i = 0; i < qs.length; i++) {
+          var o = c.toDataURL('image/webp', qs[i]);
+          if (o.indexOf('data:image/webp') === 0) { best = o; if (o.length <= LIMIT) break; }
+        }
+        if (!best || best.length > LIMIT) {
+          for (var j = 0; j < qs.length; j++) {
+            var o2 = c.toDataURL('image/jpeg', qs[j]);
+            if (!best || o2.length < best.length) best = o2;
+            if (o2.length <= LIMIT) { best = o2; break; }
+          }
+        }
+        if (!best) best = c.toDataURL('image/png');
+        cb(best);
       };
       img.onerror = function () { cb(null); };
       img.src = e.target.result;

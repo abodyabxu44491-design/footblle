@@ -17,13 +17,20 @@
 (function () {
   'use strict';
 
-  var MAX = 256;
-  var LIMIT = 60000;   // حد آمن لحقل Firestore
+  var MAX = 240;
+  var LIMIT = 30000;   // حد آمن أصغر لتوفير المساحة
 
   function toast(m, t) { window.showToast && window.showToast(m, t || 'success'); }
 
-  /* ── ضغط الصورة — يمنع تضخّم المستند ── */
+  /* ── ضغط قوي للصورة — جودة تكيّفية تنزل حتى نصل للحجم المستهدف ── */
   function compress(file, cb) {
+    // استخدم الضاغط الموحّد القوي إن توفّر
+    if (window._compressImage) {
+      window._compressImage(file, { maxDim: MAX, targetKB: 26 })
+        .then(function(out){ cb(out || null); })
+        .catch(function(){ cb(null); });
+      return;
+    }
     var reader = new FileReader();
     reader.onload = function (e) {
       var img = new Image();
@@ -34,12 +41,23 @@
         var c = document.createElement('canvas');
         c.width = w; c.height = h;
         var ctx = c.getContext('2d');
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
         ctx.clearRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
-        var out = c.toDataURL('image/webp', 0.85);
-        if (out.length > LIMIT || out.indexOf('data:image/webp') !== 0) out = c.toDataURL('image/png');
-        if (out.length > LIMIT) out = c.toDataURL('image/jpeg', 0.8);
-        cb(out.length > LIMIT ? null : out);
+        var best = null, qs = [0.8, 0.7, 0.6, 0.5, 0.42, 0.35];
+        for (var i = 0; i < qs.length; i++) {
+          var out = c.toDataURL('image/webp', qs[i]);
+          if (out.indexOf('data:image/webp') === 0) { best = out; if (out.length <= LIMIT) break; }
+        }
+        if (!best || best.length > LIMIT) {
+          for (var j = 0; j < qs.length; j++) {
+            var o2 = c.toDataURL('image/jpeg', qs[j]);
+            if (!best || o2.length < best.length) best = o2;
+            if (o2.length <= LIMIT) { best = o2; break; }
+          }
+        }
+        if (!best) best = c.toDataURL('image/png');
+        cb(best);
       };
       img.onerror = function () { cb(null); };
       img.src = e.target.result;

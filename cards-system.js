@@ -405,6 +405,15 @@
   }
 
   // ── roundRect polyfill ────────────────────────────────────────────
+  // قصّ الاسم ليتناسب مع عرض معيّن (يحافظ على شكل مرتّب)
+  function fitName(ctx, text, maxW) {
+    text = String(text || '');
+    if (ctx.measureText(text).width <= maxW) return text;
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+    return t + '…';
+  }
+
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); }
@@ -435,12 +444,23 @@
   }
 
   // ── رسم شعار فريق ────────────────────────────────────────────────
+  // رسم صورة داخل مربّع بنظام cover (تملأ المساحة بنسبتها الصحيحة بلا تشويه)
+  function _drawImgCover(ctx, img, dx, dy, dSize) {
+    const iw = img.naturalWidth || img.width || dSize;
+    const ih = img.naturalHeight || img.height || dSize;
+    if (!iw || !ih) { ctx.drawImage(img, dx, dy, dSize, dSize); return; }
+    const scale = Math.max(dSize / iw, dSize / ih);
+    const sw = dSize / scale, sh = dSize / scale;      // منطقة المصدر المقصوصة (مربّعة)
+    const sx = (iw - sw) / 2, sy = (ih - sh) / 2;      // توسيط القصّ
+    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dSize, dSize);
+  }
+
   function drawLogo(ctx, img, emoji, x, y, size) {
     if (img) {
       ctx.save(); ctx.beginPath();
       const r = size * 0.18;
       ctx.roundRect(x, y, size, size, r); ctx.clip();
-      ctx.drawImage(img, x, y, size, size); ctx.restore();
+      _drawImgCover(ctx, img, x, y, size); ctx.restore();
     } else if (emoji && emoji.length <= 4) {
       ctx.font = `${size*0.75}px Arial`; ctx.textAlign = 'center';
       ctx.fillText(emoji, x+size/2, y+size*0.78);
@@ -460,10 +480,10 @@
     ctx.strokeStyle = highlight ? `rgba(${rgb},0.55)` : 'rgba(255,255,255,0.10)';
     ctx.lineWidth = highlight ? 2.5 : 1.5;
     ctx.stroke();
-    // الشعار داخل قصّ دائري
+    // الشعار داخل قصّ دائري (يملأ الدائرة كاملة بلا تشويه)
     if (img) {
       ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.clip();
-      ctx.drawImage(img, cx-R, cy-R, size, size); ctx.restore();
+      _drawImgCover(ctx, img, cx-R, cy-R, size); ctx.restore();
     } else {
       ctx.font = `${size*0.62}px Arial`; ctx.textAlign = 'center';
       ctx.fillText(emoji || '⚽', cx, cy+size*0.22);
@@ -558,7 +578,7 @@
       // الشعار دائري
       ctx.save(); ctx.beginPath();
       ctx.arc(startX+logoSz/2, cy, logoSz/2, 0, Math.PI*2); ctx.clip();
-      ctx.drawImage(lgImg, startX, cy-logoSz/2, logoSz, logoSz); ctx.restore();
+      _drawImgCover(ctx, lgImg, startX, cy-logoSz/2, logoSz); ctx.restore();
 
       // حلقة رفيعة هادئة
       ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
@@ -850,17 +870,66 @@
     drawDivider(ctx, W, curY, 0.25);
     curY += 22;
 
-    // الهدافون
+    // الهدافون — عمودان: كل فريق هدّافوه تحته بالدقائق (مطابقٌ لجهة الشعار)
     const hSc = (m.homeScorers||'').split(',').map(s=>s.trim()).filter(Boolean);
     const aSc = (m.awayScorers||'').split(',').map(s=>s.trim()).filter(Boolean);
     if (hSc.length || aSc.length) {
-      drawText(ctx, '⚽  الهدافون', W/2, curY, '700 15px Tajawal,Arial', '#555', 'center');
-      curY += 28;
-      const all = [...hSc.map(s=>({n:s,t:ht.name})), ...aSc.map(s=>({n:s,t:at.name}))];
-      all.slice(0,6).forEach((s,i) => {
-        drawText(ctx, `${s.n}  ·  ${s.t}`, W/2, curY, '600 17px Tajawal,Arial', i%2===0?'#ddd':'#aaa', 'center');
-        curY += 28;
+      drawText(ctx, '⚽  الهدافون', W/2, curY, '700 16px Tajawal,Arial', accent, 'center');
+      curY += 34;
+
+      const colHomeX = W * 0.27;   // المضيف يسار — مطابقٌ لجهة شعاره
+      const colAwayX = W * 0.73;   // الضيف يمين
+      const headY = curY;
+
+      // رؤوس الأعمدة: اسم كل فريق
+      drawText(ctx, fitName(ctx, ht.name, 360), colHomeX, headY, '800 19px Tajawal,Arial', '#ccc', 'center');
+      drawText(ctx, fitName(ctx, at.name, 360), colAwayX, headY, '800 19px Tajawal,Arial', '#ccc', 'center');
+      // خط رفيع تحت كل رأس
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+      [colHomeX, colAwayX].forEach(cx0 => {
+        ctx.beginPath(); ctx.moveTo(cx0-130, headY+14); ctx.lineTo(cx0+130, headY+14); ctx.stroke();
       });
+
+      const listY = headY + 44;
+      const lh = 34;
+      const drawScorerCol = (list, cx0) => {
+        let yy = listY;
+        if (!list.length) { drawText(ctx, '—', cx0, yy, '400 17px Tajawal,Arial', '#666', 'center'); return yy + lh; }
+        list.slice(0,8).forEach(s => {
+          // فصل الاسم عن الدقيقة: «سالم 12» أو «سالم 12'»
+          const mt = s.match(/^(.*?)[\s\u00A0]*(\d+\+?\d*)'?\s*$/);
+          const nm  = mt ? mt[1].trim() : s;
+          const min = mt ? mt[2] : '';
+          ctx.textAlign = 'center';
+          // الاسم
+          ctx.font = '700 19px Tajawal,Arial'; ctx.fillStyle = '#eee';
+          const nmFit = fitName(ctx, nm, 200);
+          const nmW = ctx.measureText(nmFit).width;
+          if (min) {
+            // شارة دقيقة ذهبية يسار الاسم
+            ctx.font = '800 14px Tajawal,Arial';
+            const minTxt = min + "'";
+            const minW = ctx.measureText(minTxt).width + 14;
+            const total = nmW + 8 + minW;
+            const startX = cx0 + total/2;
+            ctx.textAlign = 'right'; ctx.font = '700 19px Tajawal,Arial'; ctx.fillStyle = '#eee';
+            ctx.fillText(nmFit, startX, yy);
+            const bx = startX - nmW - 8 - minW;
+            ctx.fillStyle = `rgba(${rgb},0.16)`;
+            roundRect(ctx, bx, yy-15, minW, 24, 7); ctx.fill();
+            ctx.textAlign = 'center'; ctx.font = '800 14px Tajawal,Arial'; ctx.fillStyle = accent;
+            ctx.fillText(minTxt, bx + minW/2, yy+1);
+          } else {
+            ctx.fillText(nmFit, cx0, yy);
+          }
+          yy += lh;
+        });
+        return yy;
+      };
+      const endH = drawScorerCol(hSc, colHomeX);
+      const endA = drawScorerCol(aSc, colAwayX);
+      curY = Math.max(endH, endA) + 6;
+      ctx.textAlign = 'center';
     }
 
     // رجل المباراة
@@ -1016,7 +1085,7 @@
       ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(W/2, curY+ls/2, ls/2+6, 0, Math.PI*2); ctx.stroke();
       ctx.save(); ctx.beginPath(); ctx.arc(W/2, curY+ls/2, ls/2, 0, Math.PI*2); ctx.clip();
-      ctx.drawImage(wImg, W/2-ls/2, curY, ls, ls); ctx.restore();
+      _drawImgCover(ctx, wImg, W/2-ls/2, curY, ls); ctx.restore();
     } else {
       ctx.font = '110px Arial'; ctx.textAlign = 'center'; ctx.fillText('⚽', W/2, curY+110);
     }
@@ -1304,9 +1373,7 @@
         <button class="cs-action-btn secondary" id="cs-btn-download" style="display:none" onclick="window._csDownload()"><span>💾</span> حفظ الصورة</button>
       </div>
       <div class="cs-actions" id="cs-share-btns" style="display:none">
-        <button class="cs-action-btn share-wa" onclick="window._csShareWA()"><span>📲</span> واتساب</button>
-        <button class="cs-action-btn share-tg" onclick="window._csShareTG()"><span>✈️</span> تيليجرام</button>
-        <button class="cs-action-btn secondary" onclick="window._csShareNative()"><span>🔗</span> مشاركة</button>
+        <button class="cs-action-btn primary" onclick="window._csShareNative()" style="flex:2"><span>🔗</span> مشاركة البطاقة والمنشور</button>
       </div>`;
     openModal();
   }
@@ -1322,6 +1389,10 @@
     if (pw) pw.style.display = 'block';
     if (pc) pc.style.opacity = '.3';
     const extras = readFormExtras(_state.cardType);
+    // خزّن السياق لبناء منشور المشاركة المناسب
+    _state.currentMatch  = m;
+    _state.currentExtras = extras;
+    _state.currentType   = _state.cardType;
     let canvas;
     try {
       switch (_state.cardType) {
@@ -1381,18 +1452,67 @@
   /* ── نص إعلان البطولة للمشاركة ── */
   function _buildShareText(name, url) {
     const S  = window.settings || {};
-
-    // رسالة ترحيب بسيطة باسم البطولة فقط — بلا نوع البطولة ولا عدد الفرق
+    const m  = _state.currentMatch || {};
+    const ex = _state.currentExtras || {};
+    const type = _state.currentType || 'postmatch';
+    const ht = getTeam(m.homeId, m.homeName, m.homeLogo) || {};
+    const at = getTeam(m.awayId, m.awayName, m.awayLogo) || {};
     const L = [];
-    L.push('*' + name + '*' + (S.season ? ' · ' + S.season : ''));
+    const line = '━━━━━━━━━━━━━━';
+
+    const head = () => {
+      let h = '🏆 *' + name + '*' + (S.season ? ' · ' + S.season : '');
+      const stage = ex.stage || m.knockoutRoundName || (m.round ? 'الجولة ' + m.round : '');
+      if (stage) h += '\n' + stage;
+      return h;
+    };
+
+    if (type === 'postmatch') {
+      const hs = m.homeScore ?? 0, as_ = m.awayScore ?? 0;
+      L.push('🏁 *انتهت المباراة*');
+      L.push(head());
+      L.push('');
+      L.push('⚽ ' + (ht.name||'') + '  ' + hs + ' - ' + as_ + '  ' + (at.name||''));
+      if (m.penaltyScoreHome != null && m.homeScore === m.awayScore)
+        L.push('🥅 ركلات الترجيح: ' + m.penaltyScoreHome + ' - ' + m.penaltyScoreAway);
+      // الهدّافون مرتّبون تحت كل فريق
+      const hSc = (m.homeScorers||'').split(',').map(s=>s.trim()).filter(Boolean);
+      const aSc = (m.awayScorers||'').split(',').map(s=>s.trim()).filter(Boolean);
+      if (hSc.length) { L.push(''); L.push('⚽ ' + (ht.name||'') + ':'); hSc.forEach(s => L.push('  • ' + s)); }
+      if (aSc.length) { L.push(''); L.push('⚽ ' + (at.name||'') + ':'); aSc.forEach(s => L.push('  • ' + s)); }
+      const mom = ex.mom || m.manOfMatch;
+      if (mom) { L.push(''); L.push('🌟 رجل المباراة: ' + mom); }
+    } else if (type === 'mom') {
+      const mom = ex.mom || m.manOfMatch || '';
+      L.push('🌟 *رجل المباراة*');
+      L.push(head());
+      L.push('');
+      L.push('⭐ ' + mom);
+      L.push((ht.name||'') + ' ضد ' + (at.name||''));
+      const hs = m.homeScore ?? 0, as_ = m.awayScore ?? 0;
+      if (m.status === 'finished') L.push('النتيجة: ' + hs + ' - ' + as_);
+    } else if (type === 'prematch') {
+      L.push('⚽ *مباراة قادمة*');
+      L.push(head());
+      L.push('');
+      L.push('⚔️ ' + (ht.name||'') + '  ضد  ' + (at.name||''));
+      if (m.date) L.push('🗓️ ' + m.date + (m.time ? ' · ' + m.time : ''));
+      if (m.stadium) L.push('🏟️ ' + m.stadium);
+    } else if (type === 'qual') {
+      L.push('🏆 *بطاقة التأهل*');
+      L.push(head());
+      L.push('');
+      if (ex.qualText) L.push(ex.qualText);
+    } else {
+      L.push(head());
+    }
+
     L.push('');
-    L.push('تابع البطولة لحظة بلحظة');
-    L.push('كل النتائج والترتيب والهدافون والبث المباشر في مكان واحد.');
-    L.push('');
-    L.push('اضغط للمتابعة:');
+    L.push(line);
+    L.push('📲 تابع كل التفاصيل والبث المباشر:');
     L.push(url);
     L.push('');
-    L.push('_منصة بطولات — تطوير عبدالله السكني_');
+    L.push('_منصة بطولات — تطوير وبرمجة عبدالله السكني_');
     return L.join('\n');
   }
 
@@ -1410,7 +1530,19 @@
        النص يتكيّف مع نوع البطولة وحالتها الحيّة، وينتهي بدعوة
        واضحة للمتابعة + رابط الجمهور. */
     const text = _buildShareText(name, url);
-    if (platform==='native' && navigator.share && navigator.canShare && navigator.canShare({files:[file]})) { navigator.share({title:name,text,files:[file]}).catch(()=>{}); return; }
+    if (platform==='native' || platform==='share') {
+      if (navigator.share && navigator.canShare && navigator.canShare({files:[file]})) {
+        navigator.share({title:name, text, files:[file]}).catch(()=>{});
+        return;
+      }
+      // بديل: احفظ الصورة وانسخ المنشور (للأجهزة التي لا تدعم المشاركة المباشرة)
+      try {
+        const a = document.createElement('a'); a.href=_state.canvasData; a.download='match-card.png'; a.click();
+        if (navigator.clipboard) navigator.clipboard.writeText(text);
+        if (window.showToast) window.showToast('تم حفظ الصورة ونسخ المنشور — الصقه عند النشر', 'success');
+      } catch(e) {}
+      return;
+    }
     if (platform==='wa') { window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,'_blank'); return; }
     if (platform==='tg') { window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`,'_blank'); return; }
     const a = document.createElement('a'); a.href=_state.canvasData; a.download='match-card.png'; a.click();
@@ -1526,9 +1658,7 @@
       </div>
       <div class="cs-actions">
         <button class="cs-action-btn secondary" onclick="window._csDownload()"><span>💾</span> حفظ</button>
-        <button class="cs-action-btn share-wa" onclick="window._csShareWA()"><span>📲</span> واتساب</button>
-        <button class="cs-action-btn share-tg" onclick="window._csShareTG()"><span>✈️</span> تيليجرام</button>
-        <button class="cs-action-btn secondary" onclick="window._csShareNative()"><span>🔗</span> مشاركة</button>
+        <button class="cs-action-btn primary" onclick="window._csShareNative()" style="flex:2"><span>🔗</span> مشاركة</button>
       </div>`;
     openModal();
   };

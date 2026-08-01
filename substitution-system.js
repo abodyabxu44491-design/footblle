@@ -71,26 +71,41 @@
   window._subBuildPickerHtml = function (matchId, side) {
     const match = (window.matches || []).find(m => m.id === matchId);
     const { starters, bench } = getSideLineup(match, side);
-    const outSet = alreadyOut(match && match.events, side);
-    const inSet  = alreadyIn(match && match.events, side);
+    const events = match && match.events;
+    const outSet = alreadyOut(events, side);   // من خرج (أو طُرد)
+    const inSet  = alreadyIn(events, side);     // من دخل من الدكة
 
-    const outList = starters.filter(p => !outSet.has(String(p.name || '').trim()));
-    const inList  = bench.filter(p => !inSet.has(String(p.name || '').trim()));
+    // 🔑 اللاعبون على أرض الملعب حالياً = الأساسيون + من دخل من الدكة، ناقص من خرج/طُرد
+    // فاللاعب الداخل من الدكة يصبح "أساسياً" ويمكن تبديله مرة أخرى.
+    const benchByName = new Map(bench.map(p => [String(p.name || '').trim(), p]));
+    const onFieldFromBench = [...inSet]
+      .filter(nm => !outSet.has(nm))            // دخل ولم يخرج بعد
+      .map(nm => benchByName.get(nm))
+      .filter(Boolean);
 
-    const emptyHint = (msg) =>
-      `<div class="sub-pk-empty">${msg}</div>`;
+    const outList = starters
+      .filter(p => !outSet.has(String(p.name || '').trim()))   // أساسي لم يخرج
+      .concat(onFieldFromBench);                               // + بديل دخل وهو الآن على الملعب
+
+    // قائمة الدخول = بدلاء لم يدخلوا بعد ولم يُطردوا
+    const inList = bench.filter(p => {
+      const nm = String(p.name || '').trim();
+      return !inSet.has(nm) && !outSet.has(nm);
+    });
+
+    const emptyHint = (msg) => `<div class="sub-pk-empty">${msg}</div>`;
 
     const outHtml = outList.length
       ? outList.map(p => playerBtn(p, 'out')).join('')
-      : emptyHint('لا يوجد لاعبون في التشكيلة الأساسية — احفظ التشكيلة أولاً من قسم «التشكيلات».');
+      : emptyHint('لا يوجد لاعبون على أرض الملعب — احفظ التشكيلة أولاً من قسم «التشكيلات».');
     const inHtml = inList.length
       ? inList.map(p => playerBtn(p, 'in')).join('')
-      : emptyHint('لا يوجد بدلاء في الدكة — أضِفهم في قسم «التشكيلات».');
+      : emptyHint('لا يوجد بدلاء متاحون في الدكة.');
 
     return `
       <div class="sub-pk-wrap">
         <div class="sub-pk-col">
-          <div class="sub-pk-head sub-pk-head-out">${window.Icon?window.Icon('download',11):''} خارج (من الأساسي)</div>
+          <div class="sub-pk-head sub-pk-head-out">${window.Icon?window.Icon('download',11):''} خارج (على الملعب)</div>
           <div class="sub-pk-list">${outHtml}</div>
         </div>
         <div class="sub-pk-col">

@@ -2715,10 +2715,11 @@ function buildScorersData() {
         const name = (ev.player || '').trim();
         if (!name || name === '—' || name === '؟' || name === '?') return;
         const tid = ev.teamId || (_evSide(ev) === 'home' ? m.homeId : m.awayId);
-        const key = tid + '::' + name;
+        // 🛡️ الفصل بالهوية: playerId يفصل حتى المتشابهين بالاسم داخل نفس الفريق
+        const key = ev.playerId ? (tid + '::id::' + ev.playerId) : (tid + '::' + name);
         if (!map[key]) {
           const team = teams.find(t => t.id === tid) || {};
-          map[key] = { name, goals: 0, teamId: tid, teamName: team.name || '', teamLogo: team.logo || '' };
+          map[key] = { name, goals: 0, teamId: tid, teamName: team.name || '', teamLogo: team.logo || '', playerId: ev.playerId || null };
         }
         map[key].goals += 1;
       });
@@ -3231,15 +3232,23 @@ function _playerMatchBadges(events, side, playerName, number) {
   };
 
   let goals = 0, yellow = 0, red = false, subOut = null, subIn = null;
+  const hasNum = number != null && number !== '';
+  // مطابقة اللاعب: بالرقم إن توفّر في الحدث (أدقّ)، وإلا بالاسم المُطبّع
+  const matchesPlayer = (e, nameField, numField) => {
+    if (hasNum && e[numField] != null && e[numField] !== '') {
+      return String(e[numField]) === String(number);
+    }
+    return normEq(e[nameField]);
+  };
   events.forEach(e => {
     if (sideOf(e) !== side) return;
     if (e.type === 'sub') {
       const mn = e.extraMinute > 0 ? (e.minute + '+' + e.extraMinute) : e.minute;
-      if (normEq(e.playerOut || e.player)) subOut = mn;
-      if (normEq(e.playerIn  || e.player2)) subIn = mn;
+      if (matchesPlayer(e, 'playerOut', 'playerOutNumber') || normEq(e.playerOut || e.player)) subOut = mn;
+      if (matchesPlayer(e, 'playerIn', 'playerInNumber') || normEq(e.playerIn || e.player2)) subIn = mn;
       return;
     }
-    if (nameOf(e) !== nm && !normEq(nameOf(e))) return;
+    if (!matchesPlayer(e, 'player', 'playerNumber')) return;
     if (e.type === 'goal') goals++;
     else if (e.type === 'yellow') yellow++;
     else if (e.type === 'red') red = true;

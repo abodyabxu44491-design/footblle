@@ -1074,8 +1074,8 @@ function renderSubsSection(subs) {
     <div class="sub-row2">
       <span class="sub-min2">${s.min !== '' ? s.min + "'" : ''}</span>
       <div class="sub-pair">
-        <div class="sub-line in"><span class="sub-ico in">▲</span><span class="sub-nm">${s.in || '—'}</span></div>
-        <div class="sub-line out"><span class="sub-ico out">▼</span><span class="sub-nm">${s.out || '—'}</span></div>
+        <div class="sub-line in"><span class="sub-ico in">${window.Icon?window.Icon('upload',11):'▲'}</span><span class="sub-nm">${s.in || '—'}</span></div>
+        <div class="sub-line out"><span class="sub-ico out">${window.Icon?window.Icon('download',11):'▼'}</span><span class="sub-nm">${s.out || '—'}</span></div>
       </div>
     </div>`).join('');
   return `
@@ -3268,8 +3268,8 @@ function _playerMatchBadges(events, side, playerName, number) {
     badges.push('<span class="pl-badge pl-badge-goal">' + ball + cnt + '</span>');
   }
   // سهم التبديل
-  if (subOut != null) badges.push(`<span class="pl-badge pl-badge-subout" title="خرج ${subOut}'">▼</span>`);
-  else if (subIn != null) badges.push(`<span class="pl-badge pl-badge-subin" title="دخل ${subIn}'">▲</span>`);
+  if (subOut != null) badges.push(`<span class="pl-badge pl-badge-subout" title="خرج ${subOut}'">${window.Icon?window.Icon('download',9):'▼'}</span>`);
+  else if (subIn != null) badges.push(`<span class="pl-badge pl-badge-subin" title="دخل ${subIn}'">${window.Icon?window.Icon('upload',9):'▲'}</span>`);
 
   if (!badges.length) return '';
   return '<div class="pl-badges">' + badges.join('') + '</div>';
@@ -4182,8 +4182,8 @@ function renderPitchViewer(lineup, isAway) {
                 <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--b1)">
                   <span style="min-width:32px;font-size:12px;font-weight:900;color:var(--gold)">${s.min!==''?s.min+"'":''}</span>
                   <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1">
-                    <span style="font-size:12.5px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#27ae60;font-weight:900">▲</span> ${s.in||'—'}</span>
-                    <span style="font-size:12px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#e5533d;font-weight:900">▼</span> ${s.out||'—'}</span>
+                    <span style="font-size:12.5px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#27ae60;font-weight:900">${window.Icon?window.Icon('upload',11):'▲'}</span> ${s.in||'—'}</span>
+                    <span style="font-size:12px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#e5533d;font-weight:900">${window.Icon?window.Icon('download',11):'▼'}</span> ${s.out||'—'}</span>
                   </div>
                 </div>`).join('')}
             </div>` : '';

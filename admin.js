@@ -1,7 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, writeBatch, where }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+         updatePassword, reauthenticateWithCredential, EmailAuthProvider }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -748,6 +749,77 @@ window.logoHtml = logoHtml; // ✅︎ متاح دائماً — يمنع ظهو�
 
 window.doLogout = async function() {
   if(confirm('هل تريد الخروج؟')) { await signOut(auth); location.reload(); }
+};
+
+// ══ تغيير كلمة مرور إدارة الدوري ══
+// يستخدم Firebase Auth: بعد التغيير تُرفض كلمة المرور القديمة تلقائياً.
+window.openChangePassword = function() {
+  document.getElementById('cpw-ov')?.remove();
+  const user = auth.currentUser;
+  const email = user ? user.email : '';
+  const ov = document.createElement('div');
+  ov.id = 'cpw-ov';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML = `
+    <div style="background:#141414;border:1px solid #2a2a2a;border-radius:18px;padding:22px;width:100%;max-width:380px" onclick="event.stopPropagation()">
+      <div style="font-size:16px;font-weight:900;color:#eee;margin-bottom:4px;font-family:Tajawal,sans-serif">🔐 تغيير كلمة المرور</div>
+      <div style="font-size:11px;color:#888;margin-bottom:18px;font-family:Tajawal,sans-serif">${email || 'حساب إدارة الدوري'}</div>
+
+      <label style="font-size:11px;color:#888;font-family:Tajawal,sans-serif">كلمة المرور الحالية</label>
+      <input id="cpw-old" type="password" autocomplete="current-password" placeholder="••••••••" style="width:100%;margin:5px 0 14px;padding:12px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
+
+      <label style="font-size:11px;color:#888;font-family:Tajawal,sans-serif">كلمة المرور الجديدة (6 أحرف على الأقل)</label>
+      <input id="cpw-new1" type="password" autocomplete="new-password" placeholder="••••••••" style="width:100%;margin:5px 0 14px;padding:12px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
+
+      <label style="font-size:11px;color:#888;font-family:Tajawal,sans-serif">تأكيد كلمة المرور الجديدة</label>
+      <input id="cpw-new2" type="password" autocomplete="new-password" placeholder="••••••••" style="width:100%;margin:5px 0 8px;padding:12px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
+
+      <div id="cpw-err" style="font-size:11px;color:#e74c3c;min-height:16px;margin-bottom:10px;font-family:Tajawal,sans-serif"></div>
+
+      <div style="display:flex;gap:8px">
+        <button onclick="document.getElementById('cpw-ov').remove()" style="flex:1;padding:12px;border-radius:10px;border:1px solid #333;background:#222;color:#aaa;font-family:Tajawal,sans-serif;cursor:pointer">إلغاء</button>
+        <button id="cpw-save" onclick="saveNewPassword()" style="flex:2;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#F0C84A,#C9A02B);color:#000;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer">حفظ كلمة المرور</button>
+      </div>
+      <div style="font-size:10px;color:#666;margin-top:12px;line-height:1.7;font-family:Tajawal,sans-serif">بعد التغيير، لن تُقبل كلمة المرور القديمة للدخول لهذه الصفحة.</div>
+    </div>`;
+  ov.onclick = () => ov.remove();
+  document.body.appendChild(ov);
+};
+
+window.saveNewPassword = async function() {
+  const errEl = document.getElementById('cpw-err');
+  const setErr = m => { if (errEl) errEl.textContent = m; };
+  setErr('');
+  const oldPass = document.getElementById('cpw-old')?.value || '';
+  const new1 = document.getElementById('cpw-new1')?.value || '';
+  const new2 = document.getElementById('cpw-new2')?.value || '';
+
+  if (!oldPass) return setErr('أدخل كلمة المرور الحالية');
+  if (new1.length < 6) return setErr('كلمة المرور الجديدة قصيرة (6 أحرف على الأقل)');
+  if (new1 !== new2) return setErr('كلمتا المرور غير متطابقتين');
+  if (new1 === oldPass) return setErr('كلمة المرور الجديدة مطابقة للحالية');
+
+  const user = auth.currentUser;
+  if (!user || !user.email) return setErr('انتهت الجلسة — أعد الدخول');
+
+  const btn = document.getElementById('cpw-save');
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
+  try {
+    // إعادة المصادقة بالكلمة الحالية (شرط Firebase قبل التغيير)
+    const cred = EmailAuthProvider.credential(user.email, oldPass);
+    await reauthenticateWithCredential(user, cred);
+    await updatePassword(user, new1);
+    document.getElementById('cpw-ov')?.remove();
+    showToast('✅︎ تم تغيير كلمة المرور — استخدم الجديدة في الدخول', 'success');
+  } catch (e) {
+    const code = e && e.code ? e.code : '';
+    let msg = window._trErr ? window._trErr(e) : (e.message || 'تعذّر التغيير');
+    if (code.indexOf('wrong-password') !== -1 || code.indexOf('invalid-credential') !== -1) msg = 'كلمة المرور الحالية خاطئة';
+    else if (code.indexOf('weak-password') !== -1) msg = 'كلمة المرور الجديدة ضعيفة';
+    else if (code.indexOf('requires-recent-login') !== -1) msg = 'أعد تسجيل الدخول ثم حاول';
+    setErr(msg);
+    if (btn) { btn.disabled = false; btn.textContent = 'حفظ كلمة المرور'; }
+  }
 };
 
 // ══ LOAD DATA ══
@@ -5335,10 +5407,76 @@ window._lpRenderEvents = function _lpRenderEvents(matchId) {
       <div class="lp-ev-min">${ev.minute}'</div>
       <div class="lp-ev-icon">${ev.icon}</div>
       <div class="lp-ev-desc">${desc}</div>
-      <button class="lp-ev-del" onclick="lpDeleteEvent('${matchId}',${ev.id})">✕</button>
+      <button class="lp-ev-edit" onclick="lpEditEvent('${matchId}',${ev.id})" title="تعديل" style="background:rgba(201,160,43,.12);border:1px solid rgba(201,160,43,.35);color:#C9A02B;border-radius:7px;width:28px;height:28px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin-inline-end:4px">${window.Icon?window.Icon('edit',13):'تعديل'}</button>
+      <button class="lp-ev-del" onclick="lpDeleteEvent('${matchId}',${ev.id})" title="حذف">${window.Icon?window.Icon('trash',13):'حذف'}</button>
     </div>`;
   }).join('');
 }
+
+// ── تعديل حدث موجود (هدف/كرت/تبديل/عكسي) عبر نافذة ──
+window.lpEditEvent = function(matchId, id) {
+  const st = _liveMatches[matchId];
+  if (!st) return;
+  const ev = (st.events || []).find(e => e.id === id);
+  if (!ev) return;
+  document.getElementById('lp-editev-ov')?.remove();
+
+  const isSub = ev.type === 'sub';
+  const isOwn = ev.type === 'own';
+  const typeLabel = { goal:'⚽ هدف', penalty:'🎯 ركلة جزاء', yellow:'🟨 بطاقة صفراء', red:'🟥 بطاقة حمراء', sub:'🔄 تبديل', own:'⚽ هدف عكسي', assist:'👟 صناعة', injury:'🤕 إصابة', var:'📺 VAR' }[ev.type] || ev.label || 'حدث';
+
+  const body = isSub
+    ? `<label style="font-size:11px;color:#888">الداخل ▲</label>
+       <input id="lp-ee-in" value="${(ev.playerIn||ev.player2||'').replace(/"/g,'&quot;')}" style="width:100%;margin:4px 0 12px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
+       <label style="font-size:11px;color:#888">الخارج ▼</label>
+       <input id="lp-ee-out" value="${(ev.playerOut||ev.player||'').replace(/"/g,'&quot;')}" style="width:100%;margin:4px 0 12px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>`
+    : isOwn
+      ? `<div style="font-size:12px;color:#e5533d;margin-bottom:12px">هدف عكسي — لا يُنسب للاعب</div>`
+      : `<label style="font-size:11px;color:#888">اسم اللاعب</label>
+         <input id="lp-ee-player" value="${(ev.player||'').replace(/"/g,'&quot;')}" style="width:100%;margin:4px 0 12px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>`;
+
+  const ov = document.createElement('div');
+  ov.id = 'lp-editev-ov';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML = `
+    <div style="background:#141414;border:1px solid #2a2a2a;border-radius:18px;padding:20px;width:100%;max-width:360px" onclick="event.stopPropagation()">
+      <div style="font-size:15px;font-weight:900;color:#eee;margin-bottom:4px;font-family:Tajawal,sans-serif">تعديل: ${typeLabel}</div>
+      <div style="font-size:11px;color:#888;margin-bottom:16px">${ev.teamName || ''}</div>
+      ${body}
+      <label style="font-size:11px;color:#888">الدقيقة</label>
+      <input id="lp-ee-min" type="number" value="${ev.minute || ''}" style="width:100%;margin:4px 0 16px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
+      <div style="display:flex;gap:8px">
+        <button onclick="document.getElementById('lp-editev-ov').remove()" style="flex:1;padding:12px;border-radius:10px;border:1px solid #333;background:#222;color:#aaa;font-family:Tajawal,sans-serif;cursor:pointer">إلغاء</button>
+        <button onclick="lpSaveEditEvent('${matchId}',${id})" style="flex:2;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#F0C84A,#C9A02B);color:#000;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">${window.Icon?window.Icon('save',14):''} حفظ التعديل</button>
+      </div>
+    </div>`;
+  ov.onclick = () => ov.remove();
+  document.body.appendChild(ov);
+};
+
+window.lpSaveEditEvent = async function(matchId, id) {
+  const st = _liveMatches[matchId];
+  if (!st) return;
+  const ev = (st.events || []).find(e => e.id === id);
+  if (!ev) return;
+  const minEl = document.getElementById('lp-ee-min');
+  if (minEl && minEl.value !== '') ev.minute = parseInt(minEl.value) || ev.minute;
+
+  if (ev.type === 'sub') {
+    const inEl = document.getElementById('lp-ee-in'), outEl = document.getElementById('lp-ee-out');
+    if (inEl)  { ev.playerIn  = inEl.value.trim();  ev.player2 = ev.playerIn; }
+    if (outEl) { ev.playerOut = outEl.value.trim(); ev.player  = ev.playerOut; }
+  } else if (ev.type !== 'own') {
+    const pEl = document.getElementById('lp-ee-player');
+    if (pEl) ev.player = pEl.value.trim();
+  }
+  // إعادة الترتيب حسب الدقيقة
+  st.events.sort((a, b) => (a.minute || 0) - (b.minute || 0));
+  document.getElementById('lp-editev-ov')?.remove();
+  _lpRenderEvents(matchId);
+  await _lpSave(matchId);
+  showToast('✅︎ تم تعديل الحدث', 'success');
+};
 
 window.lpDeleteEvent = async function(matchId, id) {
   const st = _liveMatches[matchId];

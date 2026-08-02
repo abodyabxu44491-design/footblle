@@ -206,7 +206,6 @@ if('serviceWorker' in navigator) {
     </div>
     <div class="tb-actions">
       <button class="tb-btn" id="viewerBtn" onclick="openViewer()"><svg class="ic ic-eye" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="vertical-align:-3px;margin-left:4px"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.8"/></svg>الجمهور ↗︎</button>
-      <button class="tb-btn" onclick="openChangePassword()" title="تغيير كلمة المرور"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-left:4px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>كلمة المرور</button>
       <button class="tb-btn danger" onclick="doLogout()">خروج</button>
     </div>
   </div>
@@ -722,6 +721,13 @@ if('serviceWorker' in navigator) {
           <div class="page-sub">إجراءات لا يمكن التراجع عنها</div>
         </div>
         <div style="display:grid;gap:12px">
+          <div class="card" style="border-color:var(--gold)"><div class="card-body">
+            <div style="font-size:14px;font-weight:700;color:var(--gold);margin-bottom:6px">🔐 تغيير كلمة المرور</div>
+            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">
+              غيّر كلمة مرور دخولك لهذه الصفحة. بعد التغيير لن تُقبل كلمة المرور القديمة نهائياً.
+            </div>
+            <button class="btn btn-gold" onclick="openChangePassword()">🔐 تغيير كلمة المرور</button>
+          </div></div>
           <div class="card"><div class="card-body">
             <div style="font-size:14px;font-weight:700;color:var(--gold);margin-bottom:6px">فحص سلامة البطولة</div>
             <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">

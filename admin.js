@@ -1680,37 +1680,37 @@ function renderMatchCard(m) {
   ${isFin ? `
   <div style="padding:10px 12px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
     <button onclick="mcv2OpenLive('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(201,160,43,.35);background:rgba(201,160,43,.1);color:#C9A02B;cursor:pointer;font-family:Tajawal,sans-serif">
-      <span style="font-size:18px">✏️</span>
+      <span style="display:flex">${window.Icon?window.Icon('edit',20):''}</span>
       <span style="font-size:10px;font-weight:800;text-align:center;line-height:1.25">تعديل<br>الأحداث</span>
     </button>
     <button onclick="mcv2OpenInfo('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(52,152,219,.3);background:rgba(52,152,219,.08);color:#3498db;cursor:pointer;font-family:Tajawal,sans-serif">
-      <span style="font-size:18px">⚙︎️</span>
+      <span style="display:flex">${window.Icon?window.Icon('settings',20):''}</span>
       <span style="font-size:10px;font-weight:800;text-align:center;line-height:1.25">معلومات<br>المباراة</span>
     </button>
     <button onclick="mcv2OpenLineup('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(142,68,173,.3);background:rgba(142,68,173,.08);color:#8e44ad;cursor:pointer;font-family:Tajawal,sans-serif">
-      <span style="font-size:18px">🧠</span>
+      <span style="display:flex">${window.Icon?window.Icon('shirt',20):''}</span>
       <span style="font-size:10px;font-weight:800;text-align:center;line-height:1.25">تعديل<br>التشكيلة</span>
     </button>
     <button onclick="mcv2UndoMatch('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(230,126,34,.35);background:rgba(230,126,34,.08);color:#e67e22;cursor:pointer;font-family:Tajawal,sans-serif">
-      <span style="font-size:18px">↩️</span>
+      <span style="display:flex">${window.Icon?window.Icon('refresh',20):''}</span>
       <span style="font-size:10px;font-weight:800;text-align:center;line-height:1.25">إرجاع<br>المباراة</span>
     </button>
   </div>` : `
   <div style="padding:10px 12px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
     <button onclick="mcv2OpenLive('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(192,57,43,${isLive ? '.5' : '.25'});background:rgba(192,57,43,${isLive ? '.15' : '.08'});color:#C0392B;cursor:pointer;font-family:Tajawal,sans-serif;${isLive ? 'animation:mcv2pulse 1.5s infinite' : ''}">
-      <span style="font-size:18px">📡</span>
+      <span style="display:flex">${window.Icon?window.Icon('whistle',20):''}</span>
       <span style="font-size:10px;font-weight:700;text-align:center;line-height:1.25">بث<br>مباشر</span>
     </button>
     <button onclick="mcv2OpenQuickResult('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(39,174,96,.25);background:rgba(39,174,96,.08);color:#27ae60;cursor:pointer;font-family:Tajawal,sans-serif">
-      <span style="font-size:18px">📝</span>
+      <span style="display:flex">${window.Icon?window.Icon('list',20):''}</span>
       <span style="font-size:10px;font-weight:700;text-align:center;line-height:1.25">إدخال<br>سريع</span>
     </button>
     <button onclick="mcv2OpenInfo('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(201,160,43,.25);background:rgba(201,160,43,.08);color:#C9A02B;cursor:pointer;font-family:Tajawal,sans-serif">
-      <span style="font-size:18px">⚙︎️</span>
+      <span style="display:flex">${window.Icon?window.Icon('settings',20):''}</span>
       <span style="font-size:10px;font-weight:700;text-align:center;line-height:1.25">معلومات</span>
     </button>
     <button onclick="mcv2OpenLineup('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(142,68,173,.25);background:rgba(142,68,173,.08);color:#8e44ad;cursor:pointer;font-family:Tajawal,sans-serif">
-      <span style="font-size:18px">🧠</span>
+      <span style="display:flex">${window.Icon?window.Icon('shirt',20):''}</span>
       <span style="font-size:10px;font-weight:700;text-align:center;line-height:1.25">التشكيلات</span>
     </button>
   </div>`}

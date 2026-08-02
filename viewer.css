@@ -2340,6 +2340,13 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .ev-card{display:inline-block;width:9px;height:13px;border-radius:2px;vertical-align:-1px}
 .ev-y{background:#E8B93B}
 .ev-r{background:#C0392B}
+/* البطاقة الثانية = طرد: مربّعان متداخلان (أصفر خلف أحمر) */
+.ev-card2{position:relative;display:inline-block;width:15px;height:14px;vertical-align:-2px}
+.ev-card2 .ev-card{position:absolute;top:0}
+.ev-card2 .ev-y{right:0;transform:rotate(-8deg)}
+.ev-card2 .ev-r{left:0;transform:rotate(8deg)}
+.vt-chip-sy{border-color:rgba(192,57,43,.4)!important;background:rgba(192,57,43,.06)!important}
+.vt-sy-label{display:inline-block;font-size:9px;font-weight:800;color:#C0392B;background:rgba(192,57,43,.12);border-radius:4px;padding:1px 6px;margin-inline-start:5px}
 
 /* ══════════════════════════════════════════════════════════
    الأداء — تهدئة التأثيرات

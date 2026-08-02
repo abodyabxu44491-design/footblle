@@ -3907,6 +3907,18 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
 
         rows.sort((a, b) => (a.minute - b.minute) || (a.order - b.order));
 
+        // ── كشف البطاقة الصفراء الثانية: تُعرض كطرد (صفراء+حمراء) ──
+        const _secondYellowIds = new Set();
+        const _yCount = {};
+        rows.filter(r => r.ev && r.ev.type === 'yellow')
+          .forEach(r => {
+            const ev = r.ev;
+            const side = _evSide(ev);
+            const who = side + '::' + _normName(ev.player || ev.playerNumber || '');
+            _yCount[who] = (_yCount[who] || 0) + 1;
+            if (_yCount[who] === 2) _secondYellowIds.add(ev.id != null ? ev.id : ev);
+          });
+
         function rowHtml(r) {
           if (r.kind === 'marker') {
             return `<div class="vt-row vt-row-mid">
@@ -3972,6 +3984,20 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
                   <span class="vt-sub-line vt-sub-out"><span class="vt-sub-arrow">${window.Icon ? window.Icon('download', 10) : '▼'}</span>${outName}</span>
                 </span>
                 <span class="vt-chip-team">(${sideLbl})</span>
+              </div>
+            </div>`;
+          }
+
+          // ── البطاقة الصفراء الثانية = طرد (تصميم مميّز مثل التطبيقات الرسمية) ──
+          const _isSecondYellow = ev.type === 'yellow' && _secondYellowIds.has(ev.id != null ? ev.id : ev);
+          if (_isSecondYellow) {
+            return `<div class="vt-row vt-row-mid">
+              <div class="vt-chip vt-chip-event vt-chip-sy">
+                <span class="vt-chip-ic"><span class="ev-card2"><span class="ev-card ev-y"></span><span class="ev-card ev-r"></span></span></span>
+                <span class="vt-chip-txt"><strong>${ev.player || ''}</strong>
+                  <span class="vt-sy-label">بطاقة ثانية · طرد</span>
+                  <span class="vt-chip-team">(${sideLbl})</span></span>
+                <span class="vt-chip-min">${minLabel(ev)}</span>
               </div>
             </div>`;
           }

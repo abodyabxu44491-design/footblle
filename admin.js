@@ -1605,6 +1605,25 @@ function renderMatchCard(m) {
   ${matchInfo}
 
   <!-- أزرار الإدارة -->
+  ${isFin ? `
+  <div style="padding:10px 12px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+    <button onclick="mcv2OpenLive('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(201,160,43,.35);background:rgba(201,160,43,.1);color:#C9A02B;cursor:pointer;font-family:Tajawal,sans-serif">
+      <span style="font-size:18px">✏️</span>
+      <span style="font-size:10px;font-weight:800;text-align:center;line-height:1.25">تعديل<br>الأحداث</span>
+    </button>
+    <button onclick="mcv2OpenInfo('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(52,152,219,.3);background:rgba(52,152,219,.08);color:#3498db;cursor:pointer;font-family:Tajawal,sans-serif">
+      <span style="font-size:18px">⚙︎️</span>
+      <span style="font-size:10px;font-weight:800;text-align:center;line-height:1.25">معلومات<br>المباراة</span>
+    </button>
+    <button onclick="mcv2OpenLineup('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(142,68,173,.3);background:rgba(142,68,173,.08);color:#8e44ad;cursor:pointer;font-family:Tajawal,sans-serif">
+      <span style="font-size:18px">🧠</span>
+      <span style="font-size:10px;font-weight:800;text-align:center;line-height:1.25">تعديل<br>التشكيلة</span>
+    </button>
+    <button onclick="mcv2UndoMatch('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(230,126,34,.35);background:rgba(230,126,34,.08);color:#e67e22;cursor:pointer;font-family:Tajawal,sans-serif">
+      <span style="font-size:18px">↩️</span>
+      <span style="font-size:10px;font-weight:800;text-align:center;line-height:1.25">إرجاع<br>المباراة</span>
+    </button>
+  </div>` : `
   <div style="padding:10px 12px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
     <button onclick="mcv2OpenLive('${m.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 3px;border-radius:14px;border:1px solid rgba(192,57,43,${isLive ? '.5' : '.25'});background:rgba(192,57,43,${isLive ? '.15' : '.08'});color:#C0392B;cursor:pointer;font-family:Tajawal,sans-serif;${isLive ? 'animation:mcv2pulse 1.5s infinite' : ''}">
       <span style="font-size:18px">📡</span>
@@ -1622,14 +1641,7 @@ function renderMatchCard(m) {
       <span style="font-size:18px">🧠</span>
       <span style="font-size:10px;font-weight:700;text-align:center;line-height:1.25">التشكيلات</span>
     </button>
-  </div>
-
-  ${isFin ? `<!-- زر التراجع — للمباريات المنتهية فقط -->
-  <div style="padding:0 12px 12px">
-    <button onclick="mcv2UndoMatch('${m.id}')" style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(230,126,34,.35);background:rgba(230,126,34,.08);color:#e67e22;cursor:pointer;font-family:Tajawal,sans-serif;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px">
-      ${window.Icon ? window.Icon('refresh', 14) : ''} تراجع — إرجاع المباراة كأنها لم تُلعب
-    </button>
-  </div>` : ''}
+  </div>`}
 
   <!-- زر الحذف -->
   <button onclick="deleteMatch('${m.id}')" title="حذف المباراة"
@@ -2088,7 +2100,16 @@ function renderQuickEntry() {
     </div>`;
 
   // ── أزرار الإجراءات ──
-  const actionsHtml = `
+  const _isFinished = m.status === 'finished';
+  const actionsHtml = _isFinished ? `
+    <div style="display:flex;gap:8px;flex-direction:column">
+      <button class="btn" style="flex:1;padding:13px;background:linear-gradient(135deg,#C9A02B,#8a6d1d);color:#000;border:none;border-radius:11px;font-weight:900;font-family:Tajawal,sans-serif;font-size:14px;cursor:pointer"
+        onclick="openLivePage('${m.id}')">✏️ تعديل مجريات المباراة</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-gold" style="flex:1;padding:11px" onclick="qeSave('${m.id}')">💾 حفظ الترتيب</button>
+        <button onclick="window.openMatchLineup?.('${m.id}') || window.openLineupDragDrop?.('${m.id}')" style="padding:10px 14px;background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.3);color:#C9A02B;border-radius:10px;font-size:13px;cursor:pointer;font-family:Tajawal,sans-serif">👥 التشكيلة</button>
+      </div>
+    </div>` : `
     <div style="display:flex;gap:8px">
       <button class="btn btn-gold" style="flex:1;padding:12px" onclick="qeSave('${m.id}')">💾 حفظ وتحديث الترتيب</button>
       <button onclick="openLivePage('${m.id}')" style="padding:10px 14px;background:rgba(220,50,50,.12);border:1px solid rgba(220,50,50,.4);color:#C0392B;border-radius:10px;font-size:13px;cursor:pointer;font-family:Tajawal,sans-serif;font-weight:700">🔴 بث</button>
@@ -2498,14 +2519,30 @@ window.deleteMatch = async function(id) {
   const ht = teams.find(t => t.id === m?.homeId);
   const at = teams.find(t => t.id === m?.awayId);
   const label = ht && at ? `${ht.name} × ${at.name}` : 'هذه المباراة';
+  const isFin = m && m.status === 'finished';
+
+  // تحذير مفصّل للمباريات المنتهية — الحذف يمسح كل شيء نهائياً
+  const desc = isFin
+    ? `<b style="color:#e74c3c">${label}</b><br><br>
+       سيتم حذف المباراة <b>نهائياً</b> بكل تفاصيلها:
+       <div style="margin:10px 0;padding:10px 14px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.25);border-radius:10px;font-size:12px;line-height:2;color:#e08e8e">
+         • النتيجة وكل الأهداف وأصحابها<br>
+         • البطاقات والتبديلات ومجريات المباراة<br>
+         • التشكيلات والإحصائيات والمعلومات
+       </div>
+       سيُعاد حساب الترتيب والهدّافين <b>كأن المباراة لم تُلعب أبداً</b>.<br>
+       <b style="color:#e74c3c">لا يمكن التراجع عن هذا الإجراء.</b>`
+    : `<b>${label}</b><br><br>سيتم حذف هذه المباراة. لا يمكن التراجع.`;
+
   _showDeleteSheet(
-    `🗑 حذف المباراة`,
-    label,
+    isFin ? '⚠️ حذف مباراة منتهية' : '🗑 حذف المباراة',
+    desc,
     async () => {
       await deleteDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', id));
       await recalcStandings();
-      showToast('تم حذف المباراة', 'error');
-    }
+      showToast('تم حذف المباراة وكل تفاصيلها', 'error');
+    },
+    isFin ? '🗑 نعم، احذف نهائياً' : '🗑 حذف'
   );
 };
 
@@ -2755,31 +2792,55 @@ window.adminOpenTeamInfo = function(teamId) {
 // ══ RENDER SCORERS ══
 function renderScorers() {
   const el = document.getElementById('scorersList');
-  // Build scorers from matches
+  if (!el) return;
+  // 🔑 يُبنى من أحداث المباراة مباشرة (نفس منطق الجمهور) — يفصل بالهوية
+  //    ويتجاهل الدقيقة، فلا يُحسب «سالم 12» و«سالم 40» كلاعبين مختلفين.
   const goalsMap = {};
+  const _norm = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim();
+
+  const addGoal = (name, tid, playerId) => {
+    name = _norm(name);
+    if (!name || name === '؟' || name === '?' || name === '—') return;
+    const key = playerId ? (tid + '::id::' + playerId) : (tid + '::' + name);
+    if (!goalsMap[key]) {
+      const t = teams.find(t => t.id === tid) || {};
+      goalsMap[key] = { name, teamName: t.name || '', teamLogo: t.logo || '', goals: 0 };
+    }
+    goalsMap[key].goals++;
+  };
+
   matches.filter(m => m.status === 'finished').forEach(m => {
-    const parseS = (str, teamId, teamName, teamLogo) => {
-      if(!str) return;
-      str.split(',').forEach(s => {
-        const match = s.trim().match(/^(.+?)\s*(?:\((\d+)\))?$/);
-        if(match) {
-          const name = match[1].trim();
-          const goals = parseInt(match[2] || '1');
-          if(!goalsMap[name]) { const t = teams.find(t => t.id === teamId); goalsMap[name] = { name, teamName: t?.name || teamName, teamLogo: t?.logo || teamLogo, goals: 0 }; }
-          goalsMap[name].goals += goals;
-        }
+    const evs = Array.isArray(m.events) ? m.events
+              : (m.liveData && Array.isArray(m.liveData.events) ? m.liveData.events : []);
+    if (evs.length) {
+      // المصدر الأساسي: الأحداث (أدقّ وأأمن)
+      evs.forEach(ev => {
+        if (!ev || ev.type !== 'goal') return;   // العكسي 'own' لا يُنسب للاعب
+        const side = ev.side || ev.team || 'home';
+        const tid = ev.teamId || (side === 'home' ? m.homeId : m.awayId);
+        addGoal(ev.player, tid, ev.playerId);
       });
-    };
-    parseS(m.homeScorers, m.homeId, m.homeName, m.homeLogo);
-    parseS(m.awayScorers, m.awayId, m.awayName, m.awayLogo);
+    } else {
+      // احتياطي للمباريات القديمة: حقول النص (مع تجاهل الدقيقة)
+      const parseS = (str, tid) => {
+        if (!str) return;
+        str.split(',').forEach(s => {
+          // انزع الدقيقة من آخر الاسم: «سالم 12» أو «سالم 12'» أو «سالم (2)»
+          let name = s.trim().replace(/\s*\(\d+\)\s*$/, '').replace(/[\s\u00A0]*\d+\+?\d*'?\s*$/, '').trim();
+          if (name) addGoal(name, tid, null);
+        });
+      };
+      parseS(m.homeScorers, m.homeId);
+      parseS(m.awayScorers, m.awayId);
+    }
   });
 
   const sorted = Object.values(goalsMap).sort((a, b) => b.goals - a.goals);
-  if(sorted.length === 0) {
+  if (sorted.length === 0) {
     el.innerHTML = `<div class="empty-state"><div class="e-icon">⚽</div><div>لا توجد أهداف مسجلة بعد</div></div>`;
     return;
   }
-  el.innerHTML = sorted.slice(0, 10).map((s, i) => `
+  el.innerHTML = sorted.slice(0, 20).map((s, i) => `
     <div class="card" style="margin-bottom:10px;${i === 0 ? 'border-color:var(--gold);background:linear-gradient(135deg,#141000,var(--card))' : ''}">
       <div class="card-body" style="display:flex;align-items:center;gap:14px">
         <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;background:${i === 0 ? 'linear-gradient(135deg,var(--gold2),var(--gold3))' : i === 1 ? '#333' : i === 2 ? '#2a1a0a' : 'var(--card2)'};color:${i === 0 ? '#000' : i === 1 ? '#ccc' : i === 2 ? '#b87333' : '#555'}">${i + 1}</div>
@@ -4431,13 +4492,17 @@ window.openLivePage = function(matchId) {
   // ── أنشئ state ──
   _liveMatches[matchId] = {
     matchId,
+    homeId:       match.homeId || null,
+    awayId:       match.awayId || null,
     homeScore:    match.liveData?.homeScore ?? 0,
     awayScore:    match.liveData?.awayScore ?? 0,
     timerRunning: false,
     timerInterval: null,
     matchStatus:  match.liveData?.matchStatus || 'upcoming',
     currentHalf:  match.liveData?.currentHalf || 1,
-    events:       match.liveData?.events || [],
+    events:       (match.liveData && Array.isArray(match.liveData.events) && match.liveData.events.length)
+                    ? match.liveData.events
+                    : (Array.isArray(match.events) ? match.events : []),
     half1Extra:   match.liveData?.half1ExtraMinutes || 0,
     half2Extra:   match.liveData?.half2ExtraMinutes || 0,
     et1Extra:     match.liveData?.et1ExtraMinutes   || 0,
@@ -6670,18 +6735,32 @@ async function _lpSaveV2(matchId) {
   else if (st.matchStatus === 'ended') matchStatus = 'finished';
 
   // ── تحديد النتيجة النهائية (تشمل ركلات الترجيح إذا كانت موجودة) ──
-  const finalHomeScore = st.matchStatus === 'ended' 
-    ? (st.penHomeScore != null && st.penalties ? st.penHomeScore : st.homeScore) 
+  const _isEnded = (st.matchStatus === 'ended') || (matchStatus === 'finished');
+  const finalHomeScore = _isEnded
+    ? (st.penHomeScore != null && st.penalties ? st.penHomeScore : st.homeScore)
     : null;
-  const finalAwayScore = st.matchStatus === 'ended' 
-    ? (st.penAwayScore != null && st.penalties ? st.penAwayScore : st.awayScore) 
+  const finalAwayScore = _isEnded
+    ? (st.penAwayScore != null && st.penalties ? st.penAwayScore : st.awayScore)
     : null;
+
+  // ── اشتقاق أسماء الهدّافين من الأحداث (لتتحدّث البطاقات وكل شي) ──
+  const _evs = st.events || [];
+  const _scorerNames = (sideKey, teamId) => _evs
+    .filter(e => e && e.type === 'goal' && ((e.side || e.team) === sideKey || e.teamId === teamId))
+    .map(e => {
+      const nm = (e.player || '').trim();
+      if (!nm) return null;
+      const mn = e.extraMinute > 0 ? (e.minute + '+' + e.extraMinute) : e.minute;
+      return mn != null && mn !== '' ? (nm + ' ' + mn) : nm;
+    })
+    .filter(Boolean)
+    .join(', ');
+  const _homeScorers = _scorerNames('home', st.homeId);
+  const _awayScorers = _scorerNames('away', st.awayId);
 
   try {
     const ref = doc(db, 'leagues', LEAGUE_ID, 'matches', matchId);
-    /* ✅︎ FIX 9 — هوية الكاتب. لا يمنع الكتابة (last-write-wins يبقى)،
-       لكنه يكشف وجود منظّم آخر على نفس المباراة فوراً بدل التدمير الصامت.
-       window._LP_SESSION يُولَّد مرة لكل تبويب في timer-hotfix.js */
+    /* ✅︎ FIX 9 — هوية الكاتب. */
     liveData.writerId = window._LP_SESSION || null;
     liveData.writerAt = Date.now();
     await updateDoc(ref, {
@@ -6690,6 +6769,10 @@ async function _lpSaveV2(matchId) {
       status: matchStatus,
       homeScore: finalHomeScore,
       awayScore: finalAwayScore,
+      // ✅︎ المرآة العلوية — تُبقي كل الأنظمة (الهدافين، البطاقات، الجمهور) متزامنة
+      events: st.events || [],
+      homeScorers: _homeScorers,
+      awayScorers: _awayScorers,
       endTime: st.matchStatus === 'ended' ? serverTimestamp() : null,
       penaltyScoreHome: st.penalties ? (st.penHomeScore != null ? st.penHomeScore : null) : null,
       penaltyScoreAway: st.penalties ? (st.penAwayScore != null ? st.penAwayScore : null) : null,

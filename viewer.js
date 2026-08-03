@@ -444,8 +444,6 @@ function updateHeader() {
   document.querySelector('meta[property="og:title"]')?.setAttribute('content', name);
   const el = n => document.getElementById(n);
   if(el('leagueName')) el('leagueName').textContent = name;
-  // أخفِ شاشة الاستقبال فور وصول بيانات الدوري (تجربة أنعم)
-  if (window.__hideVSplash) { try { window.__hideVSplash(); } catch(e){} }
   /* ✅︎ شعار البطولة فوق الاسم — مصدره إعدادات الإدارة (leagues/{id}.logo) */
   const _lw = el('leagueLogoWrap'), _li = el('leagueLogoImg');
   if (_lw && _li) {
@@ -1141,40 +1139,60 @@ window.openPlayerModal = function(playerName, teamId) {
   const pTeamId = player.teamId;
   const playerMatches = [];
   let momCount = 0;
+  let yellowCount = 0, redCount = 0;
+
+  // مطابقة اسم مرنة (تتجاهل التشكيل والمسافات الزائدة)
+  const _norm2 = s => String(s || '')
+    .replace(/[\u064B-\u0652\u0640]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  const nameMatches = (a, b) => _norm2(a) === _norm2(b);
 
   matches.filter(m => m.status === 'finished').forEach(m => {
     const isHomeTeam = pTeamId && m.homeId === pTeamId;
     const isAwayTeam = pTeamId && m.awayId === pTeamId;
-    if (!isHomeTeam && !isAwayTeam) return; // مباراة لا تخص فريق هذا اللاعب
+    if (!isHomeTeam && !isAwayTeam) return;
 
-    let myGoals = 0;
     const evs = _matchEvents(m);
-    const goalEvs = evs.filter(e => e && e.type === 'goal');
-    if (goalEvs.length) {
-      goalEvs.forEach(ev => {
+    let myGoals = 0, myYellow = 0, myRed = 0;
+
+    if (evs.length) {
+      evs.forEach(ev => {
+        if (!ev) return;
         const evTeamId = ev.teamId || (_evSide(ev) === 'home' ? m.homeId : m.awayId);
         if (evTeamId !== pTeamId) return;
         const same = player.playerId
           ? (ev.playerId && ev.playerId === player.playerId)
-          : (norm(ev.player) === norm(player.name));
-        if (same) myGoals++;
+          : nameMatches(ev.player, player.name);
+        if (!same) return;
+        if (ev.type === 'goal') myGoals++;
+        else if (ev.type === 'yellow') myYellow++;
+        else if (ev.type === 'red') myRed++;
       });
     } else {
       const scText = isHomeTeam ? m.homeScorers : m.awayScorers;
       if (scText) scText.split(',').forEach(s => {
-        const r = s.trim().match(/^(.+?)\s*(?:\((\d+)\))?$/);
-        if (r && norm(r[1]) === norm(player.name)) myGoals += parseInt(r[2] || '1');
+        const nm = s.trim().replace(/\s*\(\d+\)\s*$/, '').replace(/[\s\u00A0]*\d+\+?\d*'?\s*$/, '').trim();
+        if (nameMatches(nm, player.name)) myGoals++;
       });
     }
+    yellowCount += myYellow; redCount += myRed;
 
     const opp = isHomeTeam ? (teams.find(t => t.id === m.awayId) || {name: m.awayName || '؟'})
                             : (teams.find(t => t.id === m.homeId) || {name: m.homeName || '؟'});
     const my = isHomeTeam ? m.homeScore : m.awayScore, op = isHomeTeam ? m.awayScore : m.homeScore;
     const result = my > op ? 'فوز' : my < op ? 'خسارة' : 'تعادل';
     const rc = my > op ? 'var(--green)' : my < op ? 'var(--red)' : 'var(--gold)';
-    if (myGoals > 0) playerMatches.push({ m, opp, my, op, result, rc, myGoals });
 
-    if (m.manOfMatch && norm(m.manOfMatch) === norm(player.name)) momCount++;
+    // 👑 رجل المباراة — يُحسب من كل مكان (بمطابقة مرنة)
+    const isMom = m.manOfMatch && nameMatches(m.manOfMatch, player.name);
+    if (isMom) momCount++;
+
+    // اعرض المباراة إذا: سجّل فيها، أو أخذ كرت، أو كان رجل المباراة (كل مشاركة فعّالة)
+    if (myGoals > 0 || myYellow > 0 || myRed > 0 || isMom) {
+      playerMatches.push({ m, opp, my, op, result, rc, myGoals, myYellow, myRed, isMom });
+    }
   });
 
   const team = teams.find(t => t.id === player.teamId) || {logo: player.teamLogo};
@@ -1189,12 +1207,17 @@ window.openPlayerModal = function(playerName, teamId) {
   if (!playerMatches.length) {
     listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t3);font-size:11px">لا توجد بيانات</div>';
   } else {
-    listEl.innerHTML = playerMatches.slice(0, 10).map(({m, opp, my, op, result, rc, myGoals}) => `
+    listEl.innerHTML = playerMatches.slice(0, 15).map(({m, opp, my, op, result, rc, myGoals, myYellow, myRed, isMom}) => `
       <div class="pm-match-row">
         <div class="pm-match-result" style="color:${rc}">${result}</div>
         <div class="pm-match-vs">ضد ${opp.name} · جولة ${m.round||1}</div>
         <div style="font-size:11px;color:var(--t3)">${my}-${op}</div>
-        ${myGoals>0?`<div class="pm-goals-badge">⚽×${myGoals}</div>`:''}
+        <div style="display:flex;gap:4px;align-items:center">
+          ${myGoals>0?`<span class="pm-goals-badge">⚽×${myGoals}</span>`:''}
+          ${myYellow>0?`<span style="width:9px;height:12px;background:#E8B93B;border-radius:2px;display:inline-block" title="بطاقة صفراء"></span>`:''}
+          ${myRed>0?`<span style="width:9px;height:12px;background:#C0392B;border-radius:2px;display:inline-block" title="بطاقة حمراء"></span>`:''}
+          ${isMom?`<span style="font-size:12px" title="رجل المباراة">👑</span>`:''}
+        </div>
       </div>`).join('');
   }
   document.getElementById('playerModalOverlay').classList.add('open');

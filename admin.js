@@ -40,6 +40,14 @@ window._serverTimestamp     = serverTimestamp;
 window._firestoreSetDoc     = setDoc;
 window._firestoreAddDoc     = addDoc;
 
+// حفظ حقل واحد في مستند مباراة (يُستخدم لحفظ رجل المباراة من نظام البطاقات)
+window._saveMatchField = async function(matchId, fields) {
+  if (!matchId || !fields) return;
+  try {
+    await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', matchId), { ...fields, updatedAt: serverTimestamp() });
+  } catch (e) { /* غير حرج */ }
+};
+
 // ══ STATE ══
 const params = new URLSearchParams(location.search);
 let LEAGUE_ID = params.get('id') || '';

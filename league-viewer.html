@@ -48,31 +48,6 @@ if('serviceWorker' in navigator) {
 </head>
 <body>
 
-<!-- شاشة الاستقبال (Splash) -->
-<div id="vSplash" style="position:fixed;inset:0;z-index:99999;background:linear-gradient(160deg,#0c0e12,#14100a);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .5s ease;font-family:Tajawal,sans-serif">
-  <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 42%,rgba(201,160,43,.14),transparent 60%);pointer-events:none"></div>
-  <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:16px">
-    <img src="icon-192.png" alt="" style="width:92px;height:92px;object-fit:contain;border-radius:22px;box-shadow:0 12px 40px rgba(201,160,43,.3);animation:vsplashPulse 1.8s ease-in-out infinite"/>
-    <div style="font-size:22px;font-weight:900;color:#C9A02B;letter-spacing:.5px">منصة بطولات</div>
-    <div style="width:44px;height:44px;border:3px solid rgba(201,160,43,.2);border-top-color:#C9A02B;border-radius:50%;animation:vsplashSpin .8s linear infinite"></div>
-  </div>
-  <div style="position:absolute;bottom:32px;font-size:10px;color:#6a6f78;opacity:.7">تطوير وبرمجة عبدالله السكني</div>
-</div>
-<style>
-@keyframes vsplashSpin{to{transform:rotate(360deg)}}
-@keyframes vsplashPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.06);opacity:.85}}
-#vSplash.hide{opacity:0;pointer-events:none}
-</style>
-<script>
-  // إخفاء شاشة الاستقبال بعد جاهزية الصفحة (أو بحد أقصى 4 ثوانٍ)
-  (function(){
-    function hideSplash(){ var s=document.getElementById('vSplash'); if(s){ s.classList.add('hide'); setTimeout(function(){ s.remove(); },600); } }
-    window.__hideVSplash = hideSplash;
-    window.addEventListener('load', function(){ setTimeout(hideSplash, 700); });
-    setTimeout(hideSplash, 4000); // احتياط: لا تُبقِها عالقة أبداً
-  })();
-</script>
-
 <!-- OFFLINE BAR -->
 <div class="offline-bar" id="offlineBar">
   <div class="offline-dot"></div>

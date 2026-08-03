@@ -1393,6 +1393,16 @@
     _state.currentMatch  = m;
     _state.currentExtras = extras;
     _state.currentType   = _state.cardType;
+
+    // 👑 احفظ رجل المباراة في المباراة تلقائياً (ليظهر في إحصائيات اللاعب من كل مكان)
+    const _momName = (extras.mom || '').trim();
+    if (_momName && _momName !== (m.manOfMatch || '').trim()) {
+      m.manOfMatch = _momName; // تحديث فوري محلي
+      if (typeof window._saveMatchField === 'function') {
+        try { window._saveMatchField(m.id, { manOfMatch: _momName }); } catch(e) {}
+      }
+    }
+
     let canvas;
     try {
       switch (_state.cardType) {

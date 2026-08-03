@@ -311,7 +311,7 @@ window.lockLeague = async function(id, lock) {
     await updateDoc(doc(db, 'leagues', id), { locked: lock, updatedAt: serverTimestamp() });
     showToast(lock ? '🔒 تم قفل البطولة — المدير لا يستطيع التعديل' : '🔓 تم فتح القفل', lock ? 'error' : 'success');
     closeModal('modal-league-actions');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.leagueActions = function(id) {
@@ -348,7 +348,23 @@ window.leagueActions = function(id) {
 };
 
 window.deleteLeague = async function(id) {
-  if(!confirm('هل أنت متأكد من حذف هذه البطولة نهائياً؟\nسيتم حذف الفرق والمباريات والبيانات كاملة.\nلا يمكن التراجع!')) return;
+  const lg = allLeagues.find(l => l.id === id);
+  const lgName = lg ? lg.name : '';
+  const teamsN = lg ? (lg.teamsCount || 0) : 0;
+  // تحذير قوي: يتطلب كتابة اسم البطولة للتأكيد (يمنع الحذف بالخطأ)
+  const typed = prompt(
+    '⚠️ حذف نهائي وخطير!\n\n' +
+    'سيتم حذف بطولة «' + lgName + '» بالكامل:\n' +
+    '• كل الفرق (' + teamsN + ') والمباريات والنتائج\n' +
+    '• الهدّافين والترتيب والبث والاشتراكات\n\n' +
+    'لا يمكن التراجع نهائياً عن هذا الإجراء.\n\n' +
+    'للتأكيد، اكتب اسم البطولة بالضبط:\n«' + lgName + '»'
+  );
+  if (typed == null) return;                       // ألغى
+  if (typed.trim() !== lgName.trim()) {
+    showToast('الاسم غير مطابق — أُلغي الحذف حفاظاً على البيانات', 'error');
+    return;
+  }
   try {
     showToast('جاري حذف البطولة وبياناتها...', 'info');
     // حذف sub-collections أولاً
@@ -368,7 +384,7 @@ window.deleteLeague = async function(id) {
     await deleteDoc(doc(db, 'leagues', id));
     closeModal('modal-league-actions');
     showToast('تم حذف البطولة وجميع بياناتها 🗑', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ══ RENDER ACTIVE QUICK ══
@@ -517,7 +533,7 @@ window.confirmRenewSub = async function() {
     closeModal('modal-renew-sub');
     showToast('تم تجديد الاشتراك وإعادة تفعيل البطولة ✓', 'success');
     _renewingSubId = null;
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.cancelSub = async function(id) {
@@ -525,7 +541,7 @@ window.cancelSub = async function(id) {
   try {
     await updateDoc(doc(db, 'subscriptions', id), { status: 'cancelled', updatedAt: serverTimestamp() });
     showToast('تم إلغاء الاشتراك', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ══ فحص الاشتراكات المنتهية تلقائياً ══
@@ -615,7 +631,7 @@ window.deleteUser = async function(id) {
   try {
     await deleteDoc(doc(db, 'leagueAdmins', id));
     showToast('تم حذف المستخدم', 'error');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ══ ANALYTICS ══
@@ -688,6 +704,19 @@ window.createLeague = async function() {
     showToast('أكمل جميع الحقول المطلوبة *', 'error'); return;
   }
   if(ownerPass.length < 6) { showToast('كلمة المرور يجب أن تكون 6 أحرف على الأقل', 'error'); return; }
+
+  // 🛡️ منع تكرار المعرّف (slug) — وإلا setDoc يدهس بطولة موجودة
+  if (!/^[a-z0-9-]{2,40}$/.test(slug)) {
+    showToast('المعرّف يجب أن يكون حروفاً إنجليزية صغيرة وأرقاماً وشرطات فقط (2-40)', 'error');
+    return;
+  }
+  try {
+    const existing = await getDoc(doc(db, 'leagues', slug));
+    if (existing.exists()) {
+      showToast('المعرّف «' + slug + '» مستخدم بالفعل — اختر معرّفاً آخر', 'error');
+      return;
+    }
+  } catch (e) { /* لو فشل الفحص نكمل — القاعدة ستمنع لاحقاً */ }
 
   const btn = document.getElementById('createBtn');
   btn.disabled = true;
@@ -769,7 +798,7 @@ window.createLeague = async function() {
     showToast('✅︎ تم إنشاء البطولة بنجاح! الروابط جاهزة', 'success');
     setTimeout(() => { showPage('leagues', null); btn.disabled = false; btn.textContent = '🚀 إنشاء البطولة وتفعيلها'; }, 2000);
   } catch(e) {
-    showToast('خطأ: ' + (e.message || e.code), 'error');
+    showToast('خطأ: ' + window._trErr(e), 'error');
     btn.disabled = false;
     btn.textContent = '🚀 إنشاء البطولة وتفعيلها';
   }
@@ -794,7 +823,7 @@ window.createSubscription = async function() {
     });
     closeModal('modal-new-sub');
     showToast('تم إنشاء الاشتراك ✓', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ══ PLATFORM SETTINGS ══
@@ -811,7 +840,7 @@ window.savePlatformSettings = async function() {
   try {
     await setDoc(doc(db, 'settings', 'platform'), settings, { merge: true });
     showToast('تم حفظ الإعدادات ✓', 'success');
-  } catch(e) { showToast('خطأ: ' + e.message, 'error'); }
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 // ══ CHANGE PASSWORD ══
@@ -908,6 +937,22 @@ window.closeModal = function(id) { document.getElementById(id).classList.remove(
 document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target === m) closeModal(m.id); }));
 
 let toastT;
+// ترجمة أخطاء Firebase الشائعة للعربية
+window._trErr = function(e) {
+  const raw = (e && (e.message || e.code || e)) + '';
+  const s = raw.toLowerCase();
+  if (s.indexOf('quota') !== -1 || s.indexOf('resource-exhausted') !== -1 || (s.indexOf('storage') !== -1 && s.indexOf('limit') !== -1))
+    return 'تجاوزت مساحة التخزين المسموحة. قلّل حجم الصور أو احذف بيانات قديمة.';
+  if (s.indexOf('permission') !== -1) return 'لا تملك صلاحية لهذا الإجراء.';
+  if (s.indexOf('network') !== -1 || s.indexOf('offline') !== -1 || s.indexOf('failed to fetch') !== -1)
+    return 'مشكلة في الاتصال بالإنترنت. حاول مجدداً.';
+  if (s.indexOf('email-already') !== -1) return 'البريد الإلكتروني مستخدم بالفعل.';
+  if (s.indexOf('weak-password') !== -1) return 'كلمة المرور ضعيفة (6 أحرف على الأقل).';
+  if (s.indexOf('invalid-email') !== -1) return 'بريد إلكتروني غير صحيح.';
+  if (s.indexOf('too-many-requests') !== -1) return 'محاولات كثيرة — انتظر قليلاً.';
+  return raw;
+};
+
 window.showToast = function(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = 'toast ' + type + ' show';

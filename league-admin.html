@@ -27,9 +27,13 @@ if('serviceWorker' in navigator) {
   <div class="login-grid"></div>
   <div class="login-box">
     <div class="login-top">
-      <img src="icon-512.png" style="width:80px;height:80px;object-fit:contain;border-radius:18px;display:block;margin:0 auto 12px" alt=""/>
-      <div class="login-title" id="loginTitle">لوحة إدارة الدوري</div>
-      <div class="login-sub" id="loginSub">منصة البطولات</div>
+      <img src="icon-512.png" style="width:84px;height:84px;object-fit:contain;border-radius:20px;display:block;margin:0 auto 14px;box-shadow:0 8px 30px rgba(201,160,43,.25)" alt=""/>
+      <div class="login-title" id="loginTitle">منصة بطولات</div>
+      <div class="login-sub" id="loginSub">لوحة إدارة الدوري</div>
+      <div style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:5px 14px;background:rgba(201,160,43,.08);border:1px solid rgba(201,160,43,.22);border-radius:999px;font-size:10px;color:var(--gold);font-weight:700">
+        <span style="width:6px;height:6px;border-radius:50%;background:#2ecc71;box-shadow:0 0 8px #2ecc71"></span>
+        نظام إدارة بطولات متكامل
+      </div>
     </div>
     <div class="login-form">
       <div class="fl"><label>البريد الإلكتروني</label><input type="email" id="loginEmail" placeholder="admin@league.com" autocomplete="email"/></div>
@@ -38,6 +42,12 @@ if('serviceWorker' in navigator) {
         <span id="loginBtnText">🔐 دخول</span>
       </button>
       <div class="login-err" id="loginErr"></div>
+    </div>
+    <div style="text-align:center;margin-top:18px;font-size:10px;color:var(--muted2);line-height:1.8">
+      <div style="display:flex;align-items:center;justify-content:center;gap:14px;opacity:.7">
+        <span>🔒 دخول آمن</span><span>·</span><span>☁️ نسخ احتياطي تلقائي</span><span>·</span><span>⚡ فوري</span>
+      </div>
+      <div style="margin-top:8px;opacity:.5">منصة بطولات — تطوير وبرمجة عبدالله السكني</div>
     </div>
   </div>
 </div>
@@ -56,10 +66,13 @@ if('serviceWorker' in navigator) {
     <div style="background:var(--card);border:1px solid var(--gold3);border-radius:20px;width:100%;max-width:500px;overflow:hidden">
 
       <!-- Header -->
-      <div style="background:linear-gradient(135deg,#0d0a00,#1a1200);padding:28px 24px 20px;text-align:center;border-bottom:1px solid var(--gold3)">
-        <div style="font-size:48px;margin-bottom:8px">🏆</div>
-        <div style="font-size:18px;font-weight:900;color:var(--gold);font-family:Tajawal,sans-serif">مرحباً! إعداد البطولة</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6">هذا الإعداد يتم <strong style="color:var(--gold2)">مرة واحدة فقط</strong> ولا يمكن تغيير نوع البطولة لاحقاً</div>
+      <div style="background:linear-gradient(135deg,#0d0a00,#1a1200);padding:30px 24px 22px;text-align:center;border-bottom:1px solid var(--gold3);position:relative;overflow:hidden">
+        <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(201,160,43,.12),transparent 70%);pointer-events:none"></div>
+        <div style="position:relative">
+          <img src="icon-512.png" style="width:64px;height:64px;object-fit:contain;border-radius:16px;margin:0 auto 12px;display:block;box-shadow:0 8px 24px rgba(201,160,43,.3)" alt=""/>
+          <div style="font-size:20px;font-weight:900;color:var(--gold);font-family:Tajawal,sans-serif">أهلاً بك في منصة بطولات</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7">لنجهّز بطولتك في <strong style="color:var(--gold2)">3 خطوات سريعة</strong><br>الإعداد يتم مرة واحدة — اختيار نوع البطولة نهائي</div>
+        </div>
       </div>
 
       <div style="padding:24px">
@@ -113,6 +126,13 @@ if('serviceWorker' in navigator) {
               <div>
                 <div style="font-size:13px;font-weight:900">خروج مغلوب فقط</div>
                 <div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5">شجرة إقصاء مباشرة من البداية · الخاسر يخرج فوراً</div>
+              </div>
+            </div>
+            <div class="wz-type-card" id="wzt-swiss" onclick="wzSelectType('swiss')">
+              <div style="font-size:28px">🏅</div>
+              <div>
+                <div style="font-size:13px;font-weight:900">دوري موحّد + إقصاء <span style="font-size:8px;background:rgba(201,160,43,.15);color:var(--gold);padding:1px 6px;border-radius:4px;vertical-align:middle">نظام أوروبي</span></div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5">جدول ترتيب واحد لكل الفرق · تحدّد المباريات يدوياً · أفضل الفرق تتأهل للإقصاء</div>
               </div>
             </div>
           </div>
@@ -314,7 +334,13 @@ if('serviceWorker' in navigator) {
           <div class="page-sub">إدخال النتائج وإدارة الجدول</div>
           <div class="page-actions">
             <button class="btn btn-gold" onclick="openModal('modal-match')">+ إضافة مباراة</button>
+            <button class="btn btn-outline" id="swissGenBtn" style="display:none" onclick="swissGenerateFixtures()">🎲 توليد جدول تلقائي</button>
           </div>
+        </div>
+        <div id="swissMatchGuide" style="display:none;background:rgba(201,160,43,.06);border:1px solid rgba(201,160,43,.2);border-radius:12px;padding:13px 15px;margin-bottom:14px;font-size:11.5px;color:var(--muted2);line-height:1.9">
+          🏅 <strong style="color:var(--gold)">الدوري الموحّد:</strong>
+          أضف كل مباراة يدوياً بزر «+ إضافة مباراة» (تختار الفريقين والجولة). الترتيب يتحدّث تلقائياً بعد كل نتيجة.
+          عند اكتمال الجولات، اذهب لصفحة <strong style="color:var(--gold)">الإقصاء</strong> وابنِ الشجرة من أفضل الفرق المتأهلة.
         </div>
         <div id="matchesList"><div class="spin"></div></div>
       </div>
@@ -631,6 +657,23 @@ if('serviceWorker' in navigator) {
                   <div style="font-size:18px;margin-bottom:4px">➡️</div>ذهاب فقط
                 </button>
                 <button type="button" class="type-card" id="setLegDouble" onclick="setLegMode('double')" style="padding:12px 8px;font-size:12px">
+                  <div style="font-size:18px;margin-bottom:4px">🔁</div>ذهاب وإياب
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" id="koLegCard" style="display:none">
+            <div class="card-header"><div class="card-title">🏆 نظام أدوار الإقصاء</div></div>
+            <div class="card-body">
+              <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
+                💡 «ذهاب وإياب» = كل دور إقصائي يُلعب مباراتين ويتأهل صاحب المجموع الكلي (مثل دوري الأبطال). يُطبَّق على المواجهات القادمة عند إنشائها
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <button type="button" class="type-card" id="setKoSingle" onclick="setKoTwoLegs(false)" style="padding:12px 8px;font-size:12px">
+                  <div style="font-size:18px;margin-bottom:4px">⚡</div>مباراة واحدة
+                </button>
+                <button type="button" class="type-card" id="setKoDouble" onclick="setKoTwoLegs(true)" style="padding:12px 8px;font-size:12px">
                   <div style="font-size:18px;margin-bottom:4px">🔁</div>ذهاب وإياب
                 </button>
               </div>
@@ -1130,7 +1173,13 @@ if('serviceWorker' in navigator) {
     else if (ph === 'extratime2') ref = d.et2StartedAt;
     var ms = tsMs(ref);
     if (ms == null) return d.phaseSeconds || 0;
-    return Math.max(0, Math.floor((nowMs() - ms) / 1000));
+    var secs = Math.max(0, Math.floor((nowMs() - ms) / 1000));
+    // 🛡️ حماية: لو تجاوزت الفترة حداً غير منطقي (المنظّم نسي «إنهاء المباراة»
+    //    أو أغلق الصفحة والمباراة بقيت live)، لا نعرض دقائق خيالية (أيام/ساعات).
+    //    السقف: مدة شوط كامل (نصف ساعة) + بدل ضائع سخيّ (نصف ساعة) = ساعة كحدّ أقصى.
+    var HARD_CAP = 60 * 60; // 3600 ثانية = ساعة واحدة لأي فترة واحدة
+    if (secs > HARD_CAP) return HARD_CAP;
+    return secs;
   }
 
   /* ── الحالة الكاملة للعداد — يستخدمها الأدمن والجمهور بالتساوي ──

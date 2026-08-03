@@ -444,6 +444,8 @@ function updateHeader() {
   document.querySelector('meta[property="og:title"]')?.setAttribute('content', name);
   const el = n => document.getElementById(n);
   if(el('leagueName')) el('leagueName').textContent = name;
+  // أخفِ شاشة الاستقبال فور وصول بيانات الدوري (تجربة أنعم)
+  if (window.__hideVSplash) { try { window.__hideVSplash(); } catch(e){} }
   /* ✅︎ شعار البطولة فوق الاسم — مصدره إعدادات الإدارة (leagues/{id}.logo) */
   const _lw = el('leagueLogoWrap'), _li = el('leagueLogoImg');
   if (_lw && _li) {
@@ -480,6 +482,11 @@ function renderAll() {
   if(tournamentType==='knockout') {
     renderKnockoutBracket();
     renderHomeKnockout();
+  } else if(tournamentType==='swiss') {
+    // الدوري الموحّد: جدول ترتيب واحد + شجرة إقصاء
+    if (typeof window.renderStandings === 'function') window.renderStandings();
+    renderHomeSection();
+    renderKnockoutBracket();
   } else if(tournamentType==='groups') {
     renderGroupsStandings();
     renderKnockoutBracket();
@@ -1604,6 +1611,27 @@ function buildLinearBracketHTML(rounds, thirdRound) {
   </div></div>`;
 }
 
+// حساب المجموع الكلي لمواجهة ذهاب وإياب (تشترك المباراتان في نفس knockoutRoundId+slot)
+function _aggForMatch(m) {
+  if (!settings.koTwoLegs || !m || !m.knockoutRoundId) return null;
+  const legs = matches.filter(x =>
+    x.knockoutRoundId === m.knockoutRoundId &&
+    (x.knockoutSlot ?? 0) === (m.knockoutSlot ?? 0) &&
+    (x.isKnockout || x.knockoutRoundId));
+  if (legs.length < 2) return null;
+  const finished = legs.filter(x => x.status === 'finished');
+  if (finished.length < 2) return null;
+  // نحدّد الفريقين المرجعيين من الذهاب (legNo=1)
+  const leg1 = legs.slice().sort((a,b)=>(a.legNo||1)-(b.legNo||1))[0];
+  const teamA = leg1.homeId, teamB = leg1.awayId;
+  let aggA = 0, aggB = 0;
+  finished.forEach(l => {
+    if (l.homeId === teamA) { aggA += (l.homeScore||0); aggB += (l.awayScore||0); }
+    else                    { aggB += (l.homeScore||0); aggA += (l.awayScore||0); }
+  });
+  return { teamA, teamB, aggA, aggB, winner: aggA>aggB?teamA:aggB>aggA?teamB:null };
+}
+
 function renderBracketMatchLinear(m, roundName) {
   const hasHome = m.homeId || m.homeName;
   const hasAway = m.awayId || m.awayName;
@@ -1622,10 +1650,13 @@ function renderBracketMatchLinear(m, roundName) {
   const hw = isFin && (_ps ? _ps.h > _ps.a : (m.homeScore ?? 0) > (m.awayScore ?? 0));
   const aw = isFin && (_ps ? _ps.a > _ps.h : (m.awayScore ?? 0) > (m.homeScore ?? 0));
   const clickFn = m.id ? `openMatchDetail('${m.id}')` : `openBracketMatch('','${encodeURIComponent(String(m.id||''))}')`;
+  // شارة المجموع الكلي (تظهر على مباراة الإياب عند اكتمال المواجهة)
+  const _agg = (m.legNo === 2) ? _aggForMatch(m) : null;
+  const aggBadge = _agg ? `<div style="text-align:center;font-size:9px;font-weight:800;color:var(--gold);background:rgba(201,160,43,.1);border-top:1px solid var(--b1);padding:3px">المجموع: ${_agg.aggA} - ${_agg.aggB}</div>` : '';
   return `<div class="bracket-match ${isLive?'bm-live':isFin?'bm-done':''}" onclick="${clickFn}">
     <div class="bm-team ${hw?'bm-winner':''}">
       <span class="bm-logo">${logoHtml(ht.logo,20,5)}</span>
-      <span class="bm-name">${ht.name}</span>
+      <span class="bm-name">${ht.name}${m.legNo?`<span style="font-size:8px;color:var(--t3);margin-inline-start:4px">${m.legNo===1?'ذهاب':'إياب'}</span>`:''}</span>
       <span class="bm-score">${isFin||isLive ? m.homeScore??0 : ''}${isFin && _ps ? `<span style="font-size:9px;color:var(--gold);display:block">رك: ${_ps.h}</span>` : ''}</span>
     </div>
     <div class="bm-sep" style="height:1px;background:var(--b1)"></div>
@@ -1634,6 +1665,7 @@ function renderBracketMatchLinear(m, roundName) {
       <span class="bm-name">${at.name}</span>
       <span class="bm-score">${isFin||isLive ? m.awayScore??0 : ''}${isFin && _ps ? `<span style="font-size:9px;color:var(--gold);display:block">رك: ${_ps.a}</span>` : ''}</span>
     </div>
+    ${aggBadge}
     ${isLive ? '<div class="bm-live-dot">🔴</div>' : ''}
   </div>`;
 }
@@ -1794,8 +1826,20 @@ function adaptUIToType() {
     ['fullStandings','homeStandings','zoneLegend'].forEach(function(id) {
       var el = document.getElementById(id); if(el) el.style.display = 'none';
     });
+  } else if(type === 'swiss') {
+    // الدوري الموحّد: جدول ترتيب واحد + شجرة إقصاء (تظهر عند نشرها)
+    bn.innerHTML = `
+      <button class="bn-item active" id="bn-home"      onclick="switchTab('home',null,this)"><span class="bi">${window.Icon?Icon('home',19):''}</span>الرئيسية</button>
+      <button class="bn-item" id="bn-standings" onclick="switchTab('standings',null,this)"><span class="bi">${window.Icon?Icon('list',19):''}</span>الترتيب</button>
+      ${bracketOK ? `<button class="bn-item" id="bn-bracket"  onclick="switchTab('bracket',null,this)"><span class="bi">${window.Icon?Icon('tree',19):''}</span>الإقصاء</button>` : ''}
+      <button class="bn-item" id="bn-matches"   onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
+      <button class="bn-item" id="bn-teams"     onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
+      <button class="bn-item" id="bn-scorers"   onclick="switchTab('scorers',null,this)"><span class="bi">${window.Icon?Icon('medal',19):''}</span>الهدافون</button>
+      <button class="bn-item" id="bn-stats"     onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
+      <button class="bn-item" id="bn-live"      onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
+    if(standEl) standEl.style.display = '';
+    if(brkEl)   brkEl.style.display   = bracketOK ? 'block' : 'none';
   } else {
-    // league - ensure all tabs are shown
     bn.innerHTML = `
       <button class="bn-item active" id="bn-home"      onclick="switchTab('home',null,this)"><span class="bi">${window.Icon?Icon('home',19):''}</span>الرئيسية</button>
       <button class="bn-item" id="bn-standings" onclick="switchTab('standings',null,this)"><span class="bi">${window.Icon?Icon('list',19):''}</span>الترتيب</button>
@@ -1806,8 +1850,8 @@ function adaptUIToType() {
       <button class="bn-item" id="bn-live"      onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
     if(standEl) standEl.style.display = '';
   }
-  // ✅︎ للـ home-section sub-header "عرض الكل" — أخفه إذا مش دوري نقاط
-  if(type !== 'league') {
+  // ✅︎ للـ home-section sub-header "عرض الكل" — أخفه إذا مش دوري نقاط أو موحّد
+  if(type !== 'league' && type !== 'swiss') {
     document.querySelectorAll('[onclick*="switchTab(\'standings\'"]').forEach(el => {
       if(el.classList.contains('home-sub-btn')) el.style.display = 'none';
     });
@@ -1817,6 +1861,7 @@ function adaptUIToType() {
 function getDynamicTabOrder() {
   if(tournamentType==='knockout') return ['home','bracket','matches','teams','scorers','stats'];
   if(tournamentType==='groups')   return ['home','groups','bracket','matches','teams','scorers','stats'];
+  if(tournamentType==='swiss')    return ['home','standings','bracket','matches','teams','scorers','stats'];
   return ['home','standings','matches','teams','scorers','stats'];
 }
 
@@ -2368,18 +2413,8 @@ window.openTeamProfile = function(teamId) {
   });
   const topScorers = Object.entries(scorersMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
-  body.innerHTML = `
-    <!-- هيدر الفريق -->
-    <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:24px 16px 20px;text-align:center">
-      <div style="width:72px;height:72px;border-radius:16px;background:var(--s2);border:1px solid var(--b2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
-        ${logoHtml(t.logo, 56, 12)}
-      </div>
-      <div style="font-size:20px;font-weight:900;color:var(--t1);margin-bottom:4px">${t.name}</div>
-      <div style="font-size:11px;color:var(--t3)">المركز ${pos} · ${league?.name||'البطولة'}</div>
-    </div>
-
-    ${(function(){
-      // ── معلومات النادي المسجّلة (تظهر فقط ما أدخله المنظّم) ──
+  // ══ الأقسام مبنية كمتغيّرات ثم موزّعة على تبويبات ══
+  const _infoSection = (function(){
       const _ic = (n) => window.Icon ? window.Icon(n, 14) : '';
       const rows = [
         ['المدرب',        t.coach,     _ic('user')],
@@ -2402,9 +2437,9 @@ window.openTeamProfile = function(teamId) {
           </div>`).join('')}
         ${bio ? `<div style="margin-top:10px;padding:10px;border-radius:9px;background:var(--s2);font-size:11.5px;line-height:1.9;color:var(--t2)">${bio}</div>` : ''}
       </div>`;
-    })()}
+    })();
 
-    <!-- إحصائيات سريعة -->
+  const _statsSection = `
     <div style="display:grid;grid-template-columns:repeat(4,1fr);background:var(--s1);border-bottom:1px solid var(--b1);margin-bottom:6px">
       ${[
         ['نقطة','pts',t.pts||0,'var(--gold)'],
@@ -2417,8 +2452,6 @@ window.openTeamProfile = function(teamId) {
           <div style="font-size:9px;color:var(--t3);margin-top:2px">${lbl}</div>
         </div>`).join('')}
     </div>
-
-    <!-- سجّل / استقبل / فارق / بطاقات -->
     ${(function(){
       const c = _teamCardsSplit(teamId);
       const cells = [
@@ -2437,8 +2470,6 @@ window.openTeamProfile = function(teamId) {
           </div>`).join('')}
       </div>`;
     })()}
-
-    <!-- الفورم -->
     <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:14px 16px;margin-bottom:6px">
       <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">آخر النتائج</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -2452,23 +2483,9 @@ window.openTeamProfile = function(teamId) {
         ${!form.length?'<div style="font-size:11px;color:var(--t3)">لا توجد مباريات بعد</div>':''}
       </div>
     </div>
+    ${_infoSection}`;
 
-    <!-- إحصائيات تفصيلية -->
-    <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:14px 16px;margin-bottom:6px">
-      <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">الإحصائيات</div>
-      ${[
-        ['الأهداف المسجلة','⚽',stats.gf,'var(--gold)'],
-        ['الأهداف المستقبلة','🥅',stats.ga,'var(--red)'],
-        ['فارق الأهداف','±',stats.gd>=0?'+'+stats.gd:stats.gd,stats.gd>0?'var(--green)':stats.gd<0?'var(--red)':'var(--t3)'],
-        ['التعادلات','🤝',stats.d,'var(--t2)'],
-      ].map(([lbl,ic,val,clr])=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--b1);font-size:12px">
-          <span style="color:var(--t3)">${ic} ${lbl}</span>
-          <span style="font-weight:900;color:${clr};font-family:'Tajawal',sans-serif;font-size:14px">${val}</span>
-        </div>`).join('')}
-    </div>
-
-    <!-- آخر النتائج -->
+  const _matchesSection = `
     ${finished.length?`
     <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:14px 16px;margin-bottom:6px">
       <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">آخر المباريات</div>
@@ -2492,8 +2509,6 @@ window.openTeamProfile = function(teamId) {
         </div>`;
       }).join('')}
     </div>`:'' }
-
-    <!-- المباريات القادمة -->
     ${upcoming.length?`
     <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:14px 16px;margin-bottom:6px">
       <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">المباريات القادمة</div>
@@ -2513,8 +2528,9 @@ window.openTeamProfile = function(teamId) {
         </div>`;
       }).join('')}
     </div>`:'' }
+    ${(!finished.length && !upcoming.length)?'<div style="padding:40px 20px;text-align:center;color:var(--t3);font-size:12px">لا توجد مباريات بعد</div>':''}`;
 
-    <!-- الهدافون -->
+  const _playersSection = `
     ${topScorers.length?`
     <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:14px 16px;margin-bottom:6px">
       <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">هدافو الفريق</div>
@@ -2528,8 +2544,6 @@ window.openTeamProfile = function(teamId) {
           <div style="font-size:10px;color:var(--t3)">هدف</div>
         </div>`).join('')}
     </div>`:'' }
-
-    <!-- اللاعبون -->
     ${players.length?`
     <div style="background:var(--s1);padding:14px 16px;margin-bottom:6px">
       <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">قائمة اللاعبين</div>
@@ -2545,12 +2559,44 @@ window.openTeamProfile = function(teamId) {
           ${p.status==='suspended'?'<span style="font-size:9px;background:var(--g-bg);color:var(--gold);border:1px solid var(--g-br);border-radius:5px;padding:2px 6px;font-weight:700">موقوف</span>':''}
         </div>`).join('')}
     </div>`:'' }
+    ${(!topScorers.length && !players.length)?'<div style="padding:40px 20px;text-align:center;color:var(--t3);font-size:12px">لم تُدخَل قائمة اللاعبين بعد</div>':''}`;
+
+  body.innerHTML = `
+    <!-- هيدر الفريق -->
+    <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:24px 16px 20px;text-align:center">
+      <div style="width:72px;height:72px;border-radius:16px;background:var(--s2);border:1px solid var(--b2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+        ${logoHtml(t.logo, 56, 12)}
+      </div>
+      <div style="font-size:20px;font-weight:900;color:var(--t1);margin-bottom:4px">${t.name}</div>
+      <div style="font-size:11px;color:var(--t3)">المركز ${pos} · ${league?.name||'البطولة'}</div>
+    </div>
+
+    <!-- شريط التبويبات -->
+    <div class="tp-tabs">
+      <button class="tp-tab active" data-tp="overview" onclick="tpSwitch('overview',this)">نظرة عامة</button>
+      <button class="tp-tab" data-tp="matches" onclick="tpSwitch('matches',this)">المباريات</button>
+      <button class="tp-tab" data-tp="players" onclick="tpSwitch('players',this)">اللاعبون</button>
+    </div>
+
+    <div class="tp-panel" data-tp-panel="overview">${_statsSection}</div>
+    <div class="tp-panel" data-tp-panel="matches" style="display:none">${_matchesSection}</div>
+    <div class="tp-panel" data-tp-panel="players" style="display:none">${_playersSection}</div>
 
     <div style="height:env(safe-area-inset-bottom,16px)"></div>
   `;
 
   overlay.classList.add('show');
   document.body.style.overflow = 'hidden';
+};
+
+// تبديل تبويبات ملف الفريق
+window.tpSwitch = function(name, btn) {
+  document.querySelectorAll('.tp-tab').forEach(b => b.classList.toggle('active', b === btn));
+  document.querySelectorAll('.tp-panel').forEach(p => {
+    p.style.display = (p.getAttribute('data-tp-panel') === name) ? 'block' : 'none';
+  });
+  const sc = document.getElementById('teamProfileBody');
+  if (sc) sc.scrollTop = 0;
 };
 
 window.closeTeamProfile = function() {
@@ -2741,7 +2787,10 @@ function renderScorers() {
       el.innerHTML = '<div class="empty-state" style="padding:30px 20px;text-align:center;color:var(--t3)"><div style="font-size:36px;margin-bottom:8px;opacity:.3">⚽</div><div>لا توجد أهداف بعد</div></div>';
       return;
     }
-    el.innerHTML = list.map((p, i) => {
+    const _hint = (!isHome && data.length > 20)
+      ? `<div style="padding:9px 14px;font-size:11px;color:var(--t3);background:var(--s2);border-bottom:1px solid var(--b1);text-align:center">يُعرض أفضل ٢٠ هدّافاً من إجمالي ${data.length} لاعباً سجّلوا</div>`
+      : '';
+    el.innerHTML = _hint + list.map((p, i) => {
       const team = teams.find(t => t.id === p.teamId) || {};
       const medalColors = ['#FFD700','#C0C0C0','#CD7F32'];
       const medal = i < 3 ? `<span style="font-size:16px">${['🥇','🥈','🥉'][i]}</span>` : `<div style="width:22px;height:22px;border-radius:6px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--t3)">${i+1}</div>`;
@@ -2808,43 +2857,40 @@ function renderStandings() {
   });
 
   const tableHtml = `
-    <div class="standings-card-scroll">
-      <table style="width:100%;min-width:360px;border-collapse:collapse">
-        <thead>
-          <tr style="font-size:9px;color:var(--t3);border-bottom:1px solid var(--b1)">
-            <th style="padding:7px 5px;text-align:right;font-weight:600">#</th>
-            <th style="padding:7px 5px;text-align:right;font-weight:600">الفريق</th>
-            <th style="padding:7px 5px;text-align:center;font-weight:600">ل</th>
-            <th style="padding:7px 5px;text-align:center;font-weight:600">ف</th>
-            <th style="padding:7px 5px;text-align:center;font-weight:600">ت</th>
-            <th style="padding:7px 5px;text-align:center;font-weight:600">خ</th>
-            <th style="padding:7px 5px;text-align:center;font-weight:600">±</th>
-            <th style="padding:7px 5px;text-align:center;font-weight:600;color:var(--gold)">ن</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${sorted.map((t, i) => {
-            const s = statsMap[t.id] || {};
-            const gd = (s.gf||0)-(s.ga||0);
-            const zc = zoneColors[i] || '';
-            return `<tr style="border-bottom:1px solid var(--b1);cursor:pointer" onclick="openTeamProfile('${t.id}')">
-              <td style="padding:9px 5px;font-size:11px;font-weight:900;color:${zc||'var(--t3)'};border-right:3px solid ${zc||'transparent'}">${i+1}</td>
-              <td style="padding:9px 5px">
-                <div style="display:flex;align-items:center;gap:8px">
-                  ${logoHtml(t.logo,22,5)}
-                  <span style="font-size:12px;font-weight:700;color:var(--t1)">${t.name}</span>
-                </div>
-              </td>
-              <td style="padding:9px 5px;text-align:center;font-size:12px;color:var(--t2)">${s.p||0}</td>
-              <td style="padding:9px 5px;text-align:center;font-size:12px;color:var(--green)">${s.w||0}</td>
-              <td style="padding:9px 5px;text-align:center;font-size:12px;color:var(--t2)">${s.d||0}</td>
-              <td style="padding:9px 5px;text-align:center;font-size:12px;color:var(--red)">${s.l||0}</td>
-              <td style="padding:9px 5px;text-align:center;font-size:12px;color:${gd>0?'var(--green)':gd<0?'var(--red)':'#666'}">${gd>0?'+'+gd:gd}</td>
-              <td style="padding:9px 5px;text-align:center;font-size:14px;font-weight:900;color:var(--gold);font-family:'Tajawal',sans-serif">${s.pts||0}</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
+    <div class="std-wrap">
+      <div class="std-head">
+        <span class="std-h-pos">#</span>
+        <span class="std-h-team">الفريق</span>
+        <span class="std-h-num">ل</span>
+        <span class="std-h-num std-hide-sm">ف</span>
+        <span class="std-h-num std-hide-sm">ت</span>
+        <span class="std-h-num std-hide-sm">خ</span>
+        <span class="std-h-num">+/-</span>
+        <span class="std-h-pts">نقاط</span>
+      </div>
+      <div class="std-body">
+        ${sorted.map((t, i) => {
+          const s = statsMap[t.id] || {};
+          const gd = (s.gf||0)-(s.ga||0);
+          const zc = zoneColors[i] || '';
+          const rank = i+1;
+          return `<div class="std-row" onclick="openTeamProfile('${t.id}')">
+            <span class="std-pos" style="${zc?`color:${zc}`:''}">
+              <span class="std-zone-bar" style="background:${zc||'transparent'}"></span>${rank}
+            </span>
+            <span class="std-team">
+              <span class="std-logo">${logoHtml(t.logo,26,6)}</span>
+              <span class="std-name">${t.name}</span>
+            </span>
+            <span class="std-num">${s.p||0}</span>
+            <span class="std-num std-hide-sm" style="color:var(--green)">${s.w||0}</span>
+            <span class="std-num std-hide-sm">${s.d||0}</span>
+            <span class="std-num std-hide-sm" style="color:var(--red)">${s.l||0}</span>
+            <span class="std-num" style="color:${gd>0?'var(--green)':gd<0?'var(--red)':'var(--t3)'}">${gd>0?'+'+gd:gd}</span>
+            <span class="std-pts">${s.pts||0}</span>
+          </div>`;
+        }).join('')}
+      </div>
     </div>`;
 
   ['fullStandings','homeStandings'].forEach(id => {

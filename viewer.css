@@ -211,6 +211,33 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .standings-card{background:var(--s1);overflow:hidden;border-bottom:1px solid var(--b1)}
 .standings-card-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .standings-card-scroll::-webkit-scrollbar{display:none}
+
+/* ── شريط تبويبات ملف الفريق ── */
+.tp-tabs{display:flex;position:sticky;top:0;z-index:5;background:var(--s1);border-bottom:1px solid var(--b1);padding:0 6px}
+.tp-tab{flex:1;padding:13px 6px;background:none;border:none;border-bottom:2px solid transparent;color:var(--t3);font-size:12.5px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:color .15s,border-color .15s}
+.tp-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.tp-tab:active{opacity:.7}
+.std-wrap{background:var(--s1);border-radius:14px;overflow:hidden}
+.std-head{display:flex;align-items:center;padding:9px 12px;font-size:10px;font-weight:800;color:var(--t3);border-bottom:1px solid var(--b1);background:rgba(255,255,255,.015)}
+.std-h-pos{flex:0 0 30px;text-align:center}
+.std-h-team{flex:1;text-align:right;padding-inline-start:6px}
+.std-h-num{flex:0 0 30px;text-align:center}
+.std-h-pts{flex:0 0 42px;text-align:center;color:var(--gold)}
+.std-body{display:flex;flex-direction:column}
+.std-row{display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid var(--b1);cursor:pointer;transition:background .12s}
+.std-row:last-child{border-bottom:0}
+.std-row:active{background:rgba(255,255,255,.03)}
+.std-pos{flex:0 0 30px;position:relative;text-align:center;font-size:13px;font-weight:900;color:var(--t2);font-variant-numeric:tabular-nums}
+.std-zone-bar{position:absolute;right:-12px;top:50%;transform:translateY(-50%);width:3px;height:26px;border-radius:2px}
+.std-team{flex:1;display:flex;align-items:center;gap:10px;min-width:0;padding-inline-start:6px}
+.std-logo{flex:0 0 auto;display:flex}
+.std-name{font-size:13px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.std-num{flex:0 0 30px;text-align:center;font-size:12.5px;color:var(--t2);font-variant-numeric:tabular-nums}
+.std-pts{flex:0 0 42px;text-align:center;font-size:16px;font-weight:900;color:var(--gold);font-family:'Tajawal',sans-serif;font-variant-numeric:tabular-nums}
+@media (max-width:380px){
+  .std-hide-sm{display:none}
+  .std-h-team,.std-team{padding-inline-start:2px}
+}
 .st-header{display:grid;grid-template-columns:26px 1fr 26px 26px 26px 26px 32px 36px;padding:8px 12px;background:var(--s2);border-bottom:1px solid var(--b1)}
 .st-cell{font-size:9px;font-weight:700;color:var(--t3);text-align:center;letter-spacing:.3px}
 .st-cell.name{text-align:right}

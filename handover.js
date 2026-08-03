@@ -44,11 +44,17 @@
     '<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet"/>' +
     '<style>' +
     '*{margin:0;padding:0;box-sizing:border-box}' +
-    'body{font-family:Tajawal,sans-serif;background:#0d0e12;color:#eee;padding:24px 16px;line-height:1.6}' +
+    'body{font-family:Tajawal,sans-serif;background:radial-gradient(circle at 50% 0%,#16130a,#0a0b0e 55%);color:#eee;padding:24px 16px;line-height:1.6;min-height:100vh}' +
     '.wrap{max-width:640px;margin:0 auto}' +
     '.card{background:#14161c;border:1px solid #262a34;border-radius:20px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)}' +
-    '.hd{background:linear-gradient(135deg,rgba(201,160,43,.16),rgba(201,160,43,.03));padding:30px 24px;text-align:center;border-bottom:1px solid #262a34}' +
-    '.lg{width:76px;height:76px;margin:0 auto 14px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid #2c313d;display:flex;align-items:center;justify-content:center;overflow:hidden}' +
+    '.hd{background:linear-gradient(135deg,rgba(201,160,43,.22),rgba(201,160,43,.02));padding:36px 24px 28px;text-align:center;border-bottom:1px solid #262a34;position:relative;overflow:hidden}' +
+    '.hd::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(201,160,43,.18),transparent 65%);pointer-events:none}' +
+    '.hd>*{position:relative}' +
+    '.badge-top{display:inline-flex;align-items:center;gap:6px;background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.35);color:#2ecc71;border-radius:999px;padding:5px 14px;font-size:10px;font-weight:900;margin-bottom:16px}' +
+    '.badge-top i{width:7px;height:7px;border-radius:50%;background:#2ecc71;box-shadow:0 0 8px #2ecc71;display:inline-block}' +
+    '.trust{display:flex;justify-content:center;gap:16px;margin-top:18px;flex-wrap:wrap}' +
+    '.trust div{font-size:10px;color:#9aa0ae;display:flex;align-items:center;gap:4px}' +
+    '.lg{width:88px;height:88px;margin:0 auto 16px;border-radius:22px;background:rgba(255,255,255,.05);border:1px solid #2c313d;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 10px 30px rgba(201,160,43,.2)}' +
     '.lg img{width:100%;height:100%;object-fit:contain;padding:8px}' +
     '.lg span{font-size:34px}' +
     'h1{font-size:23px;font-weight:900;color:#C9A02B;margin-bottom:6px}' +
@@ -63,7 +69,7 @@
     '.cp:active{transform:scale(.94)}' +
     '.cp.done{background:rgba(46,204,113,.15);border-color:rgba(46,204,113,.4);color:#2ecc71}' +
     '.btn{display:block;text-align:center;text-decoration:none;border-radius:12px;padding:14px;font-size:14px;font-weight:900;margin-bottom:9px;font-family:Tajawal,sans-serif}' +
-    '.b1{background:#C9A02B;color:#12131a}' +
+    '.b1{background:linear-gradient(135deg,#F0C84A,#C9A02B);color:#12131a;box-shadow:0 8px 24px rgba(201,160,43,.25)}' +
     '.b2{background:rgba(255,255,255,.05);border:1px solid #2c313d;color:#eee}' +
     '.warn{background:rgba(231,76,60,.07);border:1px solid rgba(231,76,60,.25);border-radius:12px;padding:13px 15px;margin-top:16px;font-size:11.5px;color:#ff9b8f;line-height:1.8}' +
     '.steps{counter-reset:s;list-style:none}' +
@@ -78,9 +84,11 @@
     '</style></head><body><div class="wrap"><div class="card">' +
 
     '<div class="hd">' +
+      '<div class="badge-top"><i></i> بطولة مُفعّلة وجاهزة</div>' +
       '<div class="lg">' + (d.logo ? '<img src="' + esc(d.logo) + '" alt=""/>' : '<span>&#127942;</span>') + '</div>' +
       '<h1>' + esc(d.name) + '</h1>' +
       '<div class="sub">' + esc(typeTxt) + ' &middot; موسم ' + esc(d.season || '2025') + '</div>' +
+      '<div class="trust"><div>&#128225; بث مباشر</div><div>&#9729;&#65039; نسخ احتياطي</div><div>&#128274; آمن ومشفّر</div></div>' +
     '</div>' +
 
     '<div class="bd">' +
@@ -115,7 +123,7 @@
       '</div>' +
     '</div>' +
 
-    '<div class="ft">منصة بطولات &middot; ' + new Date().toLocaleDateString('ar') + '</div>' +
+    '<div class="ft">منصة بطولات — نظام إدارة بطولات متكامل<br>تطوير وبرمجة عبدالله السكني &middot; ' + new Date().toLocaleDateString('ar') + '</div>' +
     '</div>' +
     '<a class="btn b2 noprint" style="margin-top:14px;cursor:pointer" onclick="window.print()">طباعة / حفظ PDF</a>' +
     '</div>' +

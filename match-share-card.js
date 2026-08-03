@@ -280,6 +280,7 @@
     var sub = [];
     if (league.season) sub.push(String(league.season));
     if (league.type) sub.push(typeMap[league.type] || 'دوري نقاط');
+    if (m.groupName && !m.isKnockout) sub.push(m.groupName);
     if (m.round && !m.isKnockout) sub.push('الجولة ' + m.round);
     if (m.isKnockout && m.knockoutRoundName) sub.push(m.knockoutRoundName);
     if (sub.length) {
@@ -551,6 +552,8 @@
     // سطر البطولة + الجولة/الدور
     var head = league.name || 'البطولة';
     if (m.isKnockout && m.knockoutRoundName) head += ' — ' + m.knockoutRoundName;
+    else if (m.groupName && m.round) head += ' — ' + m.groupName + ' · الجولة ' + m.round;
+    else if (m.groupName) head += ' — ' + m.groupName;
     else if (m.round) head += ' — الجولة ' + m.round;
 
     // سطر النتيجة المرتّب: «المضيف  ٢ - ١  الضيف» (يُقرأ يميناً لليسار)

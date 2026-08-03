@@ -767,7 +767,7 @@
     let   curY   = ID_TOP + idH + 16;
 
     // ─ 2) شارة المرحلة
-    const stage = extras.stage || m.knockoutRoundName || (m.round ? `الجولة ${m.round}` : '');
+    const stage = extras.stage || m.knockoutRoundName || (m.groupName ? (m.groupName + (m.round ? ' · الجولة ' + m.round : '')) : (m.round ? `الجولة ${m.round}` : ''));
     const stH   = drawStageBar(ctx, W, curY, stage);
     curY += stH + (stH ? 18 : 0);
 
@@ -827,7 +827,7 @@
     let curY     = ID_TOP + idH + 12;
 
     // ─ 2) شارة نهاية المباراة + المرحلة
-    const stage    = extras.stage || m.knockoutRoundName || (m.round ? `الجولة ${m.round}` : '');
+    const stage    = extras.stage || m.knockoutRoundName || (m.groupName ? (m.groupName + (m.round ? ' · الجولة ' + m.round : '')) : (m.round ? `الجولة ${m.round}` : ''));
     const endLabel = stage ? `🏁  نهاية المباراة  ·  ${stage}` : '🏁  نهاية المباراة';
     drawText(ctx, endLabel, W/2, curY+16, '700 17px Tajawal,Arial', '#666', 'center');
     curY += 38;
@@ -1462,7 +1462,7 @@
 
     const head = () => {
       let h = '🏆 *' + name + '*' + (S.season ? ' · ' + S.season : '');
-      const stage = ex.stage || m.knockoutRoundName || (m.round ? 'الجولة ' + m.round : '');
+      const stage = ex.stage || m.knockoutRoundName || (m.groupName ? (m.groupName + (m.round ? ' · الجولة ' + m.round : '')) : (m.round ? 'الجولة ' + m.round : ''));
       if (stage) h += '\n' + stage;
       return h;
     };

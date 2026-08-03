@@ -232,7 +232,7 @@ window.wzGoStep = function(step) {
 
 window.wzSelectType = function(type) {
   _wzSelectedType = type;
-  ['league','groups','knockout'].forEach(t => {
+  ['league','groups','knockout','swiss'].forEach(t => {
     const card = document.getElementById('wzt-' + t);
     if(card) card.classList.toggle('selected', t === type);
   });
@@ -341,11 +341,27 @@ window.wzPickQualifyN = function(btn, n) {
   _wzUpdateGroupsMath();
 }
 
+window.wzPickBestOf = function(btn, n) {
+  document.querySelectorAll('#wzBestGrid .type-card').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  window._wzBestOf = n;
+  _wzUpdateGroupsMath();
+}
+
 window.wzPickLegMode = function(btn, mode) {
   document.querySelectorAll('#wzLegGrid .type-card').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   window._wzLegMode = mode;
 }
+
+// يحدّث اقتراح شجرة الإقصاء بحسب عدد المتأهلين في الدوري الموحّد
+function _wzSwissMath() {
+  const q = window._wzSwissQualify || 8;
+  window._wzBracketKey = _wzSuggestBracketKey(Math.max(q, 2));
+  const info = document.getElementById('wzSwissInfo');
+  if (info) info.textContent = `أفضل ${q} فرق في الجدول يتأهلون لشجرة الإقصاء`;
+}
+window._wzSwissMath = _wzSwissMath;
 
 // يحدّث "كم فريق بكل مجموعة" و"سقف الشجرة المقترح" تلقائياً من الأرقام المدخلة
 function _wzUpdateGroupsMath() {
@@ -361,11 +377,18 @@ function _wzUpdateGroupsMath() {
   const perGroupEl = document.getElementById('wzPerGroupInfo');
   if (perGroupEl) perGroupEl.textContent = perGroupTxt;
 
-  const totalQualifiers = groups * qualifyPerGroup;
+  const bestOf = window._wzBestOf || 0;
+  const totalQualifiers = groups * qualifyPerGroup + bestOf;
   const suggested = _wzSuggestBracketKey(Math.max(totalQualifiers, 2));
   window._wzBracketKey = suggested;
   const qEl = document.getElementById('wzQualifiersInfo');
-  if (qEl) qEl.textContent = `${totalQualifiers} فريق متأهل إجمالاً`;
+  if (qEl) qEl.textContent = bestOf
+    ? `${totalQualifiers} فريق متأهل (${groups}×${qualifyPerGroup} + أفضل ${bestOf})`
+    : `${totalQualifiers} فريق متأهل إجمالاً`;
+  const bestInfoEl = document.getElementById('wzBestInfo');
+  if (bestInfoEl) bestInfoEl.textContent = bestOf
+    ? `يتأهل أفضل ${bestOf} من الفرق التي حلّت في المركز ${qualifyPerGroup + 1} عبر كل المجموعات`
+    : 'مثلاً: يتأهل الأول من كل مجموعة + أفضل ثانٍ/ثالث بين باقي الفرق';
   const grid = document.getElementById('wzGroupsBracketGrid');
   if (grid) grid.outerHTML = _wzBracketOptionsHtml(suggested, 'wzGroupsBracketGrid');
 }
@@ -381,7 +404,7 @@ function _wzCommonSettingsHtml() {
   const squads = [5, 6, 7, 8, 9, 10, 11];
   /* ✅︎ حسم التعادل — يظهر للبطولات التي فيها أدوار إقصاء فقط.
      دوري النقاط لا يحتاجه: التعادل نتيجة مشروعة فيه. */
-  const tieHtml = (_wzSelectedType === 'groups' || _wzSelectedType === 'knockout') ? `
+  const tieHtml = (_wzSelectedType === 'groups' || _wzSelectedType === 'knockout' || _wzSelectedType === 'swiss') ? `
     <div class="form-group" style="margin-top:16px">
       <label class="form-label">عند تعادل مباراة إقصاء</label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px" id="wzTieGrid">
@@ -393,6 +416,18 @@ function _wzCommonSettingsHtml() {
         </button>
       </div>
       <div style="font-size:10px;color:var(--muted);margin-top:6px">مباريات المجموعات تنتهي بالتعادل دائماً — هذا للإقصاء فقط</div>
+    </div>
+    <div class="form-group" style="margin-top:16px">
+      <label class="form-label">نظام أدوار الإقصاء</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px" id="wzKoLegGrid">
+        <button type="button" class="type-card ${!window._wzKoTwoLegs?'selected':''}" style="padding:12px 8px;font-size:12px" onclick="wzPickKoLeg(this,false)">
+          <div style="margin-bottom:5px;display:flex;justify-content:center">${_ic('bolt',20)}</div>مباراة واحدة
+        </button>
+        <button type="button" class="type-card ${window._wzKoTwoLegs?'selected':''}" style="padding:12px 8px;font-size:12px" onclick="wzPickKoLeg(this,true)">
+          <div style="margin-bottom:5px;display:flex;justify-content:center">${_ic('refresh',20)}</div>ذهاب وإياب
+        </button>
+      </div>
+      <div style="font-size:10px;color:var(--gold2);margin-top:6px">ذهاب وإياب: كل دور يُلعب مباراتين، ويتأهل صاحب المجموع الكلي الأكبر (مثل دوري الأبطال)</div>
     </div>` : '';
   return `
     <div class="form-group" style="margin-top:16px">
@@ -414,6 +449,12 @@ function _wzCommonSettingsHtml() {
 window.wzPickTie = function(btn, mode) {
   window._wzTieMode = mode;
   const g = document.getElementById('wzTieGrid');
+  if (g) g.querySelectorAll('.type-card').forEach(c => c.classList.toggle('selected', c === btn));
+};
+
+window.wzPickKoLeg = function(btn, twoLegs) {
+  window._wzKoTwoLegs = !!twoLegs;
+  const g = document.getElementById('wzKoLegGrid');
   if (g) g.querySelectorAll('.type-card').forEach(c => c.classList.toggle('selected', c === btn));
 };
 
@@ -467,9 +508,38 @@ function _wzRenderDynamicConfig() {
     return;
   }
 
+  if (_wzSelectedType === 'swiss') {
+    window._wzSwissMatches   = window._wzSwissMatches   || 8;
+    window._wzSwissQualify   = window._wzSwissQualify   || 8;
+    el.innerHTML = `
+      <div class="form-group">
+        <label class="form-label">عدد الفرق المشاركة</label>
+        <input type="number" class="form-input" min="4" max="256" placeholder="مثال: 36"
+          value="${window._wzTeamsTotal || ''}" oninput="wzSetTeamsTotal(this.value)"/>
+      </div>
+      <div class="form-group" style="margin-top:16px">
+        <label class="form-label">عدد المباريات لكل فريق</label>
+        <input type="number" class="form-input" id="wzSwissMatches" min="1" max="38" placeholder="مثال: 8"
+          value="${window._wzSwissMatches}" oninput="window._wzSwissMatches=parseInt(this.value)||8;_wzSwissMath()"/>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px">في النظام الأوروبي الجديد: 8 مباريات لكل فريق ضد خصوم مختلفين</div>
+      </div>
+      <div class="form-group" style="margin-top:16px">
+        <label class="form-label">عدد المتأهلين للإقصاء</label>
+        <input type="number" class="form-input" id="wzSwissQualify" min="2" max="64" placeholder="مثال: 8"
+          value="${window._wzSwissQualify}" oninput="window._wzSwissQualify=parseInt(this.value)||8;_wzSwissMath()"/>
+        <div style="font-size:10px;color:var(--gold2);margin-top:6px" id="wzSwissInfo">أفضل ${window._wzSwissQualify} فرق في الجدول يتأهلون لشجرة الإقصاء</div>
+      </div>
+      ${_wzCommonSettingsHtml()}
+      <div style="background:rgba(201,160,43,.06);border:1px solid rgba(201,160,43,.15);border-radius:12px;padding:14px;margin-top:16px;font-size:11px;color:var(--muted2);line-height:1.8">
+        ${_ic('bulb',13)} سينشأ جدول ترتيب موحّد وشجرة إقصاء فارغة. في صفحة المباريات تضيف كل مباراة يدوياً (تختار الفريقين)، والترتيب يتحدّث تلقائياً. بعد انتهاء الجولات، أفضل الفرق تتأهل للإقصاء.
+      </div>`;
+    return;
+  }
+
   if (_wzSelectedType === 'groups') {
     window._wzGroupsCount = window._wzGroupsCount || 4;
     window._wzQualifyN    = window._wzQualifyN    || 2;
+    window._wzBestOf      = window._wzBestOf      || 0;
     window._wzLegMode     = window._wzLegMode     || 'single';
     if (!window._wzGroupNames || !window._wzGroupNames.length) window._wzGroupNames = ['A','B','C','D'];
 
@@ -511,6 +581,15 @@ function _wzRenderDynamicConfig() {
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px" id="wzQnGrid">
           ${[1,2,3,4].map(n => `<button type="button" class="type-card ${n===window._wzQualifyN?'selected':''}" style="padding:10px 6px;font-size:13px;font-weight:700" onclick="wzPickQualifyN(this,${n})">${n}</button>`).join('')}
         </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px">مثلاً: الأول فقط (1) · الأول والثاني (2) · أول ثلاثة (3)</div>
+      </div>
+
+      <div class="form-group" style="margin-top:16px">
+        <label class="form-label">+ أفضل المراكز التالية <span style="color:#444">(اختياري)</span></label>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:6px" id="wzBestGrid">
+          ${[0,1,2,3,4].map(n => `<button type="button" class="type-card ${n===(window._wzBestOf||0)?'selected':''}" style="padding:10px 4px;font-size:13px;font-weight:700" onclick="wzPickBestOf(this,${n})">${n===0?'لا':'+'+n}</button>`).join('')}
+        </div>
+        <div style="font-size:10px;color:var(--gold2);margin-top:6px" id="wzBestInfo">مثلاً: يتأهل الأول من كل مجموعة + أفضل ثانٍ/ثالث بين باقي الفرق</div>
       </div>
 
       <div class="form-group" style="margin-top:16px">
@@ -600,6 +679,27 @@ async function _wzCreateGroupsAndBracket() {
   return { groupsN, qualify, bracketKey, roundsFirstName: rounds[0].name };
 }
 
+// ينشئ شجرة الإقصاء الفارغة للدوري الموحّد (الجدول نفسه يُبنى من المباريات اليدوية)
+async function _wzCreateSwiss() {
+  const qualify = window._wzSwissQualify || 8;
+  const bracketKey = window._wzBracketKey || _wzSuggestBracketKey(Math.max(qualify, 2));
+  const rounds = WZ_BRACKET_ROUNDS[bracketKey] || WZ_BRACKET_ROUNDS['qf'];
+
+  const existing = await getDocs(collection(db, 'leagues', LEAGUE_ID, 'knockoutRounds'));
+  const delBatch = writeBatch(db);
+  existing.forEach(d => delBatch.delete(d.ref));
+  await delBatch.commit();
+
+  const batch = writeBatch(db);
+  rounds.forEach((r, i) => {
+    batch.set(doc(collection(db, 'leagues', LEAGUE_ID, 'knockoutRounds')), {
+      name: r.name, order: i, slots: r.slots, matches: [], empty: true, createdAt: serverTimestamp(),
+    });
+  });
+  await batch.commit();
+  return { qualify, bracketKey, roundsFirstName: rounds[0].name };
+}
+
 async function _wzCreateKnockoutOnly() {
   const bracketKey = window._wzBracketKey || _wzSuggestBracketKey(window._wzTeamsTotal || 8);
   const rounds = WZ_BRACKET_ROUNDS[bracketKey] || WZ_BRACKET_ROUNDS['r16'];
@@ -626,8 +726,21 @@ window.wzConfirmFinal = async function() {
   const season = document.getElementById('wz-season')?.value || '2025';
   const type = _wzSelectedType;
   if(!name || !type) { showWzError('بيانات ناقصة'); return; }
-  if((type === 'groups' || type === 'knockout') && !(window._wzTeamsTotal >= 2)) {
+  if((type === 'groups' || type === 'knockout' || type === 'swiss') && !(window._wzTeamsTotal >= 2)) {
     showWzError('أدخل عدد الفرق المشاركة أولاً'); return;
+  }
+  // ✅︎ الدوري الموحّد: كل التفاصيل إجبارية ومنطقية قبل الإنشاء
+  if(type === 'swiss') {
+    const teamsN = window._wzTeamsTotal || 0;
+    const mpt    = window._wzSwissMatches || 0;
+    const qual   = window._wzSwissQualify || 0;
+    if(teamsN < 4)            { showWzError('عدد الفرق يجب أن يكون 4 على الأقل'); return; }
+    if(mpt < 1)               { showWzError('حدّد عدد المباريات لكل فريق'); return; }
+    if(mpt > teamsN - 1)      { showWzError(`عدد المباريات لكل فريق لا يمكن أن يتجاوز ${teamsN - 1} (عدد الخصوم المتاحين)`); return; }
+    if(qual < 2)              { showWzError('عدد المتأهلين يجب أن يكون 2 على الأقل'); return; }
+    if(qual > teamsN)         { showWzError('عدد المتأهلين لا يمكن أن يتجاوز عدد الفرق'); return; }
+    if(!window._wzHalfDur)    { showWzError('حدّد مدة الشوط'); return; }
+    if(!window._wzSquadSize)  { showWzError('حدّد عدد لاعبي التشكيلة'); return; }
   }
 
   const btn = document.getElementById('wzConfirmBtn');
@@ -642,7 +755,11 @@ window.wzConfirmFinal = async function() {
       plannedTeamsTotal: window._wzTeamsTotal || null,
       plannedGroupsCount: type === 'groups' ? (window._wzGroupsCount || null) : null,
       plannedQualifyN:   type === 'groups' ? (window._wzQualifyN || null) : null,
+      plannedBestOf:     type === 'groups' ? (window._wzBestOf || 0) : null,
+      swissMatchesPerTeam: type === 'swiss' ? (window._wzSwissMatches || 8) : null,
+      swissQualifyN:       type === 'swiss' ? (window._wzSwissQualify || 8) : null,
       legMode: (type === 'groups' || type === 'league') ? (window._wzLegMode || 'single') : null,
+      koTwoLegs: (type === 'groups' || type === 'knockout' || type === 'swiss') ? !!window._wzKoTwoLegs : false,
       squadSize: window._wzSquadSize || 11,
       matchSettings: {
         half1Duration: _hd,
@@ -670,6 +787,9 @@ window.wzConfirmFinal = async function() {
     } else if (type === 'knockout') {
       const r = await _wzCreateKnockoutOnly();
       resultMsg = `تم إنشاء شجرة تبدأ من ${r.roundsFirstName}`;
+    } else if (type === 'swiss') {
+      const r = await _wzCreateSwiss();
+      resultMsg = `تم إنشاء جدول موحّد · المتأهلون ${r.qualify} · الإقصاء يبدأ من ${r.roundsFirstName}`;
     }
 
     const wz = document.getElementById('setupWizard');
@@ -984,6 +1104,13 @@ function applySettings() {
   const legMode = settings.legMode || 'single';
   document.getElementById('setLegSingle')?.classList.toggle('selected', legMode === 'single');
   document.getElementById('setLegDouble')?.classList.toggle('selected', legMode === 'double');
+
+  // ✅︎ نظام الذهاب والإياب للإقصاء — يظهر لبطولات المجموعات والإقصاء
+  const koCard = document.getElementById('koLegCard');
+  if (koCard) koCard.style.display = (settings.type === 'groups' || settings.type === 'knockout') ? 'block' : 'none';
+  const koTwo = !!settings.koTwoLegs;
+  document.getElementById('setKoSingle')?.classList.toggle('selected', !koTwo);
+  document.getElementById('setKoDouble')?.classList.toggle('selected', koTwo);
 
   // ✅︎ نظام التشكيلة — إعداد عام على مستوى البطولة
   const squadSize = settings.squadSize || 11;
@@ -2912,7 +3039,10 @@ function renderScorers() {
     el.innerHTML = `<div class="empty-state"><div class="e-icon">⚽</div><div>لا توجد أهداف مسجلة بعد</div></div>`;
     return;
   }
-  el.innerHTML = sorted.slice(0, 20).map((s, i) => `
+  const _adminHint = sorted.length > 20
+    ? `<div style="padding:9px 14px;font-size:11px;color:var(--muted);background:var(--card2);border:1px solid var(--border2);border-radius:10px;text-align:center;margin-bottom:10px">يُعرض أفضل ٢٠ هدّافاً من إجمالي ${sorted.length} لاعباً سجّلوا</div>`
+    : '';
+  el.innerHTML = _adminHint + sorted.slice(0, 20).map((s, i) => `
     <div class="card" style="margin-bottom:10px;${i === 0 ? 'border-color:var(--gold);background:linear-gradient(135deg,#141000,var(--card))' : ''}">
       <div class="card-body" style="display:flex;align-items:center;gap:14px">
         <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;background:${i === 0 ? 'linear-gradient(135deg,var(--gold2),var(--gold3))' : i === 1 ? '#333' : i === 2 ? '#2a1a0a' : 'var(--card2)'};color:${i === 0 ? '#000' : i === 1 ? '#ccc' : i === 2 ? '#b87333' : '#555'}">${i + 1}</div>
@@ -3307,6 +3437,87 @@ function populateMatchSelects() {
     if(prev) sel.value = prev;
   });
 }
+
+// ══ مولّد جدول الدوري الموحّد ══
+// كل فريق يلعب عدداً محدّداً من المباريات ضد خصوم مختلفين (بلا تكرار)، متوازن قدر الإمكان.
+window.swissGenerateFixtures = async function() {
+  if (settings.type !== 'swiss') { showToast('هذا الخيار للدوري الموحّد فقط', 'error'); return; }
+  const mpt = (settings.swissMatchesPerTeam) || window._wzSwissMatches || 8;
+  const ts = teams.slice();
+  const n = ts.length;
+  if (n < 2) { showToast('أضف الفرق أولاً', 'error'); return; }
+  if (mpt > n - 1) { showToast(`عدد المباريات لكل فريق (${mpt}) يتجاوز عدد الخصوم المتاحين (${n-1})`, 'error'); return; }
+
+  // تحذير إن وُجدت مباريات مسبقاً
+  const existing = matches.filter(m => !m.isKnockout).length;
+  if (existing > 0 && !confirm(`يوجد ${existing} مباراة مسبقاً. سيضيف التوليد مباريات جديدة فوقها. متابعة؟`)) return;
+
+  // خوارزمية: نبني قائمة مواجهات بحيث درجة كل فريق = mpt، بلا تكرار خصم.
+  // نستخدم مقاربة جشعة: نرتّب الفرق بالأقل مباريات ونطابقها مع خصم متاح لم تلعب معه.
+  const deg = {};      // عدد مباريات كل فريق حتى الآن
+  const played = {};   // مجموعة خصوم كل فريق
+  ts.forEach(t => { deg[t.id] = 0; played[t.id] = new Set(); });
+  const pairs = [];
+  const targetTotal = Math.floor(n * mpt / 2); // إجمالي المباريات المطلوبة
+
+  let guard = 0;
+  while (pairs.length < targetTotal && guard < targetTotal * 40) {
+    guard++;
+    // الفرق التي لم تكمل نصيبها
+    const need = ts.filter(t => deg[t.id] < mpt).sort((a,b) => deg[a.id] - deg[b.id]);
+    if (need.length < 2) break;
+    const a = need[0];
+    // خصم متاح: لم يُلعب معه، ولم يكمل نصيبه، وليس نفسه
+    const opps = need.slice(1).filter(b => !played[a.id].has(b.id));
+    if (!opps.length) {
+      // تعذّر إيجاد خصم جديد لهذا الفريق — نكسر لتفادي حلقة لا نهائية
+      // (يحدث في حالات حدّية؛ نكمل بما توفّر)
+      const anyOpp = ts.filter(b => b.id!==a.id && !played[a.id].has(b.id) && deg[b.id] < mpt);
+      if (!anyOpp.length) break;
+      opps.push(anyOpp[0]);
+    }
+    // اختر الخصم الأقل مباريات (توازن)
+    const b = opps.sort((x,y) => deg[x.id] - deg[y.id])[0];
+    pairs.push([a, b]);
+    deg[a.id]++; deg[b.id]++;
+    played[a.id].add(b.id); played[b.id].add(a.id);
+  }
+
+  if (!pairs.length) { showToast('تعذّر توليد الجدول — راجع الأعداد', 'error'); return; }
+
+  // وزّع المباريات على جولات (كل جولة: كل فريق مرة واحدة كحدّ أقصى)
+  const rounds = [];
+  pairs.forEach(([a,b]) => {
+    let placed = false;
+    for (const r of rounds) {
+      if (!r.used.has(a.id) && !r.used.has(b.id)) { r.list.push([a,b]); r.used.add(a.id); r.used.add(b.id); placed = true; break; }
+    }
+    if (!placed) rounds.push({ used: new Set([a.id,b.id]), list: [[a,b]] });
+  });
+
+  // اكتب المباريات في Firestore
+  try {
+    showToast('جاري توليد الجدول...', 'info');
+    const batch = writeBatch(db);
+    rounds.forEach((r, rIdx) => {
+      r.list.forEach(([a,b]) => {
+        const ref = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
+        batch.set(ref, {
+          homeId: a.id, awayId: b.id,
+          homeName: a.name, awayName: b.name,
+          homeLogo: a.logo, awayLogo: b.logo,
+          homeScore: null, awayScore: null,
+          round: rIdx + 1,
+          status: 'upcoming', isKnockout: false,
+          date: null, time: null, venue: null,
+          createdAt: serverTimestamp(),
+        });
+      });
+    });
+    await batch.commit();
+    showToast(`✅︎ تم توليد ${pairs.length} مباراة على ${rounds.length} جولة`, 'success');
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
 
 window.addMatch = async function() {
   const homeId = document.getElementById('matchHome')?.value;
@@ -3737,6 +3948,16 @@ window.setLegMode = async function(mode) {
   try {
     await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'), { legMode: mode, updatedAt: serverTimestamp() }, { merge: true });
     showToast(mode === 'double' ? '✅︎ المباريات القادمة: ذهاب وإياب' : '✅︎ المباريات القادمة: ذهاب فقط', 'success');
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
+window.setKoTwoLegs = async function(twoLegs) {
+  settings.koTwoLegs = !!twoLegs;
+  document.getElementById('setKoSingle')?.classList.toggle('selected', !twoLegs);
+  document.getElementById('setKoDouble')?.classList.toggle('selected', !!twoLegs);
+  try {
+    await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'), { koTwoLegs: !!twoLegs, updatedAt: serverTimestamp() }, { merge: true });
+    showToast(twoLegs ? '✅︎ أدوار الإقصاء القادمة: ذهاب وإياب' : '✅︎ أدوار الإقصاء القادمة: مباراة واحدة', 'success');
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
@@ -4570,7 +4791,11 @@ window.openLivePage = function(matchId) {
     awayScore:    match.liveData?.awayScore ?? 0,
     timerRunning: false,
     timerInterval: null,
-    matchStatus:  match.liveData?.matchStatus || 'upcoming',
+    // 🛡️ إصلاح جذري: لو المباراة منتهية رسمياً (status علوي) لكن حالة البث
+    //    بقيت 'live' (نسي المنظّم «إنهاء المباراة»)، اعرضها ended — لا ساعة جارية.
+    matchStatus:  (match.status === 'finished')
+                    ? 'ended'
+                    : (match.liveData?.matchStatus || 'upcoming'),
     currentHalf:  match.liveData?.currentHalf || 1,
     events:       (match.liveData && Array.isArray(match.liveData.events) && match.liveData.events.length)
                     ? match.liveData.events
@@ -4615,6 +4840,19 @@ window.openLivePage = function(matchId) {
     _stInit.timerInterval = setInterval(() => window._lpUpdateTimerDisplay(matchId), 500);
   }
   _startAutoSaveV2(matchId);
+
+  // 🛡️ إصلاح ذاتي: مباراة منتهية (status='finished') لكن liveData.matchStatus
+  //    بقي 'live' (ثغرة سابقة) → صحّحها في القاعدة مرة واحدة عند الفتح.
+  if (match.status === 'finished' && match.liveData && match.liveData.matchStatus &&
+      match.liveData.matchStatus !== 'ended') {
+    const _lid = window._getLeagueId ? window._getLeagueId() : '';
+    if (_lid) {
+      const _fixed = Object.assign({}, match.liveData, { matchStatus: 'ended', timerPaused: true });
+      updateDoc(doc(db, 'leagues', _lid, 'matches', matchId), { liveData: _fixed })
+        .then(() => { if (match.liveData) match.liveData.matchStatus = 'ended'; })
+        .catch(() => {});
+    }
+  }
 
   // ── بنِّ الصفحة ──
   _buildLivePage(matchId, match, ht, at);
@@ -6622,6 +6860,13 @@ window.lpEndMatch = async function(matchId) {
   const st = _liveMatches[matchId];
   if (!st) return;
 
+  // 🛡️ إصلاح ثغرة نادرة: ألغِ الحفظ التلقائي (كل 20ث) فوراً — قبل أي await —
+  //    وإلا قد يصل حفظ تلقائي قديم (matchStatus='live') بعد حفظ الإنهاء
+  //    فيدهس 'ended' بـ 'live' → المباراة تظهر منتهية لكن عالقة في البث.
+  if (st._autoSaveV2) { clearInterval(st._autoSaveV2); st._autoSaveV2 = null; }
+  if (st.timerInterval) { clearInterval(st.timerInterval); st.timerInterval = null; }
+  st._ending = true; // علامة تمنع أي حفظ تلقائي متأخّر
+
   // ⛔ مباريات الإقصاء لا تنتهي بالتعادل — لازم فائز (نتيجة أو ركلات ترجيح)
   const _koMatch = matches.find(function(x){ return x.id === matchId; });
   if (_koMatch && _koMatch.isKnockout && (st.homeScore || 0) === (st.awayScore || 0)) {
@@ -6949,10 +7194,14 @@ function _startAutoSaveV2(matchId) {
   // ألغِ القديمة لو موجودة
   const st = _liveMatches[matchId];
   if (!st) return;
+  // لا حفظ تلقائي لمباراة منتهية — يمنع إحياء البث المعلّق
+  if (st.matchStatus === 'ended' || st._ending) return;
   if (st._autoSaveV2) clearInterval(st._autoSaveV2);
   st._autoSaveV2 = setInterval(() => {
     const s = _liveMatches[matchId];
     if (!s) { clearInterval(st._autoSaveV2); return; }
+    // لا تحفظ إن كانت المباراة قيد الإنهاء أو انتهت — يمنع دهس 'ended' بـ 'live'
+    if (s._ending || s.matchStatus === 'ended') { clearInterval(st._autoSaveV2); s._autoSaveV2 = null; return; }
     if (['live','halftime','extratime1','halftime_et','extratime2','penalties'].includes(s.matchStatus)) {
       window._lpSaveV2(matchId);
     }
@@ -7736,41 +7985,43 @@ window.selectType = function (el, type) {
 };
 
 function _adaptAdminUIToType(type) {
+  const isSwiss = (type === 'swiss');
   const sbGroups = document.getElementById('sb-groups');
   const sbKnockout = document.getElementById('sb-knockout');
   const sbZones = document.getElementById('sb-zones');
-  // إخفاء/إظهار زر الترتيب في الـ sidebar — يظهر فقط في نظام الدوري
+  // إخفاء/إظهار زر الترتيب في الـ sidebar — يظهر في الدوري والدوري الموحّد
   const sbStandings = document.querySelector('.sb-item[onclick*="standings"]');
-  if (sbStandings) sbStandings.style.display = (type === 'league') ? 'flex' : 'none';
+  if (sbStandings) sbStandings.style.display = (type === 'league' || isSwiss) ? 'flex' : 'none';
 
   if (sbGroups) sbGroups.style.display = (type === 'groups') ? 'flex' : 'none';
-  if (sbKnockout) sbKnockout.style.display = (type === 'knockout' || type === 'groups') ? 'flex' : 'none';
-  if (sbZones) sbZones.style.display = (type === 'league') ? 'flex' : 'none';
+  if (sbKnockout) sbKnockout.style.display = (type === 'knockout' || type === 'groups' || isSwiss) ? 'flex' : 'none';
+  if (sbZones) sbZones.style.display = (type === 'league' || isSwiss) ? 'flex' : 'none';
 
   // موبايل نافيجيشن — إخفاء زر الترتيب
   const mnStandings = document.querySelector('.mn-item[onclick*="standings"]');
-  if (mnStandings) mnStandings.style.display = (type === 'league') ? '' : 'none';
+  if (mnStandings) mnStandings.style.display = (type === 'league' || isSwiss) ? '' : 'none';
 
-  // ✅︎ إصلاح: إظهار/إخفاء أزرار المجموعات والإقصاء في الجوال بناءً على النوع
   const mnGroups   = document.getElementById('mn-groups');
   const mnKnockout = document.getElementById('mn-knockout');
-  if (mnGroups)   mnGroups.style.display   = (type === 'groups')                       ? '' : 'none';
-  if (mnKnockout) mnKnockout.style.display = (type === 'knockout' || type === 'groups') ? '' : 'none';
+  if (mnGroups)   mnGroups.style.display   = (type === 'groups')                                 ? '' : 'none';
+  if (mnKnockout) mnKnockout.style.display = (type === 'knockout' || type === 'groups' || isSwiss) ? '' : 'none';
 
-  // ✅︎ بطاقة "الترتيب الحالي" في لوحة التحكم — تُخفى تماماً خارج الدوري
-  //    (كانت تبقى ظاهرة ويتغيّر عنوانها فقط)
   const dashCard = document.getElementById('dashStandingsCard');
-  if (dashCard) dashCard.style.display = (type === 'league') ? '' : 'none';
+  if (dashCard) dashCard.style.display = (type === 'league' || isSwiss) ? '' : 'none';
 
-  // ✅︎ زر "تفاصيل الترتيب" في أي مكان آخر
   document.querySelectorAll('[onclick*="showPage(\'standings\'"]').forEach(el => {
     const item = el.closest('.sb-item, .mn-item');
-    if (!item) el.style.display = (type === 'league') ? '' : 'none';
+    if (!item) el.style.display = (type === 'league' || isSwiss) ? '' : 'none';
   });
 
   _updateDashboardForType(type);
 
-  // ⛔ typeNote أُزيل — القسم المحذوف يختفي بلا تنبيه مكانه
+  // لافتة إرشادية للدوري الموحّد في صفحة المباريات
+  const swissGuide = document.getElementById('swissMatchGuide');
+  if (swissGuide) swissGuide.style.display = isSwiss ? 'block' : 'none';
+  const swissGenBtn = document.getElementById('swissGenBtn');
+  if (swissGenBtn) swissGenBtn.style.display = isSwiss ? '' : 'none';
+
   const noteEl = document.getElementById('typeNote');
   if (noteEl) { noteEl.textContent = ''; noteEl.style.display = 'none'; }
 }
@@ -7806,6 +8057,10 @@ function injectGroupsAndKnockoutPages() {
         💡 <strong style="color:var(--gold)">كيفية الاستخدام:</strong>
         اختر كل مجموعة ← أضف الفرق المشاركة ← حدد عدد المتأهلين ← ثم أنشئ أدوار الإقصاء
       </div>
+      ${(settings && settings.plannedBestOf) ? `<div style="background:rgba(46,204,113,.06);border:1px solid rgba(46,204,113,.2);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:11.5px;color:#7fdca5;line-height:1.8">
+        🏆 <strong style="color:#2ecc71">نظام أفضل المراكز مُفعّل:</strong>
+        بالإضافة للمتأهلين المباشرين من كل مجموعة، يتأهل <strong>أفضل ${settings.plannedBestOf}</strong> من الفرق التالية عبر كل المجموعات. راجع ترتيب المراكز المتساوية واختر الأفضل عند تعبئة شجرة الإقصاء.
+      </div>` : ''}
       <div id="groupsAdminList">
         <div class="spin"></div>
       </div>`;
@@ -8586,22 +8841,43 @@ window._adminPickBracketTeam = async function(roundId, slotIdx, teamId) {
   document.getElementById('bracketPickSheet')?.remove();
 
   const round = adminKnockoutRounds.find(r => r.id === roundId);
+  const twoLegs = !!(settings && settings.koTwoLegs);
   try {
-    const matchRef = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
-    await setDoc(matchRef, {
-      homeId: home.homeId, homeName: home.homeName, homeLogo: home.homeLogo || '⚽',
-      awayId: t.id, awayName: t.name, awayLogo: t.logo || '⚽',
+    const newIds = [];
+    const baseMatch = (extra) => ({
       homeScore: null, awayScore: null,
       isKnockout: true, knockoutRoundId: roundId, knockoutRoundName: round?.name || '',
       knockoutSlot: slotIdx,
       round: round?.order ?? 0,
       date: null, time: null, venue: null,
       status: 'upcoming', createdAt: serverTimestamp(),
+      ...extra,
     });
+
+    // مباراة الذهاب (leg 1): المضيف = الفريق الأول
+    const ref1 = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
+    await setDoc(ref1, baseMatch({
+      homeId: home.homeId, homeName: home.homeName, homeLogo: home.homeLogo || '⚽',
+      awayId: t.id,        awayName: t.name,        awayLogo: t.logo || '⚽',
+      ...(twoLegs ? { legNo: 1, knockoutRoundName: (round?.name || '') + ' — الذهاب' } : {}),
+    }));
+    newIds.push(ref1.id);
+
+    // مباراة الإياب (leg 2): المضيف = الفريق الثاني (تبديل الأرض)
+    if (twoLegs) {
+      const ref2 = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
+      await setDoc(ref2, baseMatch({
+        homeId: t.id,        homeName: t.name,        homeLogo: t.logo || '⚽',
+        awayId: home.homeId, awayName: home.homeName, awayLogo: home.homeLogo || '⚽',
+        legNo: 2, knockoutRoundName: (round?.name || '') + ' — الإياب',
+      }));
+      newIds.push(ref2.id);
+    }
+
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'knockoutRounds', roundId), {
-      matchIds: [...(round?.matchIds || []), matchRef.id], updatedAt: serverTimestamp()
+      matchIds: [...(round?.matchIds || []), ...newIds], updatedAt: serverTimestamp()
     });
-    showToast('✅︎ أُنشئت المباراة وتظهر للجمهور الآن', 'success');
+    showToast(twoLegs ? '✅︎ أُنشئت مباراتا الذهاب والإياب' : '✅︎ أُنشئت المباراة وتظهر للجمهور الآن', 'success');
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
@@ -8939,9 +9215,54 @@ async function _autoAdvanceWinner(roundId, matchId, homeScore, awayScore) {
   const match = matches.find(m => m.id === matchId);
   if (!match) return;
 
-  const winnerId   = homeScore > awayScore ? match.homeId   : match.awayId;
-  const winnerName = homeScore > awayScore ? match.homeName : match.awayName;
-  const winnerLogo = homeScore > awayScore ? match.homeLogo : match.awayLogo;
+  const twoLegs = !!(settings && settings.koTwoLegs);
+
+  let winnerId, winnerName, winnerLogo;
+
+  if (twoLegs) {
+    // ── نظام الذهاب والإياب: يتأهل صاحب المجموع الكلي بعد اكتمال المباراتين ──
+    // مباريات المواجهة الواحدة تشترك في نفس (knockoutRoundId, knockoutSlot).
+    const legs = matches.filter(m =>
+      m.knockoutRoundId === roundId &&
+      (m.knockoutSlot ?? 0) === (match.knockoutSlot ?? 0) &&
+      m.isKnockout);
+    const finishedLegs = legs.filter(m => m.status === 'finished');
+    // انتظر حتى تنتهي المباراتان (ذهاب + إياب)
+    if (legs.length < 2 || finishedLegs.length < 2) return;
+
+    // احسب المجموع الكلي — نجمع أهداف كل فريق عبر المباراتين
+    // نحدّد الفريقين المرجعيين من أول مباراة (leg1)
+    const leg1 = legs.slice().sort((a,b)=>(a.legNo||1)-(b.legNo||1))[0];
+    const teamA = leg1.homeId, teamB = leg1.awayId;
+    let aggA = 0, aggB = 0;
+    finishedLegs.forEach(l => {
+      if (l.homeId === teamA) { aggA += (l.homeScore||0); aggB += (l.awayScore||0); }
+      else                    { aggB += (l.homeScore||0); aggA += (l.awayScore||0); }
+    });
+
+    let winId;
+    if (aggA > aggB) winId = teamA;
+    else if (aggB > aggA) winId = teamB;
+    else {
+      // تعادل بالمجموع → يُحسم بركلات الترجيح في مباراة الإياب (آخر leg)
+      const decider = finishedLegs.slice().sort((a,b)=>(b.legNo||1)-(a.legNo||1))[0];
+      if (decider.penaltyScoreHome != null && decider.penaltyScoreAway != null) {
+        winId = decider.penaltyScoreHome > decider.penaltyScoreAway ? decider.homeId : decider.awayId;
+      } else {
+        // لم تُدخل ركلات ترجيح بعد — لا نرقّي، ننتظر الحسم
+        return;
+      }
+    }
+    const wTeam = teams.find(t => t.id === winId) || {};
+    winnerId = winId;
+    winnerName = wTeam.name || (winId === match.homeId ? match.homeName : match.awayName);
+    winnerLogo = wTeam.logo || '';
+  } else {
+    // ── مباراة واحدة (النظام الافتراضي) ──
+    winnerId   = homeScore > awayScore ? match.homeId   : match.awayId;
+    winnerName = homeScore > awayScore ? match.homeName : match.awayName;
+    winnerLogo = homeScore > awayScore ? match.homeLogo : match.awayLogo;
+  }
 
   // أوجد الدور التالي
   const roundsSorted = [...adminKnockoutRounds].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -8951,8 +9272,6 @@ async function _autoAdvanceWinner(roundId, matchId, homeScore, awayScore) {
   const nextRound = roundsSorted[curIdx + 1];
   if (!nextRound) return;
 
-  // أوجد الـ slot المناسب في الدور التالي
-  // الـ slot = Math.floor(knockoutSlot / 2) في مباريات الدور الحالي
   const curMatch = matches.find(m => m.id === matchId);
   const slotInNext = curMatch ? Math.floor((curMatch.knockoutSlot ?? 0) / 2) : null;
 

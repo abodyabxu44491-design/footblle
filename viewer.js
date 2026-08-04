@@ -1213,10 +1213,10 @@ window.openPlayerModal = function(playerName, teamId) {
         <div class="pm-match-vs">ضد ${opp.name} · جولة ${m.round||1}</div>
         <div style="font-size:11px;color:var(--t3)">${my}-${op}</div>
         <div style="display:flex;gap:4px;align-items:center">
-          ${myGoals>0?`<span class="pm-goals-badge">⚽×${myGoals}</span>`:''}
+          ${myGoals>0?`<span class="pm-goals-badge">${window.Icon?window.Icon('ball',11):'⚽'}×${myGoals}</span>`:''}
           ${myYellow>0?`<span style="width:9px;height:12px;background:#E8B93B;border-radius:2px;display:inline-block" title="بطاقة صفراء"></span>`:''}
           ${myRed>0?`<span style="width:9px;height:12px;background:#C0392B;border-radius:2px;display:inline-block" title="بطاقة حمراء"></span>`:''}
-          ${isMom?`<span style="font-size:12px" title="رجل المباراة">👑</span>`:''}
+          ${isMom?`<span title="رجل المباراة" style="color:var(--gold);display:inline-flex">${window.Icon?window.Icon('crown',13):'👑'}</span>`:''}
         </div>
       </div>`).join('');
   }
@@ -1862,6 +1862,10 @@ function adaptUIToType() {
       <button class="bn-item" id="bn-live"      onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
     if(standEl) standEl.style.display = '';
     if(brkEl)   brkEl.style.display   = bracketOK ? 'block' : 'none';
+    // ✅︎ إظهار حاويات الترتيب الداخلية (قد تكون مخفية من نوع آخر)
+    ['fullStandings','homeStandings','zoneLegend'].forEach(function(id) {
+      var el = document.getElementById(id); if(el) el.style.display = '';
+    });
   } else {
     bn.innerHTML = `
       <button class="bn-item active" id="bn-home"      onclick="switchTab('home',null,this)"><span class="bi">${window.Icon?Icon('home',19):''}</span>الرئيسية</button>
@@ -2756,41 +2760,77 @@ function buildScorersData() {
     });
   }
 
-  // احتياط طارئ فقط — لن يُستخدم عادة لأن scorers-core.js محمَّل دائماً في صفحة الجمهور
+  // احتياط (scorers-core.js غير محمّل) — يبني من الأحداث أولاً (الأدق)،
+  // ويتجاهل الدقيقة في النص فلا يتكرّر «سالم 12» و«سالم 40» كلاعبين.
   const map = {};
-  matches.filter(m => m.status === 'finished').forEach(m => {
-    [[m.homeScorers, m.homeId], [m.awayScorers, m.awayId]].forEach(([sc, tid]) => {
-      if (!sc) return;
-      sc.split(',').forEach(s => {
-        const rx = s.trim().match(/^(.+?)\s*(?:\((\d+)\))?$/);
-        if (!rx) return;
-        const name = rx[1].trim(), g = parseInt(rx[2] || '1');
-        if (!name) return;
-        const key = tid + '::' + name;
-        if (!map[key]) {
-          const team = teams.find(t => t.id === tid) || {};
-          map[key] = { name, goals: 0, teamId: tid, teamName: team.name || '', teamLogo: team.logo || '' };
-        }
-        map[key].goals += g;
+  const _normNm = s => String(s || '')
+    .replace(/[\u064B-\u0652\u0640]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // 🛡️ كشف الأسماء المكرّرة فعلياً داخل نفس الفريق (لاعبان مختلفان، نفس الاسم):
+  //    نبنيه من قوائم اللاعبين. عند التكرار الفعلي نفصل بالـ playerId؛
+  //    غير ذلك نوحّد بالاسم (فلا يتكرّر نفس اللاعب عبر الجولات).
+  const _dupNames = {}; // "tid::name" => true إذا وُجد لاعبان بنفس الاسم في الفريق
+  (function detectDuplicates(){
+    (teams || []).forEach(t => {
+      const roster = t.players || t.roster || [];
+      const seen = {};
+      roster.forEach(p => {
+        const nm = _normNm(p && (p.name || p.playerName));
+        if (!nm) return;
+        const k = t.id + '::' + nm;
+        if (seen[k]) _dupNames[k] = true;   // ظهر مرتين = اسم مكرّر فعلاً
+        seen[k] = true;
       });
     });
-    const hasTextScorers = m.homeScorers || m.awayScorers;
-    const _evsFallback = _matchEvents(m);
-    if (!hasTextScorers && _evsFallback.length) {
-      _evsFallback.forEach(ev => {
-        // ⛔ أهداف ركلات الترجيح لا تُحتسب في ترتيب الهدافين
-        if (ev.type === 'penalty' || ev.isShootout || ev.shootout) return;
-        if (ev.type !== 'goal') return;
-        const name = (ev.player || '').trim();
-        if (!name || name === '—' || name === '؟' || name === '?') return;
+  })();
+
+  const addGoal = (rawName, tid, playerId) => {
+    // 🔄 لو الهدف مرتبط بـ playerId، اجلب الاسم الحالي من قائمة الفريق
+    //    (فتغيير اسم اللاعب في الفريق ينعكس تلقائياً في ترتيب الهدافين).
+    let displayName = rawName;
+    if (playerId) {
+      const team = teams.find(t => t.id === tid);
+      const roster = (team && (team.players || team.roster)) || [];
+      const p = roster.find(pl => pl && (pl.id === playerId || pl.playerId === playerId));
+      if (p && (p.name || p.playerName)) displayName = p.name || p.playerName;
+    }
+    const name = _normNm(displayName);
+    if (!name || name === '—' || name === '؟' || name === '?') return;
+    const dupKey = tid + '::' + name;
+    const key = (_dupNames[dupKey] && playerId) ? (tid + '::id::' + playerId) : dupKey;
+    if (!map[key]) {
+      const team = teams.find(t => t.id === tid) || {};
+      map[key] = { name, goals: 0, teamId: tid, teamName: team.name || '', teamLogo: team.logo || '', playerId: playerId || null };
+    }
+    map[key].goals += 1;
+    if (!map[key].playerId && playerId) map[key].playerId = playerId;
+  };
+
+  matches.filter(m => m.status === 'finished').forEach(m => {
+    const evs = _matchEvents(m);
+    if (evs.length) {
+      // المصدر الأساسي: الأحداث (تفصل بالهوية، تتجاهل الدقيقة تلقائياً)
+      evs.forEach(ev => {
+        if (!ev) return;
+        if (ev.type === 'penalty' || ev.isShootout || ev.shootout) return; // ترجيح لا يُحتسب
+        if (ev.type !== 'goal') return; // العكسي 'own' لا يُنسب للاعب
         const tid = ev.teamId || (_evSide(ev) === 'home' ? m.homeId : m.awayId);
-        // 🛡️ الفصل بالهوية: playerId يفصل حتى المتشابهين بالاسم داخل نفس الفريق
-        const key = ev.playerId ? (tid + '::id::' + ev.playerId) : (tid + '::' + name);
-        if (!map[key]) {
-          const team = teams.find(t => t.id === tid) || {};
-          map[key] = { name, goals: 0, teamId: tid, teamName: team.name || '', teamLogo: team.logo || '', playerId: ev.playerId || null };
-        }
-        map[key].goals += 1;
+        addGoal(ev.player, tid, ev.playerId);
+      });
+    } else {
+      // احتياطي: حقول النص — مع تجريد الدقيقة من آخر الاسم
+      [[m.homeScorers, m.homeId], [m.awayScorers, m.awayId]].forEach(([sc, tid]) => {
+        if (!sc) return;
+        sc.split(',').forEach(s => {
+          // «سالم 12» أو «سالم 12'» أو «سالم (2)» → نجرّد الدقيقة/العدد الملتصق
+          let name = s.trim()
+            .replace(/\s*\(\d+\)\s*$/, '')            // (2) في النهاية
+            .replace(/[\s\u00A0]*\d+\+?\d*'?\s*$/, '') // 12 أو 45+2 أو 90'
+            .trim();
+          if (name) addGoal(name, tid, null);
+        });
       });
     }
   });
@@ -2897,9 +2937,10 @@ function renderStandings() {
           const gd = (s.gf||0)-(s.ga||0);
           const zc = zoneColors[i] || '';
           const rank = i+1;
-          return `<div class="std-row" onclick="openTeamProfile('${t.id}')">
-            <span class="std-pos" style="${zc?`color:${zc}`:''}">
-              <span class="std-zone-bar" style="background:${zc||'transparent'}"></span>${rank}
+          return `<div class="std-row ${i===0?'std-first':''}" onclick="openTeamProfile('${t.id}')">
+            <span class="std-pos">
+              <span class="std-zone-bar" style="background:${zc||'transparent'}"></span>
+              <span class="std-pos-num" style="${zc?`color:${zc}`:''}">${rank}</span>
             </span>
             <span class="std-team">
               <span class="std-logo">${logoHtml(t.logo,26,6)}</span>

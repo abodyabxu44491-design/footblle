@@ -334,11 +334,11 @@ if('serviceWorker' in navigator) {
           <div class="page-sub">إدخال النتائج وإدارة الجدول</div>
           <div class="page-actions">
             <button class="btn btn-gold" onclick="openModal('modal-match')">+ إضافة مباراة</button>
-            <button class="btn btn-outline" id="swissGenBtn" style="display:none" onclick="swissGenerateFixtures()">🎲 توليد جدول تلقائي</button>
+            <button class="btn btn-outline" id="swissGenBtn" style="display:none" onclick="swissGenerateFixtures()"><span data-ic="dice" style="vertical-align:-2px;margin-inline-end:4px"></span>توليد جدول تلقائي</button>
           </div>
         </div>
         <div id="swissMatchGuide" style="display:none;background:rgba(201,160,43,.06);border:1px solid rgba(201,160,43,.2);border-radius:12px;padding:13px 15px;margin-bottom:14px;font-size:11.5px;color:var(--muted2);line-height:1.9">
-          🏅 <strong style="color:var(--gold)">الدوري الموحّد:</strong>
+          <span data-ic="medal" style="vertical-align:-2px;margin-inline-end:3px"></span><strong style="color:var(--gold)">الدوري الموحّد:</strong>
           أضف كل مباراة يدوياً بزر «+ إضافة مباراة» (تختار الفريقين والجولة). الترتيب يتحدّث تلقائياً بعد كل نتيجة.
           عند اكتمال الجولات، اذهب لصفحة <strong style="color:var(--gold)">الإقصاء</strong> وابنِ الشجرة من أفضل الفرق المتأهلة.
         </div>
@@ -657,24 +657,24 @@ if('serviceWorker' in navigator) {
                   <div style="font-size:18px;margin-bottom:4px">➡️</div>ذهاب فقط
                 </button>
                 <button type="button" class="type-card" id="setLegDouble" onclick="setLegMode('double')" style="padding:12px 8px;font-size:12px">
-                  <div style="font-size:18px;margin-bottom:4px">🔁</div>ذهاب وإياب
+                  <div style="margin-bottom:4px;display:flex;justify-content:center"><span data-ic="refresh"></span></div>ذهاب وإياب
                 </button>
               </div>
             </div>
           </div>
 
           <div class="card" id="koLegCard" style="display:none">
-            <div class="card-header"><div class="card-title">🏆 نظام أدوار الإقصاء</div></div>
+            <div class="card-header"><div class="card-title"><span data-ic="tree" style="vertical-align:-2px;margin-inline-end:5px"></span>نظام أدوار الإقصاء</div></div>
             <div class="card-body">
               <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
                 💡 «ذهاب وإياب» = كل دور إقصائي يُلعب مباراتين ويتأهل صاحب المجموع الكلي (مثل دوري الأبطال). يُطبَّق على المواجهات القادمة عند إنشائها
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                 <button type="button" class="type-card" id="setKoSingle" onclick="setKoTwoLegs(false)" style="padding:12px 8px;font-size:12px">
-                  <div style="font-size:18px;margin-bottom:4px">⚡</div>مباراة واحدة
+                  <div style="margin-bottom:4px;display:flex;justify-content:center"><span data-ic="bolt"></span></div>مباراة واحدة
                 </button>
                 <button type="button" class="type-card" id="setKoDouble" onclick="setKoTwoLegs(true)" style="padding:12px 8px;font-size:12px">
-                  <div style="font-size:18px;margin-bottom:4px">🔁</div>ذهاب وإياب
+                  <div style="margin-bottom:4px;display:flex;justify-content:center"><span data-ic="refresh"></span></div>ذهاب وإياب
                 </button>
               </div>
             </div>
@@ -765,11 +765,11 @@ if('serviceWorker' in navigator) {
         </div>
         <div style="display:grid;gap:12px">
           <div class="card" style="border-color:var(--gold)"><div class="card-body">
-            <div style="font-size:14px;font-weight:700;color:var(--gold);margin-bottom:6px">🔐 تغيير كلمة المرور</div>
+            <div style="font-size:14px;font-weight:700;color:var(--gold);margin-bottom:6px"><span data-ic="lock" style="vertical-align:-2px;margin-inline-end:5px"></span>تغيير كلمة المرور</div>
             <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">
               غيّر كلمة مرور دخولك لهذه الصفحة. بعد التغيير لن تُقبل كلمة المرور القديمة نهائياً.
             </div>
-            <button class="btn btn-gold" onclick="openChangePassword()">🔐 تغيير كلمة المرور</button>
+            <button class="btn btn-gold" onclick="openChangePassword()"><span data-ic="lock" style="vertical-align:-2px;margin-inline-end:5px"></span>تغيير كلمة المرور</button>
           </div></div>
           <div class="card"><div class="card-body">
             <div style="font-size:14px;font-weight:700;color:var(--gold);margin-bottom:6px">فحص سلامة البطولة</div>

@@ -890,7 +890,7 @@ window.openChangePassword = function() {
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
   ov.innerHTML = `
     <div style="background:#141414;border:1px solid #2a2a2a;border-radius:18px;padding:22px;width:100%;max-width:380px" onclick="event.stopPropagation()">
-      <div style="font-size:16px;font-weight:900;color:#eee;margin-bottom:4px;font-family:Tajawal,sans-serif">🔐 تغيير كلمة المرور</div>
+      <div style="font-size:16px;font-weight:900;color:#eee;margin-bottom:4px;font-family:Tajawal,sans-serif">${window.Icon?window.Icon('lock',17):''} تغيير كلمة المرور</div>
       <div style="font-size:11px;color:#888;margin-bottom:18px;font-family:Tajawal,sans-serif">${email || 'حساب إدارة الدوري'}</div>
 
       <label style="font-size:11px;color:#888;font-family:Tajawal,sans-serif">كلمة المرور الحالية</label>
@@ -3005,15 +3005,38 @@ function renderScorers() {
   const goalsMap = {};
   const _norm = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim();
 
+  // 🛡️ كشف الأسماء المكرّرة فعلياً داخل نفس الفريق (لاعبان مختلفان بنفس الاسم)
+  const _dupNames = {};
+  (teams || []).forEach(t => {
+    const roster = t.players || t.roster || [];
+    const seen = {};
+    roster.forEach(p => {
+      const nm = _norm(p && (p.name || p.playerName));
+      if (!nm) return;
+      const k = t.id + '::' + nm;
+      if (seen[k]) _dupNames[k] = true;
+      seen[k] = true;
+    });
+  });
+
   const addGoal = (name, tid, playerId) => {
+    // 🔄 لو الهدف مرتبط بـ playerId، اجلب الاسم الحالي من قائمة الفريق
+    if (playerId) {
+      const team = teams.find(t => t.id === tid);
+      const roster = (team && (team.players || team.roster)) || [];
+      const p = roster.find(pl => pl && (pl.id === playerId || pl.playerId === playerId));
+      if (p && (p.name || p.playerName)) name = p.name || p.playerName;
+    }
     name = _norm(name);
     if (!name || name === '؟' || name === '?' || name === '—') return;
-    const key = playerId ? (tid + '::id::' + playerId) : (tid + '::' + name);
+    const dupKey = tid + '::' + name;
+    const key = (_dupNames[dupKey] && playerId) ? (tid + '::id::' + playerId) : dupKey;
     if (!goalsMap[key]) {
       const t = teams.find(t => t.id === tid) || {};
-      goalsMap[key] = { name, teamName: t.name || '', teamLogo: t.logo || '', goals: 0 };
+      goalsMap[key] = { name, teamName: t.name || '', teamLogo: t.logo || '', goals: 0, teamId: tid, playerId: playerId || null };
     }
     goalsMap[key].goals++;
+    if (!goalsMap[key].playerId && playerId) goalsMap[key].playerId = playerId;
   };
 
   matches.filter(m => m.status === 'finished').forEach(m => {
@@ -3063,6 +3086,10 @@ function renderScorers() {
           <div style="font-size:26px;font-weight:900;font-family:Tajawal,sans-serif;color:${i === 0 ? 'var(--gold)' : i === 1 ? '#ccc' : i === 2 ? '#b87333' : '#888'}">${s.goals}</div>
           <div style="font-size:9px;color:var(--muted)">هدف</div>
         </div>
+        <button onclick="scorerEditPlayer('${s.teamId||''}','${s.playerId||''}','${(s.name||'').replace(/'/g,"\\'")}')" title="تعديل اسم اللاعب في فريقه"
+          style="width:34px;height:34px;flex:0 0 auto;border-radius:9px;background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.3);color:var(--gold);cursor:pointer;display:inline-flex;align-items:center;justify-content:center">
+          ${window.Icon ? window.Icon('edit', 15) : '✏️'}
+        </button>
       </div>
     </div>
   `).join('');
@@ -5714,7 +5741,12 @@ window.lpSaveEditEvent = async function(matchId, id) {
     if (outEl) { ev.playerOut = outEl.value.trim(); ev.player  = ev.playerOut; }
   } else if (ev.type !== 'own') {
     const pEl = document.getElementById('lp-ee-player');
-    if (pEl) ev.player = pEl.value.trim();
+    if (pEl) {
+      const newName = pEl.value.trim();
+      // لو غيّر الاسم يدوياً لاسم مختلف، فُكّ الربط بالمعرّف حتى يُحترم الاسم الجديد
+      if (newName && newName !== (ev.player || '').trim()) ev.playerId = null;
+      ev.player = newName;
+    }
   }
   // إعادة الترتيب حسب الدقيقة
   st.events.sort((a, b) => (a.minute || 0) - (b.minute || 0));
@@ -10834,6 +10866,33 @@ window.updateRosterStatus = async function(teamId, playerId, status) {
 };
 
 // ── تعديل لاعب (inline) ──
+// ✏️ من جدول الهدّافين → افتح قائمة الفريق وفعّل تعديل اللاعب مباشرة
+window.scorerEditPlayer = async function(teamId, playerId, playerName) {
+  if (!teamId) { showToast('لا يمكن تحديد الفريق', 'error'); return; }
+  if (typeof window.openRosterModal !== 'function') { showToast('تعذّر فتح قائمة اللاعبين', 'error'); return; }
+  await window.openRosterModal(teamId);
+  // انتظر تحميل القائمة ثم فعّل تعديل اللاعب (بالمعرّف أو بالاسم)
+  let tries = 0;
+  const timer = setInterval(() => {
+    tries++;
+    const roster = rosterCache[teamId] || [];
+    let pid = playerId;
+    if (!pid && playerName) {
+      const _n = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim();
+      const p = roster.find(x => _n(x.name) === _n(playerName));
+      if (p) pid = p.id;
+    }
+    if (pid && document.getElementById('roster-row-' + pid)) {
+      clearInterval(timer);
+      try { window.editRosterPlayer(teamId, pid); } catch(e) {}
+      const row = document.getElementById('roster-row-' + pid);
+      if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else if (tries > 25) {
+      clearInterval(timer); // ما لقيناه — القائمة مفتوحة على الأقل
+    }
+  }, 120);
+};
+
 window.editRosterPlayer = function(teamId, playerId) {
   const row = document.getElementById(`roster-row-${playerId}`);
   if(!row) return;

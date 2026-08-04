@@ -1408,6 +1408,22 @@ if('serviceWorker' in navigator) {
       });
     });
 
+    // ── FIX: تمريرة دمج ثانية (شبكة أمان) — طابق نسخة league-viewer.html ──
+    // نفس اللاعب قد يظهر بمفتاحين مختلفين إذا سُجّل أحد أهدافه بـ playerId
+    // والآخر بدونه. ندمج أي سطرين بنفس الفريق + الاسم المُطبَّع في سطر واحد.
+    var byNameTeam = {};
+    Object.keys(map).forEach(function (k) {
+      var entry = map[k];
+      var nk = 't:' + (entry.teamId || '?') + '::' + normName(entry.name);
+      if (!byNameTeam[nk]) { byNameTeam[nk] = entry; return; }
+      if (byNameTeam[nk] !== entry) {
+        byNameTeam[nk].goals += entry.goals;
+        if (!byNameTeam[nk].playerId && entry.playerId) byNameTeam[nk].playerId = entry.playerId;
+        if (byNameTeam[nk].number == null && entry.number != null) byNameTeam[nk].number = entry.number;
+        delete map[k];
+      }
+    });
+
     return Object.values(map).sort(function (a, b) {
       if (b.goals !== a.goals) return b.goals - a.goals;          // الأهداف
       return a.name.localeCompare(b.name, 'ar');                   // ثم الاسم (ثبات الترتيب)

@@ -2580,8 +2580,20 @@ window._qeEventLegacy = async function(matchId, type, icon, teamName, side) {
       const playerName = name || '؟';
       const entry = count > 1 ? playerName + ' (' + count + ')' : playerName;
 
+      // ✅ FIX: اربط الهدف بهوية اللاعب (playerId/teamId) بنفس طريقة صفحة
+      //    البث المباشر — وإلا يظهر عند الجمهور كلاعب مختلف عن باقي أهدافه
+      //    لأن ScorersCore يفصل الهدافين بالهوية لا بالاسم فقط.
+      const _qeTeamId = side === 'home' ? m.homeId : m.awayId;
+      const _qeId = window._resolvePlayerId
+        ? window._resolvePlayerId(_qeTeamId, playerName, matchId, side) : {};
+
       const evs = Array.isArray(m.events) ? [...m.events] : [];
-      evs.push({ minute, icon, player: playerName, teamName, type: 'goal', side });
+      evs.push({
+        minute, icon, player: playerName, teamName, type: 'goal', side,
+        teamId: _qeTeamId || null,
+        playerId: _qeId.playerId || null,
+        playerNumber: _qeId.number != null ? _qeId.number : null
+      });
       evs.sort((a,b) => (a.minute||0)-(b.minute||0));
 
       // حدّث النتيجة

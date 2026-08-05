@@ -173,14 +173,17 @@ function _ensureRosterLoaded(teamId, onLoaded) {
         const list = [];
         snap.forEach(dd => list.push(_sanitizeDoc({ id: dd.id, ...dd.data() })));
         window._teamRosters[teamId] = list;
-        // إعادة رسم الأجزاء التي تعتمد على الأسماء الحيّة
-        try { if (typeof renderStats === 'function') renderStats(); } catch (e) {}
-        try {
-          const ov = document.getElementById('matchDetailOverlay') || document.getElementById('lineupOverlay');
-          if (ov && ov.classList.contains('show') && window._lastMatchDetailId && typeof openMatchDetail === 'function') {
-            openMatchDetail(window._lastMatchDetailId);
-          }
-        } catch (e) {}
+        // إعادة رسم مُجمّعة (debounce) لتفادي وميض عند تحميل عدة كشوف دفعةً
+        if (window._rosterRerenderT) clearTimeout(window._rosterRerenderT);
+        window._rosterRerenderT = setTimeout(() => {
+          try { if (typeof renderScorers === 'function') renderScorers(); } catch (e) {} // الرئيسية + الإحصائيات
+          try {
+            const ov = document.getElementById('matchDetailOverlay') || document.getElementById('lineupOverlay');
+            if (ov && ov.classList.contains('show') && window._lastMatchDetailId && typeof openMatchDetail === 'function') {
+              openMatchDetail(window._lastMatchDetailId);
+            }
+          } catch (e) {}
+        }, 120);
         if (typeof onLoaded === 'function') onLoaded();
       },
       () => {}
@@ -466,6 +469,14 @@ async function init() {
     snap => {
       teams = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()}));
       teamsLoaded = true; window.renderAll(); checkHide();
+      // ✅︎ ابدأ مستمعي كشوف كل الفرق فوراً — كي ينعكس تعديل أي اسم لاعب
+      //    مباشرةً في كل مكان (الهدّافون، البطاقات، الأحداث، التشكيلات، الرئيسية)
+      //    دون انتظار فتح تبويب أو مباراة.
+      try {
+        (teams || []).forEach(t => {
+          if (t && t.id && typeof _ensureRosterLoaded === 'function') _ensureRosterLoaded(t.id);
+        });
+      } catch (e) {}
     });
 
   _resilient('matches',

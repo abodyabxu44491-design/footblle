@@ -1476,6 +1476,20 @@ window._loadTeamRoster = async function(teamId, force) {
   }
 };
 
+// ✅︎ اسم اللاعب الحيّ من الكشف حسب الهوية (للعرض في قوائم الأحداث بالإدارة)
+window._adminLiveName = function(teamId, playerId, fallback) {
+  fallback = fallback || '';
+  if (!playerId || !window._teamRosters) return fallback;
+  const roster = teamId ? window._teamRosters[teamId] : null;
+  const search = roster && roster.length ? [roster] : Object.values(window._teamRosters || {});
+  for (const r of search) {
+    if (!r || !r.length) continue;
+    const hit = r.find(x => x && x.id === playerId);
+    if (hit && hit.name) return hit.name;
+  }
+  return fallback;
+};
+
 // ══ منتقي لاعب موحّد لأحداث المباراة (هدف/بطاقة/تبديل) ══
 // المصدر الوحيد: القائمة الدائمة المسجّلة لكل فريق (leagues/{id}/teams/{teamId}/roster)
 // — لا يُخلط أبداً بين لاعبي الفريقين، ولا تظهر أسماء من مباريات سابقة.
@@ -2461,6 +2475,22 @@ window._qeOpenEventModal = async function(matchId, type, icon, teamName, side) {
   ov.id = 'qeEvOverlay';
   ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:18px';
   const _isSub = (type === 'sub');
+  // ✅︎ خانة الصانع: فقط للهدف العادي وعند تفعيل الخيار من الإعدادات
+  const _showAssist = (type === 'goal') && !!(window.settings && window.settings.showAssistPicker);
+  const _assistHtml = _showAssist
+    ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border2,#2a2a2a)">
+         <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+           <span style="font-size:14px">👟</span>
+           <span style="font-size:11px;font-weight:800;color:var(--green,#27ae60)">من صنع الهدف؟</span>
+           <span style="font-size:9px;color:var(--muted,#888)">(اختياري)</span>
+         </div>
+         <input id="qeEvAssist" placeholder="اكتب أو اختر الصانع من القائمة بالأسفل"
+           style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border2,#2a2a2a);background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
+         <div id="qeEvAssistBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+           <span style="font-size:11px;color:var(--muted,#888)">جارِ تحميل قائمة اللاعبين...</span>
+         </div>
+       </div>`
+    : '';
   const _bodyHtml = _isSub
     ? `<div id="qeSubPickerBox">${window._subBuildPickerHtml ? window._subBuildPickerHtml(matchId, side) : ''}</div>`
     : `<div style="font-size:10px;color:var(--muted,#888);margin-bottom:5px">اسم اللاعب</div>
@@ -2468,7 +2498,7 @@ window._qeOpenEventModal = async function(matchId, type, icon, teamName, side) {
          style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border2,#2a2a2a);background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
        <div id="qeEvRosterBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
          <span style="font-size:11px;color:var(--muted,#888)">جارِ تحميل قائمة لاعبي ${teamName}...</span>
-       </div>`;
+       </div>${_assistHtml}`;
 
   ov.innerHTML = `
     <div style="width:100%;max-width:340px;background:var(--card,#111);border:1px solid var(--border2,#2a2a2a);border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
@@ -2501,6 +2531,9 @@ window._qeOpenEventModal = async function(matchId, type, icon, teamName, side) {
     const excludeNames = window._redCardedNames(m.events, side);
     const box = document.getElementById('qeEvRosterBox');
     if (box) box.innerHTML = window._renderRosterPickButtons(roster, 'qeEvPlayer', excludeNames);
+    // ✅︎ قائمة الصانع — نفس الكشف بلا استبعاد للمطرودين
+    const aBox = document.getElementById('qeEvAssistBox');
+    if (aBox) aBox.innerHTML = window._renderRosterPickButtons(roster, 'qeEvAssist', null);
   }
 };
 
@@ -2517,9 +2550,38 @@ window.qeCommitEvent = async function(matchId, type, icon, teamName, side) {
     const inp = (sel.in || '').trim();
     if (!out || !inp) { showToast('اختر لاعباً خارجاً ولاعباً داخلاً', 'error'); return; }
     player = out;
-    evExtra = { player2: inp, playerOut: out, playerIn: inp };
+    const _sTeamId = side === 'home' ? m.homeId : m.awayId;
+    const _outId = window._resolvePlayerId ? (window._resolvePlayerId(_sTeamId, out, matchId, side) || {}) : {};
+    const _inId  = window._resolvePlayerId ? (window._resolvePlayerId(_sTeamId, inp, matchId, side) || {}) : {};
+    evExtra = {
+      player2: inp, playerOut: out, playerIn: inp,
+      teamId: _sTeamId || null,
+      playerId: _outId.playerId || null,
+      playerNumber: _outId.number != null ? _outId.number : null,
+      playerOutId: _outId.playerId || null,
+      playerInId: _inId.playerId || null,
+      playerInNumber: _inId.number != null ? _inId.number : null
+    };
   } else {
     player = (document.getElementById('qeEvPlayer')?.value || '').trim() || '؟';
+    // ✅︎ الهدف العادي: اربط هوية اللاعب + الصانع (إن فُعّل) بنفس منطق البث المباشر
+    if (type === 'goal') {
+      const _teamId = side === 'home' ? m.homeId : m.awayId;
+      const _id = window._resolvePlayerId
+        ? (window._resolvePlayerId(_teamId, player, matchId, side) || {}) : {};
+      evExtra.teamId = _teamId || null;
+      evExtra.playerId = _id.playerId || null;
+      evExtra.playerNumber = _id.number != null ? _id.number : null;
+      // الصانع (اختياري) — فقط إن كانت الخانة مفعّلة ومملوءة ومختلفة عن المسجّل
+      const _asRaw = (document.getElementById('qeEvAssist')?.value || '').trim();
+      if (_asRaw && _asRaw !== player && (window.settings && window.settings.showAssistPicker)) {
+        const _asId = window._resolvePlayerId
+          ? (window._resolvePlayerId(_teamId, _asRaw, matchId, side) || {}) : {};
+        evExtra.assist = _asRaw;
+        evExtra.assistPlayerId = _asId.playerId || null;
+        evExtra.assistNumber = _asId.number != null ? _asId.number : null;
+      }
+    }
   }
   document.getElementById('qeEvOverlay')?.remove();
 
@@ -3018,9 +3080,11 @@ function renderScorers() {
   const _norm = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim();
 
   // 🛡️ كشف الأسماء المكرّرة فعلياً داخل نفس الفريق (لاعبان مختلفان بنفس الاسم)
+  // ✅ FIX: قائمة اللاعبين الفعلية في rosterCache[teamId] — لا في team.players/roster
+  //    (كائن الفريق نفسه لا يحمل الكشف إطلاقاً؛ كان هذا يجعل الحلقة تفحص [] دائماً).
   const _dupNames = {};
   (teams || []).forEach(t => {
-    const roster = t.players || t.roster || [];
+    const roster = rosterCache[t.id] || t.players || t.roster || [];
     const seen = {};
     roster.forEach(p => {
       const nm = _norm(p && (p.name || p.playerName));
@@ -3032,10 +3096,10 @@ function renderScorers() {
   });
 
   const addGoal = (name, tid, playerId) => {
-    // 🔄 لو الهدف مرتبط بـ playerId، اجلب الاسم الحالي من قائمة الفريق
+    // 🔄 لو الهدف مرتبط بـ playerId، اجلب الاسم الحالي من rosterCache
+    //    (نفس المصدر الذي يحدّثه saveRosterEdit فوراً عند تعديل اللاعب)
     if (playerId) {
-      const team = teams.find(t => t.id === tid);
-      const roster = (team && (team.players || team.roster)) || [];
+      const roster = rosterCache[tid] || [];
       const p = roster.find(pl => pl && (pl.id === playerId || pl.playerId === playerId));
       if (p && (p.name || p.playerName)) name = p.name || p.playerName;
     }
@@ -5426,6 +5490,17 @@ async function _lpOpenScorerPicker(matchId, side, teamName, teamId) {
       <div id="lp-sp-roster-${matchId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
         <span style="font-size:11px;color:var(--muted)">جارِ تحميل قائمة اللاعبين...</span>
       </div>
+      <div id="lp-sp-assist-wrap-${matchId}" style="display:none;margin-bottom:14px;padding-top:12px;border-top:1px dashed var(--border2)">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <span style="font-size:16px">👟</span>
+          <span style="font-size:13px;font-weight:800;color:var(--green,#27ae60);font-family:Tajawal,sans-serif">من صنع الهدف؟</span>
+          <span style="font-size:10px;color:var(--muted)">(اختياري)</span>
+        </div>
+        <input id="lp-sp-assist-${matchId}" class="form-input" placeholder="اكتب اسم الصانع..." style="font-size:14px;margin-bottom:10px" autocomplete="off"/>
+        <div id="lp-sp-assist-roster-${matchId}" style="display:flex;flex-wrap:wrap;gap:6px">
+          <span style="font-size:11px;color:var(--muted)">جارِ تحميل قائمة اللاعبين...</span>
+        </div>
+      </div>
       <div style="display:flex;gap:8px">
         <button onclick="document.getElementById('lp-scorer-overlay-${matchId}')?.remove();lpRemoveGoalNoScorer?.('${matchId}','${side}')" style="flex:1;padding:12px;background:var(--card3);border:1px solid var(--border2);border-radius:12px;color:var(--muted);font-size:12px;font-family:Tajawal,sans-serif;cursor:pointer">تخطي</button>
         <button onclick="_lpConfirmGoal('${matchId}','${side}')" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--gold2),var(--gold));border:none;border-radius:12px;color:#000;font-size:13px;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer">✅︎ هدف!</button>
@@ -5442,19 +5517,37 @@ async function _lpOpenScorerPicker(matchId, side, teamName, teamId) {
   const excludeNames = window._redCardedNames(st?.events, side);
   const box = document.getElementById('lp-sp-roster-' + matchId);
   if (box) box.innerHTML = window._renderRosterPickButtons(roster, 'lp-sp-input-' + matchId, excludeNames);
+
+  // ✅︎ خانة صانع الهدف — تظهر فقط إذا فعّلها المنظّم من إعدادات البطولة
+  const _showAssist = !!(window.settings && window.settings.showAssistPicker);
+  const assistWrap = document.getElementById('lp-sp-assist-wrap-' + matchId);
+  if (_showAssist && assistWrap) {
+    assistWrap.style.display = 'block';
+    const aBox = document.getElementById('lp-sp-assist-roster-' + matchId);
+    // نفس الكشف؛ لا نستبعد المطرودين هنا (الصانع قد يكون أي لاعب من نفس الفريق)
+    if (aBox) aBox.innerHTML = window._renderRosterPickButtons(roster, 'lp-sp-assist-' + matchId, null);
+  }
 }
 
 window._lpConfirmGoal = async function(matchId, side) {
   const name = (document.getElementById('lp-sp-input-' + matchId)?.value || '').trim();
+  // ✅︎ قراءة الصانع إن كانت الخانة مفعّلة ومملوءة
+  let assist = null;
+  const aEl = document.getElementById('lp-sp-assist-' + matchId);
+  if (aEl && (window.settings && window.settings.showAssistPicker)) {
+    const av = (aEl.value || '').trim();
+    // لا يُحتسب الصانع لو كان نفس المسجّل
+    if (av && av !== name) assist = av;
+  }
   document.getElementById('lp-scorer-overlay-' + matchId)?.remove();
-  await _lpCommitGoal(matchId, side, name || null, 1);
+  await _lpCommitGoal(matchId, side, name || null, 1, assist);
 };
 
 window.lpRemoveGoalNoScorer = async function(matchId, side) {
-  await _lpCommitGoal(matchId, side, null, 1);
+  await _lpCommitGoal(matchId, side, null, 1, null);
 };
 
-async function _lpCommitGoal(matchId, side, playerName, count) {
+async function _lpCommitGoal(matchId, side, playerName, count, assistName) {
   const st = _liveMatches[matchId];
   if (!st) return;
   if (side === 'home') st.homeScore += count;
@@ -5479,12 +5572,21 @@ async function _lpCommitGoal(matchId, side, playerName, count) {
       const _evTeamId = side === 'home' ? match?.homeId : match?.awayId;
       const _evId     = window._resolvePlayerId
         ? window._resolvePlayerId(_evTeamId, playerName, matchId, side) : {};
+      // ✅︎ صانع الهدف (اختياري) — يُحلّ لهويته من نفس الكشف
+      let _asName = (assistName && i === 0) ? assistName : null; // الصناعة تُسند لأول هدف فقط عند count>1
+      let _asId = {};
+      if (_asName && window._resolvePlayerId) {
+        _asId = window._resolvePlayerId(_evTeamId, _asName, matchId, side) || {};
+      }
       st.events.unshift({
         id: Date.now() + i, type: 'goal', icon: '⚽', label: 'هدف',
         team: side, teamName, player: playerName,
         teamId: _evTeamId || null,
         playerId: _evId.playerId || null,
         playerNumber: _evId.number != null ? _evId.number : null,
+        assist: _asName || null,
+        assistPlayerId: _asId.playerId || null,
+        assistNumber: _asId.number != null ? _asId.number : null,
         minute: _evBaseMin || '?',
         extraMinute: _evExtra,
         half: _evHalfKey,
@@ -5649,6 +5751,9 @@ window.lpConfirmEvent = async function(matchId) {
   const _evTeamId2 = team === 'home' ? match?.homeId : match?.awayId;
   const _evId2 = window._resolvePlayerId
     ? window._resolvePlayerId(_evTeamId2, player, matchId, team) : {};
+  // ✅︎ هوية اللاعب الداخل في التبديل — كي يتبع تعديل الاسم من الكشف
+  const _evInId = (type === 'sub' && player2 && window._resolvePlayerId)
+    ? (window._resolvePlayerId(_evTeamId2, player2, matchId, team) || {}) : {};
   const ev = { id: Date.now(), type, icon, label, team, teamName, player, player2,
     teamId: _evTeamId2 || null,
     playerId: _evId2.playerId || null,
@@ -5658,7 +5763,12 @@ window.lpConfirmEvent = async function(matchId) {
     half: _evHalfKey2,
     note, time: new Date().toLocaleTimeString('ar') };
   // حقول منظّمة للتبديل (تُستخدم في عرض الجمهور والتشكيلة)
-  if (type === 'sub') { ev.playerOut = player; ev.playerIn = player2; }
+  if (type === 'sub') {
+    ev.playerOut = player; ev.playerIn = player2;
+    ev.playerOutId = _evId2.playerId || null;
+    ev.playerInId  = _evInId.playerId || null;
+    ev.playerInNumber = _evInId.number != null ? _evInId.number : null;
+  }
   st.events.unshift(ev);
 
   if (type === 'goal') {
@@ -5682,11 +5792,15 @@ window._lpRenderEvents = function _lpRenderEvents(matchId) {
     return;
   }
   container.innerHTML = events.map(ev => {
+    const _pName  = window._adminLiveName(ev.teamId, ev.playerId, ev.player || '');
+    const _pOut   = window._adminLiveName(ev.teamId, ev.playerOutId || ev.playerId, ev.playerOut || ev.player || '');
+    const _pIn    = window._adminLiveName(ev.teamId, ev.playerInId, ev.playerIn || ev.player2 || '');
+    const _p2     = window._adminLiveName(ev.teamId, ev.playerInId || ev.player2Id, ev.player2 || '');
     const desc = ev.type === 'sub'
-      ? `<span style="color:#e05252">${window.Icon?window.Icon('download',10):''} ${ev.playerOut || ev.player || ''}</span> <span style="color:#2ecc71">${window.Icon?window.Icon('upload',10):''} ${ev.playerIn || ev.player2 || ''}</span> · ${ev.teamName || ''}`
+      ? `<span style="color:#e05252">${window.Icon?window.Icon('download',10):''} ${_pOut}</span> <span style="color:#2ecc71">${window.Icon?window.Icon('upload',10):''} ${_pIn}</span> · ${ev.teamName || ''}`
       : ev.type === 'own'
         ? `<strong style="color:#e5533d">هدف عكسي</strong> · ${ev.teamName || ''}`
-        : `<strong>${ev.player || ''}</strong>${ev.player2 ? ' ← ' + ev.player2 : ''} · ${ev.teamName || ''}`;
+        : `<strong>${_pName}</strong>${ev.player2 ? ' ← ' + _p2 : ''} · ${ev.teamName || ''}`;
     return `
     <div class="lp-ev-item">
       <div class="lp-ev-min">${ev.minute}'</div>
@@ -10720,6 +10834,10 @@ function loadRosterRealtime(teamId) {
     }
 
     renderRosterList(teamId, players);
+    // ✅ FIX: تعديل اسم لاعب (أو أي تغيير في الكشف) لازم ينعكس فوراً على
+    //    جدول الهدافين — كان يفضل يعرض الاسم القديم لحد ما يصير تحديث
+    //    غير مرتبط (مثل onSnapshot لمستند الفريق نفسه) يعيد رسمه صدفةً.
+    if (typeof renderScorers === 'function') renderScorers();
   }, err => {
     console.warn('Roster load error:', err);
     const container = document.getElementById('rosterListContainer');
@@ -11334,8 +11452,18 @@ window.importRosterToLineup = function(teamId) {
     const player = (document.getElementById('qrGoalPlayer')?.value || '').trim() || '؟';
     const minute = parseInt(document.getElementById('qrGoalMinute')?.value) || 1;
     document.getElementById('qrGoalOv')?.remove();
+    // ✅ FIX: نفس ثغرة الإدخال السريع — اربط الهدف بهوية اللاعب وإلا
+    //    يظهر عند الجمهور كلاعب منفصل عن باقي أهدافه (انظر _spConfirm).
+    const _qrTeamId = side === 'home' ? m.homeId : m.awayId;
+    const _qrId = window._resolvePlayerId
+      ? window._resolvePlayerId(_qrTeamId, player, matchId, side) : {};
     const evs = Array.isArray(m.events) ? [...m.events] : [];
-    evs.push({ minute, icon: '⚽', player, teamName, type: 'goal', side });
+    evs.push({
+      minute, icon: '⚽', player, teamName, type: 'goal', side,
+      teamId: _qrTeamId || null,
+      playerId: _qrId.playerId || null,
+      playerNumber: _qrId.number != null ? _qrId.number : null
+    });
     evs.sort((a, b) => (a.minute || 0) - (b.minute || 0));
     m.events = evs;
     _qrSync(m);
@@ -11375,11 +11503,14 @@ window.importRosterToLineup = function(teamId) {
     return evs.map((e) => {
       const realIdx = m.events.indexOf(e);
       const _card = (c) => `<span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:${c};vertical-align:-1px"></span>`;
-      let ic = _card('#f1c40f'), body = e.player || '؟';
+      const _nm  = window._adminLiveName ? window._adminLiveName(e.teamId, e.playerId, e.player || '؟') : (e.player || '؟');
+      const _out = window._adminLiveName ? window._adminLiveName(e.teamId, e.playerOutId || e.playerId, e.playerOut || e.player || '؟') : (e.playerOut || e.player || '؟');
+      const _in  = window._adminLiveName ? window._adminLiveName(e.teamId, e.playerInId, e.playerIn || e.player2 || '؟') : (e.playerIn || e.player2 || '؟');
+      let ic = _card('#f1c40f'), body = _nm;
       if (e.type === 'red') ic = _card('#e74c3c');
       if (e.type === 'sub') {
         ic = window.Icon ? window.Icon('refresh', 13) : '';
-        body = `<span style="color:#e05252">${window.Icon?window.Icon('download',10):''} ${e.playerOut || e.player || '؟'}</span> <span style="color:#2ecc71">${window.Icon?window.Icon('upload',10):''} ${e.playerIn || e.player2 || '؟'}</span>`;
+        body = `<span style="color:#e05252">${window.Icon?window.Icon('download',10):''} ${_out}</span> <span style="color:#2ecc71">${window.Icon?window.Icon('upload',10):''} ${_in}</span>`;
       }
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid #1a1a1a">
         <span style="min-width:30px;font-size:11px;font-weight:900;color:#C9A02B">${e.minute || 0}'</span>
@@ -11447,8 +11578,13 @@ window.importRosterToLineup = function(teamId) {
     const player = (document.getElementById('qrCardPlayer')?.value || '').trim() || '؟';
     const minute = parseInt(document.getElementById('qrCardMinute')?.value) || 1;
     document.getElementById('qrCardOv')?.remove();
+    const _cTeamId = side === 'home' ? m.homeId : m.awayId;
+    const _cId = window._resolvePlayerId ? (window._resolvePlayerId(_cTeamId, player, matchId, side) || {}) : {};
     const evs = Array.isArray(m.events) ? [...m.events] : [];
-    evs.push({ minute, icon, player, teamName, type: cardType, side });
+    evs.push({ minute, icon, player, teamName, type: cardType, side,
+      teamId: _cTeamId || null,
+      playerId: _cId.playerId || null,
+      playerNumber: _cId.number != null ? _cId.number : null });
     evs.sort((a, b) => (a.minute || 0) - (b.minute || 0));
     m.events = evs;
     const box = document.getElementById('qr-cardevents-' + matchId);
@@ -11491,8 +11627,17 @@ window.importRosterToLineup = function(teamId) {
     if (!out || !inp) { window.showToast && window.showToast('اختر لاعباً خارجاً وداخلاً', 'error'); return; }
     const minute = parseInt(document.getElementById('qrSubMinute')?.value) || 1;
     document.getElementById('qrSubOv')?.remove();
+    const _sTeamId = side === 'home' ? m.homeId : m.awayId;
+    const _outId = window._resolvePlayerId ? (window._resolvePlayerId(_sTeamId, out, matchId, side) || {}) : {};
+    const _inId  = window._resolvePlayerId ? (window._resolvePlayerId(_sTeamId, inp, matchId, side) || {}) : {};
     const evs = Array.isArray(m.events) ? [...m.events] : [];
-    evs.push({ minute, icon: '🔄', player: out, player2: inp, playerOut: out, playerIn: inp, teamName, type: 'sub', side });
+    evs.push({ minute, icon: '🔄', player: out, player2: inp, playerOut: out, playerIn: inp, teamName, type: 'sub', side,
+      teamId: _sTeamId || null,
+      playerId: _outId.playerId || null,
+      playerNumber: _outId.number != null ? _outId.number : null,
+      playerOutId: _outId.playerId || null,
+      playerInId: _inId.playerId || null,
+      playerInNumber: _inId.number != null ? _inId.number : null });
     evs.sort((a, b) => (a.minute || 0) - (b.minute || 0));
     m.events = evs;
     const box = document.getElementById('qr-cardevents-' + matchId);

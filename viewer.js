@@ -124,6 +124,50 @@ function _evSide(ev) {
   return (ev && (ev.team || ev.side)) || 'home';
 }
 
+/* ✅ FIX: اسم الهدّاف الحيّ من الكشف (لو الحدث مربوط بـ playerId ومحمَّل
+ * الكشف عند الجمهور)، وإلا نرجع للنص المجمَّد وقت تسجيل الهدف.
+ * ملاحظة: البطاقات/التبديلات/التشكيلات لا تحمل playerId إطلاقاً حالياً،
+ * فهذه الدالة مفيدة فقط لأحداث النوع 'goal'. */
+function _liveEventPlayerName(ev, teamId) {
+  const fallback = ev && ev.player || '';
+  if (!ev || !ev.playerId) return fallback;
+  const roster = window._teamRosters && window._teamRosters[teamId];
+  if (!roster || !roster.length) return fallback;
+  const p = roster.find(x => x && x.id === ev.playerId);
+  return (p && p.name) ? p.name : fallback;
+}
+
+// يحلّ الاسم الحيّ لأحد طرفَي التبديل من الكشف حسب الهوية.
+// which = 'in' (الداخل) أو 'out' (الخارج). يرجع الاسم المجمّد عند غياب الهوية/الكشف.
+function _liveSubName(ev, teamId, which) {
+  if (!ev) return '';
+  const isIn = which === 'in';
+  const fallback = isIn ? (ev.playerIn || ev.player2 || '') : (ev.playerOut || ev.player || '');
+  const pid = isIn ? (ev.playerInId || ev.player2Id || null)
+                   : (ev.playerOutId || ev.playerId || null);
+  if (!pid) return fallback;
+  const roster = window._teamRosters && window._teamRosters[teamId];
+  if (!roster || !roster.length) return fallback;
+  const p = roster.find(x => x && x.id === pid);
+  return (p && p.name) ? p.name : fallback;
+}
+
+/* ✅ FIX: يحمّل كشف الفريق مسبقاً (لو ما كان محمَّلاً) ثم يستدعي onLoaded —
+ * يضمن ظهور الاسم المحدَّث في خط الزمن حتى لو الجمهور ما فتح صفحة الفريق. */
+function _ensureRosterLoaded(teamId, onLoaded) {
+  window._teamRosters = window._teamRosters || {};
+  if (!teamId || window._teamRosters[teamId]) return;
+  window._teamRosters[teamId] = [];
+  getDocs(query(collection(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster'), orderBy('number', 'asc')))
+    .then(snap => {
+      const list = [];
+      snap.forEach(dd => list.push(_sanitizeDoc({ id: dd.id, ...dd.data() })));
+      window._teamRosters[teamId] = list;
+      if (list.length && typeof onLoaded === 'function') onLoaded();
+    })
+    .catch(() => {});
+}
+
 let settings = { winPts:3, drawPts:1, zones:{ champion:1, qualify:2, cond:1, normal:0, playoff:1, relegate:1 }, bracketPublished: false, tiebreakOrder: ['gd','gf','h2h','wins','cards','draw'] };
 window.settings = settings;
 let matchFilter   = 'all';
@@ -353,6 +397,7 @@ async function init() {
       if (typeof window._spRender === 'function') window._spRender();
       adaptUIToType();
       renderKnockoutBracket();
+      if (typeof renderStats === 'function') renderStats();
     }
   }, ()=>{});
 
@@ -1045,13 +1090,29 @@ function _playerStatsMap(m, side) {
   return map;
 }
 
+// يحلّ اسم لاعب التشكيلة الحيّ من الكشف حسب هويته (p.id)، مع رجوع للاسم المخزَّن.
+// لا نعرف teamId داخل مُصيّري التشكيلة دائماً، فنبحث في كشوف الفريقين المحمّلة.
+function _lineupLiveName(p) {
+  if (!p) return '';
+  const fallback = p.name || '';
+  if (!p.id || !window._teamRosters) return fallback;
+  for (const tid in window._teamRosters) {
+    const roster = window._teamRosters[tid];
+    if (!roster || !roster.length) continue;
+    const hit = roster.find(x => x && x.id === p.id);
+    if (hit && hit.name) return hit.name;
+  }
+  return fallback;
+}
+
 function renderPlayersOnPitch(players, positions, isAway=false, subMap={}, statsMap={}) {
   return players.slice(0, positions.length).map((p,i)=>{
     const pos=positions[i]||{x:50,y:50,pos:'?'};
     const y=isAway?(105-pos.y):pos.y;
     const isGK=pos.pos==='GK';
     const num=p.number||(i+1);
-    const name=(p.name||'').split(' ').slice(-1)[0];
+    const _liveName=_lineupLiveName(p);
+    const name=(_liveName||'').split(' ').slice(-1)[0];
     const key=_normName(p.name);
     const sub = subMap[key] || _looseLookup(subMap, key);
     const st  = statsMap[key] || _looseLookup(statsMap, key) || {};
@@ -1065,7 +1126,7 @@ function renderPlayersOnPitch(players, positions, isAway=false, subMap={}, stats
     if (st.red)    icons += `<span class="pmark red"></span>`;
     else if (st.yellow) icons += `<span class="pmark yel"></span>`;
     const marks = icons ? `<div class="player-marks">${icons}</div>` : '';
-    return `<div class="player-dot" style="left:${pos.x}%;top:${y}%" onclick="showToast('${num} · ${(p.name||'').replace(/'/g,"\\'")} · ${pos.pos}')">
+    return `<div class="player-dot" style="left:${pos.x}%;top:${y}%" onclick="showToast('${num} · ${(_liveName||'').replace(/'/g,"\\'")} · ${pos.pos}')">
       <div class="player-avatar ${isGK?'gk':''} ${isAway?'away':''}">${num}${subBadge}${marks}</div>
       <div class="player-name-tag">${name}</div>
     </div>`;
@@ -1110,7 +1171,7 @@ function renderLineupList(players, subMap={}, statsMap={}) {
         if(st.red) stTag+=`<span class="lp-mk red"></span>`;
         return `<div class="lineup-player-row">
         <div class="lp-num">${p.number||'—'}</div>
-        <div class="lp-info"><div class="lp-name">${p.name||'لاعب'}</div><div class="lp-pos">${p.position||''}</div></div>
+        <div class="lp-info"><div class="lp-name">${_lineupLiveName(p)||'لاعب'}</div><div class="lp-pos">${p.position||''}</div></div>
         ${stTag?`<div class="lp-marks">${stTag}</div>`:''}
         ${subTag}
         ${p.position==='GK'?'<div class="lp-badge gk">GK</div>':''}
@@ -1715,6 +1776,11 @@ window.openBracketMatch = function(roundId, matchId) {
 
   const ht = bm.homeId ? (teams.find(t=>t.id===bm.homeId)||{name:bm.homeName||'TBD',logo:'❓'}) : {name:bm.homeName||'TBD',logo:'❓'};
   const at = bm.awayId ? (teams.find(t=>t.id===bm.awayId)||{name:bm.awayName||'TBD',logo:'❓'}) : {name:bm.awayName||'TBD',logo:'❓'};
+  // ✅ FIX: حمّل كشفي الفريقين مسبقاً حتى تظهر أسماء الهدافين المحدَّثة فوراً
+  if (bm.events && bm.events.some(e => e.type === 'goal' && e.playerId)) {
+    _ensureRosterLoaded(ht.id, () => { if (overlay.classList.contains('show')) window.openBracketMatch(roundId, matchId); });
+    _ensureRosterLoaded(at.id, () => { if (overlay.classList.contains('show')) window.openBracketMatch(roundId, matchId); });
+  }
   const isFin  = bm.status === 'finished';
   const isLive = bm.status === 'live';
   // ── تحديد الفائز مع دعم ركلات الترجيح ──
@@ -1766,7 +1832,7 @@ ${bm.events&&bm.events.length ? `
            <div class="md-ev-info">
              <div class="md-ev-player">${ev.type === 'penalty' 
                ? (ev.result === 'goal' ? 'هدف' : 'تفويت') + ' (ركلات ترجيح)'
-               : ev.player||''}</div>
+               : _liveEventPlayerName(ev, _evSide(ev) === 'away' ? at.id : ht.id)}</div>
              <div class="md-ev-team">${ev.teamName||''}</div>
            </div>
          </div>`).join('')}
@@ -1823,7 +1889,6 @@ function adaptUIToType() {
       ${bracketOK ? `<button class="bn-item" id="bn-bracket"  onclick="switchTab('bracket',null,this)"><span class="bi">${window.Icon?Icon('tree',19):''}</span>الشجرة</button>` : ''}
       <button class="bn-item" id="bn-matches"  onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
       <button class="bn-item" id="bn-teams"    onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
-      <button class="bn-item" id="bn-scorers"  onclick="switchTab('scorers',null,this)"><span class="bi">${window.Icon?Icon('medal',19):''}</span>الهدافون</button>
       <button class="bn-item" id="bn-stats"    onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
       <button class="bn-item" id="bn-live"     onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
     if(standEl) standEl.style.display = 'none';
@@ -1839,7 +1904,6 @@ function adaptUIToType() {
       ${bracketOK ? `<button class="bn-item" id="bn-bracket" onclick="switchTab('bracket',null,this)"><span class="bi">${window.Icon?Icon('tree',19):''}</span>الشجرة</button>` : ''}
       <button class="bn-item" id="bn-matches"  onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
       <button class="bn-item" id="bn-teams"    onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
-      <button class="bn-item" id="bn-scorers"  onclick="switchTab('scorers',null,this)"><span class="bi">${window.Icon?Icon('medal',19):''}</span>الهدافون</button>
       <button class="bn-item" id="bn-stats"    onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
       <button class="bn-item" id="bn-live"     onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
     if(standEl) standEl.style.display = 'none';
@@ -1857,7 +1921,6 @@ function adaptUIToType() {
       ${bracketOK ? `<button class="bn-item" id="bn-bracket"  onclick="switchTab('bracket',null,this)"><span class="bi">${window.Icon?Icon('tree',19):''}</span>الإقصاء</button>` : ''}
       <button class="bn-item" id="bn-matches"   onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
       <button class="bn-item" id="bn-teams"     onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
-      <button class="bn-item" id="bn-scorers"   onclick="switchTab('scorers',null,this)"><span class="bi">${window.Icon?Icon('medal',19):''}</span>الهدافون</button>
       <button class="bn-item" id="bn-stats"     onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
       <button class="bn-item" id="bn-live"      onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
     if(standEl) standEl.style.display = '';
@@ -1872,7 +1935,6 @@ function adaptUIToType() {
       <button class="bn-item" id="bn-standings" onclick="switchTab('standings',null,this)"><span class="bi">${window.Icon?Icon('list',19):''}</span>الترتيب</button>
       <button class="bn-item" id="bn-matches"   onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
       <button class="bn-item" id="bn-teams"     onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
-      <button class="bn-item" id="bn-scorers"   onclick="switchTab('scorers',null,this)"><span class="bi">${window.Icon?Icon('medal',19):''}</span>الهدافون</button>
       <button class="bn-item" id="bn-stats"     onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
       <button class="bn-item" id="bn-live"      onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
     if(standEl) standEl.style.display = '';
@@ -1886,10 +1948,10 @@ function adaptUIToType() {
 }
 
 function getDynamicTabOrder() {
-  if(tournamentType==='knockout') return ['home','bracket','matches','teams','scorers','stats'];
-  if(tournamentType==='groups')   return ['home','groups','bracket','matches','teams','scorers','stats'];
-  if(tournamentType==='swiss')    return ['home','standings','bracket','matches','teams','scorers','stats'];
-  return ['home','standings','matches','teams','scorers','stats'];
+  if(tournamentType==='knockout') return ['home','bracket','matches','teams','stats'];
+  if(tournamentType==='groups')   return ['home','groups','bracket','matches','teams','stats'];
+  if(tournamentType==='swiss')    return ['home','standings','bracket','matches','teams','stats'];
+  return ['home','standings','matches','teams','stats'];
 }
 
 // ════════════════════════════════════════
@@ -1929,6 +1991,7 @@ window.switchTab = function(name, btn, mn) {
   haptic('light');
   if (name === 'groups')  renderGroupsStandings();
   if (name === 'bracket') renderKnockoutBracket();
+  if (name === 'stats')   { if (typeof renderStats === 'function') renderStats(); if (typeof renderChart === 'function') renderChart(); if (typeof renderSummaryStats === 'function') renderSummaryStats(); }
 };
 
 window.filterMatches = function(f, btn) {
@@ -2272,7 +2335,7 @@ window.installApp = async function() {
 // ════════════════════════════════════════
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
-  const map={'1':'home','2':'standings','3':'matches','4':'stats','5':'scorers'};
+  const map={'1':'home','2':'standings','3':'matches','4':'stats'};
   if(map[e.key]) window.switchTab(map[e.key],null,document.getElementById('bn-'+map[e.key]));
   if(e.key==='Escape') { window.closeMatchDetail(); window.closeLineup(); window.closeLiveOverlay(); }
 });
@@ -2838,43 +2901,143 @@ function buildScorersData() {
 }
 
 // ── renderScorers ─────────────────────────────────────────
-function renderScorers() {
-  const data = buildScorersData();
-  ['fullScorers', 'homeScorers'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const isHome = id === 'homeScorers';
-    // الرئيسية: أفضل ٥ · قسم الهدافين: أفضل ٢٠
-    const list = isHome ? data.slice(0, 5) : data.slice(0, 20);
-    if (!list.length) {
-      el.innerHTML = '<div class="empty-state" style="padding:30px 20px;text-align:center;color:var(--t3)"><div style="font-size:36px;margin-bottom:8px;opacity:.3">⚽</div><div>لا توجد أهداف بعد</div></div>';
-      return;
-    }
-    const _hint = (!isHome && data.length > 20)
-      ? `<div style="padding:9px 14px;font-size:11px;color:var(--t3);background:var(--s2);border-bottom:1px solid var(--b1);text-align:center">يُعرض أفضل ٢٠ هدّافاً من إجمالي ${data.length} لاعباً سجّلوا</div>`
-      : '';
-    el.innerHTML = _hint + list.map((p, i) => {
-      const team = teams.find(t => t.id === p.teamId) || {};
-      const medalColors = ['#FFD700','#C0C0C0','#CD7F32'];
-      const medal = i < 3 ? `<span style="font-size:16px">${['🥇','🥈','🥉'][i]}</span>` : `<div style="width:22px;height:22px;border-radius:6px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--t3)">${i+1}</div>`;
-      return `<div class="scorer-row ${i===0?'top1':''}" onclick="openPlayerModal('${p.name.replace(/'/g,"\'")}','${p.teamId||''}')">
-        ${medal}
-        <div style="width:32px;height:32px;border-radius:8px;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          ${logoHtml(team.logo || p.teamLogo, 28, 6)}
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;color:var(--t1)">${p.name}</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:1px">${p.teamName}</div>
-        </div>
-        <div style="text-align:center;min-width:32px">
-          <div style="font-size:20px;font-weight:900;color:var(--gold);font-family:'Tajawal',sans-serif">${p.goals}</div>
-          <div style="font-size:9px;color:var(--t3)">هدف</div>
-        </div>
-        <div style="font-size:14px;color:var(--t3)">←</div>
-      </div>`;
-    }).join('');
+// كم عنصراً يُعرض ابتداءً في كل قسم (الهدّافون: الكل)
+const STAT_PREVIEW = 5;
+window._statExpanded = window._statExpanded || { scorers:false, assists:false, yellow:false, red:false };
+
+// خيارات العرض التي يضبطها المنظّم من إعدادات البطولة.
+// المفاتيح تُحفظ مسطّحة داخل وثيقة settings (showAssists / showAssistPicker ...)،
+// مع دعم رجوع للبنية القديمة displayOptions إن وُجدت.
+function _displayOpts() {
+  const s = window.settings || {};
+  const legacy = (window.league && window.league.displayOptions) || {};
+  return Object.assign({}, legacy, s.displayOptions || {}, {
+    showAssists: s.showAssists,
+    showAssistPicker: s.showAssistPicker,
+    showScorers: s.showScorers,
+    showStats: s.showStats
   });
 }
+
+// صفّ لاعب موحّد داخل الإحصائيات (يُستعمل لكل الأقسام الأربعة)
+function _statRow(p, i, valField, valColor, unitLabel) {
+  const team = teams.find(t => t.id === p.teamId) || {};
+  const medal = i < 3
+    ? `<span style="font-size:16px">${['🥇','🥈','🥉'][i]}</span>`
+    : `<div style="width:22px;height:22px;border-radius:6px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--t3)">${i+1}</div>`;
+  const val = p[valField];
+  const safeName = String(p.name || '').replace(/'/g, "\\'");
+  return `<div class="scorer-row ${i===0?'top1':''}" onclick="openPlayerModal('${safeName}','${p.teamId||''}')">
+    ${medal}
+    <div style="width:32px;height:32px;border-radius:8px;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      ${logoHtml(team.logo || p.teamLogo, 28, 6)}
+    </div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:700;color:var(--t1)">${p.name}</div>
+      <div style="font-size:10px;color:var(--t3);margin-top:1px">${p.teamName}</div>
+    </div>
+    <div style="text-align:center;min-width:32px">
+      <div style="font-size:20px;font-weight:900;color:${valColor};font-family:'Tajawal',sans-serif">${val}</div>
+      <div style="font-size:9px;color:var(--t3)">${unitLabel}</div>
+    </div>
+    <div style="font-size:14px;color:var(--t3)">←</div>
+  </div>`;
+}
+
+function _emptyStat(icon, msg) {
+  return `<div class="empty-state"><div style="font-size:32px;margin-bottom:6px;opacity:.3">${icon}</div><div>${msg}</div></div>`;
+}
+
+// يرسم قسماً واحداً (صنّاع/صفراء/حمراء): معاينة ٥ + زر عرض المزيد
+function _renderStatSection(listId, moreBtnId, data, key, valColor, unit, emptyIcon, emptyMsg) {
+  const el = document.getElementById(listId);
+  const moreBtn = document.getElementById(moreBtnId);
+  if (!el) return;
+  if (!data.length) {
+    el.innerHTML = _emptyStat(emptyIcon, emptyMsg);
+    if (moreBtn) moreBtn.style.display = 'none';
+    return;
+  }
+  const expanded = !!window._statExpanded[key];
+  const shown = expanded ? data : data.slice(0, STAT_PREVIEW);
+  el.innerHTML = shown.map((p, i) => _statRow(p, i, 'count', valColor, unit)).join('');
+  if (moreBtn) {
+    if (data.length > STAT_PREVIEW) {
+      moreBtn.style.display = 'block';
+      moreBtn.textContent = expanded ? 'عرض أقل ↑' : `عرض المزيد (${data.length - STAT_PREVIEW}) ↓`;
+    } else {
+      moreBtn.style.display = 'none';
+    }
+  }
+}
+
+window.toggleStatMore = function (key, btn) {
+  window._statExpanded[key] = !window._statExpanded[key];
+  renderStats();
+};
+
+// ── الدالة الرئيسية: تبني كل الأقسام ──
+function renderStats() {
+  const opts = _displayOpts();
+  const scorers = buildScorersData();
+
+  // 1) الهدّافون — أفضل 5 مع "عرض المزيد" (مثل بقية الأقسام)
+  const sc = document.getElementById('statScorers');
+  const scMore = document.getElementById('more-scorers');
+  if (sc) {
+    if (!scorers.length) {
+      sc.innerHTML = _emptyStat('⚽', 'لا توجد أهداف بعد');
+      if (scMore) scMore.style.display = 'none';
+    } else {
+      const expanded = !!window._statExpanded.scorers;
+      const shown = expanded ? scorers : scorers.slice(0, STAT_PREVIEW);
+      sc.innerHTML = shown.map((p, i) => _statRow(p, i, 'goals', 'var(--gold)', 'هدف')).join('');
+      if (scMore) {
+        if (scorers.length > STAT_PREVIEW) {
+          scMore.style.display = 'block';
+          scMore.textContent = expanded ? 'عرض أقل ↑' : `عرض المزيد (${scorers.length - STAT_PREVIEW}) ↓`;
+        } else {
+          scMore.style.display = 'none';
+        }
+      }
+    }
+  }
+
+  // 2) الصنّاع — لا يظهر إلا إذا فعّله المنظّم
+  const assistsBlock = document.getElementById('stb-assists');
+  const showAssists = opts.showAssists === true;
+  if (assistsBlock) assistsBlock.style.display = showAssists ? 'block' : 'none';
+  if (showAssists && window.StatsCore) {
+    const assists = window.StatsCore.buildAssists({ matches: matches || [], teams: teams || [], rosters: _collectScorerRosters() });
+    _renderStatSection('statAssists', 'more-assists', assists, 'assists', 'var(--green,#27ae60)', 'صناعة', '👟', 'لا توجد صناعات بعد');
+  }
+
+  // 3) البطاقات الصفراء
+  if (window.StatsCore) {
+    const yellows = window.StatsCore.buildYellows({ matches: matches || [], teams: teams || [], rosters: _collectScorerRosters() });
+    _renderStatSection('statYellow', 'more-yellow', yellows, 'yellow', '#e6b800', 'بطاقة', '🟨', 'لا توجد بطاقات صفراء');
+  }
+
+  // 4) البطاقات الحمراء
+  if (window.StatsCore) {
+    const reds = window.StatsCore.buildReds({ matches: matches || [], teams: teams || [], rosters: _collectScorerRosters() });
+    _renderStatSection('statRed', 'more-red', reds, 'red', 'var(--red,#c0392b)', 'بطاقة', '🟥', 'لا توجد بطاقات حمراء');
+  }
+}
+
+// توافق خلفي: أي استدعاء قديم لـ renderScorers يوجَّه للنظام الجديد
+function renderScorers() {
+  const home = document.getElementById('homeScorers');
+  if (home) {
+    const data = buildScorersData().slice(0, 5);
+    home.innerHTML = data.length
+      ? data.map((p, i) => _statRow(p, i, 'goals', 'var(--gold)', 'هدف')).join('')
+      : _emptyStat('⚽', 'لا توجد أهداف بعد');
+  }
+  renderStats();
+}
+window.renderStats = renderStats;
+window.renderScorers = renderScorers;
 
 // ── renderStandings ───────────────────────────────────────
 function renderStandings() {
@@ -3884,6 +4047,14 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
     const body    = document.getElementById('matchDetailBody');
     if(!overlay||!body) return;
 
+    // ✅ FIX: حمّل كشفي الفريقين مسبقاً حتى تظهر أسماء الهدافين المحدَّثة
+    //    فوراً في خط زمن أحداث المباراة، بدل انتظار الجمهور يفتح صفحة الفريق.
+    const _mdEvents = (d && d.events) || m.events || [];
+    if (_mdEvents.some(e => e && e.type === 'goal' && e.playerId)) {
+      _ensureRosterLoaded(ht.id, () => { if (overlay.classList.contains('show')) window.openMatchDetail(matchId); });
+      _ensureRosterLoaded(at.id, () => { if (overlay.classList.contains('show')) window.openMatchDetail(matchId); });
+    }
+
     const isUpcoming = !isL && !isF;
 
     // ── تبويبات ── (بلا "نظرة عامة" وبلا "المعلومات" — أُلغيتا بطلب الإدارة)
@@ -4068,7 +4239,8 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
           if (r.kind === 'goal') {
             const side = _evSide(ev) === 'away' ? 'left' : 'right';
             const isOwn = ev.type === 'own';
-            const goalName = isOwn ? 'هدف عكسي' : (ev.player || '—');
+            const _goalTeamId = _evSide(ev) === 'away' ? at.id : ht.id;
+            const goalName = isOwn ? 'هدف عكسي' : (_liveEventPlayerName(ev, _goalTeamId) || '—');
             const content = `<div class="vt-goal">
               <span class="vt-goal-name"${isOwn?' style="color:var(--t3);font-style:italic"':''}>${goalName}</span>
               <span class="vt-goal-min">${minLabel(ev)}</span>
@@ -4084,8 +4256,9 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
 
           // ── التبديل: عرض احترافي بسهمين (داخل أخضر / خارج أحمر) ──
           if (ev.type === 'sub') {
-            const inName  = ev.playerIn  || ev.player2 || '';
-            const outName = ev.playerOut || ev.player  || '';
+            const _subTeamId = _evSide(ev) === 'away' ? at.id : ht.id;
+            const inName  = _liveSubName(ev, _subTeamId, 'in')  || ev.playerIn  || ev.player2 || '';
+            const outName = _liveSubName(ev, _subTeamId, 'out') || ev.playerOut || ev.player  || '';
             return `<div class="vt-row vt-row-mid">
               <div class="vt-chip vt-chip-sub">
                 <span class="vt-sub-min">${minLabel(ev)}</span>
@@ -4101,10 +4274,12 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
           // ── البطاقة الصفراء الثانية = طرد (تصميم مميّز مثل التطبيقات الرسمية) ──
           const _isSecondYellow = ev.type === 'yellow' && _secondYellowIds.has(ev.id != null ? ev.id : ev);
           if (_isSecondYellow) {
+            const _syTeamId = _evSide(ev) === 'away' ? at.id : ht.id;
+            const _syName = _liveEventPlayerName(ev, _syTeamId) || ev.player || '';
             return `<div class="vt-row vt-row-mid">
               <div class="vt-chip vt-chip-event vt-chip-sy">
                 <span class="vt-chip-ic"><span class="ev-card2"><span class="ev-card ev-y"></span><span class="ev-card ev-r"></span></span></span>
-                <span class="vt-chip-txt"><strong>${ev.player || ''}</strong>
+                <span class="vt-chip-txt"><strong>${_syName}</strong>
                   <span class="vt-sy-label">بطاقة ثانية · طرد</span>
                   <span class="vt-chip-team">(${sideLbl})</span></span>
                 <span class="vt-chip-min">${minLabel(ev)}</span>
@@ -4112,10 +4287,13 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
             </div>`;
           }
 
+          const _chipTeamId = _evSide(ev) === 'away' ? at.id : ht.id;
+          const _chipName = _liveEventPlayerName(ev, _chipTeamId) || ev.player || '';
+          const _chipName2 = ev.player2 ? (_liveSubName(ev, _chipTeamId, 'in') || ev.player2) : '';
           return `<div class="vt-row vt-row-mid">
             <div class="vt-chip vt-chip-event">
               <span class="vt-chip-ic">${_evIcon(ev, 13)}</span>
-              <span class="vt-chip-txt"><strong>${ev.player || ''}</strong>${ev.player2 ? ` ← ${ev.player2}` : ''}
+              <span class="vt-chip-txt"><strong>${_chipName}</strong>${_chipName2 ? ` ← ${_chipName2}` : ''}
                 <span class="vt-chip-team">(${sideLbl})</span></span>
               <span class="vt-chip-min">${minLabel(ev)}</span>
             </div>

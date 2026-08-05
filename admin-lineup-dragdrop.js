@@ -709,6 +709,7 @@ window._ddPickRosterPlayer = function(idx, playerId) {
   if(!p) return;
 
   window.ddUpdatePlayer(idx, 'name', p.name || '');
+  window.ddUpdatePlayer(idx, 'id', p.id || null); // ✅︎ ربط الهوية كي يتبع تعديل الاسم
   if(p.number !== '' && p.number != null) window.ddUpdatePlayer(idx, 'number', p.number);
   if(p.position) window.ddUpdatePlayer(idx, 'position', p.position);
 
@@ -928,6 +929,7 @@ window.ddSaveToFirebase = async function() {
       showBench: _ddShowBench,
       players: [...starters, ...subs].map(p => ({
         name:     p.name     || '',
+        id:       p.id       || null,
         number:   p.number   || '',
         position: p.position || '',
         status:   p.status   || 'active',

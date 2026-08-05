@@ -723,6 +723,8 @@ if('serviceWorker' in navigator) {
               <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showShare"><div class="toggle-info"><div class="toggle-name">📤 مشاركة الصور</div><div class="toggle-desc">زر المشاركة على البطاقات</div></div><div class="toggle-switch on"></div></div>
               <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showStats"><div class="toggle-info"><div class="toggle-name">📊 إحصائيات البطولة</div><div class="toggle-desc">يظهر تبويب الإحصائيات للجمهور</div></div><div class="toggle-switch on"></div></div>
               <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showScorers"><div class="toggle-info"><div class="toggle-name">🥇 جدول الهدافين</div><div class="toggle-desc">يظهر تبويب الهدافين للجمهور</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showAssists"><div class="toggle-info"><div class="toggle-name">👟 صنّاع الأهداف</div><div class="toggle-desc">يظهر قسم الصنّاع للجمهور داخل الإحصائيات</div></div><div class="toggle-switch"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showAssistPicker"><div class="toggle-info"><div class="toggle-name">🎯 اختيار الصانع مع الهدف</div><div class="toggle-desc">عند تسجيل هدف تظهر خانة «من صنعه؟» لاختيار صانع الهدف</div></div><div class="toggle-switch"></div></div>
             </div>
           </div>
 
@@ -1344,6 +1346,14 @@ if('serviceWorker' in navigator) {
     return null; // 0 = غير موجود، >1 = ملتبس (لا نخمّن)
   }
 
+  /* ── الاسم الحالي للاعب من الكشف عبر معرّفه (طابق نسخة league-viewer.html) ── */
+  function currentRosterName(rosters, teamId, playerId, fallbackName) {
+    if (!playerId) return fallbackName;
+    var list = (rosters && rosters[teamId]) || [];
+    var p = list.find(function (x) { return x && x.id === playerId; });
+    return (p && p.name) ? p.name : fallbackName;
+  }
+
   /* ── البناء الرئيسي ──
    * opts: { matches, teams, rosters }
    * ترجع مصفوفة مرتبة: [{ key, name, goals, teamId, teamName, teamLogo, number, playerId }] */
@@ -1372,6 +1382,9 @@ if('serviceWorker' in navigator) {
           teamName: t.name || '',
           teamLogo: t.logo || ''
         };
+      } else if (playerId) {
+        // ✅ FIX: حدّث الاسم المعروض عند وجود هوية (يدعم تعديل الاسم لاحقاً)
+        map[key].name = String(name).trim();
       }
       map[key].goals += goals;
     }
@@ -1392,7 +1405,8 @@ if('serviceWorker' in navigator) {
             var r = lookupRoster(rosters, teamId, e.player);
             if (r) { pid = r.id; if (num == null) num = r.number; }
           }
-          add(pid, teamId, e.player, num, 1);
+          var displayName = currentRosterName(rosters, teamId, pid, e.player);
+          add(pid, teamId, displayName, num, 1);
         });
         return; // لا تُضاعف من النص
       }
@@ -1403,7 +1417,8 @@ if('serviceWorker' in navigator) {
           var r   = lookupRoster(rosters, pair[1], it.name);
           var pid = r ? r.id : null;
           var num = r ? r.number : null;
-          add(pid, pair[1], it.name, num, it.goals);
+          var displayName = (r && r.name) ? r.name : it.name;
+          add(pid, pair[1], displayName, num, it.goals);
         });
       });
     });

@@ -134,7 +134,7 @@ if('serviceWorker' in navigator) {
     <!-- الهدافون المصغر -->
     <div class="home-sub-header">
       <div class="home-sub-title">🥇 الهدافون</div>
-      <button onclick="switchTab('scorers',null)" class="home-sub-btn">عرض الكل</button>
+      <button onclick="switchTab('stats',null)" class="home-sub-btn">عرض الكل</button>
     </div>
     <div id="homeScorers"></div>
 
@@ -198,26 +198,42 @@ if('serviceWorker' in navigator) {
     <div id="teamsGrid"></div>
   </div>
 
-  <!-- SCORERS -->
-  <div class="section" id="tab-scorers">
-    <div class="sec-header">
-      <div><div class="sec-title">🥇 الهدافون</div><div class="sec-sub">اضغط على اللاعب لتفاصيله</div></div>
-    </div>
-    <div id="fullScorers"></div>
-  </div>
-
-  <!-- STATS -->
+  <!-- STATS — قسم موحّد: هدّافون · صنّاع · بطاقات صفراء · بطاقات حمراء -->
   <div class="section" id="tab-stats">
     <div class="sec-header">
-      <div><div class="sec-title">📊 الإحصائيات</div><div class="sec-sub" id="statsSub">إحصائيات البطولة</div></div>
+      <div><div class="sec-title">📊 الإحصائيات</div><div class="sec-sub" id="statsSub">هدّافون · صنّاع · بطاقات</div></div>
     </div>
-    <div class="chart-tabs">
-      <button class="chart-tab active" onclick="showChart('goals',this)">⚽ الأهداف</button>
-      <button class="chart-tab" onclick="showChart('wins',this)">🏆 الانتصارات</button>
-      <button class="chart-tab" onclick="showChart('played',this)">📋 المباريات</button>
+
+    <!-- الهدّافون -->
+    <div class="stat-block" id="stb-scorers">
+      <div class="stat-block-head"><span class="stat-block-title">🥇 الهدّافون</span></div>
+      <div id="statScorers"></div>
+      <button class="stat-more" id="more-scorers" onclick="toggleStatMore('scorers',this)" style="display:none">عرض المزيد ↓</button>
     </div>
-    <div class="chart-wrap" id="chartWrap"></div>
-    <div style="padding:0 16px 16px">
+
+    <!-- الصنّاع (يظهر فقط إذا فعّله المنظّم) -->
+    <div class="stat-block" id="stb-assists" style="display:none">
+      <div class="stat-block-head"><span class="stat-block-title">👟 صنّاع الأهداف</span></div>
+      <div id="statAssists"></div>
+      <button class="stat-more" id="more-assists" onclick="toggleStatMore('assists',this)" style="display:none">عرض المزيد ↓</button>
+    </div>
+
+    <!-- البطاقات الصفراء -->
+    <div class="stat-block" id="stb-yellow">
+      <div class="stat-block-head"><span class="stat-block-title">🟨 البطاقات الصفراء</span></div>
+      <div id="statYellow"></div>
+      <button class="stat-more" id="more-yellow" onclick="toggleStatMore('yellow',this)" style="display:none">عرض المزيد ↓</button>
+    </div>
+
+    <!-- البطاقات الحمراء -->
+    <div class="stat-block" id="stb-red">
+      <div class="stat-block-head"><span class="stat-block-title">🟥 البطاقات الحمراء</span></div>
+      <div id="statRed"></div>
+      <button class="stat-more" id="more-red" onclick="toggleStatMore('red',this)" style="display:none">عرض المزيد ↓</button>
+    </div>
+
+    <!-- ملخص البطولة -->
+    <div style="padding:4px 16px 16px">
       <div style="background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:14px">
         <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:12px">📈 ملخص البطولة</div>
         <div id="summaryStats"></div>
@@ -259,7 +275,6 @@ if('serviceWorker' in navigator) {
   <button class="bn-item" id="bn-matches" onclick="switchTab('matches',null,this)"><span class="bi" data-ic="ball"></span>المباريات</button>
   <button class="bn-item" id="bn-teams" onclick="switchTab('teams',null,this)"><span class="bi" data-ic="users"></span>الفرق</button>
   <button class="bn-item" id="bn-stats" onclick="switchTab('stats',null,this)"><span class="bi" data-ic="chart"></span>إحصائيات</button>
-  <button class="bn-item" id="bn-scorers" onclick="switchTab('scorers',null,this)"><span class="bi" data-ic="medal"></span>الهدافون</button>
   <button class="bn-item" id="bn-live" onclick="switchTab('live',null,this)"><span class="bi" data-ic="live"></span>مباشر</button>
 </nav>
 
@@ -598,6 +613,17 @@ if('serviceWorker' in navigator) {
     return null; // 0 = غير موجود، >1 = ملتبس (لا نخمّن)
   }
 
+  /* ── الاسم الحالي للاعب من الكشف عبر معرّفه ──
+   * ✅ FIX: العرض كان يجمّد اسم أول حدث هدف للاعب للأبد، حتى لو غيّر
+   * المنظّم اسمه لاحقاً في الكشف. لو عندنا playerId، نفضّل دائماً
+   * الاسم الحالي في rosters على النص المجمّد المخزَّن مع الحدث القديم. */
+  function currentRosterName(rosters, teamId, playerId, fallbackName) {
+    if (!playerId) return fallbackName;
+    var list = (rosters && rosters[teamId]) || [];
+    var p = list.find(function (x) { return x && x.id === playerId; });
+    return (p && p.name) ? p.name : fallbackName;
+  }
+
   /* ── البناء الرئيسي ──
    * opts: { matches, teams, rosters }
    * ترجع مصفوفة مرتبة: [{ key, name, goals, teamId, teamName, teamLogo, number, playerId }] */
@@ -626,6 +652,10 @@ if('serviceWorker' in navigator) {
           teamName: t.name || '',
           teamLogo: t.logo || ''
         };
+      } else if (playerId) {
+        // ✅ FIX: حدّث الاسم المعروض على أي حدث لاحق طالما عندنا هوية
+        //    (يدعم تعديل الاسم من الكشف بعد تسجيل الأهداف)
+        map[key].name = String(name).trim();
       }
       map[key].goals += goals;
     }
@@ -654,7 +684,8 @@ if('serviceWorker' in navigator) {
             var r = lookupRoster(rosters, teamId, e.player);
             if (r) { pid = r.id; if (num == null) num = r.number; }
           }
-          add(pid, teamId, e.player, num, 1);
+          var displayName = currentRosterName(rosters, teamId, pid, e.player);
+          add(pid, teamId, displayName, num, 1);
         });
         return; // لا تُضاعف من النص
       }
@@ -665,7 +696,8 @@ if('serviceWorker' in navigator) {
           var r   = lookupRoster(rosters, pair[1], it.name);
           var pid = r ? r.id : null;
           var num = r ? r.number : null;
-          add(pid, pair[1], it.name, num, it.goals);
+          var displayName = (r && r.name) ? r.name : it.name;
+          add(pid, pair[1], displayName, num, it.goals);
         });
       });
     });
@@ -707,10 +739,151 @@ if('serviceWorker' in navigator) {
 
   var API = {
     normName: normName, playerKey: playerKey,
-    parseScorerText: parseScorerText, build: build, withRanks: withRanks
+    parseScorerText: parseScorerText, build: build, withRanks: withRanks,
+    // ── مساعدات داخلية مكشوفة كي يعيد StatsCore استخدام نفس منطق الهوية ──
+    isPlaceholder: isPlaceholder,
+    lookupRoster: lookupRoster,
+    currentRosterName: currentRosterName,
+    teamOf: null // يُملأ لحظياً داخل build؛ StatsCore يبني teamOf خاصّته
   };
   root.ScorersCore = API;
 
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+ *  stats-core.js — محرّك الإحصائيات الموحّد (صنّاع + بطاقات)
+ *  ───────────────────────────────────────────────────────────────────
+ *  يبني — بنفس منطق الهوية في ScorersCore — ثلاث قوائم:
+ *    • assists : صنّاع الأهداف (من ev.assist / ev.assistPlayerId / ev.player2)
+ *    • yellow  : البطاقات الصفراء
+ *    • red     : البطاقات الحمراء
+ *  المفتاح = playerId إن وُجد، وإلا teamId::الاسم_المُطبَّع(#الرقم)
+ *  → لاعبان بنفس الاسم من فريقين مختلفين لا يُدمجان أبداً.
+ *  ملاحظة: البطاقات/الصناعات قد لا تحمل playerId في البيانات القديمة،
+ *  فنربطها بالكشف بالاسم عند الإمكان (نفس شبكة أمان الهدافين).
+ * ═══════════════════════════════════════════════════════════════════ */
+(function (root) {
+  'use strict';
+  var SC = root.ScorersCore;
+  if (!SC) { console.error('[stats] ScorersCore مفقود'); return; }
+
+  function _evSide(e) { return e.team || e.side || 'home'; }
+
+  // يستخرج اسم/هوية الصانع من الحدث بعدة مسميات محتملة عبر مسارات الإدخال
+  function assistOf(e) {
+    var name = e.assist || e.assistName || e.assistPlayer || e.player2 || e.assistedBy || null;
+    var pid  = e.assistPlayerId || e.assistId || e.player2Id || null;
+    var num  = (e.assistNumber != null) ? e.assistNumber
+             : (e.assistPlayerNumber != null) ? e.assistPlayerNumber : null;
+    return { name: name, playerId: pid, number: num };
+  }
+
+  /* يبني قائمة واحدة (assist/yellow/red) من كل المباريات المنتهية.
+   * pick(e) → {name, playerId, number} أو null إذا لا يخصّ هذا التصنيف. */
+  function buildList(opts, statField, pick) {
+    opts = opts || {};
+    var matches = opts.matches || [];
+    var teams   = opts.teams   || [];
+    var rosters = opts.rosters || {};
+    var map = {};
+    function teamOf(id) { return teams.find(function (t) { return t.id === id; }) || {}; }
+
+    function add(playerId, teamId, name, number) {
+      if (SC.isPlaceholder(name)) return;
+      var key = SC.playerKey(playerId, teamId, name, number);
+      if (!map[key]) {
+        var t = teamOf(teamId);
+        map[key] = {
+          key: key, playerId: playerId || null,
+          name: String(name).trim(),
+          number: (number != null && number !== '') ? number : null,
+          count: 0, teamId: teamId || null,
+          teamName: t.name || '', teamLogo: t.logo || ''
+        };
+      } else if (playerId) {
+        map[key].name = String(name).trim(); // يحترم تعديل الاسم من الكشف
+      }
+      map[key].count += 1;
+    }
+
+    matches.filter(function (m) { return m.status === 'finished'; }).forEach(function (m) {
+      var liveEv = (m.liveData && m.liveData.events) || [];
+      var ev = liveEv.length ? liveEv : (Array.isArray(m.events) ? m.events : []);
+      ev.forEach(function (e) {
+        if (!e) return;
+        var got = pick(e);
+        if (!got || SC.isPlaceholder(got.name)) return;
+        var evSide = _evSide(e);
+        var teamId = got.teamId || e.teamId || (evSide === 'home' ? m.homeId : m.awayId);
+        var pid = got.playerId || null;
+        var num = got.number != null ? got.number : null;
+        if (!pid) {
+          var r = SC.lookupRoster(rosters, teamId, got.name);
+          if (r) { pid = r.id; if (num == null) num = r.number; }
+        }
+        var displayName = SC.currentRosterName(rosters, teamId, pid, got.name);
+        add(pid, teamId, displayName, num);
+      });
+    });
+
+    // شبكة أمان: دمج سطرين بنفس الفريق+الاسم المُطبَّع (بيانات قديمة بلا هوية)
+    var byNameTeam = {};
+    Object.keys(map).forEach(function (k) {
+      var entry = map[k];
+      var nk = 't:' + (entry.teamId || '?') + '::' + SC.normName(entry.name);
+      if (!byNameTeam[nk]) { byNameTeam[nk] = entry; return; }
+      if (byNameTeam[nk] !== entry) {
+        byNameTeam[nk].count += entry.count;
+        if (!byNameTeam[nk].playerId && entry.playerId) byNameTeam[nk].playerId = entry.playerId;
+        if (byNameTeam[nk].number == null && entry.number != null) byNameTeam[nk].number = entry.number;
+        delete map[k];
+      }
+    });
+
+    return Object.values(map).sort(function (a, b) {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.name.localeCompare(b.name, 'ar');
+    });
+  }
+
+  function buildAssists(opts) {
+    return buildList(opts, 'assists', function (e) {
+      if (e.type !== 'goal') return null;                 // الصناعة مرتبطة بهدف فقط
+      if (e.isShootout || e.shootout) return null;         // ترجيح لا يُحتسب
+      var a = assistOf(e);
+      if (!a.name) return null;
+      return { name: a.name, playerId: a.playerId, number: a.number };
+    });
+  }
+  function buildYellows(opts) {
+    return buildList(opts, 'yellow', function (e) {
+      if (e.type !== 'yellow') return null;
+      return { name: e.player, playerId: e.playerId || null, number: e.playerNumber != null ? e.playerNumber : null };
+    });
+  }
+  function buildReds(opts) {
+    return buildList(opts, 'red', function (e) {
+      if (e.type !== 'red') return null;
+      return { name: e.player, playerId: e.playerId || null, number: e.playerNumber != null ? e.playerNumber : null };
+    });
+  }
+
+  // ترتيب بمراكز متساوية على أساس count
+  function withRanks(list) {
+    var rank = 0, prev = null;
+    return list.map(function (p, i) {
+      if (prev === null || p.count !== prev) { rank = i + 1; prev = p.count; }
+      return Object.assign({}, p, { rank: rank });
+    });
+  }
+
+  root.StatsCore = {
+    buildAssists: buildAssists,
+    buildYellows: buildYellows,
+    buildReds: buildReds,
+    withRanks: withRanks
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>

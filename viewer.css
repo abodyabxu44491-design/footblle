@@ -265,6 +265,13 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .fd{width:6px;height:6px;border-radius:2px}
 
 /* SCORERS */
+/* ── الإحصائيات الموحّدة: هدّافون · صنّاع · بطاقات ── */
+.stat-block{margin:0 14px 18px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;overflow:hidden}
+.stat-block-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border-bottom:1px solid var(--b1)}
+.stat-block-title{font-size:13px;font-weight:900;color:var(--t1);font-family:'Tajawal',sans-serif}
+.stat-more{width:100%;padding:11px;background:transparent;border:none;border-top:1px solid var(--b1);color:var(--gold);font-size:12px;font-weight:800;font-family:'Tajawal',sans-serif;cursor:pointer;transition:background .12s}
+.stat-more:active{background:var(--s2)}
+.stat-block .empty-state{padding:26px 20px;text-align:center;color:var(--t3);font-size:12px}
 .scorer-row{background:var(--s1);border-bottom:1px solid var(--b1);padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:background .12s}
 .scorer-row:active{background:var(--s2)}
 .scorer-row.top1{background:rgba(201,160,43,.04);}

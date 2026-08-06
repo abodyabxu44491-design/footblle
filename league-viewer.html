@@ -204,6 +204,12 @@ if('serviceWorker' in navigator) {
       <div><div class="sec-title">📊 الإحصائيات</div><div class="sec-sub" id="statsSub">هدّافون · صنّاع · بطاقات</div></div>
     </div>
 
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="statsSearch" placeholder="ابحث عن لاعب..." oninput="filterStatsSearch(this.value)" autocomplete="off"/>
+      <span class="search-clear" id="statsSearchClear" onclick="clearStatsSearch()">✕</span>
+    </div>
+
     <!-- الهدّافون -->
     <div class="stat-block" id="stb-scorers">
       <div class="stat-block-head"><span class="stat-block-title">🥇 الهدّافون</span></div>
@@ -233,7 +239,7 @@ if('serviceWorker' in navigator) {
     </div>
 
     <!-- ملخص البطولة -->
-    <div style="padding:4px 16px 16px">
+    <div style="padding:4px 16px 16px" id="statsSummaryWrap">
       <div style="background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:14px">
         <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:12px">📈 ملخص البطولة</div>
         <div id="summaryStats"></div>
@@ -289,6 +295,7 @@ if('serviceWorker' in navigator) {
     </div>
     <div class="pm-grid">
       <div class="pm-stat"><div class="pm-stat-val" id="pmGoals">0</div><div class="pm-stat-lbl">⚽ أهداف</div></div>
+      <div class="pm-stat" id="pmAssistCell" style="display:none"><div class="pm-stat-val" id="pmAssists">0</div><div class="pm-stat-lbl">👟 صناعة</div></div>
       <div class="pm-stat"><div class="pm-stat-val" id="pmMatches">0</div><div class="pm-stat-lbl">🗓 مباريات</div></div>
       <div class="pm-stat"><div class="pm-stat-val" id="pmAvg">0.0</div><div class="pm-stat-lbl">📈 معدل</div></div>
       <div class="pm-stat"><div class="pm-stat-val" id="pmMOM">0</div><div class="pm-stat-lbl">⭐︎ رجل</div></div>
@@ -703,23 +710,25 @@ if('serviceWorker' in navigator) {
     });
 
     // ── FIX: تمريرة دمج ثانية (شبكة أمان) ──
-    // نفس اللاعب قد يظهر بمفتاحين مختلفين إذا سُجّل أحد أهدافه بـ playerId
-    // (من صفحة البث) والآخر بدونه (من إدخال قديم لم يُربط بهوية) فيفشل
-    // ربطه لاحقاً بنفس المفتاح. هنا ندمج أي سطرين بنفس الفريق + الاسم
-    // المُطبَّع في سطر واحد، مع إبقاء الفصل الكامل بين فريقين مختلفين
-    // (فلا يُدمج لاعبان مختلفان بنفس الاسم من فريقين مختلفين).
+    // نفس اللاعب قد يظهر بمفتاحين إذا سُجّل هدف بـ playerId وآخر بدونه.
+    // ✅ لكن لاعبَين مختلفَين بنفس الاسم في نفس الفريق (هويتان مختلفتان)
+    //    يجب ألّا يُدمجا. لذا: لا ندمج إلا إذا كان أحد الطرفين على الأقل
+    //    بلا هوية، أو كانت الهويتان متطابقتين.
     var byNameTeam = {};
     Object.keys(map).forEach(function (k) {
       var entry = map[k];
       var nk = 't:' + (entry.teamId || '?') + '::' + normName(entry.name);
-      if (!byNameTeam[nk]) { byNameTeam[nk] = entry; return; }
-      if (byNameTeam[nk] !== entry) {
-        byNameTeam[nk].goals += entry.goals;
-        // فضّل الاحتفاظ بمعرّف اللاعب/رقمه إن كان متوفراً في أي من السطرين
-        if (!byNameTeam[nk].playerId && entry.playerId) byNameTeam[nk].playerId = entry.playerId;
-        if (byNameTeam[nk].number == null && entry.number != null) byNameTeam[nk].number = entry.number;
-        delete map[k];
+      var head = byNameTeam[nk];
+      if (!head) { byNameTeam[nk] = entry; return; }
+      if (head === entry) return;
+      // كلاهما بهوية مختلفة → لاعبان مختلفان، لا دمج
+      if (head.playerId && entry.playerId && head.playerId !== entry.playerId) {
+        return;
       }
+      head.goals += entry.goals;
+      if (!head.playerId && entry.playerId) head.playerId = entry.playerId;
+      if (head.number == null && entry.number != null) head.number = entry.number;
+      delete map[k];
     });
 
     return Object.values(map).sort(function (a, b) {
@@ -827,18 +836,20 @@ if('serviceWorker' in navigator) {
       });
     });
 
-    // شبكة أمان: دمج سطرين بنفس الفريق+الاسم المُطبَّع (بيانات قديمة بلا هوية)
+    // شبكة أمان: دمج سطرين بنفس الفريق+الاسم فقط عند غياب هوية مميّزة —
+    // ✅ لاعبان مختلفان بنفس الاسم في نفس الفريق (هويتان) لا يُدمجان.
     var byNameTeam = {};
     Object.keys(map).forEach(function (k) {
       var entry = map[k];
       var nk = 't:' + (entry.teamId || '?') + '::' + SC.normName(entry.name);
-      if (!byNameTeam[nk]) { byNameTeam[nk] = entry; return; }
-      if (byNameTeam[nk] !== entry) {
-        byNameTeam[nk].count += entry.count;
-        if (!byNameTeam[nk].playerId && entry.playerId) byNameTeam[nk].playerId = entry.playerId;
-        if (byNameTeam[nk].number == null && entry.number != null) byNameTeam[nk].number = entry.number;
-        delete map[k];
-      }
+      var head = byNameTeam[nk];
+      if (!head) { byNameTeam[nk] = entry; return; }
+      if (head === entry) return;
+      if (head.playerId && entry.playerId && head.playerId !== entry.playerId) return;
+      head.count += entry.count;
+      if (!head.playerId && entry.playerId) head.playerId = entry.playerId;
+      if (head.number == null && entry.number != null) head.number = entry.number;
+      delete map[k];
     });
 
     return Object.values(map).sort(function (a, b) {

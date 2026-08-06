@@ -128,75 +128,97 @@ function _evSide(ev) {
  * الكشف عند الجمهور)، وإلا نرجع للنص المجمَّد وقت تسجيل الهدف.
  * ملاحظة: البطاقات/التبديلات/التشكيلات لا تحمل playerId إطلاقاً حالياً،
  * فهذه الدالة مفيدة فقط لأحداث النوع 'goal'. */
-function _liveEventPlayerName(ev, teamId) {
-  const fallback = ev && ev.player || '';
-  if (!ev || !ev.playerId) return fallback;
+/* ═══════════════════════════════════════════════════════════════════
+ *  نظام أسماء اللاعبين — مصدر واحد موثوق + تحديث حيّ فوري
+ *  ───────────────────────────────────────────────────────────────────
+ *  المصدر الوحيد للاسم الحالي: كشف الفريق في قاعدة البيانات
+ *  (leagues/{id}/teams/{teamId}/roster) مُزامَن حيّاً في window._teamRosters.
+ *  كل نقاط العرض (هدّافون، بطاقات، أحداث، تبديلات، تشكيلات، نافذة اللاعب)
+ *  تحلّ الاسم عبر _pName(teamId, playerId) — لا مصادر منافسة، لا تعارض.
+ *  عند تعديل المنظّم للاسم والضغط على حفظ → onSnapshot يُحدّث الكشف →
+ *  إعادة رسم مُجمّعة → الاسم الجديد يظهر فوراً في كل مكان.
+ * ═══════════════════════════════════════════════════════════════════ */
+
+window._teamRosters   = window._teamRosters   || {};
+window._rosterListeners = window._rosterListeners || {};
+
+// ✅ المُحلّل الموحّد: الاسم الحالي للاعب حسب هويته من الكشف الحيّ.
+//    يرجع fallback (النص المخزَّن وقت الحدث) إذا لا هوية أو الكشف لم يصل بعد.
+function _pName(teamId, playerId, fallback) {
+  fallback = fallback || '';
+  if (!playerId) return fallback;
   const roster = window._teamRosters && window._teamRosters[teamId];
   if (!roster || !roster.length) return fallback;
-  const p = roster.find(x => x && x.id === ev.playerId);
+  const p = roster.find(x => x && x.id === playerId);
   return (p && p.name) ? p.name : fallback;
 }
+window._pName = _pName;
 
-// يحلّ الاسم الحيّ لأحد طرفَي التبديل من الكشف حسب الهوية.
-// which = 'in' (الداخل) أو 'out' (الخارج). يرجع الاسم المجمّد عند غياب الهوية/الكشف.
+// اسم لاعب حدث (هدف/بطاقة) — يحلّ عبر ev.playerId
+function _liveEventPlayerName(ev, teamId) {
+  if (!ev) return '';
+  return _pName(teamId, ev.playerId, ev.player || '');
+}
+
+// اسم أحد طرفَي التبديل. which = 'in' (الداخل) أو 'out' (الخارج).
 function _liveSubName(ev, teamId, which) {
   if (!ev) return '';
   const isIn = which === 'in';
   const fallback = isIn ? (ev.playerIn || ev.player2 || '') : (ev.playerOut || ev.player || '');
   const pid = isIn ? (ev.playerInId || ev.player2Id || null)
                    : (ev.playerOutId || ev.playerId || null);
-  if (!pid) return fallback;
-  const roster = window._teamRosters && window._teamRosters[teamId];
-  if (!roster || !roster.length) return fallback;
-  const p = roster.find(x => x && x.id === pid);
-  return (p && p.name) ? p.name : fallback;
+  return _pName(teamId, pid, fallback);
 }
 
-/* ✅ FIX: يحمّل كشف الفريق مسبقاً (لو ما كان محمَّلاً) ثم يستدعي onLoaded —
- * يضمن ظهور الاسم المحدَّث في خط الزمن حتى لو الجمهور ما فتح صفحة الفريق. */
-// كشوف الفرق: مستمعون حيّون (onSnapshot) بدل تحميل لمرة واحدة —
-// كي ينعكس تعديل اسم أي لاعب فوراً في الهدّافين/البطاقات/التشكيلات.
-window._rosterListeners = window._rosterListeners || {};
+// إعادة رسم مُجمّعة (debounce) — تُستدعى عند وصول/تحديث أي كشف كي لا يومض
+// أثناء تحميل عدة كشوف دفعة واحدة، وتحدّث كل الأقسام المرئية مرة واحدة.
+window._scheduleNameRerender = function () {
+  if (window._rosterRerenderT) clearTimeout(window._rosterRerenderT);
+  window._rosterRerenderT = setTimeout(() => {
+    try { if (typeof renderScorers === 'function') renderScorers(); } catch (e) {}      // الرئيسية + الإحصائيات
+    try {
+      const ov = document.getElementById('matchDetailOverlay');
+      if (ov && ov.classList.contains('show') && window._lastMatchDetailId && typeof openMatchDetail === 'function') {
+        openMatchDetail(window._lastMatchDetailId);                                        // خط الأحداث + التشكيلات
+      }
+    } catch (e) {}
+    try {
+      const tp = document.getElementById('teamProfileOverlay');
+      if (tp && tp.style.display !== 'none' && window._lastTeamProfileId && typeof openTeamProfile === 'function') {
+        openTeamProfile(window._lastTeamProfileId);                                        // صفحة الفريق
+      }
+    } catch (e) {}
+  }, 100);
+};
+
+// المستمع الحيّ الوحيد لكشف كل فريق. آمن ضد الاستدعاء المتكرر (لا يُنشئ مستمعاً مكرراً).
 function _ensureRosterLoaded(teamId, onLoaded) {
-  window._teamRosters = window._teamRosters || {};
   if (!teamId) return;
+  window._teamRosters = window._teamRosters || {};
   if (window._rosterListeners[teamId]) {
-    // مستمع قائم بالفعل — لو الكشف محمّل نفّذ الـ callback مباشرة
     if (window._teamRosters[teamId] && window._teamRosters[teamId].length && typeof onLoaded === 'function') onLoaded();
     return;
   }
   window._teamRosters[teamId] = window._teamRosters[teamId] || [];
+  const _applyOnce = (list) => {
+    window._teamRosters[teamId] = list;
+    window._scheduleNameRerender();
+    if (typeof onLoaded === 'function') onLoaded();
+  };
   try {
     window._rosterListeners[teamId] = onSnapshot(
       query(collection(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster'), orderBy('number', 'asc')),
       snap => {
         const list = [];
         snap.forEach(dd => list.push(_sanitizeDoc({ id: dd.id, ...dd.data() })));
-        window._teamRosters[teamId] = list;
-        // إعادة رسم مُجمّعة (debounce) لتفادي وميض عند تحميل عدة كشوف دفعةً
-        if (window._rosterRerenderT) clearTimeout(window._rosterRerenderT);
-        window._rosterRerenderT = setTimeout(() => {
-          try { if (typeof renderScorers === 'function') renderScorers(); } catch (e) {} // الرئيسية + الإحصائيات
-          try {
-            const ov = document.getElementById('matchDetailOverlay') || document.getElementById('lineupOverlay');
-            if (ov && ov.classList.contains('show') && window._lastMatchDetailId && typeof openMatchDetail === 'function') {
-              openMatchDetail(window._lastMatchDetailId);
-            }
-          } catch (e) {}
-        }, 120);
-        if (typeof onLoaded === 'function') onLoaded();
+        _applyOnce(list);
       },
       () => {}
     );
   } catch (e) {
-    // fallback: تحميل لمرة واحدة عند تعذّر المستمع
     getDocs(query(collection(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster'), orderBy('number', 'asc')))
-      .then(snap => {
-        const list = [];
-        snap.forEach(dd => list.push(_sanitizeDoc({ id: dd.id, ...dd.data() })));
-        window._teamRosters[teamId] = list;
-        if (typeof onLoaded === 'function') onLoaded();
-      }).catch(() => {});
+      .then(snap => { const l = []; snap.forEach(dd => l.push(_sanitizeDoc({ id: dd.id, ...dd.data() }))); _applyOnce(l); })
+      .catch(() => {});
   }
 }
 
@@ -1136,11 +1158,10 @@ function _lineupLiveName(p) {
   if (!p) return '';
   const fallback = p.name || '';
   if (!p.id || !window._teamRosters) return fallback;
+  // التشكيلة قد لا تمرّر teamId، فنبحث في كشوف كل الفرق المحمّلة عن الهوية
   for (const tid in window._teamRosters) {
-    const roster = window._teamRosters[tid];
-    if (!roster || !roster.length) continue;
-    const hit = roster.find(x => x && x.id === p.id);
-    if (hit && hit.name) return hit.name;
+    const hit = _pName(tid, p.id, null);
+    if (hit) return hit;
   }
   return fallback;
 }
@@ -1247,7 +1268,7 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
   const pTeamId = player.teamId;
   const playerMatches = [];
   let momCount = 0;
-  let yellowCount = 0, redCount = 0;
+  let yellowCount = 0, redCount = 0, assistCount = 0;
 
   // مطابقة اسم مرنة (تتجاهل التشكيل والمسافات الزائدة)
   const _norm2 = s => String(s || '')
@@ -1263,13 +1284,20 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
     if (!isHomeTeam && !isAwayTeam) return;
 
     const evs = _matchEvents(m);
-    let myGoals = 0, myYellow = 0, myRed = 0;
+    let myGoals = 0, myYellow = 0, myRed = 0, myAssist = 0;
 
     if (evs.length) {
       evs.forEach(ev => {
         if (!ev) return;
         const evTeamId = ev.teamId || (_evSide(ev) === 'home' ? m.homeId : m.awayId);
         if (evTeamId !== pTeamId) return;
+        // صناعة الهدف: تُنسب لصانعه (يُطابَق بالهوية إن توفّرت وإلا بالاسم)
+        if (ev.type === 'goal' && ev.assist && !ev.isShootout && !ev.shootout) {
+          const isAssister = player.playerId
+            ? (ev.assistPlayerId && ev.assistPlayerId === player.playerId)
+            : nameMatches(ev.assist, player.name);
+          if (isAssister) myAssist++;
+        }
         const same = player.playerId
           ? (ev.playerId && ev.playerId === player.playerId)
           : nameMatches(ev.player, player.name);
@@ -1285,7 +1313,7 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
         if (nameMatches(nm, player.name)) myGoals++;
       });
     }
-    yellowCount += myYellow; redCount += myRed;
+    yellowCount += myYellow; redCount += myRed; assistCount += myAssist;
 
     const opp = isHomeTeam ? (teams.find(t => t.id === m.awayId) || {name: m.awayName || '؟'})
                             : (teams.find(t => t.id === m.homeId) || {name: m.homeName || '؟'});
@@ -1297,14 +1325,22 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
     const isMom = m.manOfMatch && nameMatches(m.manOfMatch, player.name);
     if (isMom) momCount++;
 
-    // اعرض المباراة إذا: سجّل فيها، أو أخذ كرت، أو كان رجل المباراة (كل مشاركة فعّالة)
-    if (myGoals > 0 || myYellow > 0 || myRed > 0 || isMom) {
-      playerMatches.push({ m, opp, my, op, result, rc, myGoals, myYellow, myRed, isMom });
+    // اعرض المباراة إذا: سجّل فيها، أو صنع، أو أخذ كرت، أو كان رجل المباراة
+    if (myGoals > 0 || myAssist > 0 || myYellow > 0 || myRed > 0 || isMom) {
+      playerMatches.push({ m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed, isMom });
     }
   });
 
   const team = teams.find(t => t.id === player.teamId) || {logo: player.teamLogo};
-  document.getElementById('pmLogo').innerHTML = logoHtml(team.logo || player.teamLogo, 36, 10);
+  // صورة اللاعب إن وُجدت (من الكشف الحيّ) وإلا شعار الفريق
+  let _pPhoto = '';
+  if (player.playerId && window._teamRosters && window._teamRosters[player.teamId]) {
+    const _rp = window._teamRosters[player.teamId].find(x => x && x.id === player.playerId);
+    if (_rp && _rp.photo) _pPhoto = _rp.photo;
+  }
+  document.getElementById('pmLogo').innerHTML = _pPhoto
+    ? `<img src="${_pPhoto}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    : logoHtml(team.logo || player.teamLogo, 36, 10);
   // اسم حيّ من الكشف حسب الهوية إن توفّرت
   const _liveName = (player.playerId && typeof _liveEventPlayerName === 'function')
     ? _liveEventPlayerName({ player: player.name, playerId: player.playerId }, player.teamId)
@@ -1315,17 +1351,24 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
   document.getElementById('pmMatches').textContent = playerMatches.length;
   document.getElementById('pmAvg').textContent = playerMatches.length ? (player.goals / playerMatches.length).toFixed(1) : '0.0';
   document.getElementById('pmMOM').textContent = momCount;
+  // 👟 الصناعات — تظهر إذا فعّلها المنظّم أو إذا كان للاعب صناعات مسجّلة
+  const _showAssistStat = (window.settings && window.settings.showAssists) || assistCount > 0;
+  const _asCell = document.getElementById('pmAssistCell');
+  const _asVal = document.getElementById('pmAssists');
+  if (_asVal) _asVal.textContent = assistCount;
+  if (_asCell) _asCell.style.display = _showAssistStat ? '' : 'none';
   const listEl = document.getElementById('pmMatchList');
   if (!playerMatches.length) {
     listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t3);font-size:11px">لا توجد بيانات</div>';
   } else {
-    listEl.innerHTML = playerMatches.slice(0, 15).map(({m, opp, my, op, result, rc, myGoals, myYellow, myRed, isMom}) => `
+    listEl.innerHTML = playerMatches.slice(0, 15).map(({m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed, isMom}) => `
       <div class="pm-match-row">
         <div class="pm-match-result" style="color:${rc}">${result}</div>
         <div class="pm-match-vs">ضد ${opp.name} · جولة ${m.round||1}</div>
         <div style="font-size:11px;color:var(--t3)">${my}-${op}</div>
         <div style="display:flex;gap:4px;align-items:center">
           ${myGoals>0?`<span class="pm-goals-badge">${window.Icon?window.Icon('ball',11):'⚽'}×${myGoals}</span>`:''}
+          ${myAssist>0?`<span class="pm-goals-badge" style="background:rgba(39,174,96,.15);color:var(--green,#27ae60)" title="صناعة">👟×${myAssist}</span>`:''}
           ${myYellow>0?`<span style="width:9px;height:12px;background:#E8B93B;border-radius:2px;display:inline-block" title="بطاقة صفراء"></span>`:''}
           ${myRed>0?`<span style="width:9px;height:12px;background:#C0392B;border-radius:2px;display:inline-block" title="بطاقة حمراء"></span>`:''}
           ${isMom?`<span title="رجل المباراة" style="color:var(--gold);display:inline-flex">${window.Icon?window.Icon('crown',13):'👑'}</span>`:''}
@@ -2501,6 +2544,7 @@ window.openTeamProfile = function(teamId) {
   const overlay = document.getElementById('teamProfileOverlay');
   const body = document.getElementById('teamProfileBody');
   if(!overlay||!body) return;
+  window._lastTeamProfileId = teamId; // كي يعيد مستمع الكشف رسم الصفحة عند تعديل اسم
 
   const lnEl = document.getElementById('tpLeagueName');
   if(lnEl) lnEl.textContent = t.name;
@@ -2515,26 +2559,12 @@ window.openTeamProfile = function(teamId) {
   const finished = teamMatches.filter(m=>m.status==='finished').slice(-5).reverse();
   const upcoming = teamMatches.filter(m=>m.status==='upcoming').slice(0,3);
 
-  // لاعبو الفريق: من الكشف الرسمي المحمّل (roster) أو الحقل القديم
+  // لاعبو الفريق من الكشف الحيّ الموحّد (المستمع يعيد الرسم عند أي تعديل اسم)
   window._teamRosters = window._teamRosters || {};
+  _ensureRosterLoaded(teamId);
   const players = (window._teamRosters[teamId] && window._teamRosters[teamId].length)
     ? window._teamRosters[teamId]
     : (t.players || []);
-  // حمّل الكشف من قاعدة البيانات أول مرة ثم أعد الرسم ليظهر
-  if (!window._teamRosters[teamId]) {
-    window._teamRosters[teamId] = [];
-    getDocs(query(collection(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster'), orderBy('number', 'asc')))
-      .then(snap => {
-        const list = [];
-        snap.forEach(dd => list.push(_sanitizeDoc({ id: dd.id, ...dd.data() })));
-        window._teamRosters[teamId] = list;
-        const ov = document.getElementById('teamProfileOverlay');
-        if (list.length && ov && ov.style.display !== 'none') {
-          window.openTeamProfile(teamId); // أعد الرسم بالكشف الكامل
-        }
-      })
-      .catch(() => {});
-  }
 
   // هدافو الفريق من المباريات
   const scorersMap = {};
@@ -2839,48 +2869,30 @@ window.applyTiebreak = applyTiebreak;
 // يُستخدم لإيجاد هوية اللاعب (id) حتى لو تشابهت الأسماء بين فريقين.
 function _collectScorerRosters() {
   const out = {};
+  // ① المصدر الموثوق: الكشف الحيّ (subcollection) — الاسم منه لا يُلمَس أبداً
   const src = window._teamRosters || window.rosterCache || {};
   Object.keys(src).forEach(tid => {
     out[tid] = (src[tid] || []).map(p => ({ id: p.id, name: p.name, number: p.number }));
   });
-  // ✅︎ FIX: ادمج اللاعبين من teams[] المُزامَنة حيّاً (onSnapshot) — أسماؤها تتحدّث
-  //    فوراً عند تعديل المنظّم، بعكس كاش _teamRosters الذي يُحمَّل مرة واحدة.
-  //    لو نفس المعرّف موجود، الاسم الحيّ من teams[] له الأولوية.
-  (teams || window.teams || []).forEach(t => {
-    if (!t || !t.id) return;
-    const roster = t.players || t.roster || [];
-    if (!roster.length) return;
-    out[t.id] = out[t.id] || [];
-    roster.forEach(p => {
-      if (!p) return;
-      const pid = p.id || p.playerId || null;
-      const nm = p.name || p.playerName;
-      if (!nm) return;
-      if (pid) {
-        const existing = out[t.id].find(x => x.id === pid);
-        if (existing) { existing.name = nm; if (p.number != null) existing.number = p.number; }
-        else out[t.id].push({ id: pid, name: nm, number: p.number });
-      } else {
-        const norm = window.ScorersCore ? window.ScorersCore.normName(nm) : nm;
-        const exists = out[t.id].some(x => (window.ScorersCore ? window.ScorersCore.normName(x.name) : x.name) === norm);
-        if (!exists) out[t.id].push({ id: null, name: nm, number: p.number });
-      }
-    });
-  });
+  const _hasId  = (tid, id)  => id && out[tid] && out[tid].some(x => x.id === id);
+  const _hasNm  = (tid, nm)  => {
+    const norm = window.ScorersCore ? window.ScorersCore.normName(nm) : nm;
+    return out[tid] && out[tid].some(x => (window.ScorersCore ? window.ScorersCore.normName(x.name) : x.name) === norm);
+  };
+  // ② تكملة فقط للاعبين غير الموجودين في الكشف (تشكيلات/بيانات قديمة) —
+  //    لا نعدّل اسم لاعب له هوية موجودة أصلاً (الكشف هو الحَكَم).
   (matches || []).forEach(m => {
     [['home', m.homeId], ['away', m.awayId]].forEach(([side, tid]) => {
       if (!tid) return;
+      out[tid] = out[tid] || [];
       const ld = m.liveData || {};
       const lu = side === 'home' ? ld.homeLineup : ld.awayLineup;
       if (!lu || !lu.players) return;
-      out[tid] = out[tid] || [];
       lu.players.forEach(p => {
         if (!p || !p.name) return;
-        // لو للاعب التشكيلة هوية، لا نضيفه كنسخة بلا هوية (تجنّب التكرار)
-        if (p.id && out[tid].some(x => x.id === p.id)) return;
-        const norm = window.ScorersCore ? window.ScorersCore.normName(p.name) : p.name;
-        const exists = out[tid].some(x => (window.ScorersCore ? window.ScorersCore.normName(x.name) : x.name) === norm);
-        if (!exists) out[tid].push({ id: p.id || null, name: p.name, number: p.number });
+        if (p.id && _hasId(tid, p.id)) return;         // له هوية في الكشف → لا تكرّره
+        if (!p.id && _hasNm(tid, p.name)) return;       // موجود بالاسم → لا تكرّره
+        out[tid].push({ id: p.id || null, name: p.name, number: p.number });
       });
     });
   });
@@ -3031,16 +3043,17 @@ function _renderStatSection(listId, moreBtnId, data, key, valColor, unit, emptyI
   const el = document.getElementById(listId);
   const moreBtn = document.getElementById(moreBtnId);
   if (!el) return;
+  const searching = !!window._statsQuery;
   if (!data.length) {
-    el.innerHTML = _emptyStat(emptyIcon, emptyMsg);
+    el.innerHTML = _emptyStat(emptyIcon, searching ? 'لا يوجد لاعب بهذا الاسم' : emptyMsg);
     if (moreBtn) moreBtn.style.display = 'none';
     return;
   }
-  const expanded = !!window._statExpanded[key];
+  const expanded = searching || !!window._statExpanded[key];
   const shown = expanded ? data : data.slice(0, STAT_PREVIEW);
   el.innerHTML = shown.map((p, i) => _statRow(p, i, 'count', valColor, unit)).join('');
   if (moreBtn) {
-    if (data.length > STAT_PREVIEW) {
+    if (!searching && data.length > STAT_PREVIEW) {
       moreBtn.style.display = 'block';
       moreBtn.textContent = expanded ? 'عرض أقل ↑' : `عرض المزيد (${data.length - STAT_PREVIEW}) ↓`;
     } else {
@@ -3054,35 +3067,54 @@ window.toggleStatMore = function (key, btn) {
   renderStats();
 };
 
+// ── بحث اللاعبين داخل الإحصائيات (يفلتر الأقسام الأربعة بالاسم) ──
+window._statsQuery = '';
+function _normStatsQ(s) {
+  return String(s || '').replace(/[\u064B-\u0652\u0640]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+window.filterStatsSearch = function (val) {
+  window._statsQuery = _normStatsQ(val);
+  const c = document.getElementById('statsSearchClear');
+  if (c) c.style.display = window._statsQuery ? 'block' : 'none';
+  renderStats();
+};
+window.clearStatsSearch = function () {
+  const inp = document.getElementById('statsSearch'); if (inp) inp.value = '';
+  window._statsQuery = '';
+  const c = document.getElementById('statsSearchClear'); if (c) c.style.display = 'none';
+  renderStats();
+};
+function _applyStatsFilter(list) {
+  const q = window._statsQuery;
+  if (!q) return list;
+  return list.filter(p => _normStatsQ(p.name).includes(q));
+}
+
 // ── الدالة الرئيسية: تبني كل الأقسام ──
 function renderStats() {
   const opts = _displayOpts();
-  // ✅︎ تأكد أن كشوف كل الفرق محمّلة كي تُحلّ الأسماء الحيّة في الهدّافين/البطاقات.
-  //    عند وصول أي كشف لأول مرة نعيد الرسم تلقائياً.
-  (teams || []).forEach(t => {
-    if (t && t.id && typeof _ensureRosterLoaded === 'function'
-        && !(window._teamRosters && window._teamRosters[t.id])) {
-      _ensureRosterLoaded(t.id, () => {
-        const el = document.getElementById('tab-stats');
-        if (el && el.classList.contains('active')) renderStats();
-      });
-    }
-  });
-  const scorers = buildScorersData();
+  // تأكد أن كشوف كل الفرق مُشترَك بها (المستمع الموحّد يعيد الرسم عند أي تحديث)
+  (teams || []).forEach(t => { if (t && t.id) _ensureRosterLoaded(t.id); });
+  const _searching = !!window._statsQuery;
+  // أخفِ ملخص البطولة أثناء البحث لإبراز نتائج اللاعب
+  const _sumWrap = document.getElementById('statsSummaryWrap');
+  if (_sumWrap) _sumWrap.style.display = _searching ? 'none' : 'block';
+  const _rosters = _collectScorerRosters();
+  const scorers = _applyStatsFilter(buildScorersData());
 
-  // 1) الهدّافون — أفضل 5 مع "عرض المزيد" (مثل بقية الأقسام)
+  // 1) الهدّافون — أفضل 5 مع "عرض المزيد" (عند البحث تُعرض كل المطابقات)
   const sc = document.getElementById('statScorers');
   const scMore = document.getElementById('more-scorers');
   if (sc) {
     if (!scorers.length) {
-      sc.innerHTML = _emptyStat('⚽', 'لا توجد أهداف بعد');
+      sc.innerHTML = _emptyStat('⚽', _searching ? 'لا يوجد لاعب بهذا الاسم' : 'لا توجد أهداف بعد');
       if (scMore) scMore.style.display = 'none';
     } else {
-      const expanded = !!window._statExpanded.scorers;
+      const expanded = _searching || !!window._statExpanded.scorers;
       const shown = expanded ? scorers : scorers.slice(0, STAT_PREVIEW);
       sc.innerHTML = shown.map((p, i) => _statRow(p, i, 'goals', 'var(--gold)', 'هدف')).join('');
       if (scMore) {
-        if (scorers.length > STAT_PREVIEW) {
+        if (!_searching && scorers.length > STAT_PREVIEW) {
           scMore.style.display = 'block';
           scMore.textContent = expanded ? 'عرض أقل ↑' : `عرض المزيد (${scorers.length - STAT_PREVIEW}) ↓`;
         } else {
@@ -3097,19 +3129,19 @@ function renderStats() {
   const showAssists = opts.showAssists === true;
   if (assistsBlock) assistsBlock.style.display = showAssists ? 'block' : 'none';
   if (showAssists && window.StatsCore) {
-    const assists = window.StatsCore.buildAssists({ matches: matches || [], teams: teams || [], rosters: _collectScorerRosters() });
+    const assists = _applyStatsFilter(window.StatsCore.buildAssists({ matches: matches || [], teams: teams || [], rosters: _rosters }));
     _renderStatSection('statAssists', 'more-assists', assists, 'assists', 'var(--green,#27ae60)', 'صناعة', '👟', 'لا توجد صناعات بعد');
   }
 
   // 3) البطاقات الصفراء
   if (window.StatsCore) {
-    const yellows = window.StatsCore.buildYellows({ matches: matches || [], teams: teams || [], rosters: _collectScorerRosters() });
+    const yellows = _applyStatsFilter(window.StatsCore.buildYellows({ matches: matches || [], teams: teams || [], rosters: _rosters }));
     _renderStatSection('statYellow', 'more-yellow', yellows, 'yellow', '#e6b800', 'بطاقة', '🟨', 'لا توجد بطاقات صفراء');
   }
 
   // 4) البطاقات الحمراء
   if (window.StatsCore) {
-    const reds = window.StatsCore.buildReds({ matches: matches || [], teams: teams || [], rosters: _collectScorerRosters() });
+    const reds = _applyStatsFilter(window.StatsCore.buildReds({ matches: matches || [], teams: teams || [], rosters: _rosters }));
     _renderStatSection('statRed', 'more-red', reds, 'red', 'var(--red,#c0392b)', 'بطاقة', '🟥', 'لا توجد بطاقات حمراء');
   }
 }
@@ -3967,8 +3999,8 @@ function _toEmbedUrl(url) {
   if (!url) return null;
   url = String(url).trim();
   try {
-    // YouTube: watch?v= / youtu.be/ / live/
-    let m = url.match(/(?:youtube\.com\/(?:watch\?v=|live\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+    // YouTube: watch?v= / youtu.be/ / live/ / shorts/ / embed/
+    let m = url.match(/(?:youtube\.com\/(?:watch\?v=|live\/|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
     if (m) return { type:'iframe', src:`https://www.youtube.com/embed/${m[1]}?autoplay=1&playsinline=1` };
     // YouTube channel live: youtube.com/@handle/live أو /channel/ID/live — نفتح الرابط كما هو
     if (/youtube\.com\/.+\/live/.test(url)) return { type:'iframe', src:url.replace('/live','/embed/live_stream') };

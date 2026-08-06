@@ -1577,7 +1577,9 @@
 
   // ─── بناء صفحة البطاقات (هيدر + لوحة الهوية + قائمة) ─────────
   function upgradeCardsPageHTML() {
-    const page = document.getElementById('page-cards');
+    // البطاقات أُدمجت داخل صفحة الإحصائيات — نبني داخل الحاوية المخصّصة
+    // (cs-host) بدل صفحة page-cards المحذوفة.
+    const page = document.getElementById('cs-host') || document.getElementById('page-cards');
     if (!page) return;
     const lg   = getLeague();
     const name = getLeagueName();
@@ -1687,7 +1689,8 @@
     if (typeof origShowPage === 'function') {
       window.showPage = function(name, sb, mn) {
         origShowPage(name, sb, mn);
-        if (name === 'cards') { upgradeCardsPageHTML(); renderCardsPage(); }
+        // البطاقات مدمجة في صفحة الإحصائيات (scorers)
+        if (name === 'cards' || name === 'scorers') { upgradeCardsPageHTML(); renderCardsPage(); }
       };
     }
     window.renderCards = function() { upgradeCardsPageHTML(); renderCardsPage(); };

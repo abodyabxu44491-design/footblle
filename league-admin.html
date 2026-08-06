@@ -256,10 +256,9 @@ if('serviceWorker' in navigator) {
       <div class="sb-item active" onclick="showPage('dashboard',this)"><span class="sb-icon" data-ic="chart"></span> لوحة التحكم</div>
       <div class="sb-item" onclick="showPage('matches',this)"><span class="sb-icon" data-ic="ball"></span> المباريات <span class="sb-badge live" id="liveMatchBadge" style="display:none">مباشر</span></div>
       <div class="sb-item" onclick="showPage('standings',this)"><span class="sb-icon" data-ic="list"></span> الترتيب</div>
-      <div class="sb-item" onclick="showPage('scorers',this)"><span class="sb-icon" data-ic="medal"></span> الهدافون</div>
+      <div class="sb-item" onclick="showPage('scorers',this)"><span class="sb-icon" data-ic="medal"></span> الإحصائيات</div>
       <div class="sb-label">الإدارة</div>
       <div class="sb-item" onclick="showPage('teams',this)"><span class="sb-icon" data-ic="users"></span> الفرق <span class="sb-badge" id="teamsBadge">0</span></div>
-      <div class="sb-item" onclick="showPage('cards',this)"><span class="sb-icon" data-ic="palette"></span> البطاقات</div>
       <div class="sb-item" onclick="showPage('sponsor',this)"><span class="sb-icon" data-ic="tag"></span> الراعي</div>
 
       <!-- ثابت: المجموعات + الإقصاء (لإظهارها حتى لو admin.js لا يحقنها) -->
@@ -372,22 +371,40 @@ if('serviceWorker' in navigator) {
       <!-- SCORERS -->
       <div class="section" id="page-scorers">
         <div class="page-header">
-          <div class="page-title"><span class="pt-ic" data-ic="medal"></span>الهدافون</div>
-          <div class="page-sub">يتحدث تلقائياً عند إدخال النتائج</div>
+          <div class="page-title"><span class="pt-ic" data-ic="medal"></span>الإحصائيات</div>
+          <div class="page-sub">هدّافون · صنّاع · بطاقات — تتحدث تلقائياً</div>
         </div>
-        <div id="scorersList"><div class="spin"></div></div>
-      </div>
 
-      <!-- CARDS -->
-      <div class="section" id="page-cards">
-        <div class="page-header">
-          <div class="page-title"><span class="pt-ic" data-ic="palette"></span>البطاقات</div>
-          <div class="page-sub">توليد ومشاركة البطاقات الاحترافية</div>
+        <!-- الهدّافون -->
+        <div class="admin-stat-block">
+          <div class="admin-stat-head">🥇 الهدّافون <span id="cnt-scorers" class="admin-stat-count"></span></div>
+          <div id="statAdminScorers"><div class="spin"></div></div>
         </div>
-        <div id="cardsList"><div class="spin"></div></div>
-        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-outline" style="flex:1" onclick="shareViaWA()">📲 واتساب</button>
-          <button class="btn btn-gold" style="flex:1" onclick="showToast('تم الحفظ ✓','success')">💾 حفظ صورة</button>
+
+        <!-- الصنّاع (يظهر فقط عند تفعيله من الإعدادات) -->
+        <div class="admin-stat-block" id="admin-stb-assists" style="display:none">
+          <div class="admin-stat-head">👟 صنّاع الأهداف <span id="cnt-assists" class="admin-stat-count"></span></div>
+          <div id="statAdminAssists"></div>
+        </div>
+
+        <!-- البطاقات الصفراء -->
+        <div class="admin-stat-block">
+          <div class="admin-stat-head">🟨 البطاقات الصفراء <span id="cnt-yellow" class="admin-stat-count"></span></div>
+          <div id="statAdminYellow"></div>
+        </div>
+
+        <!-- البطاقات الحمراء -->
+        <div class="admin-stat-block">
+          <div class="admin-stat-head">🟥 البطاقات الحمراء <span id="cnt-red" class="admin-stat-count"></span></div>
+          <div id="statAdminRed"></div>
+        </div>
+
+        <!-- بطاقات المشاركة (مولّد الصور المدمج) -->
+        <div class="admin-stat-block">
+          <div class="admin-stat-head">🖼️ بطاقات المشاركة</div>
+          <div id="cs-host">
+            <div id="cardsList"><div class="spin"></div></div>
+          </div>
         </div>
       </div>
 
@@ -780,6 +797,15 @@ if('serviceWorker' in navigator) {
               أي خطأ يفسد جدول الترتيب — مع سبب كل مشكلة وحلّها.
             </div>
             <button class="btn btn-gold" onclick="hcShow()">افحص الآن</button>
+          </div></div>
+          <div class="card" style="border-color:rgba(39,174,96,.4)"><div class="card-body">
+            <div style="font-size:14px;font-weight:700;color:#27ae60;margin-bottom:6px">🧹 تحرير مساحة (تنظيف الشعارات)</div>
+            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">
+              يُزيل صور الشعارات المكرّرة المخزّنة داخل المباريات القديمة لتحرير مساحة التخزين.
+              <b>آمن تماماً:</b> الشعارات تظل تظهر من الفرق كالمعتاد، ولا تتأثر النتائج أو الأحداث.
+              استخدمه لو ظهرت لك رسالة امتلاء المساحة.
+            </div>
+            <button class="btn" style="background:rgba(39,174,96,.15);border:1px solid rgba(39,174,96,.4);color:#27ae60" onclick="cleanupMatchLogos()">🧹 تنظيف وتحرير المساحة</button>
           </div></div>
           <div class="card" style="border-color:var(--red2)"><div class="card-body">
             <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">مسح كل المباريات</div>

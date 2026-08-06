@@ -4,6 +4,11 @@ import { getFirestore, initializeFirestore, persistentLocalCache, persistentMult
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
          updatePassword, reauthenticateWithCredential, EmailAuthProvider }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+// 📷 التخزين (Firebase Storage) — حصة منفصلة تماماً عن Firestore.
+//    يُستخدم لصور اللاعبين فقط: نرفع الصورة ونخزّن رابطها النصّي — بلا أي
+//    ضغط على حصة قاعدة البيانات (الجيجا). مستقل تماماً عن باقي النظام.
+import { getStorage, ref as storageRef, uploadBytes, uploadString, getDownloadURL, deleteObject }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDdn-sS67sthhLrZRrIDZ6ynauWVin_WNU",
@@ -25,6 +30,66 @@ try {
   db = getFirestore(app);
 }
 const auth = getAuth(app);
+// 📷 تهيئة التخزين (آمنة — لا تؤثر على db). لو فشلت لأي سبب، تبقى null
+//    ونظام الرفع يرجع لرسالة واضحة دون كسر أي شيء.
+let _storage = null;
+try { _storage = getStorage(app); } catch (e) { _storage = null; }
+
+// ══════════════════════════════════════════════════════════════
+//  🪶 توفير المساحة: لا نخزّن شعار الفريق (base64) داخل مستند المباراة.
+//  العرض في كل المنصة يجلب الشعار من الفريق عبر homeId/awayId، ويستخدم
+//  المخزّن كاحتياطي فقط — والاسم (homeName) يكفي كاحتياطي. لذا نُفرّغ
+//  الشعارات الثقيلة (data:) من أي مباراة قبل كتابتها. الإيموجي البسيط
+//  (⚽) يبقى لأنه بلا وزن. لا يمسّ المباريات القديمة المحفوظة.
+//  آمن: يقبل أي كائن، لا يرمي أخطاء، ويعيد نفس الكائن بعد التنظيف.
+function _lightMatch(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  ['homeLogo', 'awayLogo'].forEach(k => {
+    const v = obj[k];
+    if (typeof v === 'string' && v.startsWith('data:')) obj[k] = ''; // احذف base64 الثقيل
+  });
+  return obj;
+}
+window._lightMatch = _lightMatch;
+
+// ══════════════════════════════════════════════════════════════
+//  🧹 أداة تنظيف اختيارية: تُفرّغ شعارات base64 الثقيلة من المباريات
+//  القديمة المحفوظة (تحرير مساحة). آمنة تماماً:
+//   • لا تلمس إلا مباراة لها homeId/awayId صحيح (العرض يجلب الشعار من الفريق)
+//   • لا تغيّر أي حقل آخر (النتائج/الأحداث/التواريخ تبقى كما هي)
+//   • تعمل على دفعات، وتتخطّى ما ليس فيه base64
+//  يُشغّلها المنظّم بضغطة زر عند الحاجة، وليست تلقائية.
+// ══════════════════════════════════════════════════════════════
+window.cleanupMatchLogos = async function() {
+  const ok = await window.confirmDialog?.({
+    title: '🧹 تنظيف مساحة الشعارات',
+    message: 'سيُزيل صور الشعارات المكرّرة (base64) من المباريات القديمة لتحرير مساحة. الشعارات ستظل تظهر من الفرق كالمعتاد، ولن تتأثر النتائج أو الأحداث. متابعة؟',
+    confirmText: '🧹 نعم، نظّف',
+  });
+  if (ok === false) return; // لو نظام التأكيد غير متاح، ok=undefined → نكمل
+  try {
+    const snap = await getDocs(collection(db, 'leagues', LEAGUE_ID, 'matches'));
+    let batch = writeBatch(db), pending = 0, cleaned = 0, committed = 0;
+    for (const d of snap.docs) {
+      const m = d.data() || {};
+      const hHeavy = typeof m.homeLogo === 'string' && m.homeLogo.startsWith('data:');
+      const aHeavy = typeof m.awayLogo === 'string' && m.awayLogo.startsWith('data:');
+      if (!hHeavy && !aHeavy) continue;
+      // أمان: لا نُفرّغ إلا إذا كان للمباراة معرّف فريق (كي يُجلب الشعار منه)
+      const upd = {};
+      if (hHeavy && m.homeId) upd.homeLogo = '';
+      if (aHeavy && m.awayId) upd.awayLogo = '';
+      if (!Object.keys(upd).length) continue;
+      batch.update(doc(db, 'leagues', LEAGUE_ID, 'matches', d.id), upd);
+      pending++; cleaned++;
+      if (pending >= 400) { await batch.commit(); committed += pending; batch = writeBatch(db); pending = 0; }
+    }
+    if (pending) { await batch.commit(); committed += pending; }
+    showToast(`✅︎ تم تنظيف ${cleaned} مباراة وتحرير مساحة`, 'success');
+  } catch (e) {
+    showToast('تعذّر التنظيف: ' + window._trErr(e), 'error');
+  }
+};
 
 // ──────────────────────────────────────────────────────────────────────────
 // 🔧 FIX §0 — كشف Firestore helpers على window للـ Tournament Fix patch
@@ -1373,7 +1438,7 @@ async function _lgAutoGenInner() {
   rounds.forEach((roundMatches, rIdx) => {
     roundMatches.forEach(([iA, iB]) => {
       const ref = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
-      batch.set(ref, {
+      batch.set(ref, _lightMatch({
         homeId: teams[iA].id, awayId: teams[iB].id,
         homeName: teams[iA].name, awayName: teams[iB].name,
         homeLogo: teams[iA].logo || '⚽', awayLogo: teams[iB].logo || '⚽',
@@ -1381,7 +1446,7 @@ async function _lgAutoGenInner() {
         date: null, time: null, venue: null,
         round: rIdx + 1,
         status: 'upcoming', createdAt: serverTimestamp()
-      });
+      }));
       matchCount++;
     });
   });
@@ -3071,9 +3136,123 @@ window.adminOpenTeamInfo = function(teamId) {
 };
 
 // ══ RENDER SCORERS ══
+/* ═══════════════════════════════════════════════════════════════════
+ *  محرّك إحصائيات الإدارة الموحّد — هدّافون · صنّاع · بطاقات
+ *  يبني من أحداث المباراة بالهوية (playerId) مع رجوع آمن للاسم،
+ *  ويستخدم rosterCache للاسم الحيّ (يتحدّث فور تعديل الاسم).
+ * ═══════════════════════════════════════════════════════════════════ */
+function _adminStatNorm(s){ return String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim(); }
+
+// يبني قائمة مرتّبة لتصنيف معيّن. pick(ev) => {name, playerId, teamId} أو null.
+function _adminBuildStat(pick) {
+  const map = {};
+  // كشف الأسماء المكرّرة فعلياً داخل الفريق (لفصل لاعبين مختلفين بنفس الاسم بلا هوية)
+  const dup = {};
+  (teams||[]).forEach(t => {
+    const roster = rosterCache[t.id] || [];
+    const seen = {};
+    roster.forEach(p => { const nm=_adminStatNorm(p&&p.name); if(!nm) return; const k=t.id+'::'+nm; if(seen[k]) dup[k]=true; seen[k]=true; });
+  });
+  const add = (rawName, tid, playerId) => {
+    let name = rawName;
+    if (playerId) { // اسم حيّ من الكشف
+      const p = (rosterCache[tid]||[]).find(x => x && (x.id===playerId || x.playerId===playerId));
+      if (p && p.name) name = p.name;
+    }
+    name = _adminStatNorm(name);
+    if (!name || name==='؟' || name==='?' || name==='—') return;
+    const dupKey = tid+'::'+name;
+    const key = (dup[dupKey] && playerId) ? (tid+'::id::'+playerId) : dupKey;
+    if (!map[key]) {
+      const t = teams.find(t=>t.id===tid) || {};
+      map[key] = { name, teamName:t.name||'', teamLogo:t.logo||'', count:0, teamId:tid, playerId:playerId||null };
+    }
+    map[key].count++;
+    if (!map[key].playerId && playerId) map[key].playerId = playerId;
+  };
+  matches.filter(m => m.status==='finished').forEach(m => {
+    const evs = Array.isArray(m.events) ? m.events
+              : (m.liveData && Array.isArray(m.liveData.events) ? m.liveData.events : []);
+    evs.forEach(ev => {
+      if (!ev) return;
+      const got = pick(ev, m);
+      if (!got || !got.name) return;
+      const side = ev.side || ev.team || 'home';
+      const tid = got.teamId || ev.teamId || (side==='home' ? m.homeId : m.awayId);
+      add(got.name, tid, got.playerId || null);
+    });
+  });
+  return Object.values(map).sort((a,b) => b.count - a.count || a.name.localeCompare(b.name,'ar'));
+}
+
+// صفّ لاعب في الإدارة + زر تعديل الاسم المختصر
+function _adminStatRow(s, i, unit, color) {
+  const medalBg = i===0?'linear-gradient(135deg,var(--gold2),var(--gold3))':i===1?'#333':i===2?'#2a1a0a':'var(--card2)';
+  const medalCol= i===0?'#000':i===1?'#ccc':i===2?'#b87333':'#555';
+  const safeName=(s.name||'').replace(/'/g,"\\'");
+  return `<div class="astat-row">
+    <div class="astat-rank" style="background:${medalBg};color:${medalCol}">${i+1}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:700">${s.name}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${logoHtml(s.teamLogo,14,3)} ${s.teamName||'—'}</div>
+    </div>
+    <div class="astat-val"><b style="color:${color}">${s.count}</b><span>${unit}</span></div>
+    <button class="astat-edit" title="تعديل اسم اللاعب" onclick="scorerEditPlayer('${s.teamId||''}','${s.playerId||''}','${safeName}')">
+      ${window.Icon ? window.Icon('edit',15) : '✏️'}
+    </button>
+  </div>`;
+}
+
+function _adminRenderStatInto(elId, list, unit, color, emptyMsg, countId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const cnt = countId && document.getElementById(countId);
+  if (cnt) cnt.textContent = list.length ? (list.length + ' لاعباً') : '';
+  el.innerHTML = list.length
+    ? list.map((s,i) => _adminStatRow(s,i,unit,color)).join('')
+    : `<div class="admin-stat-empty">${emptyMsg}</div>`;
+}
+
+// ── الدالة الرئيسية: تبني كل أقسام إحصائيات الإدارة ──
+function renderAdminStats() {
+  // الهدّافون
+  const scorers = _adminBuildStat(ev => ev.type==='goal' && !ev.isShootout && !ev.shootout
+    ? { name: ev.player, playerId: ev.playerId||null } : null);
+  _adminRenderStatInto('statAdminScorers', scorers, 'هدف', 'var(--gold)', 'لا توجد أهداف مسجلة بعد', 'cnt-scorers');
+
+  // الصنّاع — يظهر فقط عند تفعيله من الإعدادات
+  const showAssists = !!(window.settings && window.settings.showAssists);
+  const assistsBlock = document.getElementById('admin-stb-assists');
+  if (assistsBlock) assistsBlock.style.display = showAssists ? 'block' : 'none';
+  if (showAssists) {
+    const assists = _adminBuildStat(ev => (ev.type==='goal' && ev.assist && !ev.isShootout && !ev.shootout)
+      ? { name: ev.assist, playerId: ev.assistPlayerId||null } : null);
+    _adminRenderStatInto('statAdminAssists', assists, 'صناعة', 'var(--green,#27ae60)', 'لا توجد صناعات بعد', 'cnt-assists');
+  }
+
+  // البطاقات الصفراء
+  const yellow = _adminBuildStat(ev => ev.type==='yellow'
+    ? { name: ev.player, playerId: ev.playerId||null } : null);
+  _adminRenderStatInto('statAdminYellow', yellow, 'بطاقة', '#e6b800', 'لا توجد بطاقات صفراء', 'cnt-yellow');
+
+  // البطاقات الحمراء
+  const red = _adminBuildStat(ev => ev.type==='red'
+    ? { name: ev.player, playerId: ev.playerId||null } : null);
+  _adminRenderStatInto('statAdminRed', red, 'بطاقة', 'var(--red,#c0392b)', 'لا توجد بطاقات حمراء', 'cnt-red');
+
+  // بطاقات المشاركة (المولّد المدمج)
+  try { if (typeof renderCards === 'function') renderCards(); } catch(e) {}
+}
+
 function renderScorers() {
+  // يوجّه للنظام الموحّد الجديد (هدّافون + صنّاع + كروت)
+  if (document.getElementById('statAdminScorers')) return renderAdminStats();
   const el = document.getElementById('scorersList');
   if (!el) return;
+  return _renderScorersLegacy(el);
+}
+
+function _renderScorersLegacy(el) {
   // 🔑 يُبنى من أحداث المباراة مباشرة (نفس منطق الجمهور) — يفصل بالهوية
   //    ويتجاهل الدقيقة، فلا يُحسب «سالم 12» و«سالم 40» كلاعبين مختلفين.
   const goalsMap = {};
@@ -3146,10 +3325,9 @@ function renderScorers() {
     el.innerHTML = `<div class="empty-state"><div class="e-icon">⚽</div><div>لا توجد أهداف مسجلة بعد</div></div>`;
     return;
   }
-  const _adminHint = sorted.length > 20
-    ? `<div style="padding:9px 14px;font-size:11px;color:var(--muted);background:var(--card2);border:1px solid var(--border2);border-radius:10px;text-align:center;margin-bottom:10px">يُعرض أفضل ٢٠ هدّافاً من إجمالي ${sorted.length} لاعباً سجّلوا</div>`
-    : '';
-  el.innerHTML = _adminHint + sorted.slice(0, 20).map((s, i) => `
+  // ✅︎ يُعرض كل الهدّافين (لا حدّ ٢٠) — مع رأس يوضّح العدد الإجمالي
+  const _adminHint = `<div style="padding:9px 14px;font-size:11px;color:var(--muted);background:var(--card2);border:1px solid var(--border2);border-radius:10px;text-align:center;margin-bottom:10px">إجمالي الهدّافين: ${sorted.length} لاعباً</div>`;
+  el.innerHTML = _adminHint + sorted.map((s, i) => `
     <div class="card" style="margin-bottom:10px;${i === 0 ? 'border-color:var(--gold);background:linear-gradient(135deg,#141000,var(--card))' : ''}">
       <div class="card-body" style="display:flex;align-items:center;gap:14px">
         <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;background:${i === 0 ? 'linear-gradient(135deg,var(--gold2),var(--gold3))' : i === 1 ? '#333' : i === 2 ? '#2a1a0a' : 'var(--card2)'};color:${i === 0 ? '#000' : i === 1 ? '#ccc' : i === 2 ? '#b87333' : '#555'}">${i + 1}</div>
@@ -3613,7 +3791,7 @@ window.swissGenerateFixtures = async function() {
     rounds.forEach((r, rIdx) => {
       r.list.forEach(([a,b]) => {
         const ref = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
-        batch.set(ref, {
+        batch.set(ref, _lightMatch({
           homeId: a.id, awayId: b.id,
           homeName: a.name, awayName: b.name,
           homeLogo: a.logo, awayLogo: b.logo,
@@ -3622,7 +3800,7 @@ window.swissGenerateFixtures = async function() {
           status: 'upcoming', isKnockout: false,
           date: null, time: null, venue: null,
           createdAt: serverTimestamp(),
-        });
+        }));
       });
     });
     await batch.commit();
@@ -3750,7 +3928,7 @@ window.addMatch = async function() {
     : null;
 
   try {
-    await addDoc(collection(db, 'leagues', LEAGUE_ID, 'matches'), {
+    await addDoc(collection(db, 'leagues', LEAGUE_ID, 'matches'), _lightMatch({
       homeId, awayId,
       homeName: homeTeam?.name, awayName: awayTeam?.name,
       homeLogo: homeTeam?.logo, awayLogo: awayTeam?.logo,
@@ -3760,7 +3938,7 @@ window.addMatch = async function() {
       referee, commentator, linesman1, linesman2,
       sponsor, photographer, announcer, attendance, notes,
       status: 'upcoming', createdAt: serverTimestamp()
-    });
+    }));
     closeModal('modal-match');
     // إعادة تعيين الحقول الإضافية
     ['matchReferee','matchCommentator','matchLinesman1','matchLinesman2','matchSponsor','matchPhotographer','matchAnnouncer','matchAttendance','matchNotes'].forEach(id => {
@@ -3821,7 +3999,7 @@ window.autoSchedule = async function() {
   rounds.forEach((roundMatches, rIdx) => {
     roundMatches.forEach(([iA, iB]) => {
       const ref = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
-      batch.set(ref, {
+      batch.set(ref, _lightMatch({
         homeId: teams[iA].id, awayId: teams[iB].id,
         homeName: teams[iA].name, awayName: teams[iB].name,
         homeLogo: teams[iA].logo, awayLogo: teams[iB].logo,
@@ -3829,7 +4007,7 @@ window.autoSchedule = async function() {
         date: new Date(today.getTime() + rIdx * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         time: '16:00', venue: 'ملعب الحارة', round: rIdx + 1,
         status: 'upcoming', createdAt: serverTimestamp()
-      });
+      }));
       matchCount++;
     });
   });
@@ -4768,6 +4946,8 @@ window.showPage = function(name, sb, mn) {
     }
   });
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  // ✅︎ عند فتح صفحة الإحصائيات، حدّث العرض فوراً
+  if (name === 'scorers') { try { if (typeof renderScorers === 'function') renderScorers(); } catch(e) {} }
 };
 
 let toastT;
@@ -7863,6 +8043,31 @@ window._compressImage = function(fileOrDataUrl, opts) {
   });
 };
 
+// ══════════════════════════════════════════════════════════════
+//  📷 رفع صورة لاعب إلى Firebase Storage (حصة منفصلة عن الجيجا)
+//  - يضغط الصورة أولاً (يعيد استخدام _compressImage) لتصغير حجم الرفع
+//  - يرفعها إلى مسار players/{teamId}/{playerId} ويعيد رابطها النصّي
+//  - عند أي فشل: يرمي خطأً واضحاً؛ المُستدعي يتعامل معه دون كسر الحفظ
+//  ملاحظة: لا يمسّ Firestore إطلاقاً — الصورة تُخزَّن في Storage والرابط
+//  فقط (نص قصير) هو ما يُحفظ لاحقاً في مستند اللاعب.
+// ══════════════════════════════════════════════════════════════
+window._uploadPlayerPhoto = async function(fileOrDataUrl, teamId, playerId) {
+  if (!_storage) throw new Error('التخزين غير مهيّأ');
+  // ضغط لصورة لاعب: أبعاد أكبر قليلاً من الشعار ووضوح جيد، حجم صغير
+  const dataUrl = await window._compressImage(fileOrDataUrl, { maxDim: 400, targetKB: 60 });
+  const path = `players/${teamId}/${playerId}`;
+  const r = storageRef(_storage, path);
+  // نرفع كـ data_url (base64) — مدعوم مباشرة في uploadString
+  await uploadString(r, dataUrl, 'data_url');
+  return await getDownloadURL(r);
+};
+
+// حذف صورة لاعب من Storage (عند إزالتها أو حذف اللاعب) — آمن ويتجاهل الأخطاء
+window._deletePlayerPhoto = async function(teamId, playerId) {
+  if (!_storage) return;
+  try { await deleteObject(storageRef(_storage, `players/${teamId}/${playerId}`)); } catch (e) {}
+};
+
 
 window.handleTeamLogoUpload = function(input) {
   const file = input.files[0];
@@ -9010,7 +9215,7 @@ window._adminPickBracketTeam = async function(roundId, slotIdx, teamId) {
   const twoLegs = !!(settings && settings.koTwoLegs);
   try {
     const newIds = [];
-    const baseMatch = (extra) => ({
+    const baseMatch = (extra) => _lightMatch({
       homeScore: null, awayScore: null,
       isKnockout: true, knockoutRoundId: roundId, knockoutRoundName: round?.name || '',
       knockoutSlot: slotIdx,
@@ -9309,7 +9514,7 @@ window.adminSaveMatchToRound = async function (roundId) {
       isKnockout:        true,
       createdAt: serverTimestamp(),
     };
-    await setDoc(matchRef, matchData);
+    await setDoc(matchRef, _lightMatch(matchData));
 
     // ✅︎ أضف matchId فقط في knockoutRounds (للترتيب والربط)
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'knockoutRounds', roundId), {
@@ -9463,7 +9668,7 @@ async function _autoAdvanceWinner(roundId, matchId, homeScore, awayScore) {
   // إذا ما في مباراة في الدور التالي بنفس الـ slot → أنشئها (معلّقة حتى يضيف المنظم تفاصيلها)
   const matchRef = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
   const isHome = (curMatch.knockoutSlot ?? 0) % 2 === 0;
-  await setDoc(matchRef, {
+  await setDoc(matchRef, _lightMatch({
     homeId:    isHome ? winnerId   : '',
     homeName:  isHome ? winnerName : 'TBD',
     homeLogo:  isHome ? winnerLogo : '',
@@ -9479,7 +9684,7 @@ async function _autoAdvanceWinner(roundId, matchId, homeScore, awayScore) {
     knockoutSlot:      slotInNext,
     isKnockout:        true,
     createdAt: serverTimestamp(),
-  });
+  }));
   await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'knockoutRounds', nextRound.id), {
     matchIds: [...nextMatchIds, matchRef.id],
     updatedAt: serverTimestamp()
@@ -9608,7 +9813,7 @@ window.adminAutoCreateKnockout = async function () {
     const matchesCount = current.length / 2;
     const pairs = pairRound(current);
 
-    const matches = pairs.map((p, idx) => ({
+    const matches = pairs.map((p, idx) => _lightMatch({
       id: Date.now() + r * 10000 + idx,
       homeId: p.home.teamId,
       homeName: p.home.teamName,
@@ -10371,13 +10576,13 @@ window.enterApp = function () {
     rounds.forEach((pairs, ri) => {
       pairs.forEach(([home, away]) => {
         const r = doc(collection(db,'leagues',window.LEAGUE_ID,'matches'));
-        batch.set(r, {
+        batch.set(r, _lightMatch({
           homeId: home.id, homeName: home.name, homeLogo: home.logo||'⚽',
           awayId: away.id, awayName: away.name, awayLogo: away.logo||'⚽',
           homeScore: null, awayScore: null,
           groupId: g.id, groupName: `المجموعة ${g.name}`,
           status: 'upcoming', createdAt: serverTimestamp()
-        });
+        }));
         created++;
       });
     });
@@ -10387,7 +10592,7 @@ window.enterApp = function () {
       rounds.forEach((pairs, ri) => {
         pairs.forEach(([home, away]) => {
           const r = doc(collection(db,'leagues',window.LEAGUE_ID,'matches'));
-          batch.set(r, {
+          batch.set(r, _lightMatch({
             // الأرضية معكوسة في الإياب
             homeId: away.id, homeName: away.name, homeLogo: away.logo||'⚽',
             awayId: home.id, awayName: home.name, awayLogo: home.logo||'⚽',
@@ -10396,7 +10601,7 @@ window.enterApp = function () {
             round: rounds.length + ri + 1, leg: 2,
             date: null, time: null, venue: null,
             status: 'upcoming', createdAt: serverTimestamp()
-          });
+          }));
           created++;
         });
       });
@@ -10903,13 +11108,15 @@ function renderRosterPlayerRow(p, teamId) {
       border-radius:10px;margin-bottom:6px;
       ${p.status !== 'active' ? 'opacity:.7' : ''}
     ">
-      <!-- رقم القميص -->
+      <!-- رقم القميص / صورة اللاعب -->
       <div style="
-        width:32px;height:32px;border-radius:50%;
+        width:32px;height:32px;border-radius:50%;overflow:hidden;
         background:${groupColor}1a;border:2px solid ${groupColor};
         display:flex;align-items:center;justify-content:center;
         font-size:12px;font-weight:800;color:${groupColor};flex-shrink:0
-      ">${p.number || '?'}</div>
+      ">${p.photo
+          ? `<img src="${p.photo}" alt="" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
+          : (p.number || '?')}</div>
 
       <!-- الاسم والمركز -->
       <div style="flex:1;min-width:0">
@@ -10931,6 +11138,12 @@ function renderRosterPlayerRow(p, teamId) {
 
       <!-- أزرار الإجراءات -->
       <div style="display:flex;gap:4px;flex-shrink:0">
+        <!-- صورة اللاعب: رفع/تغيير -->
+        <input type="file" accept="image/*" id="pphoto-file-${p.id}" style="display:none"
+          onchange="uploadRosterPhoto('${teamId}','${p.id}', this)">
+        <button onclick="document.getElementById('pphoto-file-${p.id}').click()" title="${p.photo ? 'تغيير الصورة' : 'إضافة صورة'}"
+          style="padding:5px 8px;background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.3);
+                 border-radius:6px;font-size:12px;cursor:pointer">📷</button>
         <!-- تغيير الحالة -->
         <select onchange="updateRosterStatus('${teamId}','${p.id}',this.value)"
           style="padding:5px;background:var(--dark,#111);border:1px solid var(--border,#333);
@@ -10951,6 +11164,39 @@ function renderRosterPlayerRow(p, teamId) {
     </div>
   `;
 }
+
+// ── 📷 رفع/تغيير صورة لاعب (Storage) ──
+// آمن: يرفع الصورة لـ Storage ويحفظ رابطها فقط في مستند اللاعب.
+// لا يمسّ أي حقل آخر. عند الفشل يظهر خطأ واضح دون تعطيل أي شيء.
+window.uploadRosterPhoto = async function(teamId, playerId, input) {
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  if (!/^image\//.test(file.type)) { showToast('اختر ملف صورة', 'error'); input.value=''; return; }
+  if (file.size > 8 * 1024 * 1024) { showToast('الصورة أكبر من 8MB', 'error'); input.value=''; return; }
+  if (!_storage) { showToast('التخزين غير متاح — تواصل مع الدعم', 'error'); input.value=''; return; }
+  showToast('⏳ جارِ رفع الصورة...', 'success');
+  try {
+    const url = await window._uploadPlayerPhoto(file, teamId, playerId);
+    await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId),
+      { photo: url, updatedAt: serverTimestamp() });
+    showToast('✅︎ تم حفظ صورة اللاعب', 'success');
+    // المستمع الحيّ للكشف سيعيد الرسم تلقائياً
+  } catch (e) {
+    showToast('تعذّر رفع الصورة: ' + window._trErr(e), 'error');
+  } finally {
+    if (input) input.value = '';
+  }
+};
+
+// ── حذف صورة لاعب (اختياري) ──
+window.removeRosterPhoto = async function(teamId, playerId) {
+  try {
+    await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId),
+      { photo: '', updatedAt: serverTimestamp() });
+    window._deletePlayerPhoto && window._deletePlayerPhoto(teamId, playerId);
+    showToast('تم حذف الصورة', 'success');
+  } catch (e) { showToast('تعذّر الحذف: ' + window._trErr(e), 'error'); }
+};
 
 // ── إضافة لاعب ──
 window.addRosterPlayer = async function(teamId) {
@@ -11000,27 +11246,39 @@ window.updateRosterStatus = async function(teamId, playerId, status) {
 window.scorerEditPlayer = async function(teamId, playerId, playerName) {
   if (!teamId) { showToast('لا يمكن تحديد الفريق', 'error'); return; }
   if (typeof window.openRosterModal !== 'function') { showToast('تعذّر فتح قائمة اللاعبين', 'error'); return; }
+  const _n = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim();
+  // يحلّ معرّف اللاعب من الكشف (بالمعرّف المعطى أو بمطابقة الاسم)
+  const _resolvePid = () => {
+    const roster = rosterCache[teamId] || [];
+    if (playerId && roster.some(x => x.id === playerId)) return playerId;
+    if (playerName) { const p = roster.find(x => _n(x.name) === _n(playerName)); if (p) return p.id; }
+    return playerId || null;
+  };
+  // يفتح محرّر الاسم لصفّ اللاعب ثم يمرّر إليه
+  const _openEditor = (pid) => {
+    if (!pid) return false;
+    const row = document.getElementById('roster-row-' + pid);
+    if (!row) return false;
+    try { window.editRosterPlayer(teamId, pid); } catch (e) {}
+    setTimeout(() => {
+      const r2 = document.getElementById('roster-row-' + pid);
+      if (r2) r2.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('edit-name-' + pid)?.focus();
+      document.getElementById('edit-name-' + pid)?.select?.();
+    }, 60);
+    return true;
+  };
+
   await window.openRosterModal(teamId);
-  // انتظر تحميل القائمة ثم فعّل تعديل اللاعب (بالمعرّف أو بالاسم)
+  // لو الكشف جاهز فوراً، افتح المحرّر مباشرة بلا انتظار
+  if (_openEditor(_resolvePid())) return;
+  // وإلا انتظر وصول القائمة (المستمع الحيّ) ثم افتح المحرّر
   let tries = 0;
   const timer = setInterval(() => {
     tries++;
-    const roster = rosterCache[teamId] || [];
-    let pid = playerId;
-    if (!pid && playerName) {
-      const _n = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim();
-      const p = roster.find(x => _n(x.name) === _n(playerName));
-      if (p) pid = p.id;
-    }
-    if (pid && document.getElementById('roster-row-' + pid)) {
-      clearInterval(timer);
-      try { window.editRosterPlayer(teamId, pid); } catch(e) {}
-      const row = document.getElementById('roster-row-' + pid);
-      if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else if (tries > 25) {
-      clearInterval(timer); // ما لقيناه — القائمة مفتوحة على الأقل
-    }
-  }, 120);
+    if (_openEditor(_resolvePid())) { clearInterval(timer); return; }
+    if (tries > 40) { clearInterval(timer); showToast('افتح اللاعب يدوياً من القائمة', 'info'); }
+  }, 100);
 };
 
 window.editRosterPlayer = function(teamId, playerId) {
@@ -12087,7 +12345,7 @@ window.importRosterToLineup = function(teamId) {
       <div class="mcv2-fld"><label class="mcv2-lbl">🚩 مساعد ١</label><input class="mcv2-inp" id="mcv2-ils1-${matchId}" value="${m.linesman1 || ''}" placeholder="الحكم المساعد"/></div>
       <div class="mcv2-fld"><label class="mcv2-lbl">🚩 مساعد ٢</label><input class="mcv2-inp" id="mcv2-ils2-${matchId}" value="${m.linesman2 || ''}" placeholder="الحكم المساعد"/></div>
     </div>
-    <div class="mcv2-fld"><label class="mcv2-lbl">📡 رابط البث</label><input class="mcv2-inp" id="mcv2-istr-${matchId}" value="${m.streamUrl || ''}" placeholder="https://youtube.com/live/..."/></div>
+    <div class="mcv2-fld"><label class="mcv2-lbl">📡 رابط البث / فيديو المباراة</label><input class="mcv2-inp" id="mcv2-istr-${matchId}" value="${m.videoUrl || m.streamUrl || ''}" placeholder="يوتيوب / تويتش / رابط مباشر — يظهر مكان البث"/></div>
     <div class="mcv2-g2">
       <div class="mcv2-fld"><label class="mcv2-lbl">🏷️ راعي المباراة</label><input class="mcv2-inp" id="spm-name-${matchId}" value="${(m.sponsorData?.name) || m.sponsor || ''}" placeholder="اسم الراعي"/></div>
       <div class="mcv2-fld"><label class="mcv2-lbl">رابط الراعي</label><input class="mcv2-inp" id="spm-url-${matchId}" value="${(m.sponsorData?.url) || ''}" placeholder="موقع أو رقم واتساب"/></div>
@@ -12141,6 +12399,10 @@ window.importRosterToLineup = function(teamId) {
       linesman1:   document.getElementById(`mcv2-ils1-${matchId}`)?.value.trim()  || '',
       linesman2:   document.getElementById(`mcv2-ils2-${matchId}`)?.value.trim()  || '',
       streamUrl:   document.getElementById(`mcv2-istr-${matchId}`)?.value.trim()  || '',
+      // ✅︎ يُعرض للجمهور كفيديو مضمّن: نحفظ نفس الرابط في videoUrl (الذي يقرأه العرض).
+      //    هكذا يعمل رابط الفيديو للمباريات المنتهية من نافذة «معلومات المباراة»
+      //    تماماً كما من صفحة البث — دون الحاجة لفتحها.
+      videoUrl:    document.getElementById(`mcv2-istr-${matchId}`)?.value.trim()  || '',
       sponsor:     document.getElementById(`spm-name-${matchId}`)?.value.trim() || '',
       sponsorData: (typeof window.spReadMatchForm === 'function' ? window.spReadMatchForm(matchId) : null),
       attendance:  document.getElementById(`mcv2-iatt-${matchId}`)?.value  || '',

@@ -259,6 +259,7 @@ if('serviceWorker' in navigator) {
       <div class="sb-item" onclick="showPage('scorers',this)"><span class="sb-icon" data-ic="medal"></span> الإحصائيات</div>
       <div class="sb-label">الإدارة</div>
       <div class="sb-item" onclick="showPage('teams',this)"><span class="sb-icon" data-ic="users"></span> الفرق <span class="sb-badge" id="teamsBadge">0</span></div>
+      <div class="sb-item" onclick="showPage('cards',this)"><span class="sb-icon" data-ic="palette"></span> بطاقات المشاركة</div>
       <div class="sb-item" onclick="showPage('sponsor',this)"><span class="sb-icon" data-ic="tag"></span> الراعي</div>
 
       <!-- ثابت: المجموعات + الإقصاء (لإظهارها حتى لو admin.js لا يحقنها) -->
@@ -398,13 +399,16 @@ if('serviceWorker' in navigator) {
           <div class="admin-stat-head">🟥 البطاقات الحمراء <span id="cnt-red" class="admin-stat-count"></span></div>
           <div id="statAdminRed"></div>
         </div>
+      </div>
 
-        <!-- بطاقات المشاركة (مولّد الصور المدمج) -->
-        <div class="admin-stat-block">
-          <div class="admin-stat-head">🖼️ بطاقات المشاركة</div>
-          <div id="cs-host">
-            <div id="cardsList"><div class="spin"></div></div>
-          </div>
+      <!-- CARDS — مولّد صور المشاركة (قسم مستقل) -->
+      <div class="section" id="page-cards">
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="palette"></span>بطاقات المشاركة</div>
+          <div class="page-sub">توليد ومشاركة بطاقات احترافية للمباريات</div>
+        </div>
+        <div id="cs-host">
+          <div id="cardsList"><div class="spin"></div></div>
         </div>
       </div>
 

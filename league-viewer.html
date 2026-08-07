@@ -615,8 +615,26 @@ if('serviceWorker' in navigator) {
   function lookupRoster(rosters, teamId, name) {
     var list = (rosters && rosters[teamId]) || [];
     var target = normName(name);
-    var hits = list.filter(function (p) { return normName(p.name) === target; });
-    if (hits.length === 1) return hits[0];
+    if (!target) return null;
+    // 1) تطابق تام بالاسم
+    var exact = list.filter(function (p) { return normName(p.name) === target; });
+    if (exact.length === 1) return exact[0];
+    if (exact.length > 1) return null; // ملتبس — لا نخمّن
+    // 2) ✅ مطابقة بادئة آمنة: الاسم القديم بادئةٌ للاسم الجديد في الكشف
+    //    (مثال: حدث قديم «محمد» ← الكشف الآن «محمد العلي»). نربط فقط لو
+    //    كان اللاعب المطابق وحيداً، وإلا نتجاهل تفادياً للخطأ.
+    //    نشترط أن تكون البادئة على حدود كلمة (مسافة) كي لا نطابق «محمد» بـ«محمود».
+    var pref = list.filter(function (p) {
+      var n = normName(p.name);
+      return n === target || n.indexOf(target + ' ') === 0;
+    });
+    if (pref.length === 1) return pref[0];
+    // 3) والعكس: لو الاسم الجديد أقصر (نادراً) — الكشف «محمد» وحدث «محمد العلي»
+    var rev = list.filter(function (p) {
+      var n = normName(p.name);
+      return n === target || target.indexOf(n + ' ') === 0;
+    });
+    if (rev.length === 1) return rev[0];
     return null; // 0 = غير موجود، >1 = ملتبس (لا نخمّن)
   }
 

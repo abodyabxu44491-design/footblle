@@ -1166,6 +1166,18 @@ function _lineupLiveName(p) {
   return fallback;
 }
 
+// صورة لاعب التشكيلة حسب هويته من أي كشف محمّل
+function _lineupPhoto(playerId) {
+  if (!playerId || !window._teamRosters) return '';
+  for (const tid in window._teamRosters) {
+    const roster = window._teamRosters[tid];
+    if (!roster) continue;
+    const hit = roster.find(x => x && x.id === playerId);
+    if (hit && hit.photo) return hit.photo;
+  }
+  return '';
+}
+
 function renderPlayersOnPitch(players, positions, isAway=false, subMap={}, statsMap={}) {
   return players.slice(0, positions.length).map((p,i)=>{
     const pos=positions[i]||{x:50,y:50,pos:'?'};
@@ -1187,8 +1199,13 @@ function renderPlayersOnPitch(players, positions, isAway=false, subMap={}, stats
     if (st.red)    icons += `<span class="pmark red"></span>`;
     else if (st.yellow) icons += `<span class="pmark yel"></span>`;
     const marks = icons ? `<div class="player-marks">${icons}</div>` : '';
+    const _photo = p.id ? _lineupPhoto(p.id) : '';
+    const avatarInner = _photo
+      ? `<img src="${_photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">
+         <span class="player-num-badge">${num}</span>${subBadge}${marks}`
+      : `${num}${subBadge}${marks}`;
     return `<div class="player-dot" style="left:${pos.x}%;top:${y}%" onclick="showToast('${num} · ${(_liveName||'').replace(/'/g,"\\'")} · ${pos.pos}')">
-      <div class="player-avatar ${isGK?'gk':''} ${isAway?'away':''}">${num}${subBadge}${marks}</div>
+      <div class="player-avatar ${isGK?'gk':''} ${isAway?'away':''}${_photo?' has-photo':''}">${avatarInner}</div>
       <div class="player-name-tag">${name}</div>
     </div>`;
   }).join('');
@@ -1231,7 +1248,10 @@ function renderLineupList(players, subMap={}, statsMap={}) {
         if(st.yellow) stTag+=`<span class="lp-mk yel"></span>`;
         if(st.red) stTag+=`<span class="lp-mk red"></span>`;
         return `<div class="lineup-player-row">
-        <div class="lp-num">${p.number||'—'}</div>
+        <div class="lp-num"${p.id&&_lineupPhoto(p.id)?' style="overflow:hidden;padding:0"':''}>${
+          (p.id && _lineupPhoto(p.id))
+            ? `<img src="${_lineupPhoto(p.id)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+            : (p.number||'—')}</div>
         <div class="lp-info"><div class="lp-name">${_lineupLiveName(p)||'لاعب'}</div><div class="lp-pos">${p.position||''}</div></div>
         ${stTag?`<div class="lp-marks">${stTag}</div>`:''}
         ${subTag}
@@ -3009,19 +3029,38 @@ function _displayOpts() {
 }
 
 // صفّ لاعب موحّد داخل الإحصائيات (يُستعمل لكل الأقسام الأربعة)
+// صورة اللاعب من الكشف الحيّ حسب الهوية (أو '' إن لا توجد)
+function _playerPhoto(teamId, playerId) {
+  if (!playerId || !window._teamRosters || !window._teamRosters[teamId]) return '';
+  const p = window._teamRosters[teamId].find(x => x && x.id === playerId);
+  return (p && p.photo) ? p.photo : '';
+}
+
 function _statRow(p, i, valField, valColor, unitLabel) {
   const team = teams.find(t => t.id === p.teamId) || {};
+  const teamLogo = team.logo || p.teamLogo || '';
+  const photo = _playerPhoto(p.teamId, p.playerId);
   const medal = i < 3
     ? `<span style="font-size:16px">${['🥇','🥈','🥉'][i]}</span>`
     : `<div style="width:22px;height:22px;border-radius:6px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--t3)">${i+1}</div>`;
   const val = p[valField];
   const safeName = String(p.name || '').replace(/'/g, "\\'");
   const safePid = p.playerId ? String(p.playerId).replace(/'/g, "\\'") : '';
+  // الصورة: دائرة أنيقة لصورة اللاعب + شارة صغيرة لشعار الفريق بالزاوية.
+  // إن لم توجد صورة → شعار الفريق في مربّع كالسابق (بلا تغيير للمظهر القديم).
+  const avatar = photo
+    ? `<div style="position:relative;width:38px;height:38px;flex-shrink:0">
+         <div style="width:38px;height:38px;border-radius:50%;overflow:hidden;background:var(--s3);border:1.5px solid var(--b2)">
+           <img src="${photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">
+         </div>
+         ${teamLogo ? `<div style="position:absolute;bottom:-2px;left:-2px;width:17px;height:17px;border-radius:50%;overflow:hidden;background:var(--s1);border:1.5px solid var(--s1);display:flex;align-items:center;justify-content:center">${logoHtml(teamLogo, 14, 3)}</div>` : ''}
+       </div>`
+    : `<div style="width:32px;height:32px;border-radius:8px;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+         ${logoHtml(teamLogo, 28, 6)}
+       </div>`;
   return `<div class="scorer-row ${i===0?'top1':''}" onclick="openPlayerModal('${safeName}','${p.teamId||''}','${safePid}')">
     ${medal}
-    <div style="width:32px;height:32px;border-radius:8px;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-      ${logoHtml(team.logo || p.teamLogo, 28, 6)}
-    </div>
+    ${avatar}
     <div style="flex:1;min-width:0">
       <div style="font-size:13px;font-weight:700;color:var(--t1)">${p.name}</div>
       <div style="font-size:10px;color:var(--t3);margin-top:1px">${p.teamName}</div>

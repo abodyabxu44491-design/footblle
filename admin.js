@@ -3153,7 +3153,24 @@ function _adminBuildStat(pick) {
     const seen = {};
     roster.forEach(p => { const nm=_adminStatNorm(p&&p.name); if(!nm) return; const k=t.id+'::'+nm; if(seen[k]) dup[k]=true; seen[k]=true; });
   });
+  // يحلّ هوية اللاعب من الكشف بالاسم: تطابق تام، ثم بادئة آمنة وحيدة
+  // (حدث قديم «محمد» ← الكشف «محمد العلي»). لا يخمّن عند الالتباس.
+  const _resolveIdByName = (tid, rawName) => {
+    const list = rosterCache[tid] || [];
+    const target = _adminStatNorm(rawName);
+    if (!target) return null;
+    let hit = list.filter(p => _adminStatNorm(p.name) === target);
+    if (hit.length === 1) return hit[0].id;
+    if (hit.length > 1) return null;
+    hit = list.filter(p => { const n=_adminStatNorm(p.name); return n===target || n.indexOf(target+' ')===0; });
+    if (hit.length === 1) return hit[0].id;
+    hit = list.filter(p => { const n=_adminStatNorm(p.name); return n===target || target.indexOf(n+' ')===0; });
+    if (hit.length === 1) return hit[0].id;
+    return null;
+  };
   const add = (rawName, tid, playerId) => {
+    // لو الحدث بلا هوية، جرّب ربطه بالكشف بالاسم (تام أو بادئة)
+    if (!playerId) { const rid = _resolveIdByName(tid, rawName); if (rid) playerId = rid; }
     let name = rawName;
     if (playerId) { // اسم حيّ من الكشف
       const p = (rosterCache[tid]||[]).find(x => x && (x.id===playerId || x.playerId===playerId));
@@ -3190,11 +3207,26 @@ function _adminStatRow(s, i, unit, color) {
   const medalBg = i===0?'linear-gradient(135deg,var(--gold2),var(--gold3))':i===1?'#333':i===2?'#2a1a0a':'var(--card2)';
   const medalCol= i===0?'#000':i===1?'#ccc':i===2?'#b87333':'#555';
   const safeName=(s.name||'').replace(/'/g,"\\'");
+  // صورة اللاعب من rosterCache (الكشف الحيّ) إن وُجدت
+  let photo = '';
+  if (s.playerId && rosterCache[s.teamId]) {
+    const rp = rosterCache[s.teamId].find(x => x && x.id === s.playerId);
+    if (rp && rp.photo) photo = rp.photo;
+  }
+  const avatar = photo
+    ? `<div style="position:relative;width:38px;height:38px;flex-shrink:0">
+         <div style="width:38px;height:38px;border-radius:50%;overflow:hidden;background:var(--card2);border:1.5px solid var(--border,#2a2a2a)">
+           <img src="${photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">
+         </div>
+         ${s.teamLogo ? `<div style="position:absolute;bottom:-2px;left:-2px;width:17px;height:17px;border-radius:50%;overflow:hidden;background:var(--card);border:1.5px solid var(--card);display:flex;align-items:center;justify-content:center">${logoHtml(s.teamLogo,14,3)}</div>` : ''}
+       </div>`
+    : '';
   return `<div class="astat-row">
     <div class="astat-rank" style="background:${medalBg};color:${medalCol}">${i+1}</div>
+    ${avatar}
     <div style="flex:1;min-width:0">
       <div style="font-size:13px;font-weight:700">${s.name}</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:2px">${logoHtml(s.teamLogo,14,3)} ${s.teamName||'—'}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${photo ? '' : logoHtml(s.teamLogo,14,3)+' '}${s.teamName||'—'}</div>
     </div>
     <div class="astat-val"><b style="color:${color}">${s.count}</b><span>${unit}</span></div>
     <button class="astat-edit" title="تعديل اسم اللاعب" onclick="scorerEditPlayer('${s.teamId||''}','${s.playerId||''}','${safeName}')">
@@ -3203,15 +3235,34 @@ function _adminStatRow(s, i, unit, color) {
   </div>`;
 }
 
+// حالة التوسّع لكل قسم في الإدارة
+window._adminStatExpanded = window._adminStatExpanded || {};
+const ADMIN_STAT_PREVIEW = 5;
+
 function _adminRenderStatInto(elId, list, unit, color, emptyMsg, countId) {
   const el = document.getElementById(elId);
   if (!el) return;
   const cnt = countId && document.getElementById(countId);
   if (cnt) cnt.textContent = list.length ? (list.length + ' لاعباً') : '';
-  el.innerHTML = list.length
-    ? list.map((s,i) => _adminStatRow(s,i,unit,color)).join('')
-    : `<div class="admin-stat-empty">${emptyMsg}</div>`;
+  if (!list.length) {
+    el.innerHTML = `<div class="admin-stat-empty">${emptyMsg}</div>`;
+    return;
+  }
+  const expanded = !!window._adminStatExpanded[elId];
+  const shown = expanded ? list : list.slice(0, ADMIN_STAT_PREVIEW);
+  let html = shown.map((s,i) => _adminStatRow(s,i,unit,color)).join('');
+  if (list.length > ADMIN_STAT_PREVIEW) {
+    const remain = list.length - ADMIN_STAT_PREVIEW;
+    html += `<button class="admin-stat-more" onclick="_adminToggleStatMore('${elId}')">${
+      expanded ? 'عرض أقل ↑' : `عرض المزيد (${remain}) ↓`}</button>`;
+  }
+  el.innerHTML = html;
 }
+
+window._adminToggleStatMore = function(elId) {
+  window._adminStatExpanded[elId] = !window._adminStatExpanded[elId];
+  if (typeof renderAdminStats === 'function') renderAdminStats();
+};
 
 // ── الدالة الرئيسية: تبني كل أقسام إحصائيات الإدارة ──
 function renderAdminStats() {
@@ -3239,9 +3290,6 @@ function renderAdminStats() {
   const red = _adminBuildStat(ev => ev.type==='red'
     ? { name: ev.player, playerId: ev.playerId||null } : null);
   _adminRenderStatInto('statAdminRed', red, 'بطاقة', 'var(--red,#c0392b)', 'لا توجد بطاقات حمراء', 'cnt-red');
-
-  // بطاقات المشاركة (المولّد المدمج)
-  try { if (typeof renderCards === 'function') renderCards(); } catch(e) {}
 }
 
 function renderScorers() {
@@ -6004,6 +6052,10 @@ window.lpEditEvent = function(matchId, id) {
   const isOwn = ev.type === 'own';
   const typeLabel = { goal:'⚽ هدف', penalty:'🎯 ركلة جزاء', yellow:'🟨 بطاقة صفراء', red:'🟥 بطاقة حمراء', sub:'🔄 تبديل', own:'⚽ هدف عكسي', assist:'👟 صناعة', injury:'🤕 إصابة', var:'📺 VAR' }[ev.type] || ev.label || 'حدث';
 
+  // الفريق صاحب الحدث (لجلب كشفه في المنتقي)
+  const _evTeamId = ev.teamId || (ev.team === 'home' || ev.side === 'home'
+    ? st.homeId : (ev.team === 'away' || ev.side === 'away' ? st.awayId : null));
+
   const body = isSub
     ? `<label style="font-size:11px;color:#888">الداخل ▲</label>
        <input id="lp-ee-in" value="${(ev.playerIn||ev.player2||'').replace(/"/g,'&quot;')}" style="width:100%;margin:4px 0 12px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
@@ -6011,8 +6063,11 @@ window.lpEditEvent = function(matchId, id) {
        <input id="lp-ee-out" value="${(ev.playerOut||ev.player||'').replace(/"/g,'&quot;')}" style="width:100%;margin:4px 0 12px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>`
     : isOwn
       ? `<div style="font-size:12px;color:#e5533d;margin-bottom:12px">هدف عكسي — لا يُنسب للاعب</div>`
-      : `<label style="font-size:11px;color:#888">اسم اللاعب</label>
-         <input id="lp-ee-player" value="${(ev.player||'').replace(/"/g,'&quot;')}" style="width:100%;margin:4px 0 12px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>`;
+      : `<label style="font-size:11px;color:#888">${ev.type==='goal'||ev.type==='penalty'?'صاحب الهدف':'اسم اللاعب'}</label>
+         <input id="lp-ee-player" value="${(ev.player||'').replace(/"/g,'&quot;')}" placeholder="اكتب أو اختر من القائمة" style="width:100%;margin:4px 0 8px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
+         <div id="lp-ee-roster" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;max-height:170px;overflow-y:auto">
+           <span style="font-size:11px;color:#666">جارِ تحميل لاعبي الفريق...</span>
+         </div>`;
 
   const ov = document.createElement('div');
   ov.id = 'lp-editev-ov';
@@ -6031,6 +6086,45 @@ window.lpEditEvent = function(matchId, id) {
     </div>`;
   ov.onclick = () => ov.remove();
   document.body.appendChild(ov);
+
+  // ✅︎ حمّل كشف الفريق في المنتقي (للأهداف/البطاقات) — اختيار صاحب الهدف
+  if (!isSub && !isOwn && _evTeamId) {
+    (async () => {
+      const roster = await window._loadTeamRoster(_evTeamId);
+      const box = document.getElementById('lp-ee-roster');
+      const inp = document.getElementById('lp-ee-player');
+      if (!box || !inp) return;
+      if (!roster || !roster.length) {
+        box.innerHTML = '<span style="font-size:11px;color:#666">لا يوجد كشف لاعبين لهذا الفريق</span>';
+        return;
+      }
+      box.innerHTML = roster.map(p => {
+        const nm = (p.name || '').replace(/'/g, "\\'").replace(/"/g,'&quot;');
+        const num = (p.number != null && p.number !== '') ? `<span style="opacity:.6;font-size:10px">${p.number}</span> ` : '';
+        const active = ((p.name||'').trim() === (ev.player||'').trim());
+        return `<button type="button" onclick="_lpEePick('${p.id}','${nm}')"
+          style="padding:7px 11px;border-radius:9px;border:1px solid ${active?'#C9A02B':'#333'};
+          background:${active?'rgba(201,160,43,.15)':'#1a1a1a'};color:${active?'#C9A02B':'#ccc'};
+          font-family:Tajawal,sans-serif;font-size:12px;font-weight:700;cursor:pointer">${num}${p.name||'؟'}</button>`;
+      }).join('');
+      inp.addEventListener('input', () => { inp.dataset.pid = ''; });
+    })();
+  }
+};
+
+// اختيار لاعب من منتقي تعديل الحدث: يملأ الاسم ويخزّن الهوية
+window._lpEePick = function(playerId, name) {
+  const inp = document.getElementById('lp-ee-player');
+  if (!inp) return;
+  inp.value = name;
+  inp.dataset.pid = playerId || '';
+  const box = document.getElementById('lp-ee-roster');
+  if (box) box.querySelectorAll('button').forEach(b => {
+    const on = (b.getAttribute('onclick')||'').includes(`'${playerId}'`);
+    b.style.borderColor = on ? '#C9A02B' : '#333';
+    b.style.background = on ? 'rgba(201,160,43,.15)' : '#1a1a1a';
+    b.style.color = on ? '#C9A02B' : '#ccc';
+  });
 };
 
 window.lpSaveEditEvent = async function(matchId, id) {
@@ -6049,9 +6143,28 @@ window.lpSaveEditEvent = async function(matchId, id) {
     const pEl = document.getElementById('lp-ee-player');
     if (pEl) {
       const newName = pEl.value.trim();
-      // لو غيّر الاسم يدوياً لاسم مختلف، فُكّ الربط بالمعرّف حتى يُحترم الاسم الجديد
-      if (newName && newName !== (ev.player || '').trim()) ev.playerId = null;
-      ev.player = newName;
+      const pickedId = pEl.dataset.pid || '';
+      if (pickedId) {
+        // اختير لاعب من القائمة → انقل الحدث لهويته الجديدة (يُخصم من القديم
+        // ويُضاف للجديد تلقائياً في الهدّافين لأن الحساب يعتمد playerId).
+        ev.playerId = pickedId;
+        ev.player = newName;
+        // حدّث teamId إن لزم (اللاعب من نفس فريق الحدث دائماً)
+        if (!ev.teamId) ev.teamId = (ev.team === 'home' || ev.side === 'home') ? st.homeId
+                                   : (ev.team === 'away' || ev.side === 'away') ? st.awayId : ev.teamId;
+        // رقم اللاعب من الكشف إن توفّر
+        try {
+          const rc = (window.rosterCache && ev.teamId) ? (window.rosterCache[ev.teamId] || []) : [];
+          const rp = rc.find(x => x && x.id === pickedId);
+          if (rp && rp.number != null) ev.playerNumber = rp.number;
+        } catch (e) {}
+      } else if (newName && newName !== (ev.player || '').trim()) {
+        // كتابة يدوية لاسم مختلف → فُكّ الربط ليُحترم الاسم الجديد
+        ev.playerId = null;
+        ev.player = newName;
+      } else {
+        ev.player = newName;
+      }
     }
   }
   // إعادة الترتيب حسب الدقيقة
@@ -6221,12 +6334,18 @@ async function _lpSave(matchId) {
     updatedAt: serverTimestamp(),
   };
 
+  // ✅︎ رقم الجولة: لا يُكتب إلا إذا أدخل المنظّم قيمة صحيحة صراحةً في حقل البث.
+  //    وإلا نُبقي جولة المباراة كما هي (كان الحقل الفارغ/غير المحمّل يعيدها إلى 1
+  //    فترجع مباراة الجولة الثانية للجولة الأولى — هذا مصدر «الخبص»).
+  const _lpRoundEl = document.getElementById('lp-round-' + matchId);
+  const _lpRoundVal = _lpRoundEl ? parseInt(_lpRoundEl.value, 10) : NaN;
+  const _existingRound = (matches.find(x => x.id === matchId)?.round) || undefined;
+
   // أيضاً نحدّث الحقول الجانبية من الفورم
   const extraData = {
     date: document.getElementById('lp-date-' + matchId)?.value || '',
     time: document.getElementById('lp-time-' + matchId)?.value || '',
     venue: document.getElementById('lp-venue-' + matchId)?.value || '',
-    round: parseInt(document.getElementById('lp-round-' + matchId)?.value || 1),
     referee: document.getElementById('lp-referee-' + matchId)?.value.trim() || '',
     linesman1: document.getElementById('lp-lns1-' + matchId)?.value.trim() || '',
     linesman2: document.getElementById('lp-lns2-' + matchId)?.value.trim() || '',
@@ -6238,6 +6357,12 @@ async function _lpSave(matchId) {
     attendance: document.getElementById('lp-att-' + matchId)?.value || '',
     notes: document.getElementById('lp-notes-' + matchId)?.value.trim() || '',
   };
+  // نكتب round فقط لو القيمة المُدخلة صحيحة (>=1). وإلا نُبقيها كما هي بعدم كتابتها.
+  if (Number.isFinite(_lpRoundVal) && _lpRoundVal >= 1) {
+    extraData.round = _lpRoundVal;
+  } else if (_existingRound != null) {
+    extraData.round = _existingRound; // حافظ على الجولة الأصلية صراحةً
+  }
 
   // حدّث status المباراة
   let matchStatus = 'upcoming';
@@ -6335,13 +6460,14 @@ setInterval(() => {
     }
     .lp-sb-toprow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .lp-status-badge {
-      padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
-      background: var(--card3,#1a1a1a); border: 1px solid var(--border2,#2a2a2a); color: var(--muted,#666);
+      padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 800;
+      background: var(--card3,#1a1a1a); border: 1px solid var(--border2,#2a2a2a); color: var(--muted,#888);
+      letter-spacing: .2px;
     }
-    .lp-status-badge.lp-s-live { background: rgba(220,50,50,.15); border-color: rgba(220,50,50,.4); color: #C0392B; }
-    .lp-status-badge.lp-s-half { background: rgba(243,156,18,.1); border-color: rgba(243,156,18,.3); color: #D35400; }
-    .lp-status-badge.lp-s-ended { background: rgba(39,174,96,.1); border-color: rgba(39,174,96,.3); color: #27ae60; }
-    .lp-period { font-size: 11px; color: var(--muted,#666); }
+    .lp-status-badge.lp-s-live { background: rgba(220,50,50,.15); border-color: rgba(220,50,50,.4); color: #E0554a; }
+    .lp-status-badge.lp-s-half { background: rgba(243,156,18,.12); border-color: rgba(243,156,18,.35); color: #E08a1e; }
+    .lp-status-badge.lp-s-ended { background: rgba(39,174,96,.12); border-color: rgba(39,174,96,.35); color: #27ae60; }
+    .lp-period { font-size: 12px; font-weight: 700; color: var(--text,#ccc); }
 
     .lp-sb-teams { display: flex; align-items: flex-start; gap: 8px; justify-content: space-between; margin-bottom: 16px; }
     .lp-sb-team { text-align: center; flex: 1 1 0; min-width: 0; }
@@ -6361,18 +6487,29 @@ setInterval(() => {
     .lp-btn-addtime { background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.35); color:#f97316; }
     .lp-btn-addtime:active { background:rgba(249,115,22,.22); }
 
-    /* Time controls */
-    .lp-time-controls { display: flex; flex-wrap: wrap; gap: 8px; }
-    .lp-btn { padding: 10px 16px; border-radius: 10px; font-family: Tajawal,sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid; transition: all .15s; }
-    .lp-btn-start { background: linear-gradient(135deg,#1a4a1a,#27ae60); border-color: #27ae60; color: #fff; }
-    .lp-btn-pause { background: rgba(243,156,18,.1); border-color: #D35400; color: #D35400; }
-    /* ✅︎ زر الاستئناف — أخضر واضح ونابض ليدل أن المباراة متوقفة */
-    .lp-btn-resume { background: rgba(39,174,96,.15); border: 1px solid rgba(39,174,96,.5); color:#27ae60; animation: lpPulse 1.6s ease-in-out infinite; }
-    @keyframes lpPulse { 0%,100%{opacity:1} 50%{opacity:.62} }
-    .lp-btn-ht { background: var(--card2,#111); border-color: var(--border2,#2a2a2a); color: var(--muted,#666); }
-    .lp-btn-et { background: var(--card2,#111); border-color: var(--border2,#2a2a2a); color: var(--muted,#666); }
-    .lp-btn-end { background: rgba(220,50,50,.1); border-color: rgba(220,50,50,.4); color: #C0392B; }
-    .lp-btn:hover { filter: brightness(1.2); }
+    /* ── أدوات التحكم بالوقت: تخطيط شبكي نظيف كالتطبيقات الرسمية ── */
+    .lp-time-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+    .lp-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 13px 10px; border-radius: 12px; font-family: Tajawal,sans-serif;
+      font-size: 13px; font-weight: 800; cursor: pointer; border: 1px solid;
+      transition: filter .12s, background .12s; white-space: nowrap; min-height: 46px;
+      text-align: center; line-height: 1;
+    }
+    .lp-btn:active { filter: brightness(1.15); }
+    /* الأزرار الأساسية تمتدّ على العرض الكامل لإبرازها */
+    .lp-btn-primary { grid-column: 1 / -1; font-size: 14px; font-weight: 900; min-height: 50px; }
+    .lp-btn-start { background: linear-gradient(135deg,#1a7a3a,#27ae60); border-color: #27ae60; color: #fff; }
+    .lp-btn-pause { background: rgba(243,156,18,.12); border-color: rgba(243,156,18,.4); color: #E08a1e; }
+    .lp-btn-resume { background: rgba(39,174,96,.15); border: 1px solid rgba(39,174,96,.5); color:#27ae60; }
+    .lp-btn-ht  { background: var(--card2,#141414); border-color: var(--border2,#2a2a2a); color: var(--text,#ccc); }
+    .lp-btn-et  { background: rgba(243,156,18,.1); border-color: rgba(243,156,18,.35); color: #E08a1e; }
+    .lp-btn-pen { background: rgba(155,89,182,.12); border-color: rgba(155,89,182,.4); color: #9b59b6; }
+    .lp-btn-end { background: linear-gradient(135deg,#b3342a,#C0392B); border-color: #C0392B; color: #fff; }
+    .lp-btn:hover { filter: brightness(1.12); }
+    /* لافتة انتهاء المباراة */
+    .lp-ended-banner { grid-column: 1 / -1; display:flex; align-items:center; justify-content:center; gap:8px; background:rgba(39,174,96,.08); border:1px solid rgba(39,174,96,.25); border-radius:12px; padding:14px; font-size:13px; font-weight:800; color:#27ae60; font-family:Tajawal,sans-serif; }
+
 
     /* Score controls */
     .lp-score-controls { background: var(--card,#111); border: 1px solid var(--border2,#2a2a2a); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
@@ -6570,65 +6707,61 @@ function _updateTimeControlBtns(matchId) {
   const phase = st.matchStatus;
   let html = '';
 
-  // ✅︎ زر بدل الضائع — كان النظام موجوداً بلا أي زر يستدعيه
+  // بدل الضائع (ثانوي)
   const addTimeBtn = `<button class="lp-btn lp-btn-addtime" onclick="lpOpenAddTime('${matchId}')">⏱️ بدل الضائع</button>`;
-
-  // ✅︎ زر إيقاف/استئناف — يتبدّل حسب الحالة ويظهر في كل الفترات الجارية
+  // إيقاف/استئناف (ثانوي)
   const pauseBtn = st.timerPaused
-    ? `<button class="lp-btn lp-btn-resume" onclick="lpPauseMatch('${matchId}')">▶︎️ استئناف</button>`
-    : `<button class="lp-btn lp-btn-pause" onclick="lpPauseMatch('${matchId}')">⏸️ إيقاف مؤقت</button>`;
+    ? `<button class="lp-btn lp-btn-resume" onclick="lpPauseMatch('${matchId}')">▶︎ استئناف</button>`
+    : `<button class="lp-btn lp-btn-pause" onclick="lpPauseMatch('${matchId}')">⏸ إيقاف مؤقت</button>`;
 
-  // قبل المباراة
+  // قبل المباراة — زر أساسي واحد
   if (phase === 'upcoming') {
-    html = `<button class="lp-btn lp-btn-start" onclick="lpStartMatch('${matchId}')">▶︎️ بدء المباراة</button>`;
+    html = `<button class="lp-btn lp-btn-start lp-btn-primary" onclick="lpStartMatch('${matchId}')">▶︎ بدء المباراة</button>`;
 
   // الشوط الأول جارٍ
   } else if (phase === 'live' && st.currentHalf === 1) {
     html = `${pauseBtn}${addTimeBtn}
-      <button class="lp-btn lp-btn-ht" onclick="lpHalfTime('${matchId}')">⏹️ إنهاء الشوط الأول</button>`;
+      <button class="lp-btn lp-btn-ht lp-btn-primary" onclick="lpHalfTime('${matchId}')">⏹ إنهاء الشوط الأول</button>`;
 
   // استراحة بين الشوطين
   } else if (phase === 'halftime') {
-    html = `<button class="lp-btn lp-btn-start" onclick="lpStartSecondHalf('${matchId}')">▶︎️ بدء الشوط الثاني</button>`;
+    html = `<button class="lp-btn lp-btn-start lp-btn-primary" onclick="lpStartSecondHalf('${matchId}')">▶︎ بدء الشوط الثاني</button>`;
 
-  // الشوط الثاني جارٍ - زر ركلات الترجيح للمباريات الإقصائية تلقائياً
+  // الشوط الثاني جارٍ
   } else if (phase === 'live' && st.currentHalf === 2) {
-    /* ✅︎ أزرار الحسم تظهر لمباريات الإقصاء فقط، وحسب إعدادات المنظّم.
-       مباريات المجموعات: زر الإنهاء فقط — التعادل نتيجة مشروعة. */
     const isKnockout = st.isKnockout || (st.knockoutRoundId != null);
     const drawn = (st.homeScore || 0) === (st.awayScore || 0);
     const showET  = isKnockout && drawn && cfg.hasExtraTime !== false;
     const showPen = isKnockout && drawn && cfg.hasPenalties !== false;
-    html = `${pauseBtn}${addTimeBtn}
-      <button class="lp-btn lp-btn-end" onclick="lpEndMatch('${matchId}')">🏁 إنهاء المباراة</button>
-      ${showET  ? `<button class="lp-btn lp-btn-et"  onclick="lpStartET1('${matchId}')">⚡ وقت إضافي</button>` : ''}
-      ${showPen ? `<button class="lp-btn lp-btn-pen" onclick="lpStartPenalties('${matchId}')">🥅 ركلات ترجيح</button>` : ''}`;
+    const extras = `${showET ? `<button class="lp-btn lp-btn-et" onclick="lpStartET1('${matchId}')">⚡ وقت إضافي</button>` : ''}${showPen ? `<button class="lp-btn lp-btn-pen" onclick="lpStartPenalties('${matchId}')">🥅 ركلات ترجيح</button>` : ''}`;
+    html = `${pauseBtn}${addTimeBtn}${extras}
+      <button class="lp-btn lp-btn-end lp-btn-primary" onclick="lpEndMatch('${matchId}')">🏁 إنهاء المباراة</button>`;
 
   // الوقت الإضافي الأول
   } else if (phase === 'extratime1') {
     html = `${pauseBtn}${addTimeBtn}
-      <button class="lp-btn lp-btn-ht" onclick="lpHalfTimeET('${matchId}')">⏹️ إنهاء الإضافي الأول</button>`;
+      <button class="lp-btn lp-btn-ht lp-btn-primary" onclick="lpHalfTimeET('${matchId}')">⏹ إنهاء الإضافي الأول</button>`;
 
   // استراحة بين الوقتين الإضافيين
   } else if (phase === 'halftime_et') {
-    html = `<button class="lp-btn lp-btn-start" onclick="lpStartET2('${matchId}')">▶︎️ بدء الإضافي الثاني</button>`;
+    html = `<button class="lp-btn lp-btn-start lp-btn-primary" onclick="lpStartET2('${matchId}')">▶︎ بدء الإضافي الثاني</button>`;
 
   // الوقت الإضافي الثاني
   } else if (phase === 'extratime2') {
     const isKnockout = st.isKnockout || (st.knockoutRoundId != null);
     const drawn = (st.homeScore || 0) === (st.awayScore || 0);
     const showPen = isKnockout && drawn && cfg.hasPenalties !== false;
-    html = `${pauseBtn}${addTimeBtn}
-      <button class="lp-btn lp-btn-end" onclick="lpEndMatch('${matchId}')">🏁 إنهاء المباراة</button>
-      ${showPen ? `<button class="lp-btn lp-btn-pen" onclick="lpStartPenalties('${matchId}')">🥅 ركلات ترجيح</button>` : ''}`;
+    const extras = showPen ? `<button class="lp-btn lp-btn-pen" onclick="lpStartPenalties('${matchId}')">🥅 ركلات ترجيح</button>` : '';
+    html = `${pauseBtn}${addTimeBtn}${extras}
+      <button class="lp-btn lp-btn-end lp-btn-primary" onclick="lpEndMatch('${matchId}')">🏁 إنهاء المباراة</button>`;
 
   // ركلات الترجيح
   } else if (phase === 'penalties') {
-    html = `<button class="lp-btn lp-btn-end" onclick="lpEndMatch('${matchId}')">🏁 إنهاء المباراة</button>`;
+    html = `<button class="lp-btn lp-btn-end lp-btn-primary" onclick="lpEndMatch('${matchId}')">🏁 إنهاء المباراة</button>`;
 
   // انتهت
   } else if (phase === 'ended') {
-    html = `<div style="display:flex;align-items:center;gap:8px;background:rgba(39,174,96,.08);border:1px solid rgba(39,174,96,.25);border-radius:10px;padding:12px 16px;font-size:13px;font-weight:700;color:#27ae60">✅︎ انتهت المباراة</div>`;
+    html = `<div class="lp-ended-banner">✅︎ انتهت المباراة</div>`;
   }
 
   container.innerHTML = html;
@@ -7446,7 +7579,6 @@ async function _lpSaveV2(matchId) {
     date:        _val('lp-date'),
     time:        _val('lp-time'),
     venue:       _val('lp-venue'),
-    round:       parseInt(_val('lp-round') || 1),
     referee:     _val('lp-referee'),
     linesman1:   _val('lp-lns1'),
     linesman2:   _val('lp-lns2'),
@@ -7458,6 +7590,14 @@ async function _lpSaveV2(matchId) {
     attendance:  _val('lp-att'),
     notes:       _val('lp-notes'),
   };
+  // ✅︎ لا نعيد ضبط الجولة إلى 1: نكتبها فقط لو القيمة المُدخلة صحيحة،
+  //    وإلا نُبقي جولة المباراة الأصلية (منع رجوع الجولة الثانية للأولى).
+  {
+    const _rv = parseInt(_val('lp-round'), 10);
+    const _existing = (_liveMatches[matchId]?.round) ?? (matches.find(x => x.id === matchId)?.round);
+    if (Number.isFinite(_rv) && _rv >= 1) extraData.round = _rv;
+    else if (_existing != null) extraData.round = _existing;
+  }
 
   let matchStatus = 'upcoming';
   if (['live','halftime','extratime1','halftime_et','extratime2','penalties'].includes(st.matchStatus)) matchStatus = 'live';
@@ -8053,13 +8193,64 @@ window._compressImage = function(fileOrDataUrl, opts) {
 // ══════════════════════════════════════════════════════════════
 window._uploadPlayerPhoto = async function(fileOrDataUrl, teamId, playerId) {
   if (!_storage) throw new Error('التخزين غير مهيّأ');
-  // ضغط لصورة لاعب: أبعاد أكبر قليلاً من الشعار ووضوح جيد، حجم صغير
-  const dataUrl = await window._compressImage(fileOrDataUrl, { maxDim: 400, targetKB: 60 });
+  // ضغط قوي مخصّص لصور اللاعبين: قصّ مربّع (يناسب العرض الدائري) + حدّ صارم.
+  // مهما كان حجم الأصل (حتى صور 10MB من الجوال)، الناتج يبقى صغيراً جداً.
+  const dataUrl = await window._compressPlayerPhoto(fileOrDataUrl, { size: 256, targetKB: 45 });
   const path = `players/${teamId}/${playerId}`;
   const r = storageRef(_storage, path);
-  // نرفع كـ data_url (base64) — مدعوم مباشرة في uploadString
   await uploadString(r, dataUrl, 'data_url');
   return await getDownloadURL(r);
+};
+
+// ضغط + قصّ مربّع لصورة لاعب. يضمن مخرجاً صغيراً مهما كبر الأصل.
+window._compressPlayerPhoto = function(fileOrDataUrl, opts) {
+  opts = opts || {};
+  const SIZE   = opts.size || 256;                 // بُعد مربّع نهائي
+  const TARGET = (opts.targetKB || 45) * 1024;     // حدّ أقصى صارم للحجم
+  return new Promise((resolve, reject) => {
+    const _process = (dataUrl) => {
+      const img = new Image();
+      img.onload = function() {
+        // قصّ مربّع من المنتصف (أفضل تأطير للوجه)
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width  - side) / 2;
+        const sy = (img.height - side) / 2;
+        const c = document.createElement('canvas');
+        c.width = SIZE; c.height = SIZE;
+        const ctx = c.getContext('2d');
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
+        // جودة متناقصة حتى الوصول للحجم المستهدف (WebP أولاً، ثم JPEG)
+        let best = null;
+        const qs = [0.8, 0.68, 0.58, 0.48, 0.4, 0.32, 0.25];
+        for (const q of qs) {
+          const out = c.toDataURL('image/webp', q);
+          if (out.indexOf('data:image/webp') === 0) { best = out; if (out.length <= TARGET) break; }
+        }
+        if (!best || best.length > TARGET) {
+          for (const q of qs) {
+            const out = c.toDataURL('image/jpeg', q);
+            if (!best || out.length < best.length) best = out;
+            if (out.length <= TARGET) { best = out; break; }
+          }
+        }
+        // لو ما زال أكبر (نادر جداً) — صغّر البُعد للنصف وأعد المحاولة مرة
+        if (best && best.length > TARGET && SIZE > 160) {
+          window._compressPlayerPhoto(dataUrl, { size: 160, targetKB: opts.targetKB || 45 })
+            .then(resolve).catch(() => resolve(best));
+          return;
+        }
+        resolve(best || c.toDataURL('image/jpeg', 0.4));
+      };
+      img.onerror = () => reject(new Error('تعذّر قراءة الصورة'));
+      img.src = dataUrl;
+    };
+    if (typeof fileOrDataUrl === 'string') { _process(fileOrDataUrl); return; }
+    const reader = new FileReader();
+    reader.onload = e => _process(e.target.result);
+    reader.onerror = () => reject(new Error('تعذّر قراءة الملف'));
+    reader.readAsDataURL(fileOrDataUrl);
+  });
 };
 
 // حذف صورة لاعب من Storage (عند إزالتها أو حذف اللاعب) — آمن ويتجاهل الأخطاء
@@ -11326,14 +11517,65 @@ window.saveRosterEdit = async function(teamId, playerId) {
 
   if(!name) { showToast('أدخل اسم اللاعب', 'error'); return; }
 
+  // الاسم القديم (قبل التعديل) — لنربط الأحداث القديمة بهوية اللاعب
+  const _oldPlayer = (rosterCache[teamId] || []).find(p => p && p.id === playerId);
+  const _oldName = _oldPlayer ? _oldPlayer.name : '';
+
   try {
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId), {
       number: num, name, position: pos, updatedAt: serverTimestamp()
     });
     showToast('✅︎ تم تحديث بيانات اللاعب', 'success');
+    // ✅ إصلاح جذري: اربط الأحداث القديمة (بلا هوية) لهذا اللاعب بهويته
+    //    كي يتحدّث اسمها تلقائياً في الهدّافين/البطاقات ولا تعود المشكلة.
+    try { await _relinkPlayerEvents(teamId, playerId, _oldName, name); } catch(e) {}
     // الـ listener سيعيد الرسم تلقائياً
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
+
+// يربط أحداث المباريات القديمة (أهداف/بطاقات/تبديلات) التي تطابق الاسم
+// القديم أو الجديد لهذا اللاعب، فيضيف playerId إليها (بلا لمس أي شيء آخر).
+// آمن: يعمل فقط على مباريات هذا الفريق، وبمطابقة تام أو بادئة وحيدة.
+async function _relinkPlayerEvents(teamId, playerId, oldName, newName) {
+  const _n = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim();
+  const oldN = _n(oldName), newN = _n(newName);
+  const nameMatches = (evName) => {
+    const e = _n(evName);
+    if (!e) return false;
+    if (e === oldN || e === newN) return true;
+    // بادئة آمنة: «محمد» ← «محمد العلي»
+    if (oldN && (newN.indexOf(oldN + ' ') === 0) && e === oldN) return true;
+    if (newN && (e + ' ' === newN.slice(0, e.length + 1)) && newN.indexOf(e + ' ') === 0) return true;
+    return false;
+  };
+  const relevant = (matches || []).filter(m =>
+    (m.homeId === teamId || m.awayId === teamId) && Array.isArray(m.events) && m.events.length);
+  let batch = writeBatch(db), pending = 0, changed = 0;
+  for (const m of relevant) {
+    const side = m.homeId === teamId ? 'home' : (m.awayId === teamId ? 'away' : null);
+    if (!side) continue;
+    let touched = false;
+    const evs = m.events.map(ev => {
+      if (!ev || ev.playerId) return ev; // له هوية بالفعل — لا نلمسه
+      const evSide = ev.side || ev.team || (ev.teamId === teamId ? side : null);
+      const evTeam = ev.teamId || (evSide === 'home' ? m.homeId : evSide === 'away' ? m.awayId : null);
+      if (evTeam !== teamId) return ev;
+      // الهدف/البطاقة: الحقل player. التبديل: نربط الخارج فقط هنا.
+      if (nameMatches(ev.player)) {
+        touched = true;
+        return { ...ev, playerId, teamId };
+      }
+      return ev;
+    });
+    if (touched) {
+      batch.update(doc(db, 'leagues', LEAGUE_ID, 'matches', m.id), { events: evs });
+      pending++; changed++;
+      if (pending >= 400) { await batch.commit(); batch = writeBatch(db); pending = 0; }
+    }
+  }
+  if (pending) await batch.commit();
+  return changed;
+}
 
 window.cancelRosterEdit = function(teamId, playerId) {
   const players = rosterCache[teamId] || [];

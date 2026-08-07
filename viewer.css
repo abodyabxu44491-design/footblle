@@ -549,6 +549,20 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
   font-family:'Tajawal',sans-serif;line-height:1;
   transition:all .15s;
 }
+/* صورة اللاعب على أرضية الملعب: تملأ الدائرة + شارة رقم صغيرة */
+.player-avatar.has-photo{ padding:0; overflow:visible; background:var(--s3); }
+.player-avatar.has-photo > img{ box-shadow:0 0 0 2.5px var(--gold); }
+.player-avatar.away.has-photo > img{ box-shadow:0 0 0 2.5px #C0392B; }
+.player-avatar.gk.has-photo > img{ box-shadow:0 0 0 2.5px #9B59B6; }
+.player-num-badge{
+  position:absolute; bottom:-3px; right:-3px;
+  min-width:15px; height:15px; padding:0 3px; border-radius:8px;
+  background:var(--gold); color:#000; font-size:9px; font-weight:900;
+  display:flex; align-items:center; justify-content:center;
+  border:1.5px solid var(--s1); line-height:1;
+}
+.player-avatar.away .player-num-badge{ background:#C0392B; color:#fff; }
+.player-avatar.gk .player-num-badge{ background:#9B59B6; color:#fff; }
 .player-avatar.gk{
   background:rgba(142,68,173,.22);border-color:#9B59B6;color:#CE9FFC;
   

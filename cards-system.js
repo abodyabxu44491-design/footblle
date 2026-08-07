@@ -1689,8 +1689,7 @@
     if (typeof origShowPage === 'function') {
       window.showPage = function(name, sb, mn) {
         origShowPage(name, sb, mn);
-        // البطاقات مدمجة في صفحة الإحصائيات (scorers)
-        if (name === 'cards' || name === 'scorers') { upgradeCardsPageHTML(); renderCardsPage(); }
+        if (name === 'cards') { upgradeCardsPageHTML(); renderCardsPage(); }
       };
     }
     window.renderCards = function() { upgradeCardsPageHTML(); renderCardsPage(); };

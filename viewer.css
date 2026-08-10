@@ -487,8 +487,8 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .pm-logo{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--s3);font-size:26px;flex-shrink:0}
 .pm-name{font-size:16px;font-weight:900;color:var(--t1)}
 .pm-team{font-size:11px;color:var(--t3);margin-top:1px}
-.pm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
-.pm-stat{background:var(--s3);border-radius:9px;padding:9px 5px;text-align:center}
+.pm-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.pm-stat{flex:1 1 0;min-width:70px;background:var(--s3);border-radius:9px;padding:9px 5px;text-align:center}
 .pm-stat-val{font-size:20px;font-weight:900;color:var(--gold);font-family:'Tajawal',sans-serif;line-height:1}
 .pm-stat-lbl{font-size:9px;color:var(--t3);margin-top:2px}
 .pm-section-title{font-size:10px;font-weight:700;color:var(--t3);margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--b1)}

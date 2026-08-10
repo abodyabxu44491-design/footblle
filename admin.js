@@ -36,6 +36,14 @@ let _storage = null;
 try { _storage = getStorage(app); } catch (e) { _storage = null; }
 
 // ══════════════════════════════════════════════════════════════
+//  ☁️ إعدادات Cloudinary لتخزين صور اللاعبين (مجاني — بلا بطاقة)
+//  نرفع الصورة المضغوطة لـ Cloudinary ونخزّن رابطها فقط في قاعدة
+//  البيانات — صفر استهلاك من حصة Firestore.
+// ══════════════════════════════════════════════════════════════
+const CLOUDINARY_CLOUD  = 'ddubylfs';   // Cloud name
+const CLOUDINARY_PRESET = 'wvebrqwq';   // Upload preset (unsigned)
+
+// ══════════════════════════════════════════════════════════════
 //  🪶 توفير المساحة: لا نخزّن شعار الفريق (base64) داخل مستند المباراة.
 //  العرض في كل المنصة يجلب الشعار من الفريق عبر homeId/awayId، ويستخدم
 //  المخزّن كاحتياطي فقط — والاسم (homeName) يكفي كاحتياطي. لذا نُفرّغ
@@ -11363,52 +11371,59 @@ window.uploadRosterPhoto = async function(teamId, playerId, input) {
   const file = input && input.files && input.files[0];
   if (!file) return;
   if (!/^image\//.test(file.type)) { showToast('اختر ملف صورة', 'error'); input.value=''; return; }
-  // ملاحظة: لا نرفض حسب الحجم الأصلي — الضغط يتكفّل بأي حجم.
-  if (!_storage) { showToast('التخزين غير متاح. فعّل Firebase Storage وانشر قواعده (راجع الدليل).', 'error'); input.value=''; return; }
+  // لا نرفض حسب الحجم الأصلي — الضغط يتكفّل بأي حجم.
   try {
     // 1) ضغط قبل الرفع — مع إظهار الحجم قبل/بعد
     const _origKB = Math.max(1, Math.round(file.size / 1024));
     showToast(`⏳ جارِ ضغط الصورة... (${_origKB}KB)`, 'success');
     const dataUrl = await window._compressPlayerPhoto(file, { size: 256, targetKB: 45 });
-    // حجم الناتج بعد الضغط (تقريبي من طول base64)
     const _outKB = Math.max(1, Math.round((dataUrl.length * 0.75) / 1024));
     const _saved = Math.max(0, Math.round((1 - _outKB / _origKB) * 100));
     showToast(`⏳ جارِ الرفع... الحجم بعد الضغط ${_outKB}KB (وفّرنا ${_saved}%)`, 'success');
-    // 2) رفع الصورة المضغوطة إلى Storage وأخذ الرابط
-    const path = `players/${teamId}/${playerId}`;
-    const r = storageRef(_storage, path);
-    await uploadString(r, dataUrl, 'data_url');
-    const url = await getDownloadURL(r);
+    // 2) رفع الصورة المضغوطة إلى Cloudinary (unsigned) وأخذ الرابط
+    const url = await window._uploadToCloudinary(dataUrl, `player_${teamId}_${playerId}`);
     // 3) حفظ الرابط فقط في مستند اللاعب (نص قصير — لا يُثقل المساحة)
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId),
       { photo: url, updatedAt: serverTimestamp() });
     showToast(`✅︎ تم حفظ الصورة (${_outKB}KB بعد الضغط)`, 'success');
   } catch (e) {
-    // رسالة خطأ دقيقة (لا نُسمّيها «حجم كبير» خطأً)
-    const code = (e && (e.code || e.message) || '') + '';
+    const code = (e && (e.message || e.code) || '') + '';
     let msg;
-    if (/unauthorized|permission|denied|403/i.test(code))
-      msg = 'الرفع مرفوض — انشر قواعد Firebase Storage (ملف storage.rules) من Console.';
-    else if (/unauthenticated|401/i.test(code))
-      msg = 'انتهت الجلسة. سجّل الدخول من جديد ثم أعد المحاولة.';
-    else if (/no default bucket|bucket|storage\/unknown|retry-limit|network/i.test(code))
-      msg = 'تعذّر الوصول للتخزين. تأكّد أن Firebase Storage مفعّل وقواعده منشورة.';
+    if (/preset|unsigned|400/i.test(code))
+      msg = 'إعداد الرفع غير صحيح — تأكّد أن preset في Cloudinary من نوع Unsigned.';
+    else if (/network|failed to fetch|timeout/i.test(code))
+      msg = 'تعذّر الاتصال — تحقّق من الإنترنت وأعد المحاولة.';
     else
-      msg = 'تعذّر رفع الصورة: ' + (window._trErr ? window._trErr(e) : code);
+      msg = 'تعذّر رفع الصورة: ' + code;
     showToast(msg, 'error');
   } finally {
     if (input) input.value = '';
   }
 };
 
-// ── حذف صورة لاعب (اختياري) ──
+// ── رفع صورة (data URL) إلى Cloudinary عبر preset غير موقّع، وإرجاع الرابط ──
+window._uploadToCloudinary = async function(dataUrl, publicId) {
+  const form = new FormData();
+  form.append('file', dataUrl);                    // يقبل Cloudinary data URL مباشرة
+  form.append('upload_preset', CLOUDINARY_PRESET);
+  if (publicId) form.append('public_id', publicId);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+    method: 'POST', body: form
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.secure_url) {
+    throw new Error((data && data.error && data.error.message) || `فشل الرفع (${res.status})`);
+  }
+  return data.secure_url;   // الرابط الآمن للصورة
+};
+
+// ── حذف صورة لاعب (يمسح الرابط من اللاعب) ──
 window.removeRosterPhoto = async function(teamId, playerId) {
   try {
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId),
       { photo: '', updatedAt: serverTimestamp() });
-    window._deletePlayerPhoto && window._deletePlayerPhoto(teamId, playerId);
     showToast('تم حذف الصورة', 'success');
-  } catch (e) { showToast('تعذّر الحذف: ' + window._trErr(e), 'error'); }
+  } catch (e) { showToast('تعذّر الحذف: ' + (window._trErr ? window._trErr(e) : e.message), 'error'); }
 };
 
 // ── إضافة لاعب ──

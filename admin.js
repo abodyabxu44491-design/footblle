@@ -11363,17 +11363,39 @@ window.uploadRosterPhoto = async function(teamId, playerId, input) {
   const file = input && input.files && input.files[0];
   if (!file) return;
   if (!/^image\//.test(file.type)) { showToast('اختر ملف صورة', 'error'); input.value=''; return; }
-  if (file.size > 8 * 1024 * 1024) { showToast('الصورة أكبر من 8MB', 'error'); input.value=''; return; }
-  if (!_storage) { showToast('التخزين غير متاح — تواصل مع الدعم', 'error'); input.value=''; return; }
-  showToast('⏳ جارِ رفع الصورة...', 'success');
+  // ملاحظة: لا نرفض حسب الحجم الأصلي — الضغط يتكفّل بأي حجم.
+  if (!_storage) { showToast('التخزين غير متاح. فعّل Firebase Storage وانشر قواعده (راجع الدليل).', 'error'); input.value=''; return; }
   try {
-    const url = await window._uploadPlayerPhoto(file, teamId, playerId);
+    // 1) ضغط قبل الرفع — مع إظهار الحجم قبل/بعد
+    const _origKB = Math.max(1, Math.round(file.size / 1024));
+    showToast(`⏳ جارِ ضغط الصورة... (${_origKB}KB)`, 'success');
+    const dataUrl = await window._compressPlayerPhoto(file, { size: 256, targetKB: 45 });
+    // حجم الناتج بعد الضغط (تقريبي من طول base64)
+    const _outKB = Math.max(1, Math.round((dataUrl.length * 0.75) / 1024));
+    const _saved = Math.max(0, Math.round((1 - _outKB / _origKB) * 100));
+    showToast(`⏳ جارِ الرفع... الحجم بعد الضغط ${_outKB}KB (وفّرنا ${_saved}%)`, 'success');
+    // 2) رفع الصورة المضغوطة إلى Storage وأخذ الرابط
+    const path = `players/${teamId}/${playerId}`;
+    const r = storageRef(_storage, path);
+    await uploadString(r, dataUrl, 'data_url');
+    const url = await getDownloadURL(r);
+    // 3) حفظ الرابط فقط في مستند اللاعب (نص قصير — لا يُثقل المساحة)
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId),
       { photo: url, updatedAt: serverTimestamp() });
-    showToast('✅︎ تم حفظ صورة اللاعب', 'success');
-    // المستمع الحيّ للكشف سيعيد الرسم تلقائياً
+    showToast(`✅︎ تم حفظ الصورة (${_outKB}KB بعد الضغط)`, 'success');
   } catch (e) {
-    showToast('تعذّر رفع الصورة: ' + window._trErr(e), 'error');
+    // رسالة خطأ دقيقة (لا نُسمّيها «حجم كبير» خطأً)
+    const code = (e && (e.code || e.message) || '') + '';
+    let msg;
+    if (/unauthorized|permission|denied|403/i.test(code))
+      msg = 'الرفع مرفوض — انشر قواعد Firebase Storage (ملف storage.rules) من Console.';
+    else if (/unauthenticated|401/i.test(code))
+      msg = 'انتهت الجلسة. سجّل الدخول من جديد ثم أعد المحاولة.';
+    else if (/no default bucket|bucket|storage\/unknown|retry-limit|network/i.test(code))
+      msg = 'تعذّر الوصول للتخزين. تأكّد أن Firebase Storage مفعّل وقواعده منشورة.';
+    else
+      msg = 'تعذّر رفع الصورة: ' + (window._trErr ? window._trErr(e) : code);
+    showToast(msg, 'error');
   } finally {
     if (input) input.value = '';
   }

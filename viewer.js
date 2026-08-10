@@ -1287,8 +1287,8 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
 
   const pTeamId = player.teamId;
   const playerMatches = [];
-  let momCount = 0;
   let yellowCount = 0, redCount = 0, assistCount = 0;
+  let appearances = 0;
 
   // مطابقة اسم مرنة (تتجاهل التشكيل والمسافات الزائدة)
   const _norm2 = s => String(s || '')
@@ -1311,17 +1311,17 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
         if (!ev) return;
         const evTeamId = ev.teamId || (_evSide(ev) === 'home' ? m.homeId : m.awayId);
         if (evTeamId !== pTeamId) return;
-        // صناعة الهدف: تُنسب لصانعه (يُطابَق بالهوية إن توفّرت وإلا بالاسم)
+        // مطابقة اللاعب: بالهوية إن كانت متوفّرة في الطرفين، وإلا بالاسم.
+        // (الأحداث القديمة بلا playerId تُطابَق بالاسم حتى مع وجود هوية للاعب)
+        const matchPlayer = (evId, evName) => {
+          if (player.playerId && evId) return evId === player.playerId;
+          return nameMatches(evName, player.name);
+        };
+        // صناعة الهدف: تُنسب لصانعها
         if (ev.type === 'goal' && ev.assist && !ev.isShootout && !ev.shootout) {
-          const isAssister = player.playerId
-            ? (ev.assistPlayerId && ev.assistPlayerId === player.playerId)
-            : nameMatches(ev.assist, player.name);
-          if (isAssister) myAssist++;
+          if (matchPlayer(ev.assistPlayerId, ev.assist)) myAssist++;
         }
-        const same = player.playerId
-          ? (ev.playerId && ev.playerId === player.playerId)
-          : nameMatches(ev.player, player.name);
-        if (!same) return;
+        if (!matchPlayer(ev.playerId, ev.player)) return;
         if (ev.type === 'goal') myGoals++;
         else if (ev.type === 'yellow') myYellow++;
         else if (ev.type === 'red') myRed++;
@@ -1341,13 +1341,18 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
     const result = my > op ? 'فوز' : my < op ? 'خسارة' : 'تعادل';
     const rc = my > op ? 'var(--green)' : my < op ? 'var(--red)' : 'var(--gold)';
 
-    // 👑 رجل المباراة — يُحسب من كل مكان (بمطابقة مرنة)
-    const isMom = m.manOfMatch && nameMatches(m.manOfMatch, player.name);
-    if (isMom) momCount++;
+    // هل شارك اللاعب في هذه المباراة؟ (من التشكيلة إن توفّرت)
+    const _lu = isHomeTeam ? m.homeLineup : m.awayLineup;
+    if (_lu && Array.isArray(_lu.players)) {
+      const appeared = _lu.players.some(pl => player.playerId
+        ? (pl.id && pl.id === player.playerId)
+        : nameMatches(pl.name, player.name));
+      if (appeared) appearances++;
+    }
 
-    // اعرض المباراة إذا: سجّل فيها، أو صنع، أو أخذ كرت، أو كان رجل المباراة
-    if (myGoals > 0 || myAssist > 0 || myYellow > 0 || myRed > 0 || isMom) {
-      playerMatches.push({ m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed, isMom });
+    // اعرض المباراة إذا: سجّل فيها، أو صنع، أو أخذ كرت
+    if (myGoals > 0 || myAssist > 0 || myYellow > 0 || myRed > 0) {
+      playerMatches.push({ m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed });
     }
   });
 
@@ -1368,9 +1373,9 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
   document.getElementById('pmName').textContent = _liveName || player.name;
   document.getElementById('pmTeam').textContent = player.teamName;
   document.getElementById('pmGoals').textContent = player.goals;
-  document.getElementById('pmMatches').textContent = playerMatches.length;
-  document.getElementById('pmAvg').textContent = playerMatches.length ? (player.goals / playerMatches.length).toFixed(1) : '0.0';
-  document.getElementById('pmMOM').textContent = momCount;
+  const _matchesPlayed = appearances > 0 ? appearances : playerMatches.length;
+  document.getElementById('pmMatches').textContent = _matchesPlayed;
+  document.getElementById('pmAvg').textContent = _matchesPlayed ? (player.goals / _matchesPlayed).toFixed(1) : '0.0';
   // 👟 الصناعات — تظهر إذا فعّلها المنظّم أو إذا كان للاعب صناعات مسجّلة
   const _showAssistStat = (window.settings && window.settings.showAssists) || assistCount > 0;
   const _asCell = document.getElementById('pmAssistCell');
@@ -1381,7 +1386,7 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
   if (!playerMatches.length) {
     listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t3);font-size:11px">لا توجد بيانات</div>';
   } else {
-    listEl.innerHTML = playerMatches.slice(0, 15).map(({m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed, isMom}) => `
+    listEl.innerHTML = playerMatches.slice(0, 15).map(({m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed}) => `
       <div class="pm-match-row">
         <div class="pm-match-result" style="color:${rc}">${result}</div>
         <div class="pm-match-vs">ضد ${opp.name} · جولة ${m.round||1}</div>
@@ -1391,7 +1396,6 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
           ${myAssist>0?`<span class="pm-goals-badge" style="background:rgba(39,174,96,.15);color:var(--green,#27ae60)" title="صناعة">👟×${myAssist}</span>`:''}
           ${myYellow>0?`<span style="width:9px;height:12px;background:#E8B93B;border-radius:2px;display:inline-block" title="بطاقة صفراء"></span>`:''}
           ${myRed>0?`<span style="width:9px;height:12px;background:#C0392B;border-radius:2px;display:inline-block" title="بطاقة حمراء"></span>`:''}
-          ${isMom?`<span title="رجل المباراة" style="color:var(--gold);display:inline-flex">${window.Icon?window.Icon('crown',13):'👑'}</span>`:''}
         </div>
       </div>`).join('');
   }
@@ -2586,23 +2590,13 @@ window.openTeamProfile = function(teamId) {
     ? window._teamRosters[teamId]
     : (t.players || []);
 
-  // هدافو الفريق من المباريات
-  const scorersMap = {};
-  matches.filter(m=>m.status==='finished').forEach(m=>{
-    const isHome = m.homeId===teamId;
-    const isAway = m.awayId===teamId;
-    if(!isHome&&!isAway) return;
-    const sc = isHome?m.homeScorers:m.awayScorers;
-    if(!sc) return;
-    sc.split(',').forEach(s=>{
-      const rx=s.trim().match(/^(.+?)\s*(?:\((\d+)\))?$/);
-      if(!rx) return;
-      const name=rx[1].trim(), g=parseInt(rx[2]||'1');
-      if(!scorersMap[name]) scorersMap[name]=0;
-      scorersMap[name]+=g;
-    });
-  });
-  const topScorers = Object.entries(scorersMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  // هدّافو الفريق — من نفس محرّك الهدّافين (بالهوية) كي يطابق جدول الهدّافين
+  // ولا يعرض الدقائق أو يخبص. buildScorersData يرجع {name, playerId, teamId, goals, ...}
+  const _allScorers = (typeof buildScorersData === 'function') ? buildScorersData() : [];
+  const topScorers = _allScorers
+    .filter(p => p.teamId === teamId && p.goals > 0)
+    .slice(0, 8)
+    .map(p => [p.name, p.goals, p.playerId]);
 
   // ══ الأقسام مبنية كمتغيّرات ثم موزّعة على تبويبات ══
   const _infoSection = (function(){
@@ -2725,8 +2719,8 @@ window.openTeamProfile = function(teamId) {
     ${topScorers.length?`
     <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:14px 16px;margin-bottom:6px">
       <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">هدافو الفريق</div>
-      ${topScorers.map(([name,goals],i)=>`
-        <div onclick="closeTeamProfile();setTimeout(()=>openPlayerModal('${name.replace(/'/g,"\\'")}','${teamId}'),300)" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--b1);cursor:pointer">
+      ${topScorers.map(([name,goals,pid],i)=>`
+        <div onclick="closeTeamProfile();setTimeout(()=>openPlayerModal('${name.replace(/'/g,"\\'")}','${teamId}','${pid||''}'),300)" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--b1);cursor:pointer">
           <div style="width:26px;height:26px;border-radius:7px;background:${i===0?'linear-gradient(135deg,#ffd700,#b8860b)':'var(--s3)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:${i===0?'#000':'var(--t3)'}">
             ${i===0?'🥇':i+1}
           </div>

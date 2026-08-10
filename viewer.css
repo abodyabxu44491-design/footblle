@@ -669,6 +669,7 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .sub-ico{flex:0 0 auto;font-size:11px;font-weight:900}
 .sub-ico.in{color:#27ae60}
 .sub-ico.out{color:#e5533d}
+.sub-av{flex:0 0 auto;width:22px;height:22px;border-radius:50%;overflow:hidden;background:var(--s3);display:inline-flex}
 
 
 /* EMPTY */

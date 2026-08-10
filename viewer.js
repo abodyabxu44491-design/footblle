@@ -1167,14 +1167,30 @@ function _lineupLiveName(p) {
 }
 
 // صورة لاعب التشكيلة حسب هويته من أي كشف محمّل
-function _lineupPhoto(playerId) {
-  if (!playerId || !window._teamRosters) return '';
-  for (const tid in window._teamRosters) {
-    const roster = window._teamRosters[tid];
-    if (!roster) continue;
-    const hit = roster.find(x => x && x.id === playerId);
-    if (hit && hit.photo) return hit.photo;
-  }
+// صورة لاعب التشكيلة: التشكيلة قد تُحفظ بلا id (بالاسم/الرقم فقط)،
+// فنبحث بالهوية إن وُجدت، وإلا بالاسم (والرقم إن توفّر) في كشوف الفرق.
+function _lineupPhoto(playerOrId, teamId) {
+  if (!window._teamRosters) return '';
+  const p = (typeof playerOrId === 'object') ? playerOrId : { id: playerOrId };
+  const _norm = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+  const scan = (roster) => {
+    if (!roster || !roster.length) return '';
+    // 1) بالهوية
+    if (p.id) { const h = roster.find(x => x && x.id === p.id); if (h && h.photo) return h.photo; }
+    // 2) بالاسم + الرقم (أدق)
+    if (p.name != null) {
+      const n = _norm(p.name);
+      let h = roster.find(x => x && _norm(x.name) === n && (p.number==null || String(x.number)===String(p.number)) && x.photo);
+      if (h) return h.photo;
+      // 3) بالاسم فقط
+      h = roster.find(x => x && _norm(x.name) === n && x.photo);
+      if (h) return h.photo;
+    }
+    return '';
+  };
+  // ابحث في فريق محدّد أولاً إن مُرّر، وإلا كل الفرق
+  if (teamId && window._teamRosters[teamId]) { const r = scan(window._teamRosters[teamId]); if (r) return r; }
+  for (const tid in window._teamRosters) { const r = scan(window._teamRosters[tid]); if (r) return r; }
   return '';
 }
 
@@ -1199,7 +1215,7 @@ function renderPlayersOnPitch(players, positions, isAway=false, subMap={}, stats
     if (st.red)    icons += `<span class="pmark red"></span>`;
     else if (st.yellow) icons += `<span class="pmark yel"></span>`;
     const marks = icons ? `<div class="player-marks">${icons}</div>` : '';
-    const _photo = p.id ? _lineupPhoto(p.id) : '';
+    const _photo = _lineupPhoto(p);
     const avatarInner = _photo
       ? `<img src="${_photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">
          <span class="player-num-badge">${num}</span>${subBadge}${marks}`
@@ -1214,12 +1230,19 @@ function renderPlayersOnPitch(players, positions, isAway=false, subMap={}, stats
 // ── قسم التبديلات: «خرج ← دخل» بالدقيقة (نمط التطبيقات الرسمية) ──
 function renderSubsSection(subs) {
   if (!subs || !subs.length) return '';
+  // صورة صغيرة دائرية للاعب حسب اسمه (أو نقطة رمز التبديل إن لا صورة)
+  const _av = (name, cls, icon) => {
+    const ph = name ? _lineupPhoto({ name }) : '';
+    return ph
+      ? `<span class="sub-av"><img src="${ph}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></span>`
+      : `<span class="sub-ico ${cls}">${window.Icon?window.Icon(icon,11):(cls==='in'?'▲':'▼')}</span>`;
+  };
   const rows = subs.map(s => `
     <div class="sub-row2">
       <span class="sub-min2">${s.min !== '' ? s.min + "'" : ''}</span>
       <div class="sub-pair">
-        <div class="sub-line in"><span class="sub-ico in">${window.Icon?window.Icon('upload',11):'▲'}</span><span class="sub-nm">${s.in || '—'}</span></div>
-        <div class="sub-line out"><span class="sub-ico out">${window.Icon?window.Icon('download',11):'▼'}</span><span class="sub-nm">${s.out || '—'}</span></div>
+        <div class="sub-line in">${_av(s.in,'in','upload')}<span class="sub-nm">${s.in || '—'}</span></div>
+        <div class="sub-line out">${_av(s.out,'out','download')}<span class="sub-nm">${s.out || '—'}</span></div>
       </div>
     </div>`).join('');
   return `
@@ -1247,10 +1270,11 @@ function renderLineupList(players, subMap={}, statsMap={}) {
         if(st.goals) stTag+=`<span class="lp-mk">⚽${st.goals>1?' '+st.goals:''}</span>`;
         if(st.yellow) stTag+=`<span class="lp-mk yel"></span>`;
         if(st.red) stTag+=`<span class="lp-mk red"></span>`;
+        const _lphoto = _lineupPhoto(p);
         return `<div class="lineup-player-row">
-        <div class="lp-num"${p.id&&_lineupPhoto(p.id)?' style="overflow:hidden;padding:0"':''}>${
-          (p.id && _lineupPhoto(p.id))
-            ? `<img src="${_lineupPhoto(p.id)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+        <div class="lp-num"${_lphoto?' style="overflow:hidden;padding:0"':''}>${
+          _lphoto
+            ? `<img src="${_lphoto}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
             : (p.number||'—')}</div>
         <div class="lp-info"><div class="lp-name">${_lineupLiveName(p)||'لاعب'}</div><div class="lp-pos">${p.position||''}</div></div>
         ${stTag?`<div class="lp-marks">${stTag}</div>`:''}
@@ -2734,9 +2758,12 @@ window.openTeamProfile = function(teamId) {
       <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">قائمة اللاعبين</div>
       ${players.map(p=>`
         <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--b1)">
-          <div style="width:28px;height:28px;border-radius:7px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--t2)">${p.number||'—'}</div>
+          <div style="width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--t2);flex-shrink:0">${
+            p.photo
+              ? `<img src="${p.photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
+              : (p.number||'—')}</div>
           <div style="flex:1">
-            <div style="font-size:13px;font-weight:700;color:var(--t1)">${p.name||'لاعب'}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--t1)">${p.name||'لاعب'}${p.number?` <span style="font-size:10px;color:var(--t3);font-weight:600">#${p.number}</span>`:''}</div>
             <div style="font-size:10px;color:var(--t3);margin-top:1px">${({GK:'حارس مرمى',DEF:'مدافع',MID:'وسط',FWD:'مهاجم',SUB:'بديل'})[p.position]||p.position||''}</div>
           </div>
           ${p.position==='GK'?'<span style="font-size:9px;background:rgba(142,68,173,.14);color:#8E44AD;border:1px solid rgba(142,68,173,.3);border-radius:5px;padding:2px 6px;font-weight:700">GK</span>':''}
@@ -3023,17 +3050,27 @@ function _displayOpts() {
 }
 
 // صفّ لاعب موحّد داخل الإحصائيات (يُستعمل لكل الأقسام الأربعة)
-// صورة اللاعب من الكشف الحيّ حسب الهوية (أو '' إن لا توجد)
-function _playerPhoto(teamId, playerId) {
-  if (!playerId || !window._teamRosters || !window._teamRosters[teamId]) return '';
-  const p = window._teamRosters[teamId].find(x => x && x.id === playerId);
-  return (p && p.photo) ? p.photo : '';
+// صورة اللاعب من الكشف الحيّ: بالهوية إن وُجدت، وإلا بالاسم (للأحداث القديمة)
+function _playerPhoto(teamId, playerId, name) {
+  if (!window._teamRosters || !window._teamRosters[teamId]) return '';
+  const roster = window._teamRosters[teamId];
+  if (playerId) {
+    const p = roster.find(x => x && x.id === playerId);
+    if (p && p.photo) return p.photo;
+  }
+  if (name) {
+    const _norm = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+    const n = _norm(name);
+    const p = roster.find(x => x && _norm(x.name) === n && x.photo);
+    if (p) return p.photo;
+  }
+  return '';
 }
 
 function _statRow(p, i, valField, valColor, unitLabel) {
   const team = teams.find(t => t.id === p.teamId) || {};
   const teamLogo = team.logo || p.teamLogo || '';
-  const photo = _playerPhoto(p.teamId, p.playerId);
+  const photo = _playerPhoto(p.teamId, p.playerId, p.name);
   const medal = i < 3
     ? `<span style="font-size:16px">${['🥇','🥈','🥉'][i]}</span>`
     : `<div style="width:22px;height:22px;border-radius:6px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--t3)">${i+1}</div>`;

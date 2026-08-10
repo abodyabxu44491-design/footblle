@@ -3215,11 +3215,17 @@ function _adminStatRow(s, i, unit, color) {
   const medalBg = i===0?'linear-gradient(135deg,var(--gold2),var(--gold3))':i===1?'#333':i===2?'#2a1a0a':'var(--card2)';
   const medalCol= i===0?'#000':i===1?'#ccc':i===2?'#b87333':'#555';
   const safeName=(s.name||'').replace(/'/g,"\\'");
-  // صورة اللاعب من rosterCache (الكشف الحيّ) إن وُجدت
+  // صورة اللاعب من rosterCache: بالهوية إن وُجدت، وإلا بالاسم (للأحداث القديمة)
   let photo = '';
-  if (s.playerId && rosterCache[s.teamId]) {
-    const rp = rosterCache[s.teamId].find(x => x && x.id === s.playerId);
+  const _rc = rosterCache[s.teamId] || [];
+  if (s.playerId) {
+    const rp = _rc.find(x => x && x.id === s.playerId);
     if (rp && rp.photo) photo = rp.photo;
+  }
+  if (!photo && s.name) {
+    const _n = v => String(v||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+    const rp = _rc.find(x => x && _n(x.name) === _n(s.name) && x.photo);
+    if (rp) photo = rp.photo;
   }
   const avatar = photo
     ? `<div style="position:relative;width:38px;height:38px;flex-shrink:0">

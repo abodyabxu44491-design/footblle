@@ -188,6 +188,14 @@ window._scheduleNameRerender = function () {
         openTeamProfile(window._lastTeamProfileId);                                        // صفحة الفريق
       }
     } catch (e) {}
+    try {
+      // نافذة إحصائيات اللاعب المفتوحة → تُعاد بالاسم الحيّ (الهوية تُبقيها على نفس اللاعب)
+      const pm = document.getElementById('playerModalOverlay');
+      if (pm && pm.classList.contains('open') && window._lastPlayerModal && typeof openPlayerModal === 'function') {
+        const a = window._lastPlayerModal;
+        openPlayerModal(a.playerName, a.teamId, a.playerId);
+      }
+    } catch (e) {}
   }, 100);
 };
 
@@ -895,7 +903,10 @@ function _teamSubs(m, side) {
     const out = (ev.playerOut || ev.player || '').trim();
     const inn = (ev.playerIn  || ev.player2 || '').trim();
     if (!out && !inn) return; // تبديل فارغ — تجاهل
-    subs.push({ out, in: inn, min: mn });
+    // ✅ اسم حيّ من الكشف بالهوية (يتبع تعديل الاسم فوراً)، وإلا المخزّن
+    const outLive = (typeof _liveSubName === 'function') ? _liveSubName(ev, wantId, 'out') : out;
+    const inLive  = (typeof _liveSubName === 'function') ? _liveSubName(ev, wantId, 'in')  : inn;
+    subs.push({ out: outLive || out, in: inLive || inn, min: mn });
   });
   return subs;
 }
@@ -962,6 +973,8 @@ window._playerSilhouetteSVG = function() {
 //  PLAYER MODAL
 // ════════════════════════════════════════
 window.openPlayerModal = function(playerName, teamId, playerId) {
+  // ✅ خزّن آخر استدعاء كي يُعاد رسم النافذة بالاسم الحيّ عند تعديل الكشف
+  window._lastPlayerModal = { playerName, teamId, playerId };
   const SC = window.ScorersCore;
   const norm = n => SC ? SC.normName(n) : String(n || '').trim().toLowerCase();
   const data = buildScorersData();
@@ -1037,18 +1050,49 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
     const result = my > op ? 'فوز' : my < op ? 'خسارة' : 'تعادل';
     const rc = my > op ? 'var(--green)' : my < op ? 'var(--red)' : 'var(--gold)';
 
-    // هل شارك اللاعب في هذه المباراة؟ (من التشكيلة إن توفّرت)
+    // ── هل شارك اللاعب فعلاً في هذه المباراة؟ وكيف؟ ──
+    // 'start'  = أساسي     · 'sub'   = بديل نزل (مع دقيقة النزول)
+    // 'bench'  = على الدكة ولم ينزل (لا تُحتسب مباراة)  · null = لا علاقة له
     const _lu = isHomeTeam ? m.homeLineup : m.awayLineup;
+    let playStatus = null, subInMinute = null, subOutMinute = null;
+    const _plMatch = (pl) => player.playerId
+      ? (pl.id && pl.id === player.playerId)
+      : nameMatches(pl.name, player.name);
     if (_lu && Array.isArray(_lu.players)) {
-      const appeared = _lu.players.some(pl => player.playerId
-        ? (pl.id && pl.id === player.playerId)
-        : nameMatches(pl.name, player.name));
-      if (appeared) appearances++;
+      const inLineup = _lu.players.find(_plMatch);
+      if (inLineup) playStatus = inLineup.isSub ? 'bench' : 'start';
+    }
+    // فحص أحداث التبديل: من نزل بديلاً يُحتسب لاعباً، ونعرف دقيقته
+    const _subEvents = _matchEvents(m).filter(ev => ev && ev.type === 'sub');
+    _subEvents.forEach(ev => {
+      const evTeamId = ev.teamId || (_evSide(ev) === 'home' ? m.homeId : m.awayId);
+      if (evTeamId !== pTeamId) return;
+      // الداخل (player2 / playerIn)
+      const inName = ev.player2 || ev.playerIn || ev.in;
+      const inId   = ev.player2Id || ev.playerInId || null;
+      const outName= ev.player || ev.playerOut || ev.out;
+      const outId  = ev.playerId || ev.playerOutId || null;
+      const matchesIn  = player.playerId && inId  ? inId  === player.playerId : nameMatches(inName,  player.name);
+      const matchesOut = player.playerId && outId ? outId === player.playerId : nameMatches(outName, player.name);
+      if (matchesIn)  { playStatus = 'sub'; subInMinute = (ev.minute != null ? ev.minute : ev.min); }
+      if (matchesOut && playStatus == null) { /* خرج لكن لم نجده بالتشكيلة → كان أساسياً */ playStatus = 'start'; }
+      if (matchesOut) subOutMinute = (ev.minute != null ? ev.minute : ev.min);
+    });
+    // شبكة أمان: إن لم تتوفّر تشكيلة إطلاقاً لكن سجّل/أخذ كرت → اعتبره لعب (بيانات قديمة)
+    if (playStatus == null && (myGoals > 0 || myAssist > 0 || myYellow > 0 || myRed > 0)) {
+      playStatus = 'start';
     }
 
-    // اعرض المباراة إذا: سجّل فيها، أو صنع، أو أخذ كرت
-    if (myGoals > 0 || myAssist > 0 || myYellow > 0 || myRed > 0) {
-      playerMatches.push({ m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed });
+    const _played = (playStatus === 'start' || playStatus === 'sub');
+    if (_played) appearances++;
+    // البطاقات/الصناعات تُحتسب دائماً (وقعت فعلاً)؛ لكن «لعب مباراة» تشترط النزول
+    yellowCount += myYellow; redCount += myRed; assistCount += myAssist;
+
+    // اعرض المباراة إن لعبها فعلاً (أساسي/بديل نزل) — حتى لو لم يسجّل،
+    // أو إن كان له حدث مؤثّر (توافق مع بيانات قديمة بلا تشكيلة).
+    if (_played || myGoals > 0 || myAssist > 0 || myYellow > 0 || myRed > 0) {
+      playerMatches.push({ m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed,
+                           playStatus, subInMinute, subOutMinute });
     }
   });
 
@@ -1109,7 +1153,9 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
     }
   } catch (e) {}
   document.getElementById('pmGoals').textContent = player.goals;
-  const _matchesPlayed = appearances > 0 ? appearances : playerMatches.length;
+  // ✅ «مباريات لعبها» = المشاركات الفعلية فقط (أساسي أو بديل نزل).
+  //    من كان على الدكة ولم ينزل لا يُحتسب. رجوع آمن لطول القائمة للبيانات القديمة.
+  const _matchesPlayed = appearances > 0 ? appearances : playerMatches.filter(x => x.playStatus === 'start' || x.playStatus === 'sub' || x.myGoals || x.myAssist || x.myYellow || x.myRed).length;
   document.getElementById('pmMatches').textContent = _matchesPlayed;
   document.getElementById('pmAvg').textContent = _matchesPlayed ? (player.goals / _matchesPlayed).toFixed(1) : '0.0';
   // 👟 الصناعات — تظهر إذا فعّلها المنظّم أو إذا كان للاعب صناعات مسجّلة
@@ -1122,18 +1168,30 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
   if (!playerMatches.length) {
     listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t3);font-size:11px">لا توجد بيانات</div>';
   } else {
-    listEl.innerHTML = playerMatches.slice(0, 15).map(({m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed}) => `
+    listEl.innerHTML = playerMatches.slice(0, 15).map(({m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed, playStatus, subInMinute, subOutMinute}) => {
+      // شارة المشاركة: أساسي / بديل نزل بالدقيقة (كالتطبيقات الرسمية)
+      let roleBadge = '';
+      if (playStatus === 'sub') {
+        const _mn = (subInMinute != null && subInMinute !== '') ? `${subInMinute}'` : '';
+        roleBadge = `<span style="font-size:9px;font-weight:800;color:var(--green,#27ae60);background:rgba(39,174,96,.14);border-radius:4px;padding:1px 5px;display:inline-flex;align-items:center;gap:2px" title="نزل بديلاً">▲ ${_mn||'بديل'}</span>`;
+      } else if (playStatus === 'start') {
+        const _out = (subOutMinute != null && subOutMinute !== '') ? `<span style="font-size:9px;font-weight:800;color:#e5533d;background:rgba(229,83,61,.12);border-radius:4px;padding:1px 5px;margin-inline-start:3px" title="خرج">▼ ${subOutMinute}'</span>` : '';
+        roleBadge = `<span style="font-size:9px;font-weight:800;color:var(--t2);background:var(--s3);border-radius:4px;padding:1px 5px">أساسي</span>${_out}`;
+      }
+      return `
       <div class="pm-match-row">
         <div class="pm-match-result" style="color:${rc}">${result}</div>
         <div class="pm-match-vs">ضد ${opp.name} · جولة ${m.round||1}</div>
         <div style="font-size:11px;color:var(--t3)">${my}-${op}</div>
-        <div style="display:flex;gap:4px;align-items:center">
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          ${roleBadge}
           ${myGoals>0?`<span class="pm-goals-badge">${window.Icon?window.Icon('ball',11):'⚽'}×${myGoals}</span>`:''}
           ${myAssist>0?`<span class="pm-goals-badge" style="background:rgba(39,174,96,.15);color:var(--green,#27ae60)" title="صناعة">👟×${myAssist}</span>`:''}
           ${myYellow>0?`<span style="width:9px;height:12px;background:#E8B93B;border-radius:2px;display:inline-block" title="بطاقة صفراء"></span>`:''}
           ${myRed>0?`<span style="width:9px;height:12px;background:#C0392B;border-radius:2px;display:inline-block" title="بطاقة حمراء"></span>`:''}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
   document.getElementById('playerModalOverlay').classList.add('open');
 };
@@ -2455,32 +2513,43 @@ window.openTeamProfile = function(teamId) {
     ${topScorers.length?`
     <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:14px 16px;margin-bottom:6px">
       <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">هدافو الفريق</div>
-      ${topScorers.map(([name,goals,pid],i)=>`
-        <div onclick="closeTeamProfile();setTimeout(()=>openPlayerModal('${name.replace(/'/g,"\\'")}','${teamId}','${pid||''}'),300)" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--b1);cursor:pointer">
-          <div style="width:26px;height:26px;border-radius:7px;background:${i===0?'linear-gradient(135deg,#ffd700,#b8860b)':'var(--s3)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:${i===0?'#000':'var(--t3)'}">
-            ${i===0?'🥇':i+1}
-          </div>
-          <div style="flex:1;font-size:13px;font-weight:700;color:var(--t1)">${name}</div>
-          <div style="font-size:18px;font-weight:900;color:var(--gold);font-family:'Tajawal',sans-serif">${goals}</div>
-          <div style="font-size:10px;color:var(--t3)">هدف</div>
-        </div>`).join('')}
+      ${topScorers.map(([name,goals,pid],i)=>{
+        const _ph = (typeof _lineupPhoto==='function') ? _lineupPhoto({id:pid,name}, teamId) : '';
+        const _rank = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+        const _av = _ph
+          ? `<div style="position:relative;width:40px;height:40px;flex-shrink:0">
+               <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;background:var(--s3);border:2px solid ${i===0?'#e6c157':'var(--b2)'}"><img src="${_ph}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover"></div>
+               <span style="position:absolute;bottom:-3px;right:-3px;width:18px;height:18px;border-radius:50%;background:${i===0?'linear-gradient(135deg,#ffd700,#b8860b)':'var(--s2)'};border:1.5px solid var(--s1);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:${i===0?'#000':'var(--t2)'}">${i+1}</span>
+             </div>`
+          : `<div style="width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#1c2740,#0d1526);border:2px solid ${i===0?'#e6c157':'var(--b2)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:${i===0?'#e6c157':'var(--t3)'};flex-shrink:0">${_rank}</div>`;
+        return `
+        <div onclick="closeTeamProfile();setTimeout(()=>openPlayerModal('${name.replace(/'/g,"\\'")}','${teamId}','${pid||''}'),300)" style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--b1);cursor:pointer">
+          ${_av}
+          <div style="flex:1;min-width:0;font-size:13.5px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</div>
+          <div style="display:flex;align-items:baseline;gap:3px"><span style="font-size:19px;font-weight:900;color:var(--gold);font-family:'Tajawal',sans-serif">${goals}</span><span style="font-size:10px;color:var(--t3)">هدف</span></div>
+        </div>`;}).join('')}
     </div>`:'' }
     ${players.length?`
     <div style="background:var(--s1);padding:14px 16px;margin-bottom:6px">
       <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">قائمة اللاعبين</div>
       ${players.map(p=>{
         const _sn=(p.name||'').replace(/'/g,"\\'");
+        const _isGK = p.position==='GK';
+        const _ringC = _isGK ? '#8E44AD' : 'var(--b2)';
+        const _av = p.photo
+          ? `<div style="width:100%;height:100%;border-radius:50%;overflow:hidden"><img src="${p.photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover"></div>`
+          : `<div style="width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 50% 35%,#1c2740,#0d1526);display:flex;align-items:center;justify-content:center;color:${_isGK?'#CE9FFC':'var(--t3)'}">${window._playerSilhouetteSVG?`<span style="display:block;width:58%;height:58%">${window._playerSilhouetteSVG()}</span>`:(p.number||'—')}</div>`;
         return `
-        <div onclick="closeTeamProfile();setTimeout(()=>openPlayerModal('${_sn}','${teamId}','${p.id||''}'),300)" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--b1);cursor:pointer">
-          <div style="width:38px;height:38px;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--t2);flex-shrink:0">${
-            p.photo
-              ? `<img src="${p.photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
-              : (p.number||'—')}</div>
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:700;color:var(--t1)">${p.name||'لاعب'}${p.number?` <span style="font-size:10px;color:var(--t3);font-weight:600">#${p.number}</span>`:''}</div>
+        <div onclick="closeTeamProfile();setTimeout(()=>openPlayerModal('${_sn}','${teamId}','${p.id||''}'),300)" style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--b1);cursor:pointer">
+          <div style="position:relative;width:42px;height:42px;flex-shrink:0;border-radius:50%;border:2px solid ${_ringC};padding:1px">
+            ${_av}
+            ${p.number?`<span style="position:absolute;bottom:-3px;right:-3px;min-width:17px;height:17px;padding:0 3px;border-radius:999px;background:var(--s2);border:1.5px solid var(--s1);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:var(--t2)">${p.number}</span>`:''}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||'لاعب'}</div>
             <div style="font-size:10px;color:var(--t3);margin-top:1px">${({GK:'حارس مرمى',DEF:'مدافع',MID:'وسط',FWD:'مهاجم',SUB:'بديل'})[p.position]||p.position||''}</div>
           </div>
-          ${p.position==='GK'?'<span style="font-size:9px;background:rgba(142,68,173,.14);color:#8E44AD;border:1px solid rgba(142,68,173,.3);border-radius:5px;padding:2px 6px;font-weight:700">GK</span>':''}
+          ${_isGK?'<span style="font-size:9px;background:rgba(142,68,173,.14);color:#8E44AD;border:1px solid rgba(142,68,173,.3);border-radius:5px;padding:2px 6px;font-weight:700">GK</span>':''}
           ${p.status==='injured'?'<span style="font-size:9px;background:var(--lv-bg);color:var(--live);border:1px solid var(--lv-br);border-radius:5px;padding:2px 6px;font-weight:700">مصاب</span>':''}
           ${p.status==='suspended'?'<span style="font-size:9px;background:var(--g-bg);color:var(--gold);border:1px solid var(--g-br);border-radius:5px;padding:2px 6px;font-weight:700">موقوف</span>':''}
         </div>`;}).join('')}
@@ -4225,45 +4294,64 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
         const al = m.awayLineup || (d && d.awayLineup);
 
         // ══ SVG الملاعب — نفس DD_PITCH_SVGS في admin-lineup-dragdrop.js ══
+        // ══ ملعب احترافي بعمق واقعي (تدرّج عشب + خطوط جزّ + خطوط بيضاء نقية) ══
+        // defs مشتركة تُحقن مرة واحدة في كل SVG: تدرّج عشب رأسي + توهّج + قناع ظل داخلي
+        const _vpDefs = (nStripes) => {
+          // شرائح الجزّ المتناوبة (أفقية) — تعطي إحساس العمق كالبث التلفزيوني
+          let stripes = '';
+          const h = 94 / nStripes;
+          for (let i = 0; i < nStripes; i++) {
+            const op = i % 2 === 0 ? 0.00 : 0.07;
+            stripes += `<rect x="0" y="${(3 + i * h).toFixed(2)}%" width="100%" height="${h.toFixed(2)}%" fill="#ffffff" opacity="${op}"/>`;
+          }
+          return `<defs>
+            <linearGradient id="vpGrass" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#12401a"/>
+              <stop offset=".5" stop-color="#0e3517"/>
+              <stop offset="1" stop-color="#0a2b12"/>
+            </linearGradient>
+            <radialGradient id="vpGlow" cx="50%" cy="42%" r="70%">
+              <stop offset="0" stop-color="#1a5226" stop-opacity=".55"/>
+              <stop offset="1" stop-color="#0a2b12" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#vpGrass)"/>
+          <rect width="100%" height="100%" fill="url(#vpGlow)"/>
+          ${stripes}`;
+        };
+        const _vpLines = (opt) => {
+          // opt: { boxW, boxH, sixW, sixH, centerR, spot, arcs }  كلها نِسَب
+          const L = 'rgba(255,255,255,.42)';      // خطوط بيضاء نقية
+          const Lf = 'rgba(255,255,255,.30)';     // أخفت للتفاصيل
+          const sw = '0.5';
+          const bx = (100 - opt.boxW) / 2, sx = (100 - opt.sixW) / 2;
+          const spot = opt.spot;
+          const penTop = 3 + opt.boxH - (spot || 0);       // نقطة الجزاء العلوية
+          const penBot = 97 - opt.boxH + (spot || 0);
+          return `
+            <rect x="5%" y="3%" width="90%" height="94%" stroke="${L}" stroke-width="${sw}" fill="none" rx="1"/>
+            <line x1="5%" y1="50%" x2="95%" y2="50%" stroke="${L}" stroke-width="${sw}"/>
+            <circle cx="50%" cy="50%" r="${opt.centerR}%" stroke="${L}" stroke-width="${sw}" fill="none"/>
+            <circle cx="50%" cy="50%" r="0.9%" fill="${L}"/>
+            <!-- منطقة الجزاء العلوية -->
+            <rect x="${bx}%" y="3%" width="${opt.boxW}%" height="${opt.boxH}%" stroke="${L}" stroke-width="${sw}" fill="none"/>
+            <rect x="${sx}%" y="3%" width="${opt.sixW}%" height="${opt.sixH}%" stroke="${Lf}" stroke-width="${sw}" fill="none"/>
+            ${spot ? `<circle cx="50%" cy="${penTop}%" r="0.7%" fill="${L}"/>` : ''}
+            ${opt.arcs ? `<path d="M ${bx+ (opt.boxW*0.28)} ${3+opt.boxH} A ${opt.centerR} ${opt.centerR} 0 0 0 ${bx+(opt.boxW*0.72)} ${3+opt.boxH}" stroke="${Lf}" stroke-width="${sw}" fill="none" transform="scale(1)"/>` : ''}
+            <!-- منطقة الجزاء السفلية -->
+            <rect x="${bx}%" y="${97-opt.boxH}%" width="${opt.boxW}%" height="${opt.boxH}%" stroke="${L}" stroke-width="${sw}" fill="none"/>
+            <rect x="${sx}%" y="${97-opt.sixH}%" width="${opt.sixW}%" height="${opt.sixH}%" stroke="${Lf}" stroke-width="${sw}" fill="none"/>
+            ${spot ? `<circle cx="50%" cy="${penBot}%" r="0.7%" fill="${L}"/>` : ''}
+            <!-- زوايا الملعب -->
+            <path d="M5 5 A2 2 0 0 1 7 3" stroke="${Lf}" stroke-width="${sw}" fill="none"/>
+            <path d="M93 3 A2 2 0 0 1 95 5" stroke="${Lf}" stroke-width="${sw}" fill="none"/>
+            <path d="M5 95 A2 2 0 0 0 7 97" stroke="${Lf}" stroke-width="${sw}" fill="none"/>
+            <path d="M93 97 A2 2 0 0 0 95 95" stroke="${Lf}" stroke-width="${sw}" fill="none"/>`;
+        };
         const _VPitchSVG = {
-          futsal: `<rect width="100%" height="100%" fill="#0a1f0a"/>
-            <rect x="0" y="0" width="100%" height="32%" fill="#0c220c" opacity=".4"/>
-            <rect x="0" y="64%" width="100%" height="32%" fill="#0c220c" opacity=".4"/>
-            <rect x="5%" y="3%" width="90%" height="94%" stroke="rgba(255,255,255,.25)" stroke-width="1.5" fill="none" rx="3"/>
-            <line x1="5%" y1="50%" x2="95%" y2="50%" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
-            <circle cx="50%" cy="50%" r="12%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-            <circle cx="50%" cy="50%" r="1.2%" fill="rgba(255,255,255,.4)"/>
-            <rect x="26%" y="3%" width="48%" height="16%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-            <rect x="38%" y="3%" width="24%" height="7%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-            <rect x="26%" y="81%" width="48%" height="16%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-            <rect x="38%" y="90%" width="24%" height="7%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>`,
-          seven: `<rect width="100%" height="100%" fill="#0a1f0a"/>
-            <rect x="0" y="0" width="100%" height="25%" fill="#0c220c" opacity=".4"/>
-            <rect x="0" y="50%" width="100%" height="25%" fill="#0c220c" opacity=".4"/>
-            <rect x="5%" y="3%" width="90%" height="94%" stroke="rgba(255,255,255,.25)" stroke-width="1.5" fill="none" rx="2"/>
-            <line x1="5%" y1="50%" x2="95%" y2="50%" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
-            <circle cx="50%" cy="50%" r="13%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-            <circle cx="50%" cy="50%" r="1.2%" fill="rgba(255,255,255,.4)"/>
-            <rect x="20%" y="3%" width="60%" height="18%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-            <rect x="35%" y="3%" width="30%" height="8%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-            <rect x="20%" y="79%" width="60%" height="18%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-            <rect x="35%" y="89%" width="30%" height="8%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>`,
-          full: `<rect width="100%" height="100%" fill="#0a1f0a"/>
-            <rect x="0" y="0" width="100%" height="18%" fill="#0c220c" opacity=".4"/>
-            <rect x="0" y="36%" width="100%" height="18%" fill="#0c220c" opacity=".4"/>
-            <rect x="0" y="72%" width="100%" height="18%" fill="#0c220c" opacity=".4"/>
-            <rect x="5%" y="3%" width="90%" height="94%" stroke="rgba(255,255,255,.25)" stroke-width="1.5" fill="none" rx="2"/>
-            <line x1="5%" y1="50%" x2="95%" y2="50%" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
-            <circle cx="50%" cy="50%" r="14%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-            <circle cx="50%" cy="50%" r="1.2%" fill="rgba(255,255,255,.4)"/>
-            <rect x="22%" y="3%" width="56%" height="16%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-            <rect x="36%" y="3%" width="28%" height="7%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-            <rect x="22%" y="81%" width="56%" height="16%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-            <rect x="36%" y="90%" width="28%" height="7%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-            <circle cx="5%"  cy="3%"  r="1.5%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-            <circle cx="95%" cy="3%"  r="1.5%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-            <circle cx="5%"  cy="97%" r="1.5%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-            <circle cx="95%" cy="97%" r="1.5%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>`,
+          futsal: _vpDefs(8)  + _vpLines({ boxW:48, boxH:16, sixW:24, sixH:7,  centerR:12, spot:0,  arcs:false }),
+          seven:  _vpDefs(10) + _vpLines({ boxW:60, boxH:18, sixW:30, sixH:8,  centerR:13, spot:9,  arcs:false }),
+          full:   _vpDefs(12) + _vpLines({ boxW:56, boxH:16, sixW:28, sixH:7,  centerR:14, spot:9,  arcs:false }),
         };
 
         // ══ نفس منطق DD_CONFIGS — pitchType حسب عدد اللاعبين الأساسيين ══
@@ -4298,40 +4386,52 @@ function renderPitchViewer(lineup, isAway) {
           const bgClr    = isAway ? 'rgba(192,57,43,.18)'   : 'rgba(201,160,43,.15)';
           const txtClr   = isAway ? '#ff8080'               : '#C9A02B';
 
-          // نقاط اللاعبين
+          // ══ نقاط اللاعبين — تصميم احترافي (أفاتار بإطار متدرّج + شارة رقم + اسم زجاجي) ══
+          const _gkGrad = 'linear-gradient(145deg,#a86bd6,#7b3fb0)';
+          const _homeGrad = 'linear-gradient(145deg,#e6c157,#b8860b)';
+          const _awayGrad = 'linear-gradient(145deg,#e5645a,#a52a1e)';
           const dots = starters.map((p, i) => {
             const x   = p.x ?? 50;
             const y   = p.y ?? 50;
-            const isGK= i === 0;
+            const isGK= i === 0 || p.position === 'GK';
             const num = p.number || (i + 1);
-            const shortName = (p.name || '').split(' ').slice(-1)[0] || `${i+1}`;
-            const aBg  = isGK ? 'rgba(142,68,173,.22)' : bgClr;
-            const aBrd = isGK ? '#9B59B6'              : brdClr;
-            const aTxt = isGK ? '#CE9FFC'              : txtClr;
-            const cap  = lineup.captain && p.name && p.name === lineup.captain;
+            const teamIdForPhoto = isAway ? m.awayId : m.homeId;
+            // ✅ اسم حيّ من الكشف بالهوية (يتبع تعديل الاسم فوراً)، وإلا المخزّن
+            const _liveNm = (typeof _pName === 'function' && p.id) ? _pName(teamIdForPhoto, p.id, p.name) : (p.name || '');
+            const shortName = (_liveNm || '').split(' ').slice(-1)[0] || `${i+1}`;
+            const ringGrad = isGK ? _gkGrad : (isAway ? _awayGrad : _homeGrad);
+            const aTxt = isGK ? '#CE9FFC' : (isAway ? '#ff9a90' : '#e6c157');
+            const cap  = lineup.captain && p.name && (p.name === lineup.captain || (p.id && p.id === lineup.captainId));
             const side = isAway ? 'away' : 'home';
             const badges = window._playerMatchBadges ? window._playerMatchBadges(m.events, side, p.name, num) : '';
-            const teamIdForPhoto = isAway ? m.awayId : m.homeId;
             const _photo = (typeof _lineupPhoto === 'function') ? _lineupPhoto(p, teamIdForPhoto) : '';
-            const _silhouette = (window._playerSilhouetteSVG ? `<span style="display:block;width:60%;height:60%;color:${aTxt};opacity:.8">${window._playerSilhouetteSVG()}</span>` : '');
-            const avatarInner = _photo
-              ? `<img src="${_photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">
-                 <span style="position:absolute;bottom:-2px;right:-2px;background:${aBrd};color:#fff;font-size:8px;font-weight:900;border-radius:999px;min-width:13px;height:13px;display:flex;align-items:center;justify-content:center;padding:0 2px;border:1.5px solid #0a1f0a">${cap ? '©' : num}</span>`
-              : `<div style="width:100%;height:100%;border-radius:50%;background:${aBg};border:2px solid ${aBrd};display:flex;align-items:center;justify-content:center;color:${aTxt}">${_silhouette}</div>
-                 <span style="position:absolute;bottom:-2px;right:-2px;background:${aBrd};color:#fff;font-size:8px;font-weight:900;border-radius:999px;min-width:13px;height:13px;display:flex;align-items:center;justify-content:center;padding:0 2px;border:1.5px solid #0a1f0a">${cap ? '©' : num}</span>`;
-            const _safeNm = (p.name||'').replace(/'/g,"\\'");
+            const _silhouette = (window._playerSilhouetteSVG ? `<span style="display:block;width:64%;height:64%;color:${aTxt};opacity:.9">${window._playerSilhouetteSVG()}</span>` : num);
+            // القرص الداخلي: صورة أو ظلّ اللاعب داخل خلفية داكنة نظيفة
+            const inner = _photo
+              ? `<img src="${_photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+              : `<div style="width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 50% 35%,#1c2740,#0d1526);display:flex;align-items:center;justify-content:center">${_silhouette}</div>`;
+            const _safeNm = (_liveNm||'').replace(/'/g,"\\'");
             return `<div onclick="window.openPlayerModal && openPlayerModal('${_safeNm}','${teamIdForPhoto||''}','${p.id||''}')"
                 style="position:absolute;left:${x}%;top:${y}%;cursor:pointer;
                 transform:translate(-50%,-50%);display:flex;flex-direction:column;
-                align-items:center;gap:2px;z-index:5">
-              <div style="position:relative;width:30px;height:30px;box-shadow:0 2px 8px rgba(0,0,0,.6);border-radius:50%">
-                ${avatarInner}
+                align-items:center;gap:3px;z-index:5">
+              <div style="position:relative;width:38px;height:38px;border-radius:50%;
+                background:${ringGrad};padding:2px;
+                box-shadow:0 3px 10px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.3);">
+                <div style="width:100%;height:100%;border-radius:50%;overflow:hidden;background:#0d1526">${inner}</div>
+                <span style="position:absolute;-bottom:0;bottom:-3px;right:-3px;background:${ringGrad};color:#1a1200;
+                  font-size:9px;font-weight:900;border-radius:999px;min-width:16px;height:16px;
+                  display:flex;align-items:center;justify-content:center;padding:0 3px;
+                  border:2px solid #0a2b12;box-shadow:0 1px 3px rgba(0,0,0,.5)">${num}</span>
+                ${cap ? `<span style="position:absolute;top:-4px;left:-4px;background:#111;color:#e6c157;font-size:8px;font-weight:900;border-radius:999px;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #e6c157">C</span>` : ''}
                 ${badges}
               </div>
-              <div style="font-size:7px;font-weight:700;color:#fff;
-                background:rgba(0,0,0,.8);border-radius:3px;
-                padding:1px 5px;white-space:nowrap;max-width:50px;
-                overflow:hidden;text-overflow:ellipsis;text-align:center;">
+              <div style="font-size:8.5px;font-weight:800;color:#fff;letter-spacing:.2px;
+                background:linear-gradient(180deg,rgba(10,20,10,.82),rgba(10,20,10,.92));
+                border:1px solid rgba(255,255,255,.08);
+                border-radius:5px;padding:2px 7px;white-space:nowrap;max-width:66px;
+                overflow:hidden;text-overflow:ellipsis;text-align:center;
+                box-shadow:0 2px 5px rgba(0,0,0,.4)">
                 ${shortName}
               </div>
             </div>`;
@@ -4340,32 +4440,37 @@ function renderPitchViewer(lineup, isAway) {
           // البدلاء — تظهر فقط إذا فعّلها المنظّم (showBench)
           const _benchAllowed = lineup.showBench !== false;
           const _benchTeamId = isAway ? m.awayId : m.homeId;
+          const _benchRing = isAway ? 'linear-gradient(145deg,#e5645a,#a52a1e)' : 'linear-gradient(145deg,#e6c157,#b8860b)';
           const subsHtml = (_benchAllowed && subs.length) ? `
-            <div style="margin-top:10px;background:var(--s2);border:1px solid var(--b2);
-              border-radius:10px;padding:10px">
-              <div style="font-size:9px;font-weight:700;color:var(--t3);
-                letter-spacing:1px;margin-bottom:8px">BENCH · ${subs.length}</div>
+            <div style="margin-top:10px;background:linear-gradient(180deg,var(--s2),var(--s1));border:1px solid var(--b2);
+              border-radius:14px;padding:12px">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">
+                <span style="width:5px;height:14px;border-radius:3px;background:${isAway?'#C0392B':'var(--gold)'}"></span>
+                <span style="font-size:11px;font-weight:900;color:var(--t1);letter-spacing:.5px">مقاعد البدلاء</span>
+                <span style="background:${isAway?'rgba(192,57,43,.14)':'rgba(201,160,43,.14)'};color:${isAway?'#e5645a':'var(--gold)'};font-size:10px;font-weight:900;border-radius:999px;padding:1px 8px">${subs.length}</span>
+              </div>
               <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
               ${subs.map(p => {
+                const _bLiveNm = (typeof _pName === 'function' && p.id) ? _pName(_benchTeamId, p.id, p.name) : (p.name || '');
                 const _sBadges = window._playerMatchBadges ? window._playerMatchBadges(m.events, isAway?'away':'home', p.name, p.number) : '';
                 const _bPhoto = (typeof _lineupPhoto === 'function') ? _lineupPhoto(p, _benchTeamId) : '';
-                const _safeBNm = (p.name||'').replace(/'/g,"\\'");
+                const _safeBNm = (_bLiveNm||'').replace(/'/g,"\\'");
                 const _bAvatar = _bPhoto
                   ? `<img src="${_bPhoto}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-                  : `<div style="width:100%;height:100%;border-radius:50%;background:var(--s3);border:1px solid var(--b2);display:flex;align-items:center;justify-content:center;color:var(--t3)">${window._playerSilhouetteSVG ? `<span style="width:60%;height:60%">${window._playerSilhouetteSVG()}</span>` : (p.number||'—')}</div>`;
+                  : `<div style="width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 50% 35%,#1c2740,#0d1526);display:flex;align-items:center;justify-content:center;color:var(--t3)">${window._playerSilhouetteSVG ? `<span style="display:block;width:60%;height:60%">${window._playerSilhouetteSVG()}</span>` : (p.number||'—')}</div>`;
                 return `
                 <div onclick="window.openPlayerModal && openPlayerModal('${_safeBNm}','${_benchTeamId||''}','${p.id||''}')"
-                  style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
-                  background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:8px 4px;text-align:center">
-                  <div style="position:relative;width:38px;height:38px">
-                    ${_bAvatar}
-                    <span style="position:absolute;bottom:-2px;right:-2px;background:var(--s3);color:var(--t2);font-size:8px;font-weight:900;border-radius:999px;min-width:13px;height:13px;display:flex;align-items:center;justify-content:center;padding:0 2px;border:1.5px solid var(--s1)">${p.number||'—'}</span>
+                  style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;
+                  background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:10px 4px;text-align:center;transition:.15s">
+                  <div style="position:relative;width:44px;height:44px;border-radius:50%;background:${_benchRing};padding:2px;box-shadow:0 2px 6px rgba(0,0,0,.4)">
+                    <div style="width:100%;height:100%;border-radius:50%;overflow:hidden;background:#0d1526">${_bAvatar}</div>
+                    <span style="position:absolute;bottom:-2px;right:-2px;background:${_benchRing};color:#1a1200;font-size:8.5px;font-weight:900;border-radius:999px;min-width:15px;height:15px;display:flex;align-items:center;justify-content:center;padding:0 2px;border:1.5px solid var(--s2)">${p.number||'—'}</span>
                     ${_sBadges}
                   </div>
-                  <div style="font-size:10px;font-weight:700;color:var(--t2);width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||'—'}</div>
-                  ${p.status==='injured'   ? `<span style="font-size:8px;color:#C0392B;background:rgba(192,57,43,.1);border-radius:4px;padding:1px 5px">🤕</span>` : ''}
-                  ${p.status==='suspended' ? `<span style="font-size:8px;color:#C9A02B;background:rgba(201,160,43,.1);border-radius:4px;padding:1px 5px">🟨</span>` : ''}
-                  ${p.status==='absent'    ? `<span style="font-size:8px;color:#666;background:rgba(0,0,0,.2);border-radius:4px;padding:1px 5px">❌︎</span>` : ''}
+                  <div style="font-size:10.5px;font-weight:700;color:var(--t1);width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(_bLiveNm||'—').split(' ').slice(0,2).join(' ')}</div>
+                  ${p.status==='injured'   ? `<span style="font-size:8px;color:#C0392B;background:rgba(192,57,43,.1);border-radius:4px;padding:1px 5px">🤕 مصاب</span>` : ''}
+                  ${p.status==='suspended' ? `<span style="font-size:8px;color:#C9A02B;background:rgba(201,160,43,.1);border-radius:4px;padding:1px 5px">🟨 موقوف</span>` : ''}
+                  ${p.status==='absent'    ? `<span style="font-size:8px;color:#888;background:rgba(0,0,0,.2);border-radius:4px;padding:1px 5px">❌ غائب</span>` : ''}
                 </div>`;}).join('')}
               </div>
             </div>` : '';
@@ -4397,24 +4502,30 @@ function renderPitchViewer(lineup, isAway) {
             </div>` : '';
 
           return `
-            <div style="background:var(--s2);border:1px solid var(--b2);border-radius:12px;overflow:hidden">
+            <div style="background:var(--s2);border:1px solid var(--b2);border-radius:16px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.35)">
               <!-- شريط أعلى الملعب -->
               <div style="display:flex;align-items:center;justify-content:space-between;
-                padding:8px 12px;background:var(--s1);border-bottom:1px solid var(--b1)">
-                <div style="font-size:10px;color:var(--t3)">${_vpPitchLabel(n)}</div>
-                ${formation ? `<div style="font-size:11px;font-weight:900;
-                  color:${isAway?'#C0392B':'var(--gold)'};
-                  background:${isAway?'rgba(192,57,43,.1)':'rgba(201,160,43,.08)'};
-                  border:1px solid ${isAway?'rgba(192,57,43,.3)':'rgba(201,160,43,.25)'};
-                  border-radius:6px;padding:2px 10px">${formation}</div>` : ''}
+                padding:11px 14px;background:linear-gradient(180deg,var(--s1),var(--s2));border-bottom:1px solid var(--b1)">
+                <div style="display:flex;align-items:center;gap:7px">
+                  <span style="width:5px;height:15px;border-radius:3px;background:${isAway?'#C0392B':'var(--gold)'}"></span>
+                  <span style="font-size:11px;font-weight:800;color:var(--t2)">${_vpPitchLabel(n)}</span>
+                </div>
+                ${formation ? `<div style="font-size:12.5px;font-weight:900;letter-spacing:1px;
+                  color:${isAway?'#ff9a90':'#e6c157'};
+                  background:${isAway?'rgba(192,57,43,.14)':'rgba(201,160,43,.12)'};
+                  border:1px solid ${isAway?'rgba(192,57,43,.35)':'rgba(201,160,43,.3)'};
+                  border-radius:8px;padding:3px 12px">${formation}</div>` : ''}
               </div>
               <!-- الملعب -->
-              <div style="position:relative;width:100%;aspect-ratio:9/16;
-                max-height:380px;overflow:hidden">
+              <div style="position:relative;width:100%;aspect-ratio:9/15;
+                max-height:440px;overflow:hidden;background:#0a2b12">
                 <svg viewBox="0 0 100 100" preserveAspectRatio="none"
                   style="position:absolute;inset:0;width:100%;height:100%">
                   ${svg}
                 </svg>
+                <!-- إضاءة علوية ناعمة فوق الملعب -->
+                <div style="position:absolute;inset:0;pointer-events:none;
+                  background:radial-gradient(ellipse at 50% 0%,rgba(255,255,255,.06),transparent 60%)"></div>
                 ${dots}
               </div>
             </div>

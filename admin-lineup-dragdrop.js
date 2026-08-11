@@ -97,57 +97,48 @@ const DD_CONFIGS = {
   },
 };
 
-// ══ SVG الملاعب ══
+// ══ SVG الملاعب — عمق احترافي (تدرّج عشب + شرائح جزّ + خطوط بيضاء نقية) ══
+function _ddDefs(nStripes) {
+  let stripes = '';
+  const h = 94 / nStripes;
+  for (let i = 0; i < nStripes; i++) {
+    const op = i % 2 === 0 ? 0.00 : 0.07;
+    stripes += `<rect x="0" y="${(3 + i * h).toFixed(2)}%" width="100%" height="${h.toFixed(2)}%" fill="#ffffff" opacity="${op}"/>`;
+  }
+  return `<defs>
+    <linearGradient id="ddGrass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#12401a"/><stop offset=".5" stop-color="#0e3517"/><stop offset="1" stop-color="#0a2b12"/>
+    </linearGradient>
+    <radialGradient id="ddGlow" cx="50%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#1a5226" stop-opacity=".5"/><stop offset="1" stop-color="#0a2b12" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#ddGrass)"/>
+  <rect width="100%" height="100%" fill="url(#ddGlow)"/>
+  ${stripes}`;
+}
+function _ddLines(o) {
+  const L='rgba(255,255,255,.42)', Lf='rgba(255,255,255,.28)', sw='0.5';
+  const bx=(100-o.boxW)/2, sx=(100-o.sixW)/2;
+  return `
+    <rect x="5%" y="3%" width="90%" height="94%" stroke="${L}" stroke-width="${sw}" fill="none" rx="1"/>
+    <line x1="5%" y1="50%" x2="95%" y2="50%" stroke="${L}" stroke-width="${sw}"/>
+    <circle cx="50%" cy="50%" r="${o.centerR}%" stroke="${L}" stroke-width="${sw}" fill="none"/>
+    <circle cx="50%" cy="50%" r="0.9%" fill="${L}"/>
+    <rect x="${bx}%" y="3%" width="${o.boxW}%" height="${o.boxH}%" stroke="${L}" stroke-width="${sw}" fill="none"/>
+    <rect x="${sx}%" y="3%" width="${o.sixW}%" height="${o.sixH}%" stroke="${Lf}" stroke-width="${sw}" fill="none"/>
+    <rect x="${bx}%" y="${97-o.boxH}%" width="${o.boxW}%" height="${o.boxH}%" stroke="${L}" stroke-width="${sw}" fill="none"/>
+    <rect x="${sx}%" y="${97-o.sixH}%" width="${o.sixW}%" height="${o.sixH}%" stroke="${Lf}" stroke-width="${sw}" fill="none"/>
+    ${o.spot?`<circle cx="50%" cy="${3+o.boxH-o.spot}%" r="0.7%" fill="${L}"/><circle cx="50%" cy="${97-o.boxH+o.spot}%" r="0.7%" fill="${L}"/>`:''}
+    <path d="M5 5 A2 2 0 0 1 7 3" stroke="${Lf}" stroke-width="${sw}" fill="none"/>
+    <path d="M93 3 A2 2 0 0 1 95 5" stroke="${Lf}" stroke-width="${sw}" fill="none"/>
+    <path d="M5 95 A2 2 0 0 0 7 97" stroke="${Lf}" stroke-width="${sw}" fill="none"/>
+    <path d="M93 97 A2 2 0 0 0 95 95" stroke="${Lf}" stroke-width="${sw}" fill="none"/>`;
+}
 const DD_PITCH_SVGS = {
-  futsal: `
-    <rect width="100%" height="100%" fill="#0a1f0a"/>
-    <rect x="0" y="0" width="100%" height="32%" fill="#0c220c" opacity=".4"/>
-    <rect x="0" y="64%" width="100%" height="32%" fill="#0c220c" opacity=".4"/>
-    <rect x="5%" y="3%" width="90%" height="94%" stroke="rgba(255,255,255,.25)" stroke-width="1.5" fill="none" rx="3"/>
-    <line x1="5%" y1="50%" x2="95%" y2="50%" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
-    <circle cx="50%" cy="50%" r="12%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-    <circle cx="50%" cy="50%" r="1%" fill="rgba(255,255,255,.4)"/>
-    <rect x="26%" y="3%" width="48%" height="16%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-    <rect x="38%" y="3%" width="24%" height="7%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-    <rect x="26%" y="81%" width="48%" height="16%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-    <rect x="38%" y="90%" width="24%" height="7%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-    <circle cx="50%" cy="13%" r="1%" fill="rgba(255,255,255,.3)"/>
-    <circle cx="50%" cy="87%" r="1%" fill="rgba(255,255,255,.3)"/>`,
-  seven: `
-    <rect width="100%" height="100%" fill="#0a1f0a"/>
-    <rect x="0" y="0" width="100%" height="25%" fill="#0c220c" opacity=".4"/>
-    <rect x="0" y="50%" width="100%" height="25%" fill="#0c220c" opacity=".4"/>
-    <rect x="5%" y="3%" width="90%" height="94%" stroke="rgba(255,255,255,.25)" stroke-width="1.5" fill="none" rx="2"/>
-    <line x1="5%" y1="50%" x2="95%" y2="50%" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
-    <circle cx="50%" cy="50%" r="13%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-    <circle cx="50%" cy="50%" r="1%" fill="rgba(255,255,255,.4)"/>
-    <rect x="20%" y="3%" width="60%" height="18%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-    <rect x="35%" y="3%" width="30%" height="8%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-    <rect x="20%" y="79%" width="60%" height="18%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-    <rect x="35%" y="89%" width="30%" height="8%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-    <circle cx="50%" cy="16%" r="1%" fill="rgba(255,255,255,.3)"/>
-    <circle cx="50%" cy="84%" r="1%" fill="rgba(255,255,255,.3)"/>`,
-  full: `
-    <rect width="100%" height="100%" fill="#0a1f0a"/>
-    <rect x="0" y="0"   width="100%" height="18%" fill="#0c220c" opacity=".4"/>
-    <rect x="0" y="36%" width="100%" height="18%" fill="#0c220c" opacity=".4"/>
-    <rect x="0" y="72%" width="100%" height="18%" fill="#0c220c" opacity=".4"/>
-    <rect x="5%" y="3%" width="90%" height="94%" stroke="rgba(255,255,255,.25)" stroke-width="1.5" fill="none" rx="2"/>
-    <line x1="5%" y1="50%" x2="95%" y2="50%" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
-    <circle cx="50%" cy="50%" r="14%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-    <circle cx="50%" cy="50%" r="1%" fill="rgba(255,255,255,.4)"/>
-    <rect x="22%" y="3%" width="56%" height="16%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-    <rect x="36%" y="3%" width="28%" height="7%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-    <path d="M33% 19% Q50% 26% 67% 19%" stroke="rgba(255,255,255,.08)" stroke-width="1" fill="none"/>
-    <rect x="22%" y="81%" width="56%" height="16%" stroke="rgba(255,255,255,.15)" stroke-width="1" fill="none"/>
-    <rect x="36%" y="90%" width="28%" height="7%" stroke="rgba(255,255,255,.1)" stroke-width="1" fill="none"/>
-    <path d="M33% 81% Q50% 74% 67% 81%" stroke="rgba(255,255,255,.08)" stroke-width="1" fill="none"/>
-    <circle cx="50%" cy="14%" r="1%" fill="rgba(255,255,255,.3)"/>
-    <circle cx="50%" cy="86%" r="1%" fill="rgba(255,255,255,.3)"/>
-    <circle cx="5%"  cy="3%"  r="1.5%" stroke="rgba(255,255,255,.12)" stroke-width="1" fill="none"/>
-    <circle cx="95%" cy="3%"  r="1.5%" stroke="rgba(255,255,255,.12)" stroke-width="1" fill="none"/>
-    <circle cx="5%"  cy="97%" r="1.5%" stroke="rgba(255,255,255,.12)" stroke-width="1" fill="none"/>
-    <circle cx="95%" cy="97%" r="1.5%" stroke="rgba(255,255,255,.12)" stroke-width="1" fill="none"/>`,
+  futsal: _ddDefs(8)  + _ddLines({ boxW:48, boxH:16, sixW:24, sixH:7, centerR:12, spot:0 }),
+  seven:  _ddDefs(10) + _ddLines({ boxW:60, boxH:18, sixW:30, sixH:8, centerR:13, spot:9 }),
+  full:   _ddDefs(12) + _ddLines({ boxW:56, boxH:16, sixW:28, sixH:7, centerR:14, spot:9 }),
 };
 
 // ══ CSS ══
@@ -216,12 +207,14 @@ const DD_PITCH_SVGS = {
     .dd-pitch {
       position:relative;
       width:100%;
-      aspect-ratio:9/16;
-      max-height:480px;
-      border-radius:10px;
+      aspect-ratio:9/15;
+      max-height:520px;
+      border-radius:14px;
       overflow:hidden;
       touch-action:none;
       user-select:none;
+      background:#0a2b12;
+      box-shadow:0 8px 28px rgba(0,0,0,.4),inset 0 0 60px rgba(0,0,0,.25);
     }
     .dd-pitch svg { position:absolute;inset:0;width:100%;height:100% }
 
@@ -239,39 +232,53 @@ const DD_PITCH_SVGS = {
       z-index:20;
       
     }
-    .dd-player-dot.dragging .dd-avatar {
-      transform:scale(1.2);
-      border-color:#C9A02B;
-    }
     .dd-avatar {
-      width:38px;height:38px;border-radius:50%;
-      background:rgba(201,160,43,.15);
-      border:2px solid #C9A02B;
+      position:relative;
+      width:42px;height:42px;border-radius:50%;
+      background:linear-gradient(145deg,#e6c157,#b8860b);
+      padding:2px;
       display:flex;align-items:center;justify-content:center;
-      font-size:13px;font-weight:900;color:#C9A02B;
+      font-size:14px;font-weight:900;color:#1a1200;
       font-family:Tajawal,sans-serif;line-height:1;
-      transition:transform .15s, border-color .15s;
+      box-shadow:0 3px 9px rgba(0,0,0,.5);
+      transition:transform .15s;
     }
-    .dd-avatar.gk {
-      background:rgba(142,68,173,.15);
-      border-color:#8E44AD;color:#8E44AD;
+    .dd-avatar::before{
+      content:'';position:absolute;inset:2px;border-radius:50%;
+      background:radial-gradient(circle at 50% 35%,#1c2740,#0d1526);z-index:0;
     }
-    .dd-avatar.away {
-      background:rgba(192,57,43,.15);
-      border-color:#C0392B;color:#C0392B;
+    .dd-avatar > *{position:relative;z-index:1}
+    .dd-avatar.has-photo::before{inset:2px}
+    .dd-av-sil{width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#e6c157}
+    .dd-avatar.gk{ background:linear-gradient(145deg,#a86bd6,#7b3fb0) }
+    .dd-avatar.gk .dd-av-sil{ color:#CE9FFC }
+    .dd-avatar.away{ background:linear-gradient(145deg,#e5645a,#a52a1e) }
+    .dd-avatar.away .dd-av-sil{ color:#ff9a90 }
+    .dd-av-num{
+      position:absolute;bottom:-3px;right:-3px;z-index:2;
+      background:linear-gradient(145deg,#e6c157,#b8860b);color:#1a1200;
+      font-size:9px;font-weight:900;border-radius:999px;
+      min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;
+      padding:0 3px;border:2px solid #0a2b12;box-shadow:0 1px 3px rgba(0,0,0,.5);
     }
+    .dd-avatar.gk .dd-av-num{ background:linear-gradient(145deg,#a86bd6,#7b3fb0);color:#fff }
+    .dd-avatar.away .dd-av-num{ background:linear-gradient(145deg,#e5645a,#a52a1e);color:#fff }
     .dd-name-tag {
-      font-size:8px;font-weight:700;color:#fff;
-      background:rgba(0,0,0,.8);border-radius:4px;
-      padding:2px 5px;white-space:nowrap;
-      max-width:60px;overflow:hidden;text-overflow:ellipsis;
+      font-size:9px;font-weight:800;color:#fff;
+      background:linear-gradient(180deg,rgba(10,20,10,.82),rgba(10,20,10,.92));
+      border:1px solid rgba(255,255,255,.08);border-radius:5px;
+      padding:2px 7px;white-space:nowrap;
+      max-width:66px;overflow:hidden;text-overflow:ellipsis;
       text-align:center;pointer-events:none;
+      box-shadow:0 2px 5px rgba(0,0,0,.4);
     }
     .dd-empty-dot .dd-avatar {
-      background:rgba(255,255,255,.04);
-      border:2px dashed #262a34;
-      color:#3a3f50;
+      background:rgba(255,255,255,.06);
+      padding:0;border:2px dashed #3a4050;
+      color:#5a6070;box-shadow:none;
     }
+    .dd-empty-dot .dd-avatar::before{ display:none }
+    .dd-player-dot.dragging .dd-avatar{ transform:scale(1.15) }
 
     /* قائمة اللاعبين */
     .dd-list-wrap {
@@ -578,6 +585,17 @@ function ddRenderPitchPlayers() {
   const starters = allStarters.slice(0, targetCount);
   const isAway = _ddSide === 'away';
 
+  // كشف الفريق الحالي لجلب صور اللاعبين (بالهوية أو بالاسم)
+  const _roster = _ddSide === 'home' ? (_ddRosterHome || []) : (_ddRosterAway || []);
+  const _norm = s => String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
+  const _photoOf = (p) => {
+    if (!_roster.length) return '';
+    if (p.id) { const h = _roster.find(x => x && x.id === p.id); if (h && h.photo) return h.photo; }
+    if (p.name) { const n = _norm(p.name); const h = _roster.find(x => x && _norm(x.name) === n && x.photo); if (h) return h.photo; }
+    return '';
+  };
+  const _sil = `<svg viewBox="0 0 24 24" width="62%" height="62%" fill="currentColor" style="opacity:.85"><circle cx="12" cy="8" r="4"></circle><path d="M12 14c-4.4 0-8 2.6-8 5.8V22h16v-2.2C20 16.6 16.4 14 12 14z"></path></svg>`;
+
   container.innerHTML = starters.map((p, i) => {
     const x = p.x ?? 50;
     const y = p.y ?? 50;
@@ -585,13 +603,18 @@ function ddRenderPitchPlayers() {
     const num = p.number || (i + 1);
     const name = (p.name || '').split(' ').slice(-1)[0] || `لاعب ${i+1}`;
     const isEmpty = !p.name;
+    const photo = isEmpty ? '' : _photoOf(p);
+    const inner = photo
+      ? `<img src="${photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;pointer-events:none">`
+      : (isEmpty ? num : `<div class="dd-av-sil">${_sil}</div>`);
 
     return `<div class="dd-player-dot ${isEmpty ? 'dd-empty-dot' : ''}"
       id="ddDot-${i}"
       data-idx="${i}"
       style="left:${x}%;top:${y}%">
-      <div class="dd-avatar ${isGK ? 'gk' : ''} ${isAway ? 'away' : ''}">
-        ${num}
+      <div class="dd-avatar ${isGK ? 'gk' : ''} ${isAway ? 'away' : ''} ${photo?'has-photo':''}">
+        ${inner}
+        ${isEmpty ? '' : `<span class="dd-av-num">${num}</span>`}
       </div>
       <div class="dd-name-tag">${isEmpty ? '؟' : name}</div>
     </div>`;

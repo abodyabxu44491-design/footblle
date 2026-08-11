@@ -489,6 +489,14 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .pm-team{font-size:11px;color:var(--t3);margin-top:1px}
 .pm-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
 .pm-stat{flex:1 1 0;min-width:70px;background:var(--s3);border-radius:9px;padding:9px 5px;text-align:center}
+/* التفاصيل الاختيارية — بطاقات مرتّبة */
+.pm-details-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:0 0 14px}
+.pm-detail{display:flex;align-items:center;gap:9px;background:var(--s2,#151515);border:1px solid var(--b1);border-radius:11px;padding:9px 11px}
+.pm-detail-ic{font-size:17px;flex-shrink:0;width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:var(--s3);border-radius:8px;color:var(--gold)}
+.pm-detail-ic svg{width:17px;height:17px}
+.pm-detail-txt{min-width:0}
+.pm-detail-lbl{font-size:9.5px;color:var(--t3);font-weight:700;margin-bottom:1px}
+.pm-detail-val{font-size:13px;color:var(--t1);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pm-stat-val{font-size:20px;font-weight:900;color:var(--gold);font-family:'Tajawal',sans-serif;line-height:1}
 .pm-stat-lbl{font-size:9px;color:var(--t3);margin-top:2px}
 .pm-section-title{font-size:10px;font-weight:700;color:var(--t3);margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--b1)}
@@ -514,11 +522,13 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* الملعب — تحسينات كبيرة */
 .pitch{
-  background:#04130a;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 44px, transparent 44px 88px),
+    linear-gradient(160deg, #0d3d1e 0%, #0a3319 45%, #072712 100%);
   position:relative;overflow:hidden;
-  aspect-ratio:9/16;max-height:500px;margin:0 auto;
+  aspect-ratio:9/16;max-height:520px;margin:0 auto;
   border-bottom:1px solid var(--b1);
-  
+  box-shadow:inset 0 0 60px rgba(0,0,0,.35);
 }
 /* خطوط عشب بديلة */
 .pitch-stripes{
@@ -540,17 +550,29 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* أفاتار اللاعب — تحسين بصري */
 .player-avatar{
-  width:36px;height:36px;border-radius:50%;
+  width:40px;height:40px;border-radius:50%;
   background:rgba(201,160,43,.18);
   border:2.5px solid var(--gold);
-  
   display:flex;align-items:center;justify-content:center;
-  font-size:12px;font-weight:900;color:var(--gold);
+  font-size:13px;font-weight:900;color:var(--gold);
   font-family:'Tajawal',sans-serif;line-height:1;
   transition:all .15s;
+  box-shadow:0 3px 8px rgba(0,0,0,.35);
 }
 /* صورة اللاعب على أرضية الملعب: تملأ الدائرة + شارة رقم صغيرة */
 .player-avatar.has-photo{ padding:0; overflow:visible; background:var(--s3); }
+/* ظلّ اللاعب بدل الصورة — دائرة نظيفة كالتطبيقات */
+.player-avatar.has-silhouette{ padding:0; overflow:visible; background:linear-gradient(160deg,#2a2a2e,#1a1a1d); }
+.player-silhouette{ position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center; overflow:hidden; border-radius:50%; color:rgba(255,255,255,.32); }
+.player-silhouette svg{ width:82%; height:82%; margin-bottom:-1px; }
+.player-avatar.has-silhouette{ box-shadow:0 3px 8px rgba(0,0,0,.35); }
+.player-avatar.away.has-silhouette{ border-color:#C0392B; }
+.player-avatar.gk.has-silhouette{ border-color:#9B59B6; }
+/* ظلّ البديل */
+.bench-silhouette{ position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center; overflow:hidden; border-radius:50%; color:rgba(255,255,255,.3); }
+.bench-silhouette svg{ width:80%; height:80%; margin-bottom:-1px; }
+.bench-av{ position:relative; }
+.bench-av .bench-num{ position:absolute; bottom:-3px; right:-3px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--gold); color:#000; font-size:9px; font-weight:900; display:flex; align-items:center; justify-content:center; border:1.5px solid var(--s2,#151515); line-height:1; }
 .player-avatar.has-photo > img{ box-shadow:0 0 0 2.5px var(--gold); }
 .player-avatar.away.has-photo > img{ box-shadow:0 0 0 2.5px #C0392B; }
 .player-avatar.gk.has-photo > img{ box-shadow:0 0 0 2.5px #9B59B6; }
@@ -575,12 +597,13 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* اسم اللاعب تاغ */
 .player-name-tag{
-  font-size:8.5px;font-weight:700;color:#fff;
-  background:rgba(0,0,0,.78);
-  border-radius:5px;padding:2px 5px;
-  white-space:nowrap;max-width:58px;overflow:hidden;text-overflow:ellipsis;
+  font-size:9px;font-weight:800;color:#fff;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(2px);
+  border-radius:6px;padding:2px 6px;
+  white-space:nowrap;max-width:70px;overflow:hidden;text-overflow:ellipsis;
   text-align:center;
-  border:1px solid rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 1px 3px rgba(0,0,0,.3);
 }
 
 /* قائمة اللاعبين */
@@ -670,6 +693,21 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .sub-ico.in{color:#27ae60}
 .sub-ico.out{color:#e5533d}
 .sub-av{flex:0 0 auto;width:22px;height:22px;border-radius:50%;overflow:hidden;background:var(--s3);display:inline-flex}
+
+/* ── مقاعد البدلاء: شبكة 3 في الصف، محاذاة واضحة ── */
+.bench-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:2px}
+.bench-card{background:var(--s2,#151515);border:1px solid var(--b1);border-radius:13px;padding:11px 6px 9px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;transition:transform .12s,border-color .12s,background .12s}
+.bench-card:active{transform:scale(.96)}
+.bench-card:hover{border-color:var(--gold);background:var(--s3)}
+.bench-av{width:48px;height:48px;border-radius:50%;overflow:hidden;background:var(--s3);border:2px solid var(--b2);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.bench-av img{width:100%;height:100%;object-fit:cover}
+.bench-num{font-size:16px;font-weight:900;color:var(--t2);font-family:'Tajawal',sans-serif}
+.bench-nm{font-size:11.5px;font-weight:700;color:var(--t1);text-align:center;line-height:1.25;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.bench-no{font-size:9.5px;color:var(--t3);font-weight:700}
+.lp-count{display:inline-block;min-width:18px;padding:0 5px;height:18px;line-height:18px;text-align:center;background:var(--s3);border-radius:9px;font-size:10px;color:var(--t3);font-weight:800;margin-inline-start:6px}
+.lineup-player-row{cursor:pointer;transition:background .12s}
+.lineup-player-row:active{background:var(--s3)}
+.lineup-player-row:hover{background:var(--s2,#151515)}
 
 
 /* EMPTY */

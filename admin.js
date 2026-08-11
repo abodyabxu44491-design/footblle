@@ -11174,6 +11174,15 @@ window.openRosterModal = async function(teamId) {
             إضافة
           </button>
         </div>
+        <!-- استيراد من ملف (قالب من الإعدادات) -->
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input type="file" id="rosterImportFile-${teamId}" accept=".xlsx,.csv" style="display:none"
+            onchange="importRosterFile('${teamId}', this)">
+          <button onclick="document.getElementById('rosterImportFile-${teamId}').click()"
+            style="flex:1;padding:8px 10px;background:rgba(39,174,96,.12);color:#38d47f;
+                   border:1px solid rgba(39,174,96,.35);border-radius:8px;font-family:Tajawal,sans-serif;
+                   font-size:12px;font-weight:700;cursor:pointer">📥 استيراد لاعبين من ملف (Excel/CSV)</button>
+        </div>
       </div>
 
       <!-- Players List -->
@@ -11458,6 +11467,187 @@ window.addRosterPlayer = async function(teamId) {
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
+// يفصل الرقم عن الاسم من سطر واحد
+window._parsePlayerLine = function(line) {
+  let s = String(line || '').trim();
+  if (!s) return null;
+  // أزل كلمات المركز بين قوسين أولاً: «سلطان (حارس)»
+  s = s.replace(/\((?:\s*(?:حارس|مدافع|وسط|مهاجم|بديل)\s*)\)/g, ' ');
+  // ثم أزل الفواصل الشائعة بين الرقم والاسم
+  s = s.replace(/[،,\-\.\)\(]/g, ' ').replace(/\s+/g, ' ').trim();
+  let number = null, name = s;
+  let m = s.match(/^(\d{1,2})\s+(.+)$/);
+  if (m) { number = parseInt(m[1]); name = m[2].trim(); }
+  else {
+    m = s.match(/^(.+?)\s+(\d{1,2})$/);
+    if (m) { name = m[1].trim(); number = parseInt(m[2]); }
+  }
+  name = name.replace(/\b(?:حارس|مدافع|وسط|مهاجم|بديل)\b/g, '').trim();
+  if (!name) return null;
+  return { name, number: (number && number >= 1 && number <= 99) ? number : null };
+};
+
+// ══════════════════════════════════════════════════════════════
+//  📄 قالب اللاعبين + الاستيراد من ملف (Excel / CSV)
+// ══════════════════════════════════════════════════════════════
+// أعمدة القالب (بالعربي) وربطها بحقول اللاعب
+const ROSTER_TEMPLATE_COLS = [
+  { key:'number',      hdr:'الرقم' },
+  { key:'name',        hdr:'الاسم' },
+  { key:'position',    hdr:'المركز' },
+  { key:'status',      hdr:'الحالة' },
+  { key:'age',         hdr:'العمر' },
+  { key:'nationality', hdr:'الجنسية' },
+  { key:'height',      hdr:'الطول' },
+  { key:'foot',        hdr:'القدم المفضلة' },
+];
+
+// ينشئ ويُنزّل القالب (فارغاً) بصيغة xlsx أو csv
+window.downloadRosterTemplate = function(fmt) {
+  const headers = ROSTER_TEMPLATE_COLS.map(c => c.hdr);
+  // صفّان مثال (توضيحيان) ليعرف المستخدم الشكل — يحذفهما ويكتب لاعبيه
+  const example = [
+    { الرقم:10, الاسم:'محمد العلي', المركز:'مهاجم', الحالة:'أساسي', العمر:24, الجنسية:'سعودي', الطول:180, 'القدم المفضلة':'يمنى' },
+    { الرقم:1,  الاسم:'سالم الحارس', المركز:'حارس', الحالة:'أساسي', العمر:28, الجنسية:'سعودي', الطول:188, 'القدم المفضلة':'يمنى' },
+  ];
+  try {
+    if (fmt === 'csv') {
+      // CSV بترميز UTF-8 مع BOM ليفتح عربي صحيح في Excel
+      const rows = [headers.join(',')].concat(
+        example.map(r => headers.map(h => `"${String(r[h] ?? '').replace(/"/g,'""')}"`).join(','))
+      );
+      const blob = new Blob(['\uFEFF' + rows.join('\r\n')], { type:'text/csv;charset=utf-8' });
+      _downloadBlob(blob, 'قالب_اللاعبين.csv');
+    } else {
+      if (typeof XLSX === 'undefined') { showToast('مكتبة Excel لم تُحمّل — جرّب CSV', 'error'); return; }
+      const ws = XLSX.utils.json_to_sheet(example, { header: headers });
+      ws['!cols'] = headers.map(() => ({ wch: 14 }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'اللاعبون');
+      XLSX.writeFile(wb, 'قالب_اللاعبين.xlsx');
+    }
+    showToast('✅︎ تم إنشاء القالب — املأه ثم استورده', 'success');
+  } catch (e) { showToast('تعذّر إنشاء القالب: ' + (e.message||e), 'error'); }
+};
+
+function _downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 100);
+}
+
+// يحوّل قيمة المركز/الحالة العربية إلى المفتاح الداخلي
+function _mapPosition(v) {
+  const s = String(v||'').trim();
+  const map = { 'حارس':'GK','حارس مرمى':'GK','مدافع':'DEF','دفاع':'DEF','وسط':'MID','خط الوسط':'MID','لاعب وسط':'MID','مهاجم':'FWD','هجوم':'FWD' };
+  if (map[s]) return map[s];
+  // لو أدخل المفتاح مباشرة (GK/DEF/MID/FWD)
+  if (['GK','DEF','MID','FWD'].includes(s.toUpperCase())) return s.toUpperCase();
+  return '';
+}
+function _mapStatus(v) {
+  const s = String(v||'').trim();
+  const map = { 'أساسي':'active','اساسي':'active','نشط':'active','بديل':'sub','احتياط':'sub','مصاب':'injured','موقوف':'suspended' };
+  return map[s] || 'active';
+}
+
+// يقرأ الملف (xlsx/csv) ويستورد اللاعبين
+window.importRosterFile = async function(teamId, input) {
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  const isCsv = /\.csv$/i.test(file.name);
+  showToast('⏳ جارِ قراءة الملف...', 'success');
+  try {
+    let rows = [];
+    if (isCsv) {
+      const text = await file.text();
+      rows = _parseCsvRows(text);
+    } else {
+      if (typeof XLSX === 'undefined') { showToast('مكتبة Excel لم تُحمّل — استخدم CSV', 'error'); input.value=''; return; }
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type:'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+    }
+    if (!rows.length) { showToast('الملف فارغ', 'error'); input.value=''; return; }
+
+    // حوّل كل صف إلى كائن لاعب (نطابق العناوين العربية)
+    const hdrKey = {}; ROSTER_TEMPLATE_COLS.forEach(c => hdrKey[c.hdr] = c.key);
+    const players = [];
+    for (const r of rows) {
+      const obj = {};
+      for (const hdr in r) {
+        const k = hdrKey[String(hdr).trim()];
+        if (k) obj[k] = r[hdr];
+      }
+      const name = String(obj.name||'').trim();
+      if (!name) continue; // تخطَّ الصفوف بلا اسم (مثل صف المثال إن حُذف اسمه)
+      players.push({
+        name,
+        number: parseInt(obj.number) || null,
+        position: _mapPosition(obj.position),
+        status: _mapStatus(obj.status),
+        age: parseInt(obj.age) || null,
+        nationality: String(obj.nationality||'').trim(),
+        height: parseInt(obj.height) || null,
+        foot: String(obj.foot||'').trim(),
+      });
+    }
+    if (!players.length) { showToast('لم أجد لاعبين في الملف', 'error'); input.value=''; return; }
+
+    // استورد على دفعات، متخطّياً المكرّر بالاسم
+    const existing = (rosterCache[teamId] || []).map(p => (p.name||'').trim().toLowerCase());
+    let batch = writeBatch(db), pending = 0, added = 0, skipped = 0;
+    for (const p of players) {
+      if (existing.includes(p.name.toLowerCase())) { skipped++; continue; }
+      const ref = doc(collection(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster'));
+      batch.set(ref, { ...p, createdAt: serverTimestamp() });
+      existing.push(p.name.toLowerCase());
+      pending++; added++;
+      if (pending >= 400) { await batch.commit(); batch = writeBatch(db); pending = 0; }
+    }
+    if (pending) await batch.commit();
+    showToast(`✅︎ استُورد ${added} لاعب${skipped ? ` (تُخطّي ${skipped} مكرّر)` : ''}`, 'success');
+  } catch (e) {
+    showToast('تعذّر استيراد الملف: ' + (e.message||e), 'error');
+  } finally {
+    if (input) input.value = '';
+  }
+};
+
+// مُحلّل CSV بسيط يدعم علامات الاقتباس والفواصل داخل الحقول
+function _parseCsvRows(text) {
+  text = text.replace(/^\uFEFF/, ''); // أزل BOM
+  const lines = [];
+  let row = [], cell = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i], nx = text[i+1];
+    if (inQ) {
+      if (ch === '"' && nx === '"') { cell += '"'; i++; }
+      else if (ch === '"') inQ = false;
+      else cell += ch;
+    } else {
+      if (ch === '"') inQ = true;
+      else if (ch === ',') { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && nx === '\n') i++;
+        row.push(cell); cell = '';
+        if (row.some(c => c.trim() !== '')) lines.push(row);
+        row = [];
+      } else cell += ch;
+    }
+  }
+  if (cell !== '' || row.length) { row.push(cell); if (row.some(c => c.trim() !== '')) lines.push(row); }
+  if (!lines.length) return [];
+  const headers = lines[0].map(h => h.trim());
+  return lines.slice(1).map(cols => {
+    const o = {}; headers.forEach((h, idx) => o[h] = (cols[idx] ?? '').trim()); return o;
+  });
+}
+
+
 // ── حذف لاعب ──
 window.deleteRosterPlayer = async function(teamId, playerId, playerName) {
   if (!(await window.confirmDialog({ title: '⚠️ تأكيد', message: `حذف اللاعب "${playerName}"؟`, confirmText: '🗑 نعم، احذف', danger: true }))) return;
@@ -11549,6 +11739,28 @@ window.editRosterPlayer = function(teamId, playerId) {
         إلغاء
       </button>
     </div>
+    <!-- تفاصيل اختيارية (تظهر عند الضغط) -->
+    <div style="width:100%;margin-top:8px">
+      <button type="button" onclick="const d=document.getElementById('edit-more-${playerId}');d.style.display=d.style.display==='none'?'grid':'none'"
+        style="background:none;border:none;color:var(--gold,#C9A02B);font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer;padding:2px 0">
+        ⚙️ تفاصيل اختيارية (عمر، جنسية، طول، القدم...)
+      </button>
+      <div id="edit-more-${playerId}" style="display:none;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
+        <input type="number" id="edit-age-${playerId}" value="${player.age||''}" placeholder="العمر" min="5" max="60"
+          style="padding:8px;background:var(--dark,#111);border:1px solid var(--border,#333);border-radius:8px;color:var(--text,#fff);font-family:Tajawal,sans-serif;font-size:12px"/>
+        <input type="text" id="edit-nat-${playerId}" value="${player.nationality||''}" placeholder="الجنسية"
+          style="padding:8px;background:var(--dark,#111);border:1px solid var(--border,#333);border-radius:8px;color:var(--text,#fff);font-family:Tajawal,sans-serif;font-size:12px"/>
+        <input type="number" id="edit-hgt-${playerId}" value="${player.height||''}" placeholder="الطول (سم)" min="100" max="230"
+          style="padding:8px;background:var(--dark,#111);border:1px solid var(--border,#333);border-radius:8px;color:var(--text,#fff);font-family:Tajawal,sans-serif;font-size:12px"/>
+        <select id="edit-foot-${playerId}"
+          style="padding:8px;background:var(--dark,#111);border:1px solid var(--border,#333);border-radius:8px;color:var(--muted,#aaa);font-family:Tajawal,sans-serif;font-size:12px">
+          <option value="">القدم المفضّلة</option>
+          <option value="يمنى" ${player.foot==='يمنى'?'selected':''}>يمنى</option>
+          <option value="يسرى" ${player.foot==='يسرى'?'selected':''}>يسرى</option>
+          <option value="كلتاهما" ${player.foot==='كلتاهما'?'selected':''}>كلتاهما</option>
+        </select>
+      </div>
+    </div>
   `;
   document.getElementById(`edit-name-${playerId}`)?.focus();
 };
@@ -11560,19 +11772,24 @@ window.saveRosterEdit = async function(teamId, playerId) {
 
   if(!name) { showToast('أدخل اسم اللاعب', 'error'); return; }
 
+  // تفاصيل اختيارية (تُحفظ فقط إن مُلئت — وإلا تبقى فارغة)
+  const _age  = parseInt(document.getElementById(`edit-age-${playerId}`)?.value) || null;
+  const _nat  = document.getElementById(`edit-nat-${playerId}`)?.value.trim() || '';
+  const _hgt  = parseInt(document.getElementById(`edit-hgt-${playerId}`)?.value) || null;
+  const _foot = document.getElementById(`edit-foot-${playerId}`)?.value || '';
+
   // الاسم القديم (قبل التعديل) — لنربط الأحداث القديمة بهوية اللاعب
   const _oldPlayer = (rosterCache[teamId] || []).find(p => p && p.id === playerId);
   const _oldName = _oldPlayer ? _oldPlayer.name : '';
 
   try {
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId), {
-      number: num, name, position: pos, updatedAt: serverTimestamp()
+      number: num, name, position: pos,
+      age: _age, nationality: _nat, height: _hgt, foot: _foot,
+      updatedAt: serverTimestamp()
     });
     showToast('✅︎ تم تحديث بيانات اللاعب', 'success');
-    // ✅ إصلاح جذري: اربط الأحداث القديمة (بلا هوية) لهذا اللاعب بهويته
-    //    كي يتحدّث اسمها تلقائياً في الهدّافين/البطاقات ولا تعود المشكلة.
     try { await _relinkPlayerEvents(teamId, playerId, _oldName, name); } catch(e) {}
-    // الـ listener سيعيد الرسم تلقائياً
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 

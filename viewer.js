@@ -998,14 +998,14 @@ window.showLineupTeam = function(side, btn) {
           <div class="lineup-both-title">${logoHtml(ht.logo,16,4)} ${ht.name} · <span>${hf}</span></div>
           <div class="pitch pitch-half">
             ${renderPitchLines(hp.length)}
-            ${renderPlayersOnPitch(hp,hpos,false,hSubMap,hStats)}
+            ${renderPlayersOnPitch(hp,hpos,false,hSubMap,hStats,m.homeId)}
           </div>
         </div>
         <div class="lineup-both-col">
           <div class="lineup-both-title">${logoHtml(at.logo,16,4)} ${at.name} · <span>${af}</span></div>
           <div class="pitch pitch-half">
             ${renderPitchLines(ap.length)}
-            ${renderPlayersOnPitch(ap,apos,true,aSubMap,aStats)}
+            ${renderPlayersOnPitch(ap,apos,true,aSubMap,aStats,m.awayId)}
           </div>
         </div>
       </div>`;
@@ -1046,10 +1046,10 @@ window.showLineupTeam = function(side, btn) {
     </div>
     <div class="pitch" id="pitchCanvas">
       ${renderPitchLines(playerCount)}
-      ${renderPlayersOnPitch(players,positions,side==='away',subMap,statsMap)}
+      ${renderPlayersOnPitch(players,positions,side==='away',subMap,statsMap,team?.id||'')}
     </div>
     ${renderSubsSection(subs)}
-    <div style="padding:0 0 80px">${renderLineupList(players,subMap,statsMap)}</div>
+    <div style="padding:0 0 80px">${renderLineupList(players,subMap,statsMap,team?.id||'')}</div>
   `;
 };
 
@@ -1194,7 +1194,15 @@ function _lineupPhoto(playerOrId, teamId) {
   return '';
 }
 
-function renderPlayersOnPitch(players, positions, isAway=false, subMap={}, statsMap={}) {
+// ظلّ لاعب (silhouette) SVG أنيق — يُعرض بدل الصورة عند غيابها (كالتطبيقات الرسمية)
+window._playerSilhouetteSVG = function() {
+  return `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor" aria-hidden="true">
+    <circle cx="12" cy="8" r="4"></circle>
+    <path d="M12 14c-4.4 0-8 2.6-8 5.8V22h16v-2.2C20 16.6 16.4 14 12 14z"></path>
+  </svg>`;
+};
+
+function renderPlayersOnPitch(players, positions, isAway=false, subMap={}, statsMap={}, teamId='') {
   return players.slice(0, positions.length).map((p,i)=>{
     const pos=positions[i]||{x:50,y:50,pos:'?'};
     const y=isAway?(105-pos.y):pos.y;
@@ -1215,13 +1223,16 @@ function renderPlayersOnPitch(players, positions, isAway=false, subMap={}, stats
     if (st.red)    icons += `<span class="pmark red"></span>`;
     else if (st.yellow) icons += `<span class="pmark yel"></span>`;
     const marks = icons ? `<div class="player-marks">${icons}</div>` : '';
-    const _photo = _lineupPhoto(p);
+    const _photo = _lineupPhoto(p, teamId);
+    // بلا صورة: ظلّ لاعب (silhouette) أنيق + الرقم — كالتطبيقات الرسمية
+    const _silhouette = `<span class="player-silhouette">${window._playerSilhouetteSVG()}</span>`;
     const avatarInner = _photo
       ? `<img src="${_photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">
          <span class="player-num-badge">${num}</span>${subBadge}${marks}`
-      : `${num}${subBadge}${marks}`;
-    return `<div class="player-dot" style="left:${pos.x}%;top:${y}%" onclick="showToast('${num} · ${(_liveName||'').replace(/'/g,"\\'")} · ${pos.pos}')">
-      <div class="player-avatar ${isGK?'gk':''} ${isAway?'away':''}${_photo?' has-photo':''}">${avatarInner}</div>
+      : `${_silhouette}<span class="player-num-badge">${num}</span>${subBadge}${marks}`;
+    const _safeNm = (_liveName||'').replace(/'/g,"\\'");
+    return `<div class="player-dot" style="left:${pos.x}%;top:${y}%" onclick="openPlayerModal('${_safeNm}','${teamId}','${p.id||''}')">
+      <div class="player-avatar ${isGK?'gk':''} ${isAway?'away':''}${_photo?' has-photo':' has-silhouette'}">${avatarInner}</div>
       <div class="player-name-tag">${name}</div>
     </div>`;
   }).join('');
@@ -1252,38 +1263,61 @@ function renderSubsSection(subs) {
     </div>`;
 }
 
-function renderLineupList(players, subMap={}, statsMap={}) {
+function renderLineupList(players, subMap={}, statsMap={}, teamId='') {
   if(!players||!players.length) return '';
   const posMap={GK:'GK',CB:'DEF',LB:'DEF',RB:'DEF',LWB:'DEF',RWB:'DEF',DM:'MID',CM:'MID',CAM:'MID',LM:'MID',RM:'MID',LW:'FWD',RW:'FWD',ST:'FWD'};
-  const posLabels={GK:'حارس المرمى',DEF:'الدفاع',MID:'خط الوسط',FWD:'الهجوم',SUB:'البدلاء'};
+  const posLabels={GK:'حارس المرمى',DEF:'الدفاع',MID:'خط الوسط',FWD:'الهجوم',SUB:'مقاعد البدلاء'};
   const groups={GK:[],DEF:[],MID:[],FWD:[],SUB:[]};
-  players.forEach((p,i)=>{ const g=posMap[p.position?.toUpperCase()]||(i>10?'SUB':'FWD'); groups[g].push(p); });
-  return `<div class="lineup-list">${Object.entries(groups).filter(([,a])=>a.length>0).map(([grp,arr])=>`
-    <div class="lineup-pos-group">
+  players.forEach((p,i)=>{ const g = p.isSub ? 'SUB' : (posMap[p.position?.toUpperCase()]||(i>10?'SUB':'FWD')); groups[g].push(p); });
+  const _row = (p)=>{
+    const key=_normName(p.name);
+    const sub=subMap[key] || _looseLookup(subMap, key);
+    const st=statsMap[key] || _looseLookup(statsMap, key) || {};
+    const subTag=sub?`<div class="lp-badge sub-${sub.dir}">${sub.dir==='out'?'↓':'↑'} ${sub.min}'</div>`:'';
+    let stTag='';
+    if(st.goals) stTag+=`<span class="lp-mk">⚽${st.goals>1?' '+st.goals:''}</span>`;
+    if(st.yellow) stTag+=`<span class="lp-mk yel"></span>`;
+    if(st.red) stTag+=`<span class="lp-mk red"></span>`;
+    const _lphoto = _lineupPhoto(p, teamId);
+    const _safeNm = (_lineupLiveName(p)||'').replace(/'/g,"\\'");
+    return `<div class="lineup-player-row" onclick="openPlayerModal('${_safeNm}','${teamId}','${p.id||''}')">
+      <div class="lp-num"${_lphoto?' style="overflow:hidden;padding:0"':''}>${
+        _lphoto
+          ? `<img src="${_lphoto}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+          : (p.number||'—')}</div>
+      <div class="lp-info"><div class="lp-name">${_lineupLiveName(p)||'لاعب'}</div><div class="lp-pos">${p.position||''}</div></div>
+      ${stTag?`<div class="lp-marks">${stTag}</div>`:''}
+      ${subTag}
+      ${p.position==='GK'?'<div class="lp-badge gk">GK</div>':''}
+      ${p.status==='injured'?'<div class="lp-badge inj">مصاب</div>':''}
+      ${p.status==='suspended'?'<div class="lp-badge sus">موقوف</div>':''}
+    </div>`;
+  };
+  // البدلاء بشبكة (٣ في الصف) — البقية قائمة
+  const _benchCard = (p)=>{
+    const _lphoto = _lineupPhoto(p, teamId);
+    const _safeNm = (_lineupLiveName(p)||'').replace(/'/g,"\\'");
+    return `<div class="bench-card" onclick="openPlayerModal('${_safeNm}','${teamId}','${p.id||''}')">
+      <div class="bench-av">${
+        _lphoto
+          ? `<img src="${_lphoto}" alt="" loading="lazy">`
+          : `<span class="bench-silhouette">${window._playerSilhouetteSVG()}</span><span class="bench-num">${p.number||''}</span>`}</div>
+      <div class="bench-nm">${_lineupLiveName(p)||'لاعب'}</div>
+      ${p.number!=null&&p.number!==''?`<div class="bench-no">#${p.number}</div>`:''}
+    </div>`;
+  };
+  return `<div class="lineup-list">${Object.entries(groups).filter(([,a])=>a.length>0).map(([grp,arr])=>{
+    if(grp==='SUB'){
+      return `<div class="lineup-pos-group">
+        <div class="lineup-pos-label">${posLabels.SUB} <span class="lp-count">${arr.length}</span></div>
+        <div class="bench-grid">${arr.map(_benchCard).join('')}</div>
+      </div>`;
+    }
+    return `<div class="lineup-pos-group">
       <div class="lineup-pos-label">${posLabels[grp]||grp}</div>
-      ${arr.map(p=>{
-        const key=_normName(p.name);
-        const sub=subMap[key] || _looseLookup(subMap, key);
-        const st=statsMap[key] || _looseLookup(statsMap, key) || {};
-        const subTag=sub?`<div class="lp-badge sub-${sub.dir}">${sub.dir==='out'?'↓':'↑'} ${sub.min}'</div>`:'';
-        let stTag='';
-        if(st.goals) stTag+=`<span class="lp-mk">⚽${st.goals>1?' '+st.goals:''}</span>`;
-        if(st.yellow) stTag+=`<span class="lp-mk yel"></span>`;
-        if(st.red) stTag+=`<span class="lp-mk red"></span>`;
-        const _lphoto = _lineupPhoto(p);
-        return `<div class="lineup-player-row">
-        <div class="lp-num"${_lphoto?' style="overflow:hidden;padding:0"':''}>${
-          _lphoto
-            ? `<img src="${_lphoto}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-            : (p.number||'—')}</div>
-        <div class="lp-info"><div class="lp-name">${_lineupLiveName(p)||'لاعب'}</div><div class="lp-pos">${p.position||''}</div></div>
-        ${stTag?`<div class="lp-marks">${stTag}</div>`:''}
-        ${subTag}
-        ${p.position==='GK'?'<div class="lp-badge gk">GK</div>':''}
-        ${p.status==='injured'?'<div class="lp-badge inj">مصاب</div>':''}
-        ${p.status==='suspended'?'<div class="lp-badge sus">موقوف</div>':''}
-      </div>`;}).join('')}
-    </div>`).join('')}</div>`;
+      ${arr.map(_row).join('')}
+    </div>`;
+  }).join('')}</div>`;
 }
 
 // ════════════════════════════════════════
@@ -1381,10 +1415,15 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
   });
 
   const team = teams.find(t => t.id === player.teamId) || {logo: player.teamLogo};
-  // صورة اللاعب إن وُجدت (من الكشف الحيّ) وإلا شعار الفريق
+  // صورة اللاعب إن وُجدت (بالهوية أو بالاسم) وإلا شعار الفريق
   let _pPhoto = '';
-  if (player.playerId && window._teamRosters && window._teamRosters[player.teamId]) {
-    const _rp = window._teamRosters[player.teamId].find(x => x && x.id === player.playerId);
+  if (window._teamRosters && window._teamRosters[player.teamId]) {
+    const _roster = window._teamRosters[player.teamId];
+    let _rp = player.playerId ? _roster.find(x => x && x.id === player.playerId) : null;
+    if (!_rp || !_rp.photo) {
+      const _nn = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+      _rp = _roster.find(x => x && _nn(x.name) === _nn(player.name) && x.photo) || _rp;
+    }
     if (_rp && _rp.photo) _pPhoto = _rp.photo;
   }
   document.getElementById('pmLogo').innerHTML = _pPhoto
@@ -1395,7 +1434,42 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
     ? _liveEventPlayerName({ player: player.name, playerId: player.playerId }, player.teamId)
     : player.name;
   document.getElementById('pmName').textContent = _liveName || player.name;
-  document.getElementById('pmTeam').textContent = player.teamName;
+  // اسم الفريق تحت الاسم؛ والتفاصيل الاختيارية في قسم مرتّب مستقل (بطاقات)
+  document.getElementById('pmTeam').textContent = player.teamName || '';
+  try {
+    const _rp = (window._teamRosters && window._teamRosters[player.teamId] || []).find(x => {
+      if (player.playerId && x.id === player.playerId) return true;
+      const _n = s => String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
+      return _n(x.name) === _n(player.name);
+    });
+    const _posLabel = { GK:'حارس مرمى', DEF:'مدافع', MID:'وسط', FWD:'مهاجم' };
+    // أيقونات SVG أنيقة (بدل الإيموجي) — لون موحّد يتبع النص
+    const _svg = {
+      number: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+      position: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>',
+      age: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+      nationality: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>',
+      height: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M8 6l4-3 4 3M8 18l4 3 4-3"/></svg>',
+      foot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v9c0 2 1 3 3 3h1c3 0 5 1 5 4v0H7c-1.5 0-3-1-3-3V4z"/></svg>',
+    };
+    const chips = [];
+    if (_rp) {
+      if (_rp.number != null && _rp.number !== '') chips.push([_svg.number,'الرقم', '#' + _rp.number]);
+      if (_rp.position) chips.push([_svg.position,'المركز', _posLabel[_rp.position] || _rp.position]);
+      if (_rp.age) chips.push([_svg.age,'العمر', _rp.age + ' سنة']);
+      if (_rp.nationality) chips.push([_svg.nationality,'الجنسية', _rp.nationality]);
+      if (_rp.height) chips.push([_svg.height,'الطول', _rp.height + ' سم']);
+      if (_rp.foot) chips.push([_svg.foot,'القدم', _rp.foot]);
+    }
+    const box = document.getElementById('pmDetails');
+    if (box) {
+      box.innerHTML = chips.length
+        ? `<div class="pm-details-grid">${chips.map(([ic,lbl,val]) =>
+            `<div class="pm-detail"><div class="pm-detail-ic">${ic}</div><div class="pm-detail-txt"><div class="pm-detail-lbl">${lbl}</div><div class="pm-detail-val">${val}</div></div></div>`
+          ).join('')}</div>`
+        : '';
+    }
+  } catch (e) {}
   document.getElementById('pmGoals').textContent = player.goals;
   const _matchesPlayed = appearances > 0 ? appearances : playerMatches.length;
   document.getElementById('pmMatches').textContent = _matchesPlayed;
@@ -2756,9 +2830,11 @@ window.openTeamProfile = function(teamId) {
     ${players.length?`
     <div style="background:var(--s1);padding:14px 16px;margin-bottom:6px">
       <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">قائمة اللاعبين</div>
-      ${players.map(p=>`
-        <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--b1)">
-          <div style="width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--t2);flex-shrink:0">${
+      ${players.map(p=>{
+        const _sn=(p.name||'').replace(/'/g,"\\'");
+        return `
+        <div onclick="closeTeamProfile();setTimeout(()=>openPlayerModal('${_sn}','${teamId}','${p.id||''}'),300)" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--b1);cursor:pointer">
+          <div style="width:38px;height:38px;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--t2);flex-shrink:0">${
             p.photo
               ? `<img src="${p.photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
               : (p.number||'—')}</div>
@@ -2769,7 +2845,7 @@ window.openTeamProfile = function(teamId) {
           ${p.position==='GK'?'<span style="font-size:9px;background:rgba(142,68,173,.14);color:#8E44AD;border:1px solid rgba(142,68,173,.3);border-radius:5px;padding:2px 6px;font-weight:700">GK</span>':''}
           ${p.status==='injured'?'<span style="font-size:9px;background:var(--lv-bg);color:var(--live);border:1px solid var(--lv-br);border-radius:5px;padding:2px 6px;font-weight:700">مصاب</span>':''}
           ${p.status==='suspended'?'<span style="font-size:9px;background:var(--g-bg);color:var(--gold);border:1px solid var(--g-br);border-radius:5px;padding:2px 6px;font-weight:700">موقوف</span>':''}
-        </div>`).join('')}
+        </div>`;}).join('')}
     </div>`:'' }
     ${(!topScorers.length && !players.length)?'<div style="padding:40px 20px;text-align:center;color:var(--t3);font-size:12px">لم تُدخَل قائمة اللاعبين بعد</div>':''}`;
 

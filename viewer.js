@@ -243,74 +243,8 @@ const ZONE_COLORS = ['var(--gold)', 'var(--green)', 'var(--blue)', '#666', 'var(
 const ZONE_KEYS   = ['champion','qualify','cond','normal','playoff','relegate'];
 const ZONE_NAMES  = ['المتوج 🏆','متأهل ✅︎','مشروط 🔵','عادي ⚪','ملعب الهبوط 🟠','هابط 🔴'];
 
-// تشكيلات ثابتة لـ 11 لاعب
-const FORMATION_POSITIONS = {
-  '4-3-3':   [
-    {x:50,y:88,pos:'GK'},
-    {x:16,y:72,pos:'LB'},{x:36,y:70,pos:'CB'},{x:64,y:70,pos:'CB'},{x:84,y:72,pos:'RB'},
-    {x:25,y:55,pos:'CM'},{x:50,y:53,pos:'CM'},{x:75,y:55,pos:'CM'},
-    {x:20,y:30,pos:'LW'},{x:50,y:28,pos:'ST'},{x:80,y:30,pos:'RW'},
-  ],
-  '4-4-2':   [
-    {x:50,y:88,pos:'GK'},
-    {x:16,y:72,pos:'LB'},{x:36,y:70,pos:'CB'},{x:64,y:70,pos:'CB'},{x:84,y:72,pos:'RB'},
-    {x:16,y:52,pos:'LM'},{x:36,y:52,pos:'CM'},{x:64,y:52,pos:'CM'},{x:84,y:52,pos:'RM'},
-    {x:35,y:28,pos:'ST'},{x:65,y:28,pos:'ST'},
-  ],
-  '4-2-3-1': [
-    {x:50,y:88,pos:'GK'},
-    {x:16,y:72,pos:'LB'},{x:36,y:70,pos:'CB'},{x:64,y:70,pos:'CB'},{x:84,y:72,pos:'RB'},
-    {x:35,y:58,pos:'DM'},{x:65,y:58,pos:'DM'},
-    {x:16,y:42,pos:'LW'},{x:50,y:42,pos:'CAM'},{x:84,y:42,pos:'RW'},
-    {x:50,y:25,pos:'ST'},
-  ],
-  '3-5-2':   [
-    {x:50,y:88,pos:'GK'},
-    {x:25,y:72,pos:'CB'},{x:50,y:70,pos:'CB'},{x:75,y:72,pos:'CB'},
-    {x:10,y:52,pos:'LWB'},{x:30,y:52,pos:'CM'},{x:50,y:52,pos:'CM'},{x:70,y:52,pos:'CM'},{x:90,y:52,pos:'RWB'},
-    {x:35,y:28,pos:'ST'},{x:65,y:28,pos:'ST'},
-  ],
-  '5-3-2':   [
-    {x:50,y:88,pos:'GK'},
-    {x:10,y:72,pos:'LWB'},{x:28,y:70,pos:'CB'},{x:50,y:68,pos:'CB'},{x:72,y:70,pos:'CB'},{x:90,y:72,pos:'RWB'},
-    {x:25,y:50,pos:'CM'},{x:50,y:50,pos:'CM'},{x:75,y:50,pos:'CM'},
-    {x:35,y:28,pos:'ST'},{x:65,y:28,pos:'ST'},
-  ],
-};
-
-// ════════════════════════════════════════
-//  توليد مواضع ديناميكية لأي عدد لاعبين
-// ════════════════════════════════════════
-function getDynamicPositions(playerCount) {
-  // إذا في تشكيلة محددة، استخدمها
-  if(playerCount === 11) return FORMATION_POSITIONS['4-3-3'];
-
-  const positions = [];
-  // حارس دائماً
-  positions.push({x:50, y:90, pos:'GK'});
-
-  const outfield = playerCount - 1;
-  if(outfield <= 0) return positions;
-
-  // توزيع تلقائي حسب عدد اللاعبين
-  let rows;
-  if(outfield <= 3)       rows = [outfield];           // صف واحد
-  else if(outfield <= 5)  rows = [2, outfield-2];      // صفان
-  else if(outfield <= 7)  rows = [2, 2, outfield-4];
-  else if(outfield <= 9)  rows = [3, 3, outfield-6];
-  else                    rows = [3, 3, outfield-6];
-
-  const rowCount = rows.length;
-  rows.forEach((count, rowIdx) => {
-    const yPos = 75 - (rowIdx * (55 / rowCount));
-    for(let i = 0; i < count; i++) {
-      const xPos = count === 1 ? 50 : 15 + (i * (70 / (count-1)));
-      const posLabel = rowIdx === rowCount-1 ? 'ST' : rowIdx === 0 ? 'CB' : 'CM';
-      positions.push({x:xPos, y:yPos, pos:posLabel});
-    }
-  });
-  return positions;
-}
+// FORMATION_POSITIONS / getDynamicPositions أُزيلا: كانا يخدمان نظام openLineup القديم
+// (غير مستخدم إطلاقاً — كل عرض التشكيلة الفعلي يستخدم إحداثيات x/y المحفوظة لكل لاعب)
 
 // ════════════════════════════════════════
 //  INIT
@@ -941,151 +875,9 @@ function _vwrLogoHtml(logo, size) {
 // ── رندر تاب "مباشر الآن" الكامل ──
 // [renderLiveMatchesTab removed — see §D override below]
 
-let currentLineup = null;
-
-window.openLineup = function(matchId) {
-  const m=matches.find(x=>x.id===matchId);
-  if(!m) return;
-  const ht=teams.find(t=>t.id===m.homeId)||{name:m.homeName||'المضيف',logo:m.homeLogo||'⚽'};
-  const at=teams.find(t=>t.id===m.awayId)||{name:m.awayName||'الضيف',logo:m.awayLogo||'⚽'};
-  const overlay=document.getElementById('lineupOverlay');
-  const titleEl=document.getElementById('lineupTitle');
-  if(!overlay) return;
-  if(titleEl) titleEl.textContent=ht.name+' × '+at.name;
-  currentLineup={m,ht,at};
-
-  const tabsEl=document.getElementById('lineupTabs');
-  const hasBoth = (m.homeLineup?.players?.length||0)>0 && (m.awayLineup?.players?.length||0)>0;
-  if(tabsEl) tabsEl.innerHTML=`
-    <button class="lineup-team-tab active" onclick="showLineupTeam('home',this)">
-      ${logoHtml(ht.logo,18,5)} ${ht.name}
-    </button>
-    <button class="lineup-team-tab" onclick="showLineupTeam('away',this)">
-      ${at.name} ${logoHtml(at.logo,18,5)}
-    </button>
-    ${hasBoth?`<button class="lineup-team-tab" onclick="showLineupTeam('both',this)">⚡ المقارنة</button>`:''}`;
-
-  showLineupTeam('home', tabsEl?.querySelector('.lineup-team-tab'));
-  overlay.classList.add('show');
-  document.body.style.overflow='hidden';
-};
-
-window.closeLineup = function() {
-  document.getElementById('lineupOverlay')?.classList.remove('show');
-  document.body.style.overflow='';
-};
-
-window.showLineupTeam = function(side, btn) {
-  document.querySelectorAll('.lineup-team-tab').forEach(b=>b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
-  if(!currentLineup) return;
-  const {m, ht, at}=currentLineup;
-  const contentEl=document.getElementById('lineupContent');
-  if(!contentEl) return;
-
-  // ══ وضع المقارنة بين الفريقين ══
-  if(side==='both') {
-    const hl=m.homeLineup, al=m.awayLineup;
-    const hf=hl?.formation||'4-3-3', af=al?.formation||'4-3-3';
-    const hp=hl?.players||[], ap=al?.players||[];
-    const hpos=FORMATION_POSITIONS[hf]||getDynamicPositions(hp.length);
-    const apos=FORMATION_POSITIONS[af]||getDynamicPositions(ap.length);
-    const hSubMap=_subMap(_teamSubs(m,'home')), aSubMap=_subMap(_teamSubs(m,'away'));
-    const hStats=_playerStatsMap(m,'home'), aStats=_playerStatsMap(m,'away');
-    contentEl.innerHTML=`
-      <div class="lineup-both-wrap">
-        <div class="lineup-both-col">
-          <div class="lineup-both-title">${logoHtml(ht.logo,16,4)} ${ht.name} · <span>${hf}</span></div>
-          <div class="pitch pitch-half">
-            ${renderPitchLines(hp.length)}
-            ${renderPlayersOnPitch(hp,hpos,false,hSubMap,hStats,m.homeId)}
-          </div>
-        </div>
-        <div class="lineup-both-col">
-          <div class="lineup-both-title">${logoHtml(at.logo,16,4)} ${at.name} · <span>${af}</span></div>
-          <div class="pitch pitch-half">
-            ${renderPitchLines(ap.length)}
-            ${renderPlayersOnPitch(ap,apos,true,aSubMap,aStats,m.awayId)}
-          </div>
-        </div>
-      </div>`;
-    return;
-  }
-
-  const team=side==='home'?ht:at;
-  const lineupKey=side==='home'?'homeLineup':'awayLineup';
-  const lineup=m[lineupKey];
-
-  // التبديلات تُعرض دائماً لو موجودة (حتى بدون تشكيلة مُدخلة)
-  const subs=_teamSubs(m, side);
-  const subMap=_subMap(subs);
-  const statsMap=_playerStatsMap(m, side);
-
-  if(!lineup||!lineup.players||!lineup.players.length) {
-    contentEl.innerHTML=`
-      ${renderSubsSection(subs)}
-      <div class="empty-state" style="padding:${subs.length?'30px':'60px'} 20px">
-        <span class="empty-icon">👥</span>
-        <div>لم تُدخَل التشكيلة بعد</div>
-        <div style="font-size:10px;margin-top:6px;color:var(--t3)">يضيفها مدير البطولة من لوحة التحكم</div>
-      </div>`;
-    return;
-  }
-
-  const formation=lineup.formation||'4-3-3';
-  const players=lineup.players||[];
-  const playerCount=players.length;
-  const positions=FORMATION_POSITIONS[formation]||getDynamicPositions(playerCount);
-
-  contentEl.innerHTML=`
-    <div class="lineup-formation-bar">
-      <span>${logoHtml(team.logo,18,5)}</span>
-      <span class="lf-name">${team.name}</span>
-      <span class="lf-badge">${formation}</span>
-      <span class="lf-count">${playerCount} لاعب</span>
-    </div>
-    <div class="pitch" id="pitchCanvas">
-      ${renderPitchLines(playerCount)}
-      ${renderPlayersOnPitch(players,positions,side==='away',subMap,statsMap,team?.id||'')}
-    </div>
-    ${renderSubsSection(subs)}
-    <div style="padding:0 0 80px">${renderLineupList(players,subMap,statsMap,team?.id||'')}</div>
-  `;
-};
-
-function renderPitchLines(n=11) {
-  const t=n<=6?'futsal':n<=9?'seven':'full';
-  if(t==='futsal') return `<svg class="pitch-lines" viewBox="0 0 100 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="5" y="5" width="90" height="150" stroke="rgba(255,255,255,.15)" stroke-width=".8" rx="3"/>
-    <line x1="5" y1="80" x2="95" y2="80" stroke="rgba(255,255,255,.1)" stroke-width=".8"/>
-    <circle cx="50" cy="80" r="12" stroke="rgba(255,255,255,.08)" stroke-width=".8" fill="none"/>
-    <rect x="26" y="5" width="48" height="24" stroke="rgba(255,255,255,.08)" stroke-width=".8" fill="none"/>
-    <rect x="38" y="5" width="24" height="10" stroke="rgba(255,255,255,.06)" stroke-width=".8" fill="none"/>
-    <rect x="26" y="131" width="48" height="24" stroke="rgba(255,255,255,.08)" stroke-width=".8" fill="none"/>
-    <rect x="38" y="145" width="24" height="10" stroke="rgba(255,255,255,.06)" stroke-width=".8" fill="none"/>
-    <circle cx="50" cy="20" r="1" fill="rgba(255,255,255,.2)"/><circle cx="50" cy="140" r="1" fill="rgba(255,255,255,.2)"/>
-  </svg>`;
-  if(t==='seven') return `<svg class="pitch-lines" viewBox="0 0 100 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="5" y="5" width="90" height="150" stroke="rgba(255,255,255,.14)" stroke-width=".8" rx="2"/>
-    <line x1="5" y1="80" x2="95" y2="80" stroke="rgba(255,255,255,.1)" stroke-width=".8"/>
-    <circle cx="50" cy="80" r="13" stroke="rgba(255,255,255,.08)" stroke-width=".8" fill="none"/>
-    <rect x="20" y="5" width="60" height="28" stroke="rgba(255,255,255,.08)" stroke-width=".8" fill="none"/>
-    <rect x="35" y="5" width="30" height="12" stroke="rgba(255,255,255,.06)" stroke-width=".8" fill="none"/>
-    <rect x="20" y="127" width="60" height="28" stroke="rgba(255,255,255,.08)" stroke-width=".8" fill="none"/>
-    <rect x="35" y="143" width="30" height="12" stroke="rgba(255,255,255,.06)" stroke-width=".8" fill="none"/>
-    <circle cx="50" cy="20" r="1" fill="rgba(255,255,255,.2)"/><circle cx="50" cy="140" r="1" fill="rgba(255,255,255,.2)"/>
-  </svg>`;
-  return `<svg class="pitch-lines" viewBox="0 0 100 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="5" y="5" width="90" height="150" stroke="rgba(255,255,255,.12)" stroke-width=".8" rx="2"/>
-    <line x1="5" y1="80" x2="95" y2="80" stroke="rgba(255,255,255,.1)" stroke-width=".8"/>
-    <circle cx="50" cy="80" r="14" stroke="rgba(255,255,255,.08)" stroke-width=".8" fill="none"/>
-    <rect x="22" y="5" width="56" height="20" stroke="rgba(255,255,255,.08)" stroke-width=".8" fill="none"/>
-    <rect x="22" y="135" width="56" height="20" stroke="rgba(255,255,255,.08)" stroke-width=".8" fill="none"/>
-    <rect x="36" y="5" width="28" height="8" stroke="rgba(255,255,255,.06)" stroke-width=".8" fill="none"/>
-    <rect x="36" y="147" width="28" height="8" stroke="rgba(255,255,255,.06)" stroke-width=".8" fill="none"/>
-    <circle cx="50" cy="20" r="1" fill="rgba(255,255,255,.2)"/><circle cx="50" cy="140" r="1" fill="rgba(255,255,255,.2)"/>
-  </svg>`;
-}
+// openLineup/closeLineup/showLineupTeam/renderPitchLines أُزيلت — كانت مودال قديم منفصل
+// وغير مستخدم إطلاقًا (لا يوجد أي زر يستدعي openLineup). ميزاته المطورة (صور/ظل اللاعب/
+// شبكة البدلاء) نُقلت إلى renderPitchViewer، وهو المُصيّر الفعلي لتبويب "التشكيلة" في الجمهور.
 
 // ── استخراج تبديلات فريق من أحداث المباراة ──
 function _teamSubs(m, side) {
@@ -1116,17 +908,6 @@ function _normName(s) {
     .toLowerCase();
 }
 
-// مطابقة احتياطية: إن لم يوجد تطابق تام، طابق إن بدأ أحد الاسمين بالآخر (كامل ↔ مختصر)
-function _looseLookup(map, key) {
-  if (!key || !map) return null;
-  const keys = Object.keys(map);
-  for (const k of keys) if (k === key) return map[k];
-  for (const k of keys) {
-    if (k.length >= 3 && key.length >= 3 && (k.indexOf(key) === 0 || key.indexOf(k) === 0)) return map[k];
-  }
-  return null;
-}
-
 // خريطة اسم اللاعب → {dir:'in'|'out', min} لعرض السهم على الملعب
 function _subMap(subs) {
   const map = {};
@@ -1135,35 +916,6 @@ function _subMap(subs) {
     if (s.in)  map[_normName(s.in)]  = { dir: 'in',  min: s.min };
   });
   return map;
-}
-
-// ── خريطة أهداف/كروت كل لاعب في الفريق (اسم مُطبّع → {goals, yellow, red}) ──
-function _playerStatsMap(m, side) {
-  const evs = _matchEvents(m);
-  const map = {};
-  const bump = (n, f) => { const k = _normName(n); if (!k) return; (map[k] = map[k] || { goals:0, yellow:0, red:0 })[f]++; };
-  (evs || []).forEach(ev => {
-    if (!ev) return;
-    if (_evSide(ev) !== side) return;
-    if (ev.type === 'goal' || ev.type === 'penalty') bump(ev.player, 'goals');
-    else if (ev.type === 'yellow') bump(ev.player, 'yellow');
-    else if (ev.type === 'red') bump(ev.player, 'red');
-  });
-  return map;
-}
-
-// يحلّ اسم لاعب التشكيلة الحيّ من الكشف حسب هويته (p.id)، مع رجوع للاسم المخزَّن.
-// لا نعرف teamId داخل مُصيّري التشكيلة دائماً، فنبحث في كشوف الفريقين المحمّلة.
-function _lineupLiveName(p) {
-  if (!p) return '';
-  const fallback = p.name || '';
-  if (!p.id || !window._teamRosters) return fallback;
-  // التشكيلة قد لا تمرّر teamId، فنبحث في كشوف كل الفرق المحمّلة عن الهوية
-  for (const tid in window._teamRosters) {
-    const hit = _pName(tid, p.id, null);
-    if (hit) return hit;
-  }
-  return fallback;
 }
 
 // صورة لاعب التشكيلة حسب هويته من أي كشف محمّل
@@ -1202,123 +954,9 @@ window._playerSilhouetteSVG = function() {
   </svg>`;
 };
 
-function renderPlayersOnPitch(players, positions, isAway=false, subMap={}, statsMap={}, teamId='') {
-  return players.slice(0, positions.length).map((p,i)=>{
-    const pos=positions[i]||{x:50,y:50,pos:'?'};
-    const y=isAway?(105-pos.y):pos.y;
-    const isGK=pos.pos==='GK';
-    const num=p.number||(i+1);
-    const _liveName=_lineupLiveName(p);
-    const name=(_liveName||'').split(' ').slice(-1)[0];
-    const key=_normName(p.name);
-    const sub = subMap[key] || _looseLookup(subMap, key);
-    const st  = statsMap[key] || _looseLookup(statsMap, key) || {};
-    // شارة التبديل (أعلى يمين)
-    const subBadge = sub
-      ? `<div class="player-sub-badge ${sub.dir}" title="${sub.dir==='out'?'خرج':'دخل'} ${sub.min}'">${sub.dir==='out'?'↓':'↑'}</div>`
-      : '';
-    // أيقونات الأهداف والكروت (أعلى يسار / أسفل)
-    let icons = '';
-    if (st.goals)  icons += `<span class="pmark goal">⚽${st.goals>1?'<b>'+st.goals+'</b>':''}</span>`;
-    if (st.red)    icons += `<span class="pmark red"></span>`;
-    else if (st.yellow) icons += `<span class="pmark yel"></span>`;
-    const marks = icons ? `<div class="player-marks">${icons}</div>` : '';
-    const _photo = _lineupPhoto(p, teamId);
-    // بلا صورة: ظلّ لاعب (silhouette) أنيق + الرقم — كالتطبيقات الرسمية
-    const _silhouette = `<span class="player-silhouette">${window._playerSilhouetteSVG()}</span>`;
-    const avatarInner = _photo
-      ? `<img src="${_photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">
-         <span class="player-num-badge">${num}</span>${subBadge}${marks}`
-      : `${_silhouette}<span class="player-num-badge">${num}</span>${subBadge}${marks}`;
-    const _safeNm = (_liveName||'').replace(/'/g,"\\'");
-    return `<div class="player-dot" style="left:${pos.x}%;top:${y}%" onclick="openPlayerModal('${_safeNm}','${teamId}','${p.id||''}')">
-      <div class="player-avatar ${isGK?'gk':''} ${isAway?'away':''}${_photo?' has-photo':' has-silhouette'}">${avatarInner}</div>
-      <div class="player-name-tag">${name}</div>
-    </div>`;
-  }).join('');
-}
-
-// ── قسم التبديلات: «خرج ← دخل» بالدقيقة (نمط التطبيقات الرسمية) ──
-function renderSubsSection(subs) {
-  if (!subs || !subs.length) return '';
-  // صورة صغيرة دائرية للاعب حسب اسمه (أو نقطة رمز التبديل إن لا صورة)
-  const _av = (name, cls, icon) => {
-    const ph = name ? _lineupPhoto({ name }) : '';
-    return ph
-      ? `<span class="sub-av"><img src="${ph}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></span>`
-      : `<span class="sub-ico ${cls}">${window.Icon?window.Icon(icon,11):(cls==='in'?'▲':'▼')}</span>`;
-  };
-  const rows = subs.map(s => `
-    <div class="sub-row2">
-      <span class="sub-min2">${s.min !== '' ? s.min + "'" : ''}</span>
-      <div class="sub-pair">
-        <div class="sub-line in">${_av(s.in,'in','upload')}<span class="sub-nm">${s.in || '—'}</span></div>
-        <div class="sub-line out">${_av(s.out,'out','download')}<span class="sub-nm">${s.out || '—'}</span></div>
-      </div>
-    </div>`).join('');
-  return `
-    <div class="subs-section2">
-      <div class="subs-head"><span>🔄 التبديلات</span><span class="subs-count">${subs.length}</span></div>
-      ${rows}
-    </div>`;
-}
-
-function renderLineupList(players, subMap={}, statsMap={}, teamId='') {
-  if(!players||!players.length) return '';
-  const posMap={GK:'GK',CB:'DEF',LB:'DEF',RB:'DEF',LWB:'DEF',RWB:'DEF',DM:'MID',CM:'MID',CAM:'MID',LM:'MID',RM:'MID',LW:'FWD',RW:'FWD',ST:'FWD'};
-  const posLabels={GK:'حارس المرمى',DEF:'الدفاع',MID:'خط الوسط',FWD:'الهجوم',SUB:'مقاعد البدلاء'};
-  const groups={GK:[],DEF:[],MID:[],FWD:[],SUB:[]};
-  players.forEach((p,i)=>{ const g = p.isSub ? 'SUB' : (posMap[p.position?.toUpperCase()]||(i>10?'SUB':'FWD')); groups[g].push(p); });
-  const _row = (p)=>{
-    const key=_normName(p.name);
-    const sub=subMap[key] || _looseLookup(subMap, key);
-    const st=statsMap[key] || _looseLookup(statsMap, key) || {};
-    const subTag=sub?`<div class="lp-badge sub-${sub.dir}">${sub.dir==='out'?'↓':'↑'} ${sub.min}'</div>`:'';
-    let stTag='';
-    if(st.goals) stTag+=`<span class="lp-mk">⚽${st.goals>1?' '+st.goals:''}</span>`;
-    if(st.yellow) stTag+=`<span class="lp-mk yel"></span>`;
-    if(st.red) stTag+=`<span class="lp-mk red"></span>`;
-    const _lphoto = _lineupPhoto(p, teamId);
-    const _safeNm = (_lineupLiveName(p)||'').replace(/'/g,"\\'");
-    return `<div class="lineup-player-row" onclick="openPlayerModal('${_safeNm}','${teamId}','${p.id||''}')">
-      <div class="lp-num"${_lphoto?' style="overflow:hidden;padding:0"':''}>${
-        _lphoto
-          ? `<img src="${_lphoto}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-          : (p.number||'—')}</div>
-      <div class="lp-info"><div class="lp-name">${_lineupLiveName(p)||'لاعب'}</div><div class="lp-pos">${p.position||''}</div></div>
-      ${stTag?`<div class="lp-marks">${stTag}</div>`:''}
-      ${subTag}
-      ${p.position==='GK'?'<div class="lp-badge gk">GK</div>':''}
-      ${p.status==='injured'?'<div class="lp-badge inj">مصاب</div>':''}
-      ${p.status==='suspended'?'<div class="lp-badge sus">موقوف</div>':''}
-    </div>`;
-  };
-  // البدلاء بشبكة (٣ في الصف) — البقية قائمة
-  const _benchCard = (p)=>{
-    const _lphoto = _lineupPhoto(p, teamId);
-    const _safeNm = (_lineupLiveName(p)||'').replace(/'/g,"\\'");
-    return `<div class="bench-card" onclick="openPlayerModal('${_safeNm}','${teamId}','${p.id||''}')">
-      <div class="bench-av">${
-        _lphoto
-          ? `<img src="${_lphoto}" alt="" loading="lazy">`
-          : `<span class="bench-silhouette">${window._playerSilhouetteSVG()}</span><span class="bench-num">${p.number||''}</span>`}</div>
-      <div class="bench-nm">${_lineupLiveName(p)||'لاعب'}</div>
-      ${p.number!=null&&p.number!==''?`<div class="bench-no">#${p.number}</div>`:''}
-    </div>`;
-  };
-  return `<div class="lineup-list">${Object.entries(groups).filter(([,a])=>a.length>0).map(([grp,arr])=>{
-    if(grp==='SUB'){
-      return `<div class="lineup-pos-group">
-        <div class="lineup-pos-label">${posLabels.SUB} <span class="lp-count">${arr.length}</span></div>
-        <div class="bench-grid">${arr.map(_benchCard).join('')}</div>
-      </div>`;
-    }
-    return `<div class="lineup-pos-group">
-      <div class="lineup-pos-label">${posLabels[grp]||grp}</div>
-      ${arr.map(_row).join('')}
-    </div>`;
-  }).join('')}</div>`;
-}
+// renderPlayersOnPitch / renderSubsSection / renderLineupList أُزيلت — كانت جزءًا من
+// مودال openLineup القديم غير المستخدم. الوظائف المكافئة (مع الصور/الظل/الضغط للإحصائيات)
+// أصبحت داخل renderPitchViewer مباشرة (المُصيّر الفعلي لتبويب "التشكيلة").
 
 // ════════════════════════════════════════
 //  PLAYER MODAL
@@ -2553,7 +2191,7 @@ document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
   const map={'1':'home','2':'standings','3':'matches','4':'stats'};
   if(map[e.key]) window.switchTab(map[e.key],null,document.getElementById('bn-'+map[e.key]));
-  if(e.key==='Escape') { window.closeMatchDetail(); window.closeLineup(); window.closeLiveOverlay(); }
+  if(e.key==='Escape') { window.closeMatchDetail(); window.closeLiveOverlay(); }
 });
 
 // ════════════════════════════════════════
@@ -4673,18 +4311,21 @@ function renderPitchViewer(lineup, isAway) {
             const cap  = lineup.captain && p.name && p.name === lineup.captain;
             const side = isAway ? 'away' : 'home';
             const badges = window._playerMatchBadges ? window._playerMatchBadges(m.events, side, p.name, num) : '';
-            return `<div style="position:absolute;left:${x}%;top:${y}%;
+            const teamIdForPhoto = isAway ? m.awayId : m.homeId;
+            const _photo = (typeof _lineupPhoto === 'function') ? _lineupPhoto(p, teamIdForPhoto) : '';
+            const _silhouette = (window._playerSilhouetteSVG ? `<span style="display:block;width:60%;height:60%;color:${aTxt};opacity:.8">${window._playerSilhouetteSVG()}</span>` : '');
+            const avatarInner = _photo
+              ? `<img src="${_photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">
+                 <span style="position:absolute;bottom:-2px;right:-2px;background:${aBrd};color:#fff;font-size:8px;font-weight:900;border-radius:999px;min-width:13px;height:13px;display:flex;align-items:center;justify-content:center;padding:0 2px;border:1.5px solid #0a1f0a">${cap ? '©' : num}</span>`
+              : `<div style="width:100%;height:100%;border-radius:50%;background:${aBg};border:2px solid ${aBrd};display:flex;align-items:center;justify-content:center;color:${aTxt}">${_silhouette}</div>
+                 <span style="position:absolute;bottom:-2px;right:-2px;background:${aBrd};color:#fff;font-size:8px;font-weight:900;border-radius:999px;min-width:13px;height:13px;display:flex;align-items:center;justify-content:center;padding:0 2px;border:1.5px solid #0a1f0a">${cap ? '©' : num}</span>`;
+            const _safeNm = (p.name||'').replace(/'/g,"\\'");
+            return `<div onclick="window.openPlayerModal && openPlayerModal('${_safeNm}','${teamIdForPhoto||''}','${p.id||''}')"
+                style="position:absolute;left:${x}%;top:${y}%;cursor:pointer;
                 transform:translate(-50%,-50%);display:flex;flex-direction:column;
                 align-items:center;gap:2px;z-index:5">
-              <div style="position:relative">
-                <div style="width:30px;height:30px;border-radius:50%;
-                  background:${aBg};border:2px solid ${aBrd};
-                  display:flex;align-items:center;justify-content:center;
-                  font-size:11px;font-weight:900;color:${aTxt};
-                  font-family:Tajawal,sans-serif;
-                  box-shadow:0 2px 8px rgba(0,0,0,.6)">
-                  ${cap ? '©' : num}
-                </div>
+              <div style="position:relative;width:30px;height:30px;box-shadow:0 2px 8px rgba(0,0,0,.6);border-radius:50%">
+                ${avatarInner}
                 ${badges}
               </div>
               <div style="font-size:7px;font-weight:700;color:#fff;
@@ -4698,36 +4339,47 @@ function renderPitchViewer(lineup, isAway) {
 
           // البدلاء — تظهر فقط إذا فعّلها المنظّم (showBench)
           const _benchAllowed = lineup.showBench !== false;
+          const _benchTeamId = isAway ? m.awayId : m.homeId;
           const subsHtml = (_benchAllowed && subs.length) ? `
             <div style="margin-top:10px;background:var(--s2);border:1px solid var(--b2);
               border-radius:10px;padding:10px">
               <div style="font-size:9px;font-weight:700;color:var(--t3);
-                letter-spacing:1px;margin-bottom:6px">BENCH</div>
+                letter-spacing:1px;margin-bottom:8px">BENCH · ${subs.length}</div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
               ${subs.map(p => {
                 const _sBadges = window._playerMatchBadges ? window._playerMatchBadges(m.events, isAway?'away':'home', p.name, p.number) : '';
+                const _bPhoto = (typeof _lineupPhoto === 'function') ? _lineupPhoto(p, _benchTeamId) : '';
+                const _safeBNm = (p.name||'').replace(/'/g,"\\'");
+                const _bAvatar = _bPhoto
+                  ? `<img src="${_bPhoto}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+                  : `<div style="width:100%;height:100%;border-radius:50%;background:var(--s3);border:1px solid var(--b2);display:flex;align-items:center;justify-content:center;color:var(--t3)">${window._playerSilhouetteSVG ? `<span style="width:60%;height:60%">${window._playerSilhouetteSVG()}</span>` : (p.number||'—')}</div>`;
                 return `
-                <div style="display:flex;align-items:center;gap:8px;padding:5px 0;
-                  border-bottom:1px solid var(--b1)">
-                  <div style="width:22px;height:22px;border-radius:5px;
-                    background:var(--s3);border:1px solid var(--b2);
-                    display:flex;align-items:center;justify-content:center;
-                    font-size:9px;font-weight:900;color:var(--t3);flex-shrink:0">
-                    ${p.number||'—'}
+                <div onclick="window.openPlayerModal && openPlayerModal('${_safeBNm}','${_benchTeamId||''}','${p.id||''}')"
+                  style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
+                  background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:8px 4px;text-align:center">
+                  <div style="position:relative;width:38px;height:38px">
+                    ${_bAvatar}
+                    <span style="position:absolute;bottom:-2px;right:-2px;background:var(--s3);color:var(--t2);font-size:8px;font-weight:900;border-radius:999px;min-width:13px;height:13px;display:flex;align-items:center;justify-content:center;padding:0 2px;border:1.5px solid var(--s1)">${p.number||'—'}</span>
+                    ${_sBadges}
                   </div>
-                  <div style="font-size:11px;font-weight:700;color:var(--t2);flex:1;display:flex;align-items:center;gap:6px">
-                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||'—'}</span>
-                    ${_sBadges ? `<span class="pl-bench-badges">${_sBadges}</span>` : ''}
-                  </div>
-                  <div style="font-size:9px;color:var(--t3)">${p.position||''}</div>
+                  <div style="font-size:10px;font-weight:700;color:var(--t2);width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||'—'}</div>
                   ${p.status==='injured'   ? `<span style="font-size:8px;color:#C0392B;background:rgba(192,57,43,.1);border-radius:4px;padding:1px 5px">🤕</span>` : ''}
                   ${p.status==='suspended' ? `<span style="font-size:8px;color:#C9A02B;background:rgba(201,160,43,.1);border-radius:4px;padding:1px 5px">🟨</span>` : ''}
                   ${p.status==='absent'    ? `<span style="font-size:8px;color:#666;background:rgba(0,0,0,.2);border-radius:4px;padding:1px 5px">❌︎</span>` : ''}
                 </div>`;}).join('')}
+              </div>
             </div>` : '';
 
           // ── قسم التبديلات (من أحداث المباراة) ──
           const _subsSide = isAway ? 'away' : 'home';
+          const _subsTeamId = isAway ? m.awayId : m.homeId;
           const _matchSubs = (typeof _teamSubs === 'function') ? _teamSubs(m, _subsSide) : [];
+          const _subAvatar = (name) => {
+            const ph = (typeof _lineupPhoto === 'function' && name) ? _lineupPhoto({ name }, _subsTeamId) : '';
+            return ph
+              ? `<span style="display:inline-block;width:20px;height:20px;border-radius:50%;overflow:hidden;flex-shrink:0;vertical-align:middle;margin-left:4px"><img src="${ph}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover"></span>`
+              : '';
+          };
           const subsSection = _matchSubs.length ? `
             <div style="margin-top:10px;background:var(--s2);border:1px solid var(--b2);border-radius:10px;padding:10px 12px">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -4738,8 +4390,8 @@ function renderPitchViewer(lineup, isAway) {
                 <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--b1)">
                   <span style="min-width:32px;font-size:12px;font-weight:900;color:var(--gold)">${s.min!==''?s.min+"'":''}</span>
                   <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1">
-                    <span style="font-size:12.5px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#27ae60;font-weight:900">${window.Icon?window.Icon('upload',11):'▲'}</span> ${s.in||'—'}</span>
-                    <span style="font-size:12px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#e5533d;font-weight:900">${window.Icon?window.Icon('download',11):'▼'}</span> ${s.out||'—'}</span>
+                    <span style="font-size:12.5px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_subAvatar(s.in)}<span style="color:#27ae60;font-weight:900">${window.Icon?window.Icon('upload',11):'▲'}</span> ${s.in||'—'}</span>
+                    <span style="font-size:12px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_subAvatar(s.out)}<span style="color:#e5533d;font-weight:900">${window.Icon?window.Icon('download',11):'▼'}</span> ${s.out||'—'}</span>
                   </div>
                 </div>`).join('')}
             </div>` : '';

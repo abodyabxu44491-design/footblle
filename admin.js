@@ -5547,21 +5547,15 @@ function _buildLivePage(matchId, match, ht, at) {
           <div class="lp-ic-row"><label>📝 ملاحظات</label><textarea class="lp-ic-input" id="lp-notes-${mId}" rows="2">${match.notes || ''}</textarea></div>
         </div>
 
-        <!-- التشكيلة -->
+        <!-- التشكيلة: تُدار حصريًا من أداة السحب والإفلات (زر «👥 التشكيلة» في قائمة المباراة) —
+             لوحة التشكيلة القديمة هنا حُذفت لأنها كانت تحفظ في مسار (liveData.homeLineup) لا تقرأه شاشة
+             التشكيلة عند الجمهور، فيظهر للمنظّم أن الحفظ نجح بينما لا شيء يصل فعليًا. -->
         <div class="lp-info-card">
           <div class="lp-ic-title">👥 التشكيلة</div>
-          <div class="lp-lineup-tabs">
-            <button class="lp-ltab active" id="lp-ltab-h-${mId}" onclick="lpLineupTab('${mId}','home',this)">${ht.name}</button>
-            <button class="lp-ltab" id="lp-ltab-a-${mId}" onclick="lpLineupTab('${mId}','away',this)">${at.name}</button>
+          <div style="font-size:11px;color:var(--muted);padding:6px 2px;line-height:1.7">
+            تُدار التشكيلة من أداة السحب والإفلات المخصصة — اضغط زر «👥 التشكيلة» في قائمة هذه المباراة.
           </div>
-          <div id="lp-lineup-side-${mId}" style="display:none;font-size:10px;color:var(--muted);text-align:center;padding:4px">المضيف</div>
-          <div class="lp-lineup-formations" id="lp-formations-${mId}">
-            ${['4-3-3','4-4-2','4-2-3-1','3-5-2','5-3-2'].map(f =>
-              `<button class="lp-f-btn${f==='4-3-3'?' active':''}" data-f="${f}" onclick="lpSetFormation('${mId}','${f}',this)">${f}</button>`
-            ).join('')}
-          </div>
-          <div id="lp-lineup-players-${mId}" class="lp-lineup-players"></div>
-          <button class="lp-btn lp-btn-lineup-save" onclick="lpSaveLineup('${mId}')">💾 حفظ التشكيلة للجمهور</button>
+          <button class="lp-btn" onclick="(window.openLineupDragDrop||window.openLineupModal)?.('${mId}')">🎯 فتح أداة التشكيلة</button>
         </div>
 
         <button class="lp-btn lp-btn-save-all" onclick="lpSaveAll('${mId}')">💾 حفظ وإرسال للجمهور</button>
@@ -5630,13 +5624,6 @@ function _buildLivePage(matchId, match, ht, at) {
   `;
 
   document.body.appendChild(overlay);
-
-  // init lineup
-  window._lpLineupSide = window._lpLineupSide || {};
-  window._lpLineupFormation = window._lpLineupFormation || {};
-  window._lpLineupSide[matchId] = 'home';
-  window._lpLineupFormation[matchId] = '4-3-3';
-  _lpRenderLineupPlayers(matchId);
 
   // init score display
   const st = _liveMatches[matchId];
@@ -6212,73 +6199,9 @@ window.lpClearEvents = async function(matchId) {
 // ── (أُزيلت دوال البث القديمة lpSetPlatform/lpActivateStream/lpStopStream — اعتُمد النظام الجديد) ──
 
 // ─────────────────────────────────────────────────────────────────
-// LINEUP
-// ─────────────────────────────────────────────────────────────────
-const LP_FORMATIONS = { '4-3-3':11, '4-4-2':11, '4-2-3-1':11, '3-5-2':11, '5-3-2':11 };
-const LP_POS_AR = {
-  GK:'حارس', CB:'مدافع', LB:'ظهير أيسر', RB:'ظهير أيمن',
-  CM:'وسط', CAM:'مهاجم وسط', CDM:'حاجب',
-  LW:'جناح أيسر', RW:'جناح أيمن', ST:'مهاجم', CF:'مهاجم إضافي'
-};
-
-window.lpLineupTab = function(matchId, side, btn) {
-  window._lpLineupSide[matchId] = side;
-  const tabs = document.querySelectorAll(`#lp-ltab-h-${matchId}, #lp-ltab-a-${matchId}`);
-  tabs.forEach(t => t.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  _lpRenderLineupPlayers(matchId);
-};
-
-window.lpSetFormation = function(matchId, f, btn) {
-  window._lpLineupFormation[matchId] = f;
-  document.querySelectorAll('#lp-formations-' + matchId + ' .lp-f-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  _lpRenderLineupPlayers(matchId);
-};
-
-function _lpRenderLineupPlayers(matchId) {
-  const container = document.getElementById('lp-lineup-players-' + matchId);
-  if (!container) return;
-  const side = (window._lpLineupSide && window._lpLineupSide[matchId]) || 'home';
-  const st = _liveMatches[matchId];
-  const saved = side === 'home' ? st?.homeLineup : st?.awayLineup;
-  const savedPlayers = saved?.players || [];
-  const total = 16; // 11 أساسي + 5 بدلاء
-  let html = '';
-  for (let i = 0; i < total; i++) {
-    const isSub = i >= 11;
-    const p = savedPlayers[i] || {};
-    html += `<div class="lp-lp-row">
-      <div class="lp-lp-idx" style="color:${isSub?'var(--muted)':'var(--gold)'}">${isSub ? 'B'+(i-10) : i+1}</div>
-      <input type="number" placeholder="#" min="1" max="99" id="lp-lnum-${i}-${matchId}" value="${p.number||''}" class="lp-lp-num"/>
-      <input type="text" placeholder="${isSub ? 'بديل '+(i-10) : 'اسم اللاعب'}" id="lp-lname-${i}-${matchId}" value="${p.name||''}" class="lp-lp-name"/>
-      <select id="lp-lpos-${i}-${matchId}" class="lp-lp-pos">
-        ${Object.entries(LP_POS_AR).map(([k,v])=>`<option value="${k}" ${p.posKey===k?'selected':''}>${v}</option>`).join('')}
-      </select>
-    </div>`;
-  }
-  container.innerHTML = html;
-}
-
-window.lpSaveLineup = async function(matchId) {
-  const st = _liveMatches[matchId];
-  if (!st) return;
-  const side = (window._lpLineupSide && window._lpLineupSide[matchId]) || 'home';
-  const formation = (window._lpLineupFormation && window._lpLineupFormation[matchId]) || '4-3-3';
-  const players = [];
-  for (let i = 0; i < 16; i++) {
-    const name = document.getElementById(`lp-lname-${i}-${matchId}`)?.value.trim() || '';
-    const num = document.getElementById(`lp-lnum-${i}-${matchId}`)?.value || '';
-    const posKey = document.getElementById(`lp-lpos-${i}-${matchId}`)?.value || 'CM';
-    if (name) players.push({ number: num, name, position: LP_POS_AR[posKey] || posKey, posKey, isSub: i >= 11 });
-  }
-  const lineupObj = { formation, players, updatedAt: Date.now() };
-  if (side === 'home') st.homeLineup = lineupObj;
-  else st.awayLineup = lineupObj;
-  await _lpSave(matchId);
-  showToast('✅︎ تم حفظ تشكيلة ' + (side === 'home' ? 'المضيف' : 'الضيف'), 'success');
-};
-
+// LINEUP — أُزيل المحرر القديم (كان يحفظ في liveData.homeLineup، مسار لا تقرأه
+// شاشة التشكيلة عند الجمهور). التشكيلة تُدار الآن حصريًا من admin-lineup-dragdrop.js
+// عبر window.openLineupDragDrop، ويُكتب مباشرة إلى matches/{id}.homeLineup/awayLineup.
 // ─────────────────────────────────────────────────────────────────
 // SAVE TO FIREBASE — يحفظ في matches/{matchId}.liveData
 // ─────────────────────────────────────────────────────────────────
@@ -6342,8 +6265,6 @@ async function _lpSave(matchId) {
     streamUrl: st.streamUrl || '',
     streamActive: st.streamActive || false,
     streamPlatform: st.streamPlatform || 'youtube',
-    homeLineup: st.homeLineup || null,
-    awayLineup: st.awayLineup || null,
     leagueId: LEAGUE_ID,
     updatedAt: serverTimestamp(),
   };
@@ -6582,20 +6503,7 @@ setInterval(() => {
     .lp-ic-input { background: var(--card2,#111); border: 1px solid var(--border2,#2a2a2a); border-radius: 8px; padding: 8px 10px; color: var(--text,#eee); font-family: Tajawal,sans-serif; font-size: 12px; width: 100%; box-sizing: border-box; }
     .lp-ic-input:focus { border-color: var(--gold3,#3a2e00); outline: none; }
 
-    /* Lineup */
-    .lp-lineup-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
-    .lp-ltab { flex: 1; padding: 7px; border: 1px solid var(--border2,#2a2a2a); border-radius: 8px; background: transparent; color: var(--muted,#666); font-family: Tajawal,sans-serif; font-size: 11px; cursor: pointer; }
-    .lp-ltab.active { border-color: var(--gold,#C9A02B); color: var(--gold,#C9A02B); background: var(--gold2,rgba(201,160,43,.08)); }
-    .lp-lineup-formations { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
-    .lp-f-btn { padding: 4px 9px; border: 1px solid var(--border2,#2a2a2a); border-radius: 6px; background: var(--card2,#111); color: var(--muted,#666); font-size: 10px; cursor: pointer; font-family: Tajawal,sans-serif; }
-    .lp-f-btn.active { border-color: var(--gold,#C9A02B); color: var(--gold,#C9A02B); background: var(--gold2,rgba(201,160,43,.08)); }
-    .lp-lineup-players { display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow-y: auto; margin-bottom: 10px; }
-    .lp-lp-row { display: grid; grid-template-columns: 22px 32px 1fr 60px; gap: 4px; align-items: center; }
-    .lp-lp-idx { font-size: 9px; font-weight: 700; text-align: center; }
-    .lp-lp-num { background: var(--card2,#111); border: 1px solid var(--border,#1a1a1a); border-radius: 6px; padding: 5px 3px; color: var(--text,#eee); font-family: Tajawal,sans-serif; font-size: 11px; text-align: center; width: 100%; }
-    .lp-lp-name { background: var(--card2,#111); border: 1px solid var(--border,#1a1a1a); border-radius: 6px; padding: 5px 6px; color: var(--text,#eee); font-family: Tajawal,sans-serif; font-size: 11px; width: 100%; }
-    .lp-lp-pos { background: var(--card2,#111); border: 1px solid var(--border,#1a1a1a); border-radius: 6px; padding: 5px 2px; color: var(--muted,#666); font-family: Tajawal,sans-serif; font-size: 9px; }
-    .lp-btn-lineup-save { width: 100%; padding: 10px; background: linear-gradient(135deg,rgba(201,160,43,.1),rgba(201,160,43,.06)); border: 1px solid var(--gold3,#3a2e00); color: var(--gold,#C9A02B); border-radius: 10px; font-family: Tajawal,sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; }
+    /* Lineup: تُدار خارجيًا الآن عبر أداة السحب والإفلات — بقي فقط زر فتحها + زر الحفظ العام */
     .lp-btn-save-all { padding: 13px; background: linear-gradient(135deg,var(--gold2,rgba(201,160,43,.2)),var(--gold3,#3a2e00)); border: 1px solid var(--gold,#C9A02B); color: var(--gold,#C9A02B); border-radius: 12px; font-family: Tajawal,sans-serif; font-size: 13px; font-weight: 900; cursor: pointer; width: 100%; }
 
     /* Modals */

@@ -5542,9 +5542,17 @@ function _buildLivePage(matchId, match, ht, at) {
         <!-- إضافات -->
         <div class="lp-info-card">
           <div class="lp-ic-title">⭐︎ إضافات</div>
-          <div class="lp-ic-row"><label>👑 رجل المباراة</label><input class="lp-ic-input" id="lp-mom-${mId}" value="${match.manOfMatch || ''}"/></div>
+          <div class="lp-ic-row"><label>👑 رجل المباراة</label><div style="display:flex;gap:6px;align-items:center"><input class="lp-ic-input" id="lp-mom-${mId}" value="${match.manOfMatch || ''}" style="flex:1"/><button type="button" onclick="window.openMOMPickerToField('${mId}','lp-mom-${mId}')" style="flex-shrink:0;padding:8px 10px;border-radius:8px;background:linear-gradient(145deg,#e6c157,#b8860b);border:none;color:#1a1200;font-size:11px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer;white-space:nowrap">🌟</button></div></div>
           <div class="lp-ic-row"><label>👥 الجمهور</label><input class="lp-ic-input" id="lp-att-${mId}" type="number" value="${match.attendance || ''}"/></div>
           <div class="lp-ic-row"><label>📝 ملاحظات</label><textarea class="lp-ic-input" id="lp-notes-${mId}" rows="2">${match.notes || ''}</textarea></div>
+          <div class="lp-ic-row" style="flex-direction:column;align-items:stretch;gap:6px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <label style="margin:0">📖 قصة المباراة</label>
+              <button type="button" onclick="window.autoFillStory('${mId}')" style="padding:6px 12px;border-radius:8px;background:linear-gradient(145deg,#e6c157,#b8860b);border:none;color:#1a1200;font-size:11px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer;white-space:nowrap">✨ توليد تلقائي</button>
+            </div>
+            <textarea class="lp-ic-input" id="lp-story-${mId}" rows="4" placeholder="اكتب قصة المباراة يدوياً، أو اضغط «توليد تلقائي» ثم عدّل النص. يظهر للجمهور فوق الأحداث." style="line-height:1.9;resize:vertical">${match.matchStory || ''}</textarea>
+            <div style="font-size:10px;color:#5a6070">إن تُرك فارغاً يُولَّد السرد تلقائياً للجمهور. أي نص هنا يطغى على التلقائي.</div>
+          </div>
         </div>
 
         <!-- التشكيلة: تُدار حصريًا من أداة السحب والإفلات (زر «👥 التشكيلة» في قائمة المباراة) —
@@ -6291,6 +6299,7 @@ async function _lpSave(matchId) {
     manOfMatch: document.getElementById('lp-mom-' + matchId)?.value.trim() || '',
     attendance: document.getElementById('lp-att-' + matchId)?.value || '',
     notes: document.getElementById('lp-notes-' + matchId)?.value.trim() || '',
+    matchStory: document.getElementById('lp-story-' + matchId)?.value.trim() || '',
   };
   // نكتب round فقط لو القيمة المُدخلة صحيحة (>=1). وإلا نُبقيها كما هي بعدم كتابتها.
   if (Number.isFinite(_lpRoundVal) && _lpRoundVal >= 1) {
@@ -7384,6 +7393,13 @@ window.lpEndMatch = async function(matchId) {
   try { await recalcStandings(); } catch(e) {}
 
   window.showToast && window.showToast('✅︎ انتهت المباراة — تم الحفظ', 'success');
+
+  // 🌟 شاشة اختيار رجل المباراة — تظهر تلقائياً بعد نهاية البث (قابلة للتخطّي)
+  try {
+    if (typeof window.openMOMPicker === 'function') {
+      setTimeout(() => window.openMOMPicker(matchId), 500);
+    }
+  } catch (e) {}
 };
 
 // وقت إضافي — override ليدعم ET1/ET2
@@ -7511,6 +7527,7 @@ async function _lpSaveV2(matchId) {
     manOfMatch:  _val('lp-mom'),
     attendance:  _val('lp-att'),
     notes:       _val('lp-notes'),
+    matchStory:  _val('lp-story'),
   };
   // ✅︎ لا نعيد ضبط الجولة إلى 1: نكتبها فقط لو القيمة المُدخلة صحيحة،
   //    وإلا نُبقي جولة المباراة الأصلية (منع رجوع الجولة الثانية للأولى).
@@ -8455,6 +8472,16 @@ function loadGroupsAndKnockout() {
       settings = { ...settings, ...data };
       window.settings = settings;
       updateBracketPublishUI(data.bracketPublished === true);
+      // ✅ زامن حالة مفاتيح الإعدادات المحفوظة مع الواجهة (كي تعكس ما اختاره المنظّم)
+      try {
+        document.querySelectorAll('.toggle-row[data-key]').forEach(row => {
+          const k = row.dataset.key;
+          if (k in data) {
+            const sw = row.querySelector('.toggle-switch');
+            if (sw) sw.classList[data[k] ? 'add' : 'remove']('on');
+          }
+        });
+      } catch (e) {}
     }
   }, () => {});
 }
@@ -12544,7 +12571,10 @@ window.importRosterToLineup = function(teamId) {
 
     <!-- رجل المباراة + ملخص -->
     <div class="mcv2-sec" style="color:#C9A02B">🏅 رجل المباراة</div>
-    <div class="mcv2-fld"><input class="mcv2-inp" id="qr-mom-${matchId}" value="${m.manOfMatch || ''}" placeholder="اسم اللاعب"/></div>
+    <div class="mcv2-fld" style="display:flex;gap:8px;align-items:center">
+      <input class="mcv2-inp" id="qr-mom-${matchId}" value="${m.manOfMatch || ''}" placeholder="اسم اللاعب" style="flex:1"/>
+      <button type="button" onclick="window.openMOMPickerToField('${matchId}','qr-mom-${matchId}')" style="flex-shrink:0;padding:9px 12px;border-radius:10px;background:linear-gradient(145deg,#e6c157,#b8860b);border:none;color:#1a1200;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer;white-space:nowrap">🌟 اختر</button>
+    </div>
     <div class="mcv2-sec" style="color:#666">📝 ملخص المباراة</div>
     <div class="mcv2-fld"><textarea class="mcv2-inp" id="qr-sum-${matchId}" rows="2" style="resize:none" placeholder="أبرز أحداث المباراة...">${m.summary || ''}</textarea></div>
 
@@ -12879,4 +12909,279 @@ window.importRosterToLineup = function(teamId) {
 
   // console.log('[CARDS V2] ✅︎ نظام البطاقات v2 — تم التحميل');
 
+})();
+
+// ══════════════════════════════════════════════════════════════════════
+//  🌟 نظام اختيار رجل المباراة (Man of the Match Picker)
+//  يظهر تلقائياً بعد نهاية البث، ويمكن استدعاؤه يدوياً. يعرض لاعبي
+//  الفريقين (بالصور والأرقام) للاختيار، مع خيار تخطّي. يحفظ في
+//  matches/{id}.manOfMatch (نفس الحقل الذي يقرأه الجمهور والبطاقات).
+// ══════════════════════════════════════════════════════════════════════
+(function () {
+  'use strict';
+
+  // حقن CSS مرة واحدة
+  function _ensureCSS() {
+    if (document.getElementById('mom-picker-css')) return;
+    const s = document.createElement('style');
+    s.id = 'mom-picker-css';
+    s.textContent = `
+      .mom-ov{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;
+        background:rgba(0,0,0,.72);backdrop-filter:blur(4px);padding:16px}
+      .mom-ov.show{display:flex}
+      .mom-box{background:#12141a;border:1px solid #262a34;border-radius:20px;width:100%;max-width:440px;
+        max-height:86vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+      .mom-hd{padding:18px 18px 14px;text-align:center;border-bottom:1px solid #1f2229;
+        background:linear-gradient(135deg,rgba(201,160,43,.16),rgba(201,160,43,.06))}
+      .mom-hd h3{font-size:17px;font-weight:900;color:#e8eaf0;margin:0 0 3px}
+      .mom-hd p{font-size:11px;color:#8a90a0;margin:0}
+      .mom-body{overflow-y:auto;padding:14px 16px;flex:1}
+      .mom-team-lbl{font-size:11px;font-weight:800;color:#5a6070;letter-spacing:.5px;margin:10px 0 8px;
+        display:flex;align-items:center;gap:6px}
+      .mom-team-lbl::after{content:'';flex:1;height:1px;background:#1f2229}
+      .mom-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
+      .mom-p{background:#0f1115;border:1.5px solid #1f2229;border-radius:12px;padding:10px 6px;
+        display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:.15s;text-align:center}
+      .mom-p:hover{border-color:rgba(201,160,43,.4);transform:translateY(-2px)}
+      .mom-p.sel{border-color:#C9A02B;background:rgba(201,160,43,.08);box-shadow:0 0 0 1px #C9A02B}
+      .mom-av{position:relative;width:46px;height:46px;border-radius:50%;background:linear-gradient(145deg,#e6c157,#b8860b);
+        padding:2px;flex-shrink:0}
+      .mom-av>div,.mom-av>img{width:100%;height:100%;border-radius:50%;object-fit:cover;background:#0d1526;display:flex;align-items:center;justify-content:center}
+      .mom-av-num{position:absolute;bottom:-3px;right:-3px;background:#C9A02B;color:#1a1200;font-size:8px;font-weight:900;
+        border-radius:999px;min-width:15px;height:15px;display:flex;align-items:center;justify-content:center;padding:0 2px;border:2px solid #12141a}
+      .mom-p.sel .mom-av-num{background:#C9A02B}
+      .mom-p-nm{font-size:11px;font-weight:700;color:#d0d4dc;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}
+      .mom-p.sel .mom-p-nm{color:#e6c157}
+      .mom-check{position:absolute;top:-6px;left:-6px;width:20px;height:20px;border-radius:50%;background:#C9A02B;
+        color:#000;font-size:12px;font-weight:900;display:none;align-items:center;justify-content:center;border:2px solid #12141a}
+      .mom-p.sel .mom-check{display:flex}
+      .mom-ft{padding:12px 16px;border-top:1px solid #1f2229;display:flex;gap:10px}
+      .mom-btn{flex:1;padding:12px;border-radius:12px;font-size:13px;font-weight:800;font-family:Tajawal,sans-serif;
+        cursor:pointer;border:1px solid transparent;transition:.15s}
+      .mom-skip{background:transparent;border-color:#262a34;color:#8a90a0}
+      .mom-skip:hover{border-color:#3a4050;color:#b0b6c4}
+      .mom-save{background:linear-gradient(145deg,#e6c157,#b8860b);color:#1a1200}
+      .mom-save:disabled{opacity:.4;cursor:not-allowed}
+    `;
+    document.head.appendChild(s);
+  }
+
+  let _momState = { matchId: null, selected: null }; // selected = {name, teamId, id}
+
+  window._momSelect = function (el, name, teamId, id) {
+    document.querySelectorAll('.mom-p').forEach(p => p.classList.remove('sel'));
+    el.classList.add('sel');
+    _momState.selected = { name, teamId, id };
+    const btn = document.getElementById('mom-save-btn');
+    if (btn) btn.disabled = false;
+  };
+
+  window._momSkip = function () {
+    const ov = document.getElementById('mom-picker-ov');
+    if (ov) ov.classList.remove('show');
+    _momState = { matchId: null, selected: null };
+    window._momFieldTarget = null;
+  };
+
+  window._momSave = async function () {
+    const sel = _momState.selected, mId = _momState.matchId;
+    if (!sel || !mId) return window._momSkip();
+    try {
+      if (window._saveMatchField) await window._saveMatchField(mId, { manOfMatch: sel.name });
+      // حدّث النسخة المحلية فوراً
+      const lm = (window.matches || []).find(x => x.id === mId);
+      if (lm) lm.manOfMatch = sel.name;
+      window.showToast && window.showToast('🌟 تم اختيار رجل المباراة: ' + sel.name, 'success');
+    } catch (e) {
+      window.showToast && window.showToast('تعذّر الحفظ', 'error');
+    }
+    window._momSkip();
+  };
+
+  // بناء بطاقة لاعب
+  function _momPlayerCard(p, teamId) {
+    const nm = (p.name || '').replace(/'/g, "\\'");
+    const photo = p.photo
+      ? `<img src="${p.photo}" alt="">`
+      : `<div style="color:#C9A02B;font-size:20px">👤</div>`;
+    return `<div class="mom-p" onclick="window._momSelect(this,'${nm}','${teamId}','${p.id||''}')">
+      <div class="mom-check">✓</div>
+      <div class="mom-av">${photo}${p.number?`<span class="mom-av-num">${p.number}</span>`:''}</div>
+      <div class="mom-p-nm">${p.name||'لاعب'}</div>
+    </div>`;
+  }
+
+  // نسخة تكتب الاختيار في حقل إدخال (للإدخال السريع/نافذة التفاصيل)
+  // بدل الحفظ المباشر — الحفظ يتم لاحقاً مع بقية الحقول.
+  window.openMOMPickerToField = async function (matchId, fieldId) {
+    _momState = _momState || {};
+    window._momFieldTarget = fieldId;
+    await window.openMOMPicker(matchId);
+    // بدّل سلوك زر الحفظ لهذه الجلسة: يكتب في الحقل ثم يغلق
+    const btn = document.getElementById('mom-save-btn');
+    if (btn) {
+      btn.onclick = function () {
+        const sel = _momState.selected;
+        if (sel) {
+          const f = document.getElementById(window._momFieldTarget);
+          if (f) f.value = sel.name;
+          window.showToast && window.showToast('🌟 رجل المباراة: ' + sel.name, 'success');
+        }
+        window._momFieldTarget = null;
+        window._momSkip();
+      };
+    }
+  };
+
+  window.openMOMPicker = async function (matchId) {
+    _ensureCSS();
+    const m = (window.matches || []).find(x => x.id === matchId);
+    if (!m) return;
+    _momState = { matchId, selected: null };
+
+    // اجلب كشفي الفريقين (الأساسيون + كل الكشف)
+    let homeRoster = [], awayRoster = [];
+    try {
+      if (window._loadTeamRoster) {
+        homeRoster = await window._loadTeamRoster(m.homeId);
+        awayRoster = await window._loadTeamRoster(m.awayId);
+      }
+    } catch (e) {}
+    // احتياط: لو الكشف فارغ، استعمل لاعبي التشكيلة المحفوظة
+    if (!homeRoster.length && m.homeLineup && m.homeLineup.players) homeRoster = m.homeLineup.players;
+    if (!awayRoster.length && m.awayLineup && m.awayLineup.players) awayRoster = m.awayLineup.players;
+
+    const teams = window.teams || [];
+    const ht = teams.find(t => t.id === m.homeId) || { name: 'المضيف' };
+    const at = teams.find(t => t.id === m.awayId) || { name: m.awayName || 'الضيف' };
+
+    const homeGrid = homeRoster.map(p => _momPlayerCard(p, m.homeId)).join('') || '<div style="grid-column:1/-1;color:#5a6070;font-size:11px;text-align:center;padding:10px">لا يوجد كشف لاعبين</div>';
+    const awayGrid = awayRoster.map(p => _momPlayerCard(p, m.awayId)).join('') || '<div style="grid-column:1/-1;color:#5a6070;font-size:11px;text-align:center;padding:10px">لا يوجد كشف لاعبين</div>';
+
+    let ov = document.getElementById('mom-picker-ov');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'mom-picker-ov';
+      ov.className = 'mom-ov';
+      document.body.appendChild(ov);
+    }
+    ov.innerHTML = `
+      <div class="mom-box">
+        <div class="mom-hd">
+          <h3>🌟 اختر رجل المباراة</h3>
+          <p>${ht.name} ضد ${at.name} · يمكنك التخطّي</p>
+        </div>
+        <div class="mom-body">
+          <div class="mom-team-lbl">${ht.name}</div>
+          <div class="mom-grid">${homeGrid}</div>
+          <div class="mom-team-lbl">${at.name}</div>
+          <div class="mom-grid">${awayGrid}</div>
+        </div>
+        <div class="mom-ft">
+          <button class="mom-btn mom-skip" onclick="window._momSkip()">تخطّي</button>
+          <button class="mom-btn mom-save" id="mom-save-btn" onclick="window._momSave()" disabled>حفظ الاختيار</button>
+        </div>
+      </div>`;
+    ov.classList.add('show');
+    // إغلاق بالضغط خارج الصندوق
+    ov.onclick = (e) => { if (e.target === ov) window._momSkip(); };
+    // أعد ضبط سلوك الحفظ للوضع الافتراضي (حفظ مباشر) — نسخة الحقل تبدّله بعدها
+    const _sb = document.getElementById('mom-save-btn');
+    if (_sb && !window._momFieldTarget) _sb.onclick = () => window._momSave();
+  };
+
+})();
+
+// ══════════════════════════════════════════════════════════════════════
+//  📖 توليد قصة المباراة تلقائياً في الإدارة (زر «توليد تلقائي»)
+//  يبني نفس السرد الذكي من أحداث المباراة ويضعه في حقل التعديل،
+//  ليعدّله المنظّم قبل الحفظ. نفس منطق _buildMatchStory في الجمهور.
+// ══════════════════════════════════════════════════════════════════════
+(function () {
+  'use strict';
+
+  function _norm(s){return String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim().toLowerCase();}
+  function _lam(team){return team.startsWith('ال') ? 'لل'+team.slice(2) : 'لـ'+team;}
+
+  function buildStory(m, hName, aName) {
+    if (!m) return '';
+    const raw = (m.liveData && m.liveData.events) || m.events || [];
+    const evs = raw.slice()
+      .filter(e => e && (e.type === 'goal' || e.type === 'own'))
+      .sort((a,b) => (a.minute||0)-(b.minute||0) || (a.extraMinute||0)-(b.extraMinute||0));
+    const hs = m.homeScore, as = m.awayScore;
+    if (hs == null || as == null) return '';
+    const _min = ev => ev.extraMinute > 0 ? `${ev.minute}+${ev.extraMinute}` : ev.minute;
+    const _teamOf = ev => ((ev.teamId === m.awayId) || (ev.side||ev.team) === 'away') ? aName : hName;
+
+    if (!evs.length) {
+      if (hs === 0 && as === 0) return `انتهت المباراة بين ${hName} و${aName} بالتعادل السلبي دون أهداف، في لقاء دفاعي.`;
+      return '';
+    }
+    const parts = [];
+    const first = evs[0];
+    const firstTeam = _teamOf(first);
+    if (first.type === 'own') parts.push(`افتتح ${firstTeam} التسجيل عبر هدف عكسي في الدقيقة ${_min(first)}`);
+    else {
+      parts.push(`افتتح ${firstTeam} التسجيل عن طريق ${first.player} في الدقيقة ${_min(first)}`);
+      if (first.assist) parts[parts.length-1] += ` بعد تمريرة من ${first.assist}`;
+    }
+    let rh = 0, ra = 0, leadCount = 0;
+    const narr = [];
+    evs.forEach((ev,i) => {
+      const isHome = (ev.teamId === m.homeId) || (ev.side||ev.team) === 'home';
+      const forHome = ev.type === 'own' ? !isHome : isHome;
+      if (forHome) rh++; else ra++;
+      if (i === 0) return;
+      const scorer = ev.type === 'own' ? null : ev.player;
+      const team = forHome ? hName : aName;
+      if (rh === ra) narr.push(`أدرك ${team} التعادل${scorer?` عبر ${scorer}`:' بهدف عكسي'} (${rh}-${ra}) في الدقيقة ${_min(ev)}`);
+      else {
+        leadCount++;
+        const lead = rh > ra ? hName : aName;
+        const gains = lead === team;
+        if (ev.type === 'own') narr.push(`عزّز ${team} تقدّمه بهدف عكسي في الدقيقة ${_min(ev)}`);
+        else if (gains && leadCount === 1) narr.push(`أضاف ${scorer} الهدف الثاني ${_lam(team)} في الدقيقة ${_min(ev)}`);
+        else if (gains) narr.push(`وسّع ${scorer} الفارق ${_lam(team)} في الدقيقة ${_min(ev)}`);
+        else narr.push(`قلّص ${scorer} الفارق ${_lam(team)} في الدقيقة ${_min(ev)}`);
+      }
+    });
+    if (narr.length) parts.push(narr.slice(0,4).join('، ثم '));
+    const diff = Math.abs(hs-as);
+    const winner = hs > as ? hName : as > hs ? aName : null;
+    const last = evs[evs.length-1];
+    if (winner) {
+      if (diff >= 3) parts.push(`ليحسم ${winner} اللقاء بنتيجة عريضة ${Math.max(hs,as)}-${Math.min(hs,as)}`);
+      else if ((last.minute||0) >= 80 && diff === 1) parts.push(`لينتزع ${winner} فوزاً ثميناً في اللحظات الأخيرة بنتيجة ${Math.max(hs,as)}-${Math.min(hs,as)}`);
+      else parts.push(`لينتهي اللقاء بفوز ${winner} ${Math.max(hs,as)}-${Math.min(hs,as)}`);
+    } else parts.push(`لينتهي اللقاء بالتعادل ${hs}-${as} في مباراة مثيرة`);
+
+    const mom = (m.manOfMatch || '').trim();
+    let story = parts.join('، ').replace(/،\s*،/g,'،').replace(/\s+/g,' ').trim();
+    story = story + '.';
+    if (mom) story += ` وكان ${mom} نجم اللقاء بلا منازع.`;
+    return story;
+  }
+
+  window.autoFillStory = function (matchId) {
+    const m = (window.matches || []).find(x => x.id === matchId)
+           || (window._liveMatches && window._liveMatches[matchId]);
+    if (!m) { window.showToast && window.showToast('لم يتم العثور على المباراة', 'error'); return; }
+    const teams = window.teams || [];
+    const ht = teams.find(t => t.id === m.homeId) || { name: m.homeName || 'المضيف' };
+    const at = teams.find(t => t.id === m.awayId) || { name: m.awayName || 'الضيف' };
+    // ادمج رجل المباراة المُدخل حالياً في الحقل (قبل الحفظ) ليظهر في السرد
+    const momField = document.getElementById('lp-mom-' + matchId);
+    const mClone = Object.assign({}, m);
+    if (momField && momField.value.trim()) mClone.manOfMatch = momField.value.trim();
+    const story = buildStory(mClone, ht.name, at.name);
+    const field = document.getElementById('lp-story-' + matchId);
+    if (!field) return;
+    if (!story) {
+      window.showToast && window.showToast('لا توجد أحداث كافية لتوليد القصة', 'error');
+      return;
+    }
+    field.value = story;
+    window.showToast && window.showToast('✨ تم توليد القصة — يمكنك تعديلها', 'success');
+  };
 })();

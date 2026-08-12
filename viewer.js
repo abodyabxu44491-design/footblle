@@ -1118,6 +1118,21 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
   document.getElementById('pmName').textContent = _liveName || player.name;
   // اسم الفريق تحت الاسم؛ والتفاصيل الاختيارية في قسم مرتّب مستقل (بطاقات)
   document.getElementById('pmTeam').textContent = player.teamName || '';
+  // 🏅 لقب اللاعب — شارة ذهبية تُمنح حسب أدائه في البطولة
+  const _titleEl = document.getElementById('pmTitle');
+  if (_titleEl) {
+    const _title = (typeof _playerTitle === 'function') ? _playerTitle(player) : null;
+    if (_title) {
+      _titleEl.style.display = 'inline-flex';
+      _titleEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;
+        font-size:11px;font-weight:800;color:${_title.color};
+        background:${_title.color}1f;border:1px solid ${_title.color}55;
+        border-radius:999px;padding:3px 11px">${_title.icon} ${_title.label}</span>`;
+    } else {
+      _titleEl.style.display = 'none';
+      _titleEl.innerHTML = '';
+    }
+  }
   try {
     const _rp = (window._teamRosters && window._teamRosters[player.teamId] || []).find(x => {
       if (player.playerId && x.id === player.playerId) return true;
@@ -2297,9 +2312,13 @@ function renderTeamsGrid() {
       </div>
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:900;color:var(--t1)">${t.name}</div>
-        <div style="display:flex;gap:3px;margin-top:4px">
-          ${form.map(f=>`<div style="width:7px;height:7px;border-radius:2px;background:${f==='w'?'var(--green)':f==='l'?'var(--red)':'var(--t3)'}"></div>`).join('')}
-        </div>
+        ${form.length ? `<div style="display:flex;gap:4px;margin-top:5px">
+          ${form.map(f=>{
+            const c = f==='w' ? 'var(--green,#27ae60)' : f==='l' ? 'var(--red,#C0392B)' : '#8a90a0';
+            const ch = f==='w' ? 'ف' : f==='l' ? 'خ' : 'ت';
+            return `<div style="width:17px;height:17px;border-radius:5px;background:${c};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)">${ch}</div>`;
+          }).join('')}
+        </div>` : ''}
       </div>
       <div style="text-align:center;min-width:36px">
         <div style="font-size:18px;font-weight:900;color:var(--gold);font-family:'Tajawal',sans-serif">${t.pts||0}</div>
@@ -2324,16 +2343,39 @@ function getTeamStats(teamId) {
 }
 
 function getTeamForm(teamId, count) {
+  // ✅ مرتّبة زمنياً (الأقدم → الأحدث) لعرض صحيح للفورم
   const finished = matches
     .filter(m => m.status === 'finished' && (m.homeId === teamId || m.awayId === teamId))
+    .sort((a, b) => {
+      const _t = m => (m.date ? new Date(m.date + 'T' + (m.time || '00:00')).getTime() : 0) || (m.round || 0);
+      return _t(a) - _t(b);
+    })
     .slice(-count);
   return finished.map(m => {
     const isHome = m.homeId === teamId;
     const myScore = isHome ? (m.homeScore || 0) : (m.awayScore || 0);
     const opScore = isHome ? (m.awayScore || 0) : (m.homeScore || 0);
-    if (myScore > opScore) return 'w';
-    if (myScore < opScore) return 'l';
-    return 'd';
+    const r = myScore > opScore ? 'w' : myScore < opScore ? 'l' : 'd';
+    return r;
+  });
+}
+// ── فورم مفصّل (مع الخصم والنتيجة) لعرض غنيّ في صفحة الفريق ──
+function getTeamFormDetailed(teamId, count) {
+  const finished = matches
+    .filter(m => m.status === 'finished' && (m.homeId === teamId || m.awayId === teamId))
+    .sort((a, b) => {
+      const _t = m => (m.date ? new Date(m.date + 'T' + (m.time || '00:00')).getTime() : 0) || (m.round || 0);
+      return _t(a) - _t(b);
+    })
+    .slice(-count);
+  return finished.map(m => {
+    const isHome = m.homeId === teamId;
+    const myScore = isHome ? (m.homeScore || 0) : (m.awayScore || 0);
+    const opScore = isHome ? (m.awayScore || 0) : (m.homeScore || 0);
+    const oppId = isHome ? m.awayId : m.homeId;
+    const opp = (teams || []).find(t => t.id === oppId);
+    const r = myScore > opScore ? 'w' : myScore < opScore ? 'l' : 'd';
+    return { r, my: myScore, op: opScore, oppName: (opp && opp.name) || m.awayName || '؟', round: m.round || 0 };
   });
 }
 
@@ -2450,15 +2492,28 @@ window.openTeamProfile = function(teamId) {
       </div>`;
     })()}
     <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:14px 16px;margin-bottom:6px">
-      <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:10px">آخر النتائج</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${form.map(f=>`
-          <div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;
-            background:${f==='w'?'var(--gn-bg)':f==='l'?'var(--lv-bg)':'var(--s3)'};
-            border:1px solid ${f==='w'?'var(--gn-br)':f==='l'?'var(--lv-br)':'var(--b2)'};
-            color:${f==='w'?'var(--green)':f==='l'?'var(--live)':'var(--t3)'}">
-            ${f==='w'?'ف':f==='l'?'خ':'ت'}
-          </div>`).join('')}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px">آخر النتائج</span>
+        ${(() => {
+          const _fd = (typeof getTeamFormDetailed === 'function') ? getTeamFormDetailed(teamId, 5) : [];
+          const w = _fd.filter(x=>x.r==='w').length, d = _fd.filter(x=>x.r==='d').length, l = _fd.filter(x=>x.r==='l').length;
+          return _fd.length ? `<span style="font-size:10px;color:var(--t3)"><b style="color:var(--green,#27ae60)">${w}ف</b> · <b style="color:#8a90a0">${d}ت</b> · <b style="color:var(--red,#C0392B)">${l}خ</b></span>` : '';
+        })()}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${(() => {
+          const _fd = (typeof getTeamFormDetailed === 'function') ? getTeamFormDetailed(teamId, 5) : form.map(r=>({r}));
+          return _fd.map(f=>{
+            const c = f.r==='w' ? 'var(--green,#27ae60)' : f.r==='l' ? 'var(--red,#C0392B)' : '#8a90a0';
+            const ch = f.r==='w'?'ف':f.r==='l'?'خ':'ت';
+            const sub = (f.my!=null) ? `<div style="font-size:8px;color:var(--t3);margin-top:3px;white-space:nowrap">${f.my}-${f.op}</div>` : '';
+            const tip = f.oppName ? `title="ضد ${f.oppName} (${f.my}-${f.op})"` : '';
+            return `<div ${tip} style="display:flex;flex-direction:column;align-items:center;gap:0">
+              <div style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;background:${c};box-shadow:0 2px 5px rgba(0,0,0,.3)">${ch}</div>
+              ${sub}
+            </div>`;
+          }).join('');
+        })()}
         ${!form.length?'<div style="font-size:11px;color:var(--t3)">لا توجد مباريات بعد</div>':''}
       </div>
     </div>
@@ -3463,6 +3518,325 @@ function _p(n) { return String(n).padStart(2, '0'); }
 const _LIVE = ['live','halftime','extratime1','halftime_et','extratime2','penalties'];
 
 // ══════════════════════════════════════════════════════════════
+//  رجل المباراة (Man of the Match) — مُحلّل موحّد
+//  الأولوية:
+//   1) اختيار يدوي صريح (m.manOfMatch) — من أي مسار إدخال في الإدارة
+//      (نافذة التفاصيل / الإدخال السريع / نظام البطاقات / شاشة نهاية البث)
+//   2) استنتاج تلقائي من الأحداث (للأحداث القديمة بلا اختيار):
+//      الأعلى نقاطاً = أهداف×3 + صناعات×2، مع استبعاد من طُرد (بطاقة حمراء)،
+//      وترجيح الفريق الفائز عند التعادل في النقاط.
+//  يُرجع { name, teamId, auto } أو null.
+// ══════════════════════════════════════════════════════════════
+function _resolveMOTM(m) {
+  if (!m) return null;
+  // ── 1) اختيار يدوي (نص الاسم كما أُدخل) ──
+  const manual = (m.manOfMatch || (m.liveData && m.liveData.manOfMatch) || '').toString().trim();
+  if (manual) {
+    // حاول ربطه بفريقه لعرض الشعار/فتح صفحته (بحث في كشوف/تشكيلات الفريقين)
+    let teamId = null, pid = null;
+    const _tryTeam = (tid, lineup) => {
+      if (teamId) return;
+      const roster = (window._teamRosters && window._teamRosters[tid]) || [];
+      const pool = [...(roster||[]), ...(((lineup||{}).players)||[])];
+      const hit = pool.find(p => p && _normName(p.name) === _normName(manual));
+      if (hit) { teamId = tid; pid = hit.id || null; }
+    };
+    _tryTeam(m.homeId, m.homeLineup);
+    _tryTeam(m.awayId, m.awayLineup);
+    return { name: manual, teamId, playerId: pid, auto: false };
+  }
+  // ── 2) استنتاج تلقائي من الأحداث ──
+  const evs = (typeof _matchEvents === 'function') ? _matchEvents(m) : (m.events || []);
+  if (!Array.isArray(evs) || !evs.length) return null;
+  const score = {};                                   // key → {name, teamId, pid, goals, assists, red}
+  const _sideTeam = (ev) => (ev.teamId) || ((ev.side || ev.team) === 'away' ? m.awayId : m.homeId);
+  const _key = (name, tid) => (tid || '') + '::' + _normName(name);
+  evs.forEach(ev => {
+    if (!ev) return;
+    const tid = _sideTeam(ev);
+    const nm = (ev.player || '').toString().trim();
+    if (nm && (ev.type === 'goal')) {
+      const k = _key(nm, tid); (score[k] = score[k] || { name: nm, teamId: tid, pid: ev.playerId || null, goals: 0, assists: 0, red: 0 }).goals++;
+    }
+    if (ev.assist) {
+      const an = ev.assist.toString().trim(); const k = _key(an, tid);
+      (score[k] = score[k] || { name: an, teamId: tid, pid: ev.assistPlayerId || null, goals: 0, assists: 0, red: 0 }).assists++;
+    }
+    if (nm && ev.type === 'red') {
+      const k = _key(nm, tid); (score[k] = score[k] || { name: nm, teamId: tid, pid: ev.playerId || null, goals: 0, assists: 0, red: 0 }).red++;
+    }
+  });
+  const cands = Object.values(score).filter(c => c.red === 0 && (c.goals > 0 || c.assists > 0));
+  if (!cands.length) return null;
+  const winnerTeam = (m.homeScore > m.awayScore) ? m.homeId : (m.awayScore > m.homeScore) ? m.awayId : null;
+  cands.sort((a, b) => {
+    const pa = a.goals * 3 + a.assists * 2, pb = b.goals * 3 + b.assists * 2;
+    if (pb !== pa) return pb - pa;
+    if (b.goals !== a.goals) return b.goals - a.goals;          // الأكثر أهدافاً
+    const wa = a.teamId === winnerTeam ? 1 : 0, wb = b.teamId === winnerTeam ? 1 : 0;
+    return wb - wa;                                              // من الفريق الفائز
+  });
+  const top = cands[0];
+  return { name: top.name, teamId: top.teamId, playerId: top.pid, auto: true, goals: top.goals, assists: top.assists };
+}
+window._resolveMOTM = _resolveMOTM;
+
+// ══════════════════════════════════════════════════════════════
+//  📖 قصة المباراة — سرد تلقائي ذكي من الأحداث
+//  يولّد فقرة عربية طبيعية تحكي مجريات المباراة: من افتتح، متى
+//  عادل الخصم، من حسم، أبرز اللحظات. يعتمد كلياً على أحداث المباراة.
+//  يُرجع نصّاً أو '' إن لم تكفِ الأحداث.
+// ══════════════════════════════════════════════════════════════
+function _buildMatchStory(m, ht, at) {
+  if (!m) return '';
+  const evs = ((typeof _matchEvents === 'function') ? _matchEvents(m) : (m.events || [])).slice()
+    .filter(e => e && (e.type === 'goal' || e.type === 'own'))
+    .sort((a, b) => (a.minute || 0) - (b.minute || 0) || (a.extraMinute || 0) - (b.extraMinute || 0));
+  const hs = m.homeScore, as = m.awayScore;
+  if (hs == null || as == null) return '';
+  const hName = (ht && ht.name) || 'المضيف';
+  const aName = (at && at.name) || m.awayName || 'الضيف';
+
+  // اسم اللاعب الحيّ للحدث
+  const _pn = (ev) => {
+    const tid = ev.teamId || ((ev.side || ev.team) === 'away' ? m.awayId : m.homeId);
+    const raw = (ev.player || '').toString().trim();
+    if (typeof _pName === 'function' && ev.playerId && tid) return _pName(tid, ev.playerId, raw);
+    return raw;
+  };
+  const _teamOf = (ev) => ((ev.teamId === m.awayId) || (ev.side || ev.team) === 'away') ? aName : hName;
+  const _min = (ev) => ev.extraMinute > 0 ? `${ev.minute}+${ev.extraMinute}` : ev.minute;
+
+  const parts = [];
+
+  // ── المقدّمة: نبرة حسب فارق النتيجة ──
+  const diff = Math.abs(hs - as);
+  const winner = hs > as ? hName : as > hs ? aName : null;
+  if (!evs.length) {
+    // تعادل سلبي أو لا أهداف مسجّلة
+    if (hs === 0 && as === 0) return `انتهت المباراة بين ${hName} و${aName} بالتعادل السلبي دون أهداف، في لقاء ${_storyAdj('دفاعي')}.`;
+    return '';
+  }
+
+  // أول هدف
+  const first = evs[0];
+  const firstScorer = first.type === 'own' ? null : _pn(first);
+  const firstTeam = _teamOf(first);
+  if (first.type === 'own') {
+    parts.push(`افتتح ${firstTeam} التسجيل عبر هدف عكسي في الدقيقة ${_min(first)}`);
+  } else {
+    parts.push(`افتتح ${firstTeam} التسجيل عن طريق ${firstScorer} في الدقيقة ${_min(first)}`);
+    if (first.assist) parts[parts.length-1] += ` بعد تمريرة من ${first.assist}`;
+  }
+
+  // ── تتبّع تحوّلات الأفضلية (تعادل/تقدّم) ──
+  let rh = 0, ra = 0;
+  const narr = [];
+  const _lam = (team) => team.startsWith('ال') ? 'لل' + team.slice(2) : 'لـ' + team;  // لـالنصر → للنصر
+  let leadCount = 0;
+  evs.forEach((ev, i) => {
+    const isHome = (ev.teamId === m.homeId) || (ev.side || ev.team) === 'home';
+    const forHome = ev.type === 'own' ? !isHome : isHome;
+    if (forHome) rh++; else ra++;
+    if (i === 0) return;                                   // الهدف الأول ذُكر في المقدّمة
+    const scorer = ev.type === 'own' ? null : _pn(ev);
+    const team = forHome ? hName : aName;
+    if (rh === ra) {
+      narr.push(`أدرك ${team} التعادل${scorer ? ` عبر ${scorer}` : ' بهدف عكسي'} (${rh}-${ra}) في الدقيقة ${_min(ev)}`);
+    } else {
+      leadCount++;
+      const lead = rh > ra ? hName : aName;
+      const gainsLead = lead === team;
+      // تنويع الصياغة حتى لا تتكرر
+      let phrase;
+      if (ev.type === 'own') phrase = `عزّز ${team} تقدّمه بهدف عكسي في الدقيقة ${_min(ev)}`;
+      else if (gainsLead && leadCount === 1) phrase = `أضاف ${scorer} الهدف الثاني ${_lam(team)} في الدقيقة ${_min(ev)}`;
+      else if (gainsLead) phrase = `وسّع ${scorer} الفارق ${_lam(team)} في الدقيقة ${_min(ev)}`;
+      else phrase = `قلّص ${scorer} الفارق ${_lam(team)} في الدقيقة ${_min(ev)}`;
+      narr.push(phrase);
+    }
+  });
+  if (narr.length) parts.push(narr.slice(0, 4).join('، ثم '));
+
+  // ── الخاتمة: النتيجة والحسم ──
+  let ending;
+  if (winner) {
+    const last = evs[evs.length - 1];
+    const lastLate = (last.minute || 0) >= 80;
+    if (diff >= 3) ending = `ليحسم ${winner} اللقاء بنتيجة عريضة ${Math.max(hs,as)}-${Math.min(hs,as)}`;
+    else if (lastLate && diff === 1) ending = `لينتزع ${winner} فوزاً ثميناً في اللحظات الأخيرة بنتيجة ${Math.max(hs,as)}-${Math.min(hs,as)}`;
+    else ending = `لينتهي اللقاء بفوز ${winner} ${Math.max(hs,as)}-${Math.min(hs,as)}`;
+  } else {
+    ending = `لينتهي اللقاء بالتعادل ${hs}-${as} في مباراة ${_storyAdj('مثيرة')}`;
+  }
+  parts.push(ending);
+
+  // ── رجل المباراة (إن وُجد) ──
+  const motm = (typeof _resolveMOTM === 'function') ? _resolveMOTM(m) : null;
+  let tail = '';
+  if (motm && motm.name) tail = ` وكان ${motm.name} نجم اللقاء بلا منازع.`;
+
+  // دمج نظيف
+  let story = parts.join('، ').replace(/،\s*،/g, '،').replace(/\s+/g, ' ').trim();
+  story = story.charAt(0) + story.slice(1) + '.';
+  return story + tail;
+}
+function _storyAdj(base) { return base; }
+window._buildMatchStory = _buildMatchStory;
+
+// ══════════════════════════════════════════════════════════════
+//  🏅 ألقاب اللاعبين — تُمنح تلقائياً حسب الأداء عبر البطولة
+//  تقارن اللاعب ببقية اللاعبين وتمنحه لقباً مميّزاً (القنّاص، صانع
+//  الألعاب، النجم الشامل، الجدار...). تُرجع { label, icon, color } أو null.
+//  player: { name, playerId, teamId, goals }
+// ══════════════════════════════════════════════════════════════
+function _playerTitle(player) {
+  if (!player) return null;
+  const GOLD = '#e6c157';
+  try {
+    const scorers = (typeof buildScorersData === 'function') ? buildScorersData() : [];
+    // مطابقة اللاعب في قائمة الهدّافين (بالهوية ثم الاسم)
+    const _match = (s) => player.playerId && s.playerId ? s.playerId === player.playerId
+      : (typeof _normName === 'function' ? _normName(s.name) === _normName(player.name) : s.name === player.name);
+    const rank = scorers.findIndex(_match);           // ترتيبه في الهدّافين (0 = الأول)
+    const myGoals = player.goals || 0;
+
+    // ترتيب الصنّاع (إن توفّر StatsCore)
+    let assistRank = -1, myAssists = 0;
+    if (window.StatsCore && typeof window.StatsCore.buildAssists === 'function') {
+      try {
+        const assists = window.StatsCore.buildAssists({
+          matches: matches || [], teams: teams || [],
+          rosters: (typeof _collectScorerRosters === 'function') ? _collectScorerRosters() : {}
+        }) || [];
+        assistRank = assists.findIndex(_match);
+        if (assistRank >= 0) myAssists = assists[assistRank].count || assists[assistRank].assists || 0;
+      } catch (e) {}
+    }
+
+    // ── منح اللقب بالأولوية ──
+    // النجم الشامل: من أفضل 3 هدّافين وأفضل 3 صنّاع معاً
+    if (rank >= 0 && rank < 3 && assistRank >= 0 && assistRank < 3 && myGoals >= 2 && myAssists >= 2)
+      return { label: 'النجم الشامل', icon: '⭐', color: GOLD };
+    // القنّاص: هدّاف البطولة الأول (بشرط أهداف فعلية)
+    if (rank === 0 && myGoals >= 2)
+      return { label: 'القنّاص', icon: '🎯', color: GOLD };
+    // صانع الألعاب: صانع البطولة الأول
+    if (assistRank === 0 && myAssists >= 2)
+      return { label: 'صانع الألعاب', icon: '🎩', color: '#3b82f6' };
+    // الهدّاف: ضمن أفضل 3
+    if (rank >= 0 && rank < 3 && myGoals >= 2)
+      return { label: 'من أبرز الهدّافين', icon: '⚽', color: GOLD };
+    // الصانع: ضمن أفضل 3 صنّاع
+    if (assistRank >= 0 && assistRank < 3 && myAssists >= 2)
+      return { label: 'من أبرز الصنّاع', icon: '👟', color: '#27ae60' };
+    // هدّاف نشط عموماً
+    if (myGoals >= 3)
+      return { label: 'هدّاف مميّز', icon: '⚽', color: GOLD };
+  } catch (e) {}
+  return null;
+}
+window._playerTitle = _playerTitle;
+
+// ══════════════════════════════════════════════════════════════
+//  🧠 الإحصائيات المخفية الذكية — تكتشف حقائق تلقائياً من البيانات
+//  مثل: أطول سلسلة لا هزيمة، أكبر فوز، أكثر مباراة أهدافاً، هدّاف
+//  في مباريات متتالية. تُرجع مصفوفة { icon, text, color } جاهزة للعرض.
+// ══════════════════════════════════════════════════════════════
+function _computeInsights() {
+  const out = [];
+  const GOLD = 'var(--gold)';
+  const fin = (matches || []).filter(m => m.status === 'finished' && m.homeScore != null && m.awayScore != null);
+  if (!fin.length) return out;
+
+  const _sortT = arr => arr.slice().sort((a, b) => {
+    const _t = m => (m.date ? new Date(m.date + 'T' + (m.time || '00:00')).getTime() : 0) || (m.round || 0);
+    return _t(a) - _t(b);
+  });
+
+  // ── 1) أطول سلسلة لا هزيمة حالية (لأي فريق) ──
+  let bestUnbeaten = { team: null, n: 0 };
+  (teams || []).forEach(t => {
+    const mine = _sortT(fin.filter(m => m.homeId === t.id || m.awayId === t.id));
+    let streak = 0;
+    for (let i = mine.length - 1; i >= 0; i--) {
+      const m = mine[i], isH = m.homeId === t.id;
+      const my = isH ? m.homeScore : m.awayScore, op = isH ? m.awayScore : m.homeScore;
+      if (my >= op) streak++; else break;
+    }
+    if (streak > bestUnbeaten.n) bestUnbeaten = { team: t, n: streak };
+  });
+  if (bestUnbeaten.n >= 3)
+    out.push({ icon: '🛡️', color: 'var(--green,#27ae60)', text: `${bestUnbeaten.team.name} لم يخسر منذ ${bestUnbeaten.n} مباريات` });
+
+  // ── 2) أطول سلسلة انتصارات حالية ──
+  let bestWins = { team: null, n: 0 };
+  (teams || []).forEach(t => {
+    const mine = _sortT(fin.filter(m => m.homeId === t.id || m.awayId === t.id));
+    let streak = 0;
+    for (let i = mine.length - 1; i >= 0; i--) {
+      const m = mine[i], isH = m.homeId === t.id;
+      const my = isH ? m.homeScore : m.awayScore, op = isH ? m.awayScore : m.homeScore;
+      if (my > op) streak++; else break;
+    }
+    if (streak > bestWins.n) bestWins = { team: t, n: streak };
+  });
+  if (bestWins.n >= 3)
+    out.push({ icon: '🔥', color: GOLD, text: `${bestWins.team.name} حقّق ${bestWins.n} انتصارات متتالية` });
+
+  // ── 3) أكبر فوز في البطولة ──
+  let biggest = { diff: 0, m: null };
+  fin.forEach(m => {
+    const d = Math.abs(m.homeScore - m.awayScore);
+    if (d > biggest.diff) biggest = { diff: d, m };
+  });
+  if (biggest.m && biggest.diff >= 3) {
+    const m = biggest.m;
+    const winId = m.homeScore > m.awayScore ? m.homeId : m.awayId;
+    const wt = (teams || []).find(t => t.id === winId);
+    out.push({ icon: '💥', color: 'var(--red,#C0392B)', text: `أكبر فوز: ${wt ? wt.name : ''} ${Math.max(m.homeScore, m.awayScore)}-${Math.min(m.homeScore, m.awayScore)}` });
+  }
+
+  // ── 4) أكثر مباراة أهدافاً ──
+  let mostGoals = { total: 0, m: null };
+  fin.forEach(m => {
+    const tot = (m.homeScore || 0) + (m.awayScore || 0);
+    if (tot > mostGoals.total) mostGoals = { total: tot, m };
+  });
+  if (mostGoals.m && mostGoals.total >= 4) {
+    const m = mostGoals.m;
+    const ht = (teams || []).find(t => t.id === m.homeId), at = (teams || []).find(t => t.id === m.awayId);
+    out.push({ icon: '⚽', color: GOLD, text: `أكثر مباراة إثارة: ${ht ? ht.name : ''} ${m.homeScore}-${m.awayScore} ${at ? at.name : ''} (${mostGoals.total} أهداف)` });
+  }
+
+  // ── 5) هدّاف في مباريات متتالية ──
+  try {
+    const scorers = (typeof buildScorersData === 'function') ? buildScorersData() : [];
+    if (scorers.length) {
+      const top = scorers[0];
+      // احسب سلسلة التسجيل للهدّاف الأول
+      const tid = top.teamId;
+      const mine = _sortT(fin.filter(m => m.homeId === tid || m.awayId === tid));
+      let streak = 0;
+      for (let i = mine.length - 1; i >= 0; i--) {
+        const evs = _matchEvents(mine[i]);
+        const scored = evs.some(e => e && e.type === 'goal' &&
+          (top.playerId && e.playerId ? e.playerId === top.playerId : _normName(e.player || '') === _normName(top.name)));
+        if (scored) streak++; else break;
+      }
+      if (streak >= 3)
+        out.push({ icon: '🎯', color: GOLD, text: `${top.name} سجّل في ${streak} مباريات متتالية` });
+    }
+  } catch (e) {}
+
+  return out;
+}
+window._computeInsights = _computeInsights;
+
+
+
+
+// ══════════════════════════════════════════════════════════════
 //  شارات اللاعب على التشكيلة (هدف/بطاقة) — مثل التطبيقات الكبيرة
 //  تحسب من أحداث المباراة عدد الأهداف ونوع البطاقات لكل لاعب،
 //  وترجع HTML صغيراً يُركَّب فوق دائرة اللاعب في الملعب.
@@ -3728,6 +4102,23 @@ function renderHomeSection() {
     html += `<div style="font-size:11px;font-weight:700;color:var(--t3,#666);padding:4px 2px 6px">⏳ القادمة</div>`;
     html += upcoming.slice(0, 3).map(m => _matchCard(m)).join('');
   }
+
+  // 🧠 أبرز الأرقام — إحصائيات ذكية مكتشفة تلقائياً
+  try {
+    const insights = (typeof _computeInsights === 'function') ? _computeInsights() : [];
+    if (insights.length) {
+      if (html) html += `<div style="height:8px"></div>`;
+      html += `<div style="font-size:11px;font-weight:700;color:var(--t3,#666);padding:4px 2px 6px">🧠 أبرز الأرقام</div>`;
+      html += `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">`;
+      html += insights.slice(0, 4).map(ins => `
+        <div style="display:flex;align-items:center;gap:11px;background:var(--s1);border:1px solid var(--b1);
+          border-inline-start:3px solid ${ins.color};border-radius:12px;padding:12px 14px">
+          <span style="font-size:20px;flex-shrink:0">${ins.icon}</span>
+          <span style="font-size:13px;font-weight:700;color:var(--t1);line-height:1.5">${ins.text}</span>
+        </div>`).join('');
+      html += `</div>`;
+    }
+  } catch (e) {}
 
   // آخر النتائج
   if (finished.length) {
@@ -4075,6 +4466,9 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
           return info || '<div class="vt-empty">لم تُضَف تفاصيل المباراة بعد</div>';
         }
 
+        // ملاحظة: رجل المباراة يُميَّز فقط على اللاعب داخل التشكيلة (شارة نجمة ذهبية)،
+        // ولا يُعرض كبطاقة منفصلة هنا — بطلب الإدارة.
+
         // ── خط زمني رأسي: كل الأحداث بترتيب متسلسل بمسافات ثابتة
         //    (وليس بحسب الفارق الزمني الحقيقي) — أهداف الفريق الأول يساراً،
         //    أهداف الفريق الثاني يميناً، وبقية الأحداث كبطاقة وسط الخط ──
@@ -4286,7 +4680,31 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
           ? '<div class="vt-empty">لا توجد أحداث بعد</div>'
           : '';
 
-        return `<div class="vt-timeline">${teamsHeader}<div class="vt-line"></div>${rowsHtml}</div>${emptyHtml}`;
+        // 📖 قصة المباراة (للمباريات المنتهية فقط)
+        //    - تُخفى كلياً إن عطّلها المنظّم من إعدادات البطولة (showStory === false)
+        //    - النص اليدوي (m.matchStory) يطغى على السرد التلقائي
+        let storyHtml = '';
+        const _storyEnabled = !(window.settings && window.settings.showStory === false);
+        if (isF && _storyEnabled) {
+          const _manual = (m.matchStory || '').toString().trim();
+          const _esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          const _storyRaw = _manual || ((typeof _buildMatchStory === 'function') ? _buildMatchStory(m, ht, at) : '');
+          const _story = _storyRaw ? _esc(_storyRaw) : '';
+          if (_story) {
+            storyHtml = `
+              <div style="margin-bottom:14px;position:relative;overflow:hidden;
+                background:linear-gradient(135deg,rgba(201,160,43,.10),rgba(201,160,43,.03));
+                border:1px solid rgba(201,160,43,.28);border-radius:14px;padding:14px 16px">
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px">
+                  <span style="width:4px;height:15px;border-radius:3px;background:var(--gold)"></span>
+                  <span style="font-size:12px;font-weight:900;color:var(--gold);letter-spacing:.3px">📖 قصة المباراة</span>
+                </div>
+                <p style="font-size:13px;line-height:2;color:var(--t1);margin:0;text-align:justify;white-space:pre-wrap">${_story}</p>
+              </div>`;
+          }
+        }
+
+        return `${storyHtml}<div class="vt-timeline">${teamsHeader}<div class="vt-line"></div>${rowsHtml}</div>${emptyHtml}`;
       }
 
       if (tabId === 'lineup') {
@@ -4301,18 +4719,18 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
           let stripes = '';
           const h = 94 / nStripes;
           for (let i = 0; i < nStripes; i++) {
-            const op = i % 2 === 0 ? 0.00 : 0.07;
+            const op = i % 2 === 0 ? 0.00 : 0.10;
             stripes += `<rect x="0" y="${(3 + i * h).toFixed(2)}%" width="100%" height="${h.toFixed(2)}%" fill="#ffffff" opacity="${op}"/>`;
           }
           return `<defs>
             <linearGradient id="vpGrass" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#12401a"/>
-              <stop offset=".5" stop-color="#0e3517"/>
-              <stop offset="1" stop-color="#0a2b12"/>
+              <stop offset="0" stop-color="#2e8b40"/>
+              <stop offset=".5" stop-color="#268038"/>
+              <stop offset="1" stop-color="#1f7231"/>
             </linearGradient>
-            <radialGradient id="vpGlow" cx="50%" cy="42%" r="70%">
-              <stop offset="0" stop-color="#1a5226" stop-opacity=".55"/>
-              <stop offset="1" stop-color="#0a2b12" stop-opacity="0"/>
+            <radialGradient id="vpGlow" cx="50%" cy="35%" r="75%">
+              <stop offset="0" stop-color="#4bb35f" stop-opacity=".45"/>
+              <stop offset="1" stop-color="#1f7231" stop-opacity="0"/>
             </radialGradient>
           </defs>
           <rect width="100%" height="100%" fill="url(#vpGrass)"/>
@@ -4321,9 +4739,9 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
         };
         const _vpLines = (opt) => {
           // opt: { boxW, boxH, sixW, sixH, centerR, spot, arcs }  كلها نِسَب
-          const L = 'rgba(255,255,255,.42)';      // خطوط بيضاء نقية
-          const Lf = 'rgba(255,255,255,.30)';     // أخفت للتفاصيل
-          const sw = '0.5';
+          const L = 'rgba(255,255,255,.78)';      // خطوط بيضاء نقية واضحة
+          const Lf = 'rgba(255,255,255,.55)';     // أخفت قليلاً للتفاصيل
+          const sw = '0.55';
           const bx = (100 - opt.boxW) / 2, sx = (100 - opt.sixW) / 2;
           const spot = opt.spot;
           const penTop = 3 + opt.boxH - (spot || 0);       // نقطة الجزاء العلوية
@@ -4386,13 +4804,37 @@ function renderPitchViewer(lineup, isAway) {
           const bgClr    = isAway ? 'rgba(192,57,43,.18)'   : 'rgba(201,160,43,.15)';
           const txtClr   = isAway ? '#ff8080'               : '#C9A02B';
 
-          // ══ نقاط اللاعبين — تصميم احترافي (أفاتار بإطار متدرّج + شارة رقم + اسم زجاجي) ══
+          // ══ نقاط اللاعبين — تصميم احترافي بمنظور ثلاثي الأبعاد ══
           const _gkGrad = 'linear-gradient(145deg,#a86bd6,#7b3fb0)';
           const _homeGrad = 'linear-gradient(145deg,#e6c157,#b8860b)';
           const _awayGrad = 'linear-gradient(145deg,#e5645a,#a52a1e)';
+          // حجم الأفاتار يتكيّف مع عدد اللاعبين (أقل لاعبين = أكبر وأوضح)
+          const _avSize = n <= 6 ? 62 : n <= 8 ? 56 : n <= 9 ? 52 : 46;
+          const _nameFS = n <= 6 ? 11 : n <= 9 ? 10 : 9;
+          const _numFS  = n <= 6 ? 12 : 10.5;
+          const _numSz  = n <= 6 ? 22 : n <= 9 ? 20 : 18;
+          // تحويل المنظور: y الأصلي (0=أعلى/هجوم، 100=أسفل/حارس) →
+          //   نضغط الأعلى (أبعد) قليلاً ونعطي الأسفل مساحة أكبر (أقرب) = إحساس الأرض المائلة.
+          //   كذلك اللاعب الأبعد (y صغير) يصغر قليلاً لتعزيز العمق.
+          const _persp = (y) => {
+            const t = y / 100;                         // 0..1
+            // منحنى بسيط: الأعلى يقترب من 7%، الأسفل يمتد إلى 95%
+            const yy = 7 + Math.pow(t, 0.94) * 88;
+            const scale = 0.88 + t * 0.22;             // 0.88 (أبعد) → 1.10 (أقرب)
+            return { yy, scale };
+          };
+          // 🌟 رجل المباراة — يُحسب مرة واحدة (اختيار يدوي أو استنتاج تلقائي)
+          //    ويُميَّز على اللاعب نفسه في التشكيلة بشارة نجمة ذهبية.
+          const _motm = (typeof _resolveMOTM === 'function') ? _resolveMOTM(m) : null;
+          const _isMOTM = (p) => {
+            if (!_motm || !_motm.name) return false;
+            if (_motm.playerId && p.id) return _motm.playerId === p.id;
+            return _normName(_motm.name) === _normName(p.name || '');
+          };
           const dots = starters.map((p, i) => {
             const x   = p.x ?? 50;
             const y   = p.y ?? 50;
+            const { yy, scale } = _persp(y);
             const isGK= i === 0 || p.position === 'GK';
             const num = p.number || (i + 1);
             const teamIdForPhoto = isAway ? m.awayId : m.homeId;
@@ -4402,36 +4844,39 @@ function renderPitchViewer(lineup, isAway) {
             const ringGrad = isGK ? _gkGrad : (isAway ? _awayGrad : _homeGrad);
             const aTxt = isGK ? '#CE9FFC' : (isAway ? '#ff9a90' : '#e6c157');
             const cap  = lineup.captain && p.name && (p.name === lineup.captain || (p.id && p.id === lineup.captainId));
+            const isMOTM = _isMOTM(p);
             const side = isAway ? 'away' : 'home';
             const badges = window._playerMatchBadges ? window._playerMatchBadges(m.events, side, p.name, num) : '';
             const _photo = (typeof _lineupPhoto === 'function') ? _lineupPhoto(p, teamIdForPhoto) : '';
-            const _silhouette = (window._playerSilhouetteSVG ? `<span style="display:block;width:64%;height:64%;color:${aTxt};opacity:.9">${window._playerSilhouetteSVG()}</span>` : num);
+            const _silhouette = (window._playerSilhouetteSVG ? `<span style="display:block;width:66%;height:66%;color:${aTxt};opacity:.92">${window._playerSilhouetteSVG()}</span>` : num);
             // القرص الداخلي: صورة أو ظلّ اللاعب داخل خلفية داكنة نظيفة
             const inner = _photo
               ? `<img src="${_photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-              : `<div style="width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 50% 35%,#1c2740,#0d1526);display:flex;align-items:center;justify-content:center">${_silhouette}</div>`;
+              : `<div style="width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 50% 32%,#22304e,#0d1526);display:flex;align-items:center;justify-content:center">${_silhouette}</div>`;
             const _safeNm = (_liveNm||'').replace(/'/g,"\\'");
             return `<div onclick="window.openPlayerModal && openPlayerModal('${_safeNm}','${teamIdForPhoto||''}','${p.id||''}')"
-                style="position:absolute;left:${x}%;top:${y}%;cursor:pointer;
-                transform:translate(-50%,-50%);display:flex;flex-direction:column;
-                align-items:center;gap:3px;z-index:5">
-              <div style="position:relative;width:38px;height:38px;border-radius:50%;
-                background:${ringGrad};padding:2px;
-                box-shadow:0 3px 10px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.3);">
+                style="position:absolute;left:${x}%;top:${yy}%;cursor:pointer;
+                transform:translate(-50%,-50%) scale(${scale.toFixed(3)});
+                display:flex;flex-direction:column;
+                align-items:center;gap:4px;z-index:${Math.round(y)+5}">
+              <div style="position:relative;width:${_avSize}px;height:${_avSize}px;border-radius:50%;
+                background:${isMOTM ? 'linear-gradient(145deg,#e6c157,#b8860b)' : ringGrad};padding:2.5px;
+                box-shadow:0 5px 14px rgba(0,0,0,.5),0 0 0 1px rgba(0,0,0,.25)${isMOTM ? ',0 0 0 3px rgba(201,160,43,.35),0 0 16px rgba(230,193,87,.5)' : ''};">
                 <div style="width:100%;height:100%;border-radius:50%;overflow:hidden;background:#0d1526">${inner}</div>
-                <span style="position:absolute;-bottom:0;bottom:-3px;right:-3px;background:${ringGrad};color:#1a1200;
-                  font-size:9px;font-weight:900;border-radius:999px;min-width:16px;height:16px;
+                <span style="position:absolute;bottom:-4px;right:-4px;background:${ringGrad};color:#1a1200;
+                  font-size:${_numFS}px;font-weight:900;border-radius:999px;min-width:${_numSz}px;height:${_numSz}px;
                   display:flex;align-items:center;justify-content:center;padding:0 3px;
-                  border:2px solid #0a2b12;box-shadow:0 1px 3px rgba(0,0,0,.5)">${num}</span>
-                ${cap ? `<span style="position:absolute;top:-4px;left:-4px;background:#111;color:#e6c157;font-size:8px;font-weight:900;border-radius:999px;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #e6c157">C</span>` : ''}
+                  border:2.5px solid #1f7231;box-shadow:0 2px 4px rgba(0,0,0,.5)">${num}</span>
+                ${cap ? `<span style="position:absolute;top:-5px;left:-5px;background:#111;color:#e6c157;font-size:9px;font-weight:900;border-radius:999px;width:18px;height:18px;display:flex;align-items:center;justify-content:center;border:2px solid #e6c157">C</span>` : ''}
+                ${isMOTM ? `<span title="نجم المباراة" style="position:absolute;top:-7px;right:-7px;background:linear-gradient(145deg,#e6c157,#b8860b);border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid #1f7231;box-shadow:0 2px 5px rgba(0,0,0,.5);font-size:11px;line-height:1">★</span>` : ''}
                 ${badges}
               </div>
-              <div style="font-size:8.5px;font-weight:800;color:#fff;letter-spacing:.2px;
-                background:linear-gradient(180deg,rgba(10,20,10,.82),rgba(10,20,10,.92));
-                border:1px solid rgba(255,255,255,.08);
-                border-radius:5px;padding:2px 7px;white-space:nowrap;max-width:66px;
+              <div style="font-size:${_nameFS}px;font-weight:800;color:#fff;letter-spacing:.2px;
+                background:linear-gradient(180deg,rgba(8,16,8,.86),rgba(8,16,8,.94));
+                border:1px solid rgba(255,255,255,.1);
+                border-radius:6px;padding:2px 9px;white-space:nowrap;max-width:88px;
                 overflow:hidden;text-overflow:ellipsis;text-align:center;
-                box-shadow:0 2px 5px rgba(0,0,0,.4)">
+                box-shadow:0 2px 6px rgba(0,0,0,.45)">
                 ${shortName}
               </div>
             </div>`;
@@ -4516,17 +4961,30 @@ function renderPitchViewer(lineup, isAway) {
                   border:1px solid ${isAway?'rgba(192,57,43,.35)':'rgba(201,160,43,.3)'};
                   border-radius:8px;padding:3px 12px">${formation}</div>` : ''}
               </div>
-              <!-- الملعب -->
-              <div style="position:relative;width:100%;aspect-ratio:9/15;
-                max-height:440px;overflow:hidden;background:#0a2b12">
-                <svg viewBox="0 0 100 100" preserveAspectRatio="none"
-                  style="position:absolute;inset:0;width:100%;height:100%">
-                  ${svg}
-                </svg>
-                <!-- إضاءة علوية ناعمة فوق الملعب -->
+              <!-- الملعب — منظور ثلاثي الأبعاد (الأرض مائلة، اللاعبون منتصبون) -->
+              <div style="position:relative;width:100%;aspect-ratio:10/13;
+                max-height:480px;overflow:hidden;background:#1f7231;
+                perspective:820px;perspective-origin:50% 42%">
+                <!-- طبقة الأرض المائلة: تبدأ قريبة من الحارس (أسفل) وتبتعد نحو الهجوم (أعلى) -->
+                <div style="position:absolute;inset:-2% -5% -2% -5%;
+                  transform:rotateX(26deg) scale(1.015);transform-origin:50% 100%;
+                  border-radius:6px;overflow:hidden;
+                  box-shadow:inset 0 0 70px rgba(0,0,0,.22)">
+                  <svg viewBox="0 0 100 100" preserveAspectRatio="none"
+                    style="position:absolute;inset:0;width:100%;height:100%">
+                    ${svg}
+                  </svg>
+                </div>
+                <!-- تعتيم علوي خفيف يعزّز إحساس البُعد في جهة الهجوم -->
                 <div style="position:absolute;inset:0;pointer-events:none;
-                  background:radial-gradient(ellipse at 50% 0%,rgba(255,255,255,.06),transparent 60%)"></div>
-                ${dots}
+                  background:linear-gradient(180deg,rgba(0,0,0,.14),transparent 28%,transparent 86%,rgba(0,0,0,.08))"></div>
+                <!-- إضاءة علوية ناعمة -->
+                <div style="position:absolute;inset:0;pointer-events:none;
+                  background:radial-gradient(ellipse at 50% 8%,rgba(255,255,255,.10),transparent 55%)"></div>
+                <!-- طبقة اللاعبين (منتصبون فوق الأرض المائلة) -->
+                <div style="position:absolute;inset:0">
+                  ${dots}
+                </div>
               </div>
             </div>
             ${subsSection}

@@ -102,15 +102,15 @@ function _ddDefs(nStripes) {
   let stripes = '';
   const h = 94 / nStripes;
   for (let i = 0; i < nStripes; i++) {
-    const op = i % 2 === 0 ? 0.00 : 0.07;
+    const op = i % 2 === 0 ? 0.00 : 0.10;
     stripes += `<rect x="0" y="${(3 + i * h).toFixed(2)}%" width="100%" height="${h.toFixed(2)}%" fill="#ffffff" opacity="${op}"/>`;
   }
   return `<defs>
     <linearGradient id="ddGrass" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#12401a"/><stop offset=".5" stop-color="#0e3517"/><stop offset="1" stop-color="#0a2b12"/>
+      <stop offset="0" stop-color="#2e8b40"/><stop offset=".5" stop-color="#268038"/><stop offset="1" stop-color="#1f7231"/>
     </linearGradient>
-    <radialGradient id="ddGlow" cx="50%" cy="42%" r="70%">
-      <stop offset="0" stop-color="#1a5226" stop-opacity=".5"/><stop offset="1" stop-color="#0a2b12" stop-opacity="0"/>
+    <radialGradient id="ddGlow" cx="50%" cy="35%" r="75%">
+      <stop offset="0" stop-color="#4bb35f" stop-opacity=".45"/><stop offset="1" stop-color="#1f7231" stop-opacity="0"/>
     </radialGradient>
   </defs>
   <rect width="100%" height="100%" fill="url(#ddGrass)"/>
@@ -118,7 +118,7 @@ function _ddDefs(nStripes) {
   ${stripes}`;
 }
 function _ddLines(o) {
-  const L='rgba(255,255,255,.42)', Lf='rgba(255,255,255,.28)', sw='0.5';
+  const L='rgba(255,255,255,.78)', Lf='rgba(255,255,255,.55)', sw='0.55';
   const bx=(100-o.boxW)/2, sx=(100-o.sixW)/2;
   return `
     <rect x="5%" y="3%" width="90%" height="94%" stroke="${L}" stroke-width="${sw}" fill="none" rx="1"/>
@@ -213,7 +213,7 @@ const DD_PITCH_SVGS = {
       overflow:hidden;
       touch-action:none;
       user-select:none;
-      background:#0a2b12;
+      background:#1f7231;
       box-shadow:0 8px 28px rgba(0,0,0,.4),inset 0 0 60px rgba(0,0,0,.25);
     }
     .dd-pitch svg { position:absolute;inset:0;width:100%;height:100% }
@@ -234,7 +234,7 @@ const DD_PITCH_SVGS = {
     }
     .dd-avatar {
       position:relative;
-      width:42px;height:42px;border-radius:50%;
+      width:48px;height:48px;border-radius:50%;
       background:linear-gradient(145deg,#e6c157,#b8860b);
       padding:2px;
       display:flex;align-items:center;justify-content:center;
@@ -259,7 +259,7 @@ const DD_PITCH_SVGS = {
       background:linear-gradient(145deg,#e6c157,#b8860b);color:#1a1200;
       font-size:9px;font-weight:900;border-radius:999px;
       min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;
-      padding:0 3px;border:2px solid #0a2b12;box-shadow:0 1px 3px rgba(0,0,0,.5);
+      padding:0 3px;border:2px solid #1f7231;box-shadow:0 1px 3px rgba(0,0,0,.5);
     }
     .dd-avatar.gk .dd-av-num{ background:linear-gradient(145deg,#a86bd6,#7b3fb0);color:#fff }
     .dd-avatar.away .dd-av-num{ background:linear-gradient(145deg,#e5645a,#a52a1e);color:#fff }

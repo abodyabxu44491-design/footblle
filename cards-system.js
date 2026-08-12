@@ -508,34 +508,67 @@
     const rgb = hexToRgb(ac);
     const st  = hexToRgb(STEEL);
 
-    // تدرّج عمودي خفيف جداً — عمق بلا ضجيج
+    // تدرّج عمودي غنيّ — عمق رياضي
     const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0,   '#101216');
-    bg.addColorStop(0.5, '#0c0d0f');
-    bg.addColorStop(1,   '#090a0c');
+    bg.addColorStop(0,   '#14161c');
+    bg.addColorStop(0.45,'#0d0f13');
+    bg.addColorStop(1,   '#070809');
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
 
-    // إضاءة علوية ناعمة بلون فولاذي — إحساس فخامة هادئ
-    const vg = ctx.createRadialGradient(W/2, -H*0.15, 0, W/2, -H*0.15, W*0.9);
-    vg.addColorStop(0, `rgba(${st},0.16)`);
-    vg.addColorStop(0.6, `rgba(${st},0.04)`);
-    vg.addColorStop(1, 'transparent');
-    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+    // ── أشرطة قطرية ديناميكية (إحساس الحركة كخلفيات الأندية) ──
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = -2; i < 8; i++) {
+      const x = i * (W / 6);
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + W * 0.28, 0);
+      ctx.lineTo(x + W * 0.28 - H * 0.5, H);
+      ctx.lineTo(x - H * 0.5, H);
+      ctx.closePath();
+      ctx.fillStyle = i % 2 === 0 ? `rgba(${rgb},0.020)` : `rgba(${st},0.020)`;
+      ctx.fill();
+    }
+    ctx.restore();
 
-    // شريط علوي مزدوج: ذهبي عريض فوق خيط فولاذي
-    ctx.fillStyle = ac; ctx.fillRect(0, 0, W, 6);
-    ctx.fillStyle = `rgba(${st},0.55)`; ctx.fillRect(0, 6, W, 2);
+    // توهّج قطري علوي من الزاوية (طاقة)
+    const cg = ctx.createRadialGradient(W*0.82, H*0.08, 0, W*0.82, H*0.08, W*0.85);
+    cg.addColorStop(0, `rgba(${rgb},0.18)`);
+    cg.addColorStop(0.5, `rgba(${rgb},0.04)`);
+    cg.addColorStop(1, 'transparent');
+    ctx.fillStyle = cg; ctx.fillRect(0, 0, W, H);
 
-    // إطار خارجي رفيع + إطار داخلي أخفت (طبقتان = هيبة)
-    const pad = 24;
-    ctx.strokeStyle = `rgba(${rgb},0.22)`;
+    // إضاءة سفلية خافتة (توازن)
+    const bgl = ctx.createRadialGradient(W*0.2, H*0.95, 0, W*0.2, H*0.95, W*0.7);
+    bgl.addColorStop(0, `rgba(${st},0.10)`);
+    bgl.addColorStop(1, 'transparent');
+    ctx.fillStyle = bgl; ctx.fillRect(0, 0, W, H);
+
+    // شريط علوي مزدوج ذهبي (أعرض = طاقة أكبر)
+    ctx.fillStyle = ac; ctx.fillRect(0, 0, W, 8);
+    ctx.fillStyle = `rgba(${st},0.6)`; ctx.fillRect(0, 8, W, 3);
+    // شريط سفلي مطابق
+    ctx.fillStyle = ac; ctx.fillRect(0, H-8, W, 8);
+    ctx.fillStyle = `rgba(${st},0.6)`; ctx.fillRect(0, H-11, W, 3);
+
+    // إطار خارجي رفيع
+    const pad = 26;
+    ctx.strokeStyle = `rgba(${rgb},0.26)`;
     ctx.lineWidth = 1.5;
-    roundRect(ctx, pad, pad, W - pad*2, H - pad*2, 24);
+    roundRect(ctx, pad, pad, W - pad*2, H - pad*2, 22);
     ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-    ctx.lineWidth = 1;
-    roundRect(ctx, pad+6, pad+6, W - (pad+6)*2, H - (pad+6)*2, 20);
-    ctx.stroke();
+
+    // ── watermark رياضي خفيف: دائرة تكتيكية كبيرة أسفل-وسط (كلوحة المدرّب) ──
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = `rgba(${rgb},0.05)`;
+    ctx.lineWidth = 2;
+    const wmY = H * 0.72, wmR = W * 0.34;
+    ctx.beginPath(); ctx.arc(W/2, wmY, wmR, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(W/2, wmY, wmR*0.6, 0, Math.PI*2); ctx.stroke();
+    // خط أفقي عبر المركز
+    ctx.beginPath(); ctx.moveTo(W/2-wmR, wmY); ctx.lineTo(W/2+wmR, wmY); ctx.stroke();
+    ctx.restore();
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -970,68 +1003,104 @@
     const idH    = await drawTopIdentityBar(ctx, W, ID_TOP, lgImg);
     let curY     = ID_TOP + idH + 40;
 
-    // 2) أيقونة + عنوان
-    drawText(ctx, '🌟', W/2, curY+56, '72px Arial', '#fff', 'center');
-    curY += 96;
-    drawText(ctx, 'رجل المباراة', W/2, curY, 'bold 34px Tajawal,Arial', accent, 'center');
+    // 2) أيقونة نجمة رياضية مرسومة (بدل emoji) + توهّج
+    const starCy = curY + 44;
+    ctx.save();
+    // توهّج خلف النجمة
+    const sg = ctx.createRadialGradient(W/2, starCy, 0, W/2, starCy, 90);
+    sg.addColorStop(0, `rgba(${rgb},0.35)`); sg.addColorStop(1, 'transparent');
+    ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(W/2, starCy, 90, 0, Math.PI*2); ctx.fill();
+    _drawStar(ctx, W/2, starCy, 42, 20, accent);
+    ctx.restore();
+    curY += 108;
+    drawText(ctx, 'رجل المباراة', W/2, curY, 'bold 38px Tajawal,Arial', accent, 'center');
     curY += 34;
-    drawText(ctx, `${ht.name}  ×  ${at.name}`, W/2, curY+4, '700 18px Tajawal,Arial', '#777', 'center');
-    curY += 34;
-    drawDivider(ctx, W, curY); curY += 44;
+    drawText(ctx, `${ht.name}  ×  ${at.name}`, W/2, curY+4, '700 18px Tajawal,Arial', '#888', 'center');
+    curY += 40;
+    drawDivider(ctx, W, curY); curY += 52;
 
-    // 3) اسم اللاعب (بلا توهج — نص أبيض حاد)
-    drawText(ctx, mom, W/2, curY + 24, 'bold 76px Tajawal,Arial', '#ffffff', 'center');
-    curY += 60;
+    // 3) اسم اللاعب — كبير مع توهّج ذهبي خفيف (طاقة)
+    ctx.save();
+    ctx.shadowColor = `rgba(${rgb},0.5)`; ctx.shadowBlur = 24;
+    drawText(ctx, mom, W/2, curY + 24, 'bold 80px Tajawal,Arial', '#ffffff', 'center');
+    ctx.restore();
+    curY += 66;
 
     if (momTeam) {
-      ctx.font = '700 18px Tajawal,Arial';
-      const tw = ctx.measureText(momTeam).width + 44;
-      ctx.fillStyle = `rgba(${rgb},0.10)`;
-      ctx.strokeStyle = `rgba(${rgb},0.30)`; ctx.lineWidth = 1;
-      roundRect(ctx, W/2-tw/2, curY, tw, 36, 12); ctx.fill(); ctx.stroke();
-      drawText(ctx, momTeam, W/2, curY+24, '700 17px Tajawal,Arial', accent, 'center');
-      curY += 52;
+      ctx.font = '700 19px Tajawal,Arial';
+      const tw = ctx.measureText(momTeam).width + 48;
+      ctx.fillStyle = `rgba(${rgb},0.12)`;
+      ctx.strokeStyle = `rgba(${rgb},0.4)`; ctx.lineWidth = 1.5;
+      roundRect(ctx, W/2-tw/2, curY, tw, 40, 20); ctx.fill(); ctx.stroke();
+      drawText(ctx, momTeam, W/2, curY+26, '700 18px Tajawal,Arial', accent, 'center');
+      curY += 58;
     }
 
-    curY += 6;
-    drawDivider(ctx, W, curY); curY += 40;
+    curY += 14;
 
-    // 4) إحصائيات
+    // 4) إحصائيات — بطاقات رياضية أكبر بأرقام ضخمة
     const stats = [
-      extras.goals   != null ? { label:'أهداف',   val: extras.goals   } : null,
-      extras.assists != null ? { label:'تمريرات', val: extras.assists  } : null,
-      extras.rating  != null ? { label:'التقييم', val: extras.rating   } : null,
+      extras.goals   != null ? { label:'أهداف',   val: extras.goals,   ic:'⚽' } : null,
+      extras.assists != null ? { label:'صناعة',   val: extras.assists, ic:'👟' } : null,
+      extras.rating  != null ? { label:'التقييم', val: extras.rating,  ic:'⭐' } : null,
     ].filter(Boolean);
 
     if (stats.length) {
-      const cw = Math.min(220, (W-140)/stats.length);
-      const sx = W/2 - (cw*stats.length)/2;
+      const cw = Math.min(250, (W-120)/stats.length);
+      const gap = 16;
+      const totalW = cw*stats.length + gap*(stats.length-1);
+      const sx = W/2 - totalW/2;
+      const cardH = 150;
       stats.forEach((s,i) => {
-        const cx = sx + i*cw + cw/2;
-        ctx.fillStyle = 'rgba(255,255,255,0.03)';
-        ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
-        roundRect(ctx, cx-cw/2+8, curY, cw-16, 96, 14); ctx.fill(); ctx.stroke();
-        // خط علوي ذهبي رفيع
-        ctx.strokeStyle = `rgba(${rgb},0.5)`; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(cx-cw/2+26, curY+1); ctx.lineTo(cx+cw/2-26, curY+1); ctx.stroke();
-        drawText(ctx, String(s.val), cx, curY+60, 'bold 46px Tajawal,Arial', GOLD2, 'center');
-        drawText(ctx, s.label,       cx, curY+84, '600 15px Tajawal,Arial', `rgba(${hexToRgb(STEEL)},1)`, 'center');
+        const cx = sx + i*(cw+gap);
+        // خلفية بطاقة بتدرّج خفيف
+        const cardG = ctx.createLinearGradient(cx, curY, cx, curY+cardH);
+        cardG.addColorStop(0, `rgba(${rgb},0.08)`);
+        cardG.addColorStop(1, 'rgba(255,255,255,0.02)');
+        ctx.fillStyle = cardG;
+        ctx.strokeStyle = `rgba(${rgb},0.28)`; ctx.lineWidth = 1.5;
+        roundRect(ctx, cx, curY, cw, cardH, 18); ctx.fill(); ctx.stroke();
+        // شريط علوي ذهبي سميك
+        ctx.fillStyle = accent;
+        roundRect(ctx, cx+cw/2-28, curY, 56, 5, 3); ctx.fill();
+        // الرقم الضخم
+        drawText(ctx, String(s.val), cx+cw/2, curY+82, 'bold 62px Tajawal,Arial', GOLD2, 'center');
+        // التسمية
+        drawText(ctx, s.label, cx+cw/2, curY+120, '700 19px Tajawal,Arial', '#c8ccd4', 'center');
       });
-      curY += 116;
+      curY += cardH + 40;
     }
 
-    curY += 8;
-    drawDivider(ctx, W, curY); curY += 44;
+    drawDivider(ctx, W, curY); curY += 48;
 
-    // 5) النتيجة والمباراة
+    // 5) النتيجة والمباراة — كبيرة
     ctx.save(); ctx.direction = 'ltr';
-    drawText(ctx, `${m.homeScore??0}  –  ${m.awayScore??0}`, W/2, curY+10, 'bold 54px Tajawal,Arial', '#fff', 'center');
+    drawText(ctx, `${m.homeScore??0}  –  ${m.awayScore??0}`, W/2, curY+14, 'bold 62px Tajawal,Arial', '#fff', 'center');
     ctx.restore();
-    curY += 56;
-    drawText(ctx, `${ht.name}  ×  ${at.name}`, W/2, curY+4, '600 17px Tajawal,Arial', '#666', 'center');
+    curY += 62;
+    drawText(ctx, `${ht.name}  ×  ${at.name}`, W/2, curY+6, '600 19px Tajawal,Arial', '#777', 'center');
 
     drawBottomBar(ctx, W, H);
     return canvas;
+  }
+
+  // نجمة رياضية مرسومة (5 رؤوس) بتدرّج ذهبي
+  function _drawStar(ctx, cx, cy, outer, inner, color) {
+    const rgb = hexToRgb(color);
+    ctx.save();
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 === 0 ? outer : inner;
+      const a = (Math.PI / 5) * i - Math.PI / 2;
+      const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    const g = ctx.createLinearGradient(cx, cy - outer, cx, cy + outer);
+    g.addColorStop(0, '#F5D976'); g.addColorStop(1, color);
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = `rgba(${rgb},0.6)`; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -1334,7 +1403,7 @@
         <div class="cs-form-group"><label>⚽ الفريق</label><input id="cs-f-mom-team" placeholder="${ht.name} أو ${at.name}"></div>
         <div class="cs-form-row">
           <div class="cs-form-group"><label>⚽ أهداف</label><input id="cs-f-goals" type="number" min="0" placeholder="0"></div>
-          <div class="cs-form-group"><label>🎯 تمريرات</label><input id="cs-f-assists" type="number" min="0" placeholder="0"></div>
+          <div class="cs-form-group"><label>👟 صناعة</label><input id="cs-f-assists" type="number" min="0" placeholder="0"></div>
         </div>
         <div class="cs-form-group"><label>⭐ التقييم (اختياري)</label><input id="cs-f-rating" type="number" min="0" max="10" step="0.1" placeholder="مثال: 8.5"></div>`;
     } else if (type === 'qual') {

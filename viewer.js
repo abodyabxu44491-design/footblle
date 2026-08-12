@@ -4808,20 +4808,18 @@ function renderPitchViewer(lineup, isAway) {
           const _gkGrad = 'linear-gradient(145deg,#a86bd6,#7b3fb0)';
           const _homeGrad = 'linear-gradient(145deg,#e6c157,#b8860b)';
           const _awayGrad = 'linear-gradient(145deg,#e5645a,#a52a1e)';
-          // حجم الأفاتار يتكيّف مع عدد اللاعبين (أقل لاعبين = أكبر وأوضح)
-          const _avSize = n <= 6 ? 62 : n <= 8 ? 56 : n <= 9 ? 52 : 46;
-          const _nameFS = n <= 6 ? 11 : n <= 9 ? 10 : 9;
-          const _numFS  = n <= 6 ? 12 : 10.5;
-          const _numSz  = n <= 6 ? 22 : n <= 9 ? 20 : 18;
-          // تحويل المنظور: y الأصلي (0=أعلى/هجوم، 100=أسفل/حارس) →
-          //   نضغط الأعلى (أبعد) قليلاً ونعطي الأسفل مساحة أكبر (أقرب) = إحساس الأرض المائلة.
-          //   كذلك اللاعب الأبعد (y صغير) يصغر قليلاً لتعزيز العمق.
+          // حجم الأفاتار موحّد لكل اللاعبين (بلا تكبير للحارس ولا تصغير للهجوم) —
+          // اعتُمد نفس حجم خط الهجوم السابق كمقاس ثابت للجميع بناءً على طلب المستخدم.
+          const _avSize = n <= 6 ? 56 : n <= 8 ? 50 : n <= 9 ? 46 : 42;
+          const _nameFS = n <= 6 ? 10.5 : n <= 9 ? 9.5 : 9;
+          const _numFS  = n <= 6 ? 11 : 10;
+          const _numSz  = n <= 6 ? 20 : n <= 9 ? 18 : 16;
+          // منحنى ارتفاع بسيط فقط لتوزيع اللاعبين على الملعب (بلا أي تكبير/تصغير للحجم):
+          //   الأعلى يقترب من 7%، الأسفل يمتد إلى 95%.
           const _persp = (y) => {
             const t = y / 100;                         // 0..1
-            // منحنى بسيط: الأعلى يقترب من 7%، الأسفل يمتد إلى 95%
             const yy = 7 + Math.pow(t, 0.94) * 88;
-            const scale = 0.88 + t * 0.22;             // 0.88 (أبعد) → 1.10 (أقرب)
-            return { yy, scale };
+            return { yy };                              // كل اللاعبين بنفس الحجم مهما كان مركزهم
           };
           // 🌟 رجل المباراة — يُحسب مرة واحدة (اختيار يدوي أو استنتاج تلقائي)
           //    ويُميَّز على اللاعب نفسه في التشكيلة بشارة نجمة ذهبية.
@@ -4834,7 +4832,7 @@ function renderPitchViewer(lineup, isAway) {
           const dots = starters.map((p, i) => {
             const x   = p.x ?? 50;
             const y   = p.y ?? 50;
-            const { yy, scale } = _persp(y);
+            const { yy } = _persp(y);
             const isGK= i === 0 || p.position === 'GK';
             const num = p.number || (i + 1);
             const teamIdForPhoto = isAway ? m.awayId : m.homeId;
@@ -4856,7 +4854,7 @@ function renderPitchViewer(lineup, isAway) {
             const _safeNm = (_liveNm||'').replace(/'/g,"\\'");
             return `<div onclick="window.openPlayerModal && openPlayerModal('${_safeNm}','${teamIdForPhoto||''}','${p.id||''}')"
                 style="position:absolute;left:${x}%;top:${yy}%;cursor:pointer;
-                transform:translate(-50%,-50%) scale(${scale.toFixed(3)});
+                transform:translate(-50%,-50%);
                 display:flex;flex-direction:column;
                 align-items:center;gap:4px;z-index:${Math.round(y)+5}">
               <div style="position:relative;width:${_avSize}px;height:${_avSize}px;border-radius:50%;

@@ -2695,7 +2695,7 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .vt-sub-arrow{ font-size:8px; flex:0 0 auto; display:flex; align-items:center }
 .vt-empty{ text-align:center; padding:20px; color:var(--t3); font-size:11px }
 /* ─ شارات اللاعب على التشكيلة (هدف/بطاقة) ─ */
-.pl-badges{ position:absolute; top:-5px; left:-7px; display:flex; flex-direction:column; gap:2px; z-index:6 }
+.pl-badges{ position:absolute; top:-6px; left:-6px; display:flex; flex-direction:column; gap:2.5px; z-index:7 }
 .pl-badge{ display:flex; align-items:center; justify-content:center; line-height:1 }
 .pl-badge-goal{ font-size:11px; filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)); position:relative }
 .pl-badge-goalcount{ position:absolute; top:-4px; right:-8px; min-width:12px; height:12px; padding:0 2px;

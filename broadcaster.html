@@ -514,18 +514,15 @@ onAuthStateChanged(auth, async (u) => {
   }
 });
 
-// يجد بطولة هذا المنظّم من حسابه (المصدر الموثوق) — لا من الرابط
+// يحدّد بطولة المذيع — مثل لوحة الإدارة تماماً: الرابط أولاً، ثم حساب المنظّم
 async function resolveLeagueForUser(uid){
   try{
-    // الأمان: البطولة تُحدَّد من حساب المنظّم في leagueAdmins، لا من الرابط.
-    // فلا يستطيع أحد بثّ بطولة ليست له عبر تعديل الرابط.
-    let lg = '';
-    const rec = await getDoc(doc(db,'leagueAdmins',uid));
-    if (rec.exists()) lg = rec.data().leagueId || '';
-    // لو الرابط يطلب بطولة مختلفة عن بطولة الحساب → نتجاهله ونستخدم بطولة الحساب
-    const urlLg = params.get('league') || '';
-    if (urlLg && lg && urlLg !== lg) {
-      toast('هذا الحساب مرتبط ببطولة أخرى');
+    // ١) الرابط له الأولوية (زر السوبر أدمن/الإدارة يمرّره) — مثل league-admin
+    let lg = params.get('league') || '';
+    // ٢) لو الرابط فارغ، نجيب بطولة الحساب من leagueAdmins
+    if (!lg) {
+      const rec = await getDoc(doc(db,'leagueAdmins',uid));
+      if (rec.exists()) lg = rec.data().leagueId || '';
     }
     LEAGUE = lg;
     if (LEAGUE) {
@@ -584,7 +581,14 @@ window.backToMatches = backToMatches;
 async function loadMatchesList(){
   const box = $('matchesList');
   box.innerHTML = '<div style="text-align:center;color:var(--t3);padding:30px;font-size:13px">جارِ تحميل المباريات…</div>';
-  if (!LEAGUE){ box.innerHTML = '<div style="text-align:center;color:var(--t3);padding:30px">لا توجد بطولة مرتبطة بحسابك</div>'; return; }
+  if (!LEAGUE){
+    box.innerHTML = `<div style="text-align:center;color:var(--t3);padding:30px 20px;line-height:1.8">
+      <div style="font-size:32px;margin-bottom:8px">🔍</div>
+      لم نتمكّن من تحديد بطولتك.<br>
+      <span style="font-size:12px">افتح رابط البثّ الخاص ببطولتك من لوحة الإدارة، أو تواصل مع مزوّد الخدمة.</span>
+    </div>`;
+    return;
+  }
   try{
     const snap = await getDocs(collection(db,'leagues',LEAGUE,'matches'));
     if (snap.empty){ box.innerHTML = '<div style="text-align:center;color:var(--t3);padding:30px">لا مباريات بعد</div>'; return; }

@@ -835,6 +835,7 @@ window._showNewLeagueLinks = function(slug, name){
     </div>`;
   ov.onclick = e => { if(e.target===ov){ ov.remove(); showPage('leagues',null); } };
   document.body.appendChild(ov);
+};
 
 window.createSubscription = async function() {
   const owner = document.getElementById('sub_owner')?.value.trim();

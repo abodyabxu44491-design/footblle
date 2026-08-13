@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0F1113">
+<title>استوديو البثّ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    /* مطابق تماماً لتصميم المنصة (viewer.css) */
+    --bg:#0F1113; --s1:#171A1D; --s2:#1E2226; --s3:#262B30;
+    --b1:#2A2F35; --b2:#363C43;
+    --t1:#EDEFF2; --t2:#9BA3AD; --t3:#666E78;
+    --gold:#C9A02B; --g-bg:rgba(201,160,43,.09); --g-br:rgba(201,160,43,.24);
+    --live:#D64541; --green:#2E9E5B; --red:#D64541; --blue:#3B7DBF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{
+    font-family:'Tajawal','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--t1);
+    min-height:100vh;min-height:100dvh;overflow-x:hidden;
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:0 0 40px;min-height:100dvh;display:flex;flex-direction:column}
+
+  /* ═══ الشريط العلوي ═══ */
+  .top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;
+    background:linear-gradient(180deg,var(--s1),transparent);position:sticky;top:0;z-index:20;backdrop-filter:blur(8px)}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:900;font-size:16px}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--live);box-shadow:0 0 10px var(--live)}
+  .brand.off .dot{background:var(--t3);box-shadow:none}
+  .conn{font-size:11px;color:var(--t3);display:flex;align-items:center;gap:5px}
+  .conn .cd{width:7px;height:7px;border-radius:50%;background:var(--t3)}
+  .conn.ok .cd{background:var(--green)}
+
+  /* ═══ منطقة الفيديو ═══ */
+  .stage{position:relative;width:100%;aspect-ratio:9/16;max-height:62vh;background:#000;
+    border-radius:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  @media(min-width:520px){.stage{border-radius:18px;margin:0 12px;width:calc(100% - 24px)}}
+  #preview{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #preview.rear{transform:none}
+  .stage-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:14px;color:var(--t3);text-align:center;padding:24px}
+  .stage-empty svg{width:56px;height:56px;opacity:.5}
+  .stage-empty h3{font-size:16px;color:var(--t2);font-weight:800}
+  .stage-empty p{font-size:12.5px;line-height:1.7;max-width:280px}
+
+  /* شارة LIVE فوق الفيديو */
+  .live-tag{position:absolute;top:12px;right:12px;display:flex;align-items:center;gap:6px;
+    background:var(--live);color:#fff;font-size:12px;font-weight:900;padding:5px 11px;border-radius:8px;
+    box-shadow:0 3px 12px rgba(255,45,85,.5);z-index:5}
+  .live-tag .pulse{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .watchers{position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:5px;
+    background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:800;padding:5px 10px;border-radius:8px;
+    backdrop-filter:blur(6px);z-index:5}
+  .stage-timer{position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.55);color:#fff;
+    font-size:13px;font-weight:900;padding:4px 11px;border-radius:8px;backdrop-filter:blur(6px);z-index:5;
+    font-variant-numeric:tabular-nums;letter-spacing:.5px}
+
+  /* أزرار عائمة فوق الفيديو */
+  .cam-controls{position:absolute;bottom:12px;left:12px;display:flex;gap:8px;z-index:5}
+  .cam-btn{width:40px;height:40px;border-radius:50%;border:none;background:rgba(0,0,0,.5);
+    backdrop-filter:blur(6px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;
+    transition:.15s}
+  .cam-btn:active{transform:scale(.9)}
+  .cam-btn.muted{background:var(--red)}
+  .cam-btn svg{width:19px;height:19px}
+
+  /* ═══ لوحة التحكم ═══ */
+  .panel{padding:16px;display:flex;flex-direction:column;gap:14px}
+
+  .match-bar{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:12px 14px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .match-bar .teams{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;min-width:0}
+  .match-bar .teams span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .match-bar .score{background:var(--s2);border:1px solid var(--b2);border-radius:9px;padding:3px 12px;
+    font-weight:900;font-size:16px;font-variant-numeric:tabular-nums;flex-shrink:0}
+  .match-bar.empty{color:var(--t3);font-size:12.5px;justify-content:center;font-weight:600}
+
+  /* الزر الكبير */
+  .go-live{width:100%;padding:17px;border:none;border-radius:15px;font-size:17px;font-weight:900;
+    font-family:inherit;cursor:pointer;transition:.18s;display:flex;align-items:center;justify-content:center;gap:10px}
+  .go-live.start{background:linear-gradient(135deg,var(--live),#c81e45);color:#fff;
+    box-shadow:0 6px 20px rgba(255,45,85,.35)}
+  .go-live.stop{background:var(--s2);color:var(--red);border:1.5px solid var(--red)}
+  .go-live:active{transform:scale(.98)}
+  .go-live:disabled{opacity:.5;cursor:not-allowed}
+  .go-live svg{width:21px;height:21px}
+
+  /* شريط التعليق الحي */
+  .ticker{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:13px 14px}
+  .ticker h4{font-size:12px;color:var(--t3);font-weight:700;margin-bottom:9px;display:flex;align-items:center;gap:6px}
+  .quick-events{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:11px}
+  .qe{background:var(--s2);border:1px solid var(--b2);border-radius:11px;padding:9px 4px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:4px;transition:.15s;font-family:inherit}
+  .qe:active{transform:scale(.93);background:var(--b1)}
+  .qe .ic{font-size:20px;line-height:1}
+  .qe .lb{font-size:10px;color:var(--t2);font-weight:700}
+  .ticker-input{display:flex;gap:8px}
+  .ticker-input input{flex:1;background:var(--s2);border:1px solid var(--b2);border-radius:10px;
+    padding:11px 13px;color:var(--t1);font-family:inherit;font-size:13.5px;outline:none}
+  .ticker-input input:focus{border-color:var(--gold)}
+  .ticker-input button{background:var(--gold);color:#1a1200;border:none;border-radius:10px;padding:0 18px;
+    font-weight:900;font-family:inherit;cursor:pointer;font-size:14px}
+  .ticker-input button:active{transform:scale(.95)}
+
+  /* آخر تعليقات */
+  .feed{display:flex;flex-direction:column;gap:6px;margin-top:11px;max-height:150px;overflow-y:auto}
+  .feed-item{display:flex;align-items:center;gap:8px;background:var(--s2);border-radius:9px;padding:8px 11px;
+    font-size:13px;animation:slideIn .3s}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .feed-item .fi-ic{font-size:16px}.feed-item .fi-min{color:var(--gold);font-weight:800;font-size:11px}
+  .feed-item .fi-tx{flex:1;color:var(--t2)}
+
+  /* إعداد أولي */
+  .setup{padding:22px 18px;display:flex;flex-direction:column;gap:16px}
+  .setup h2{font-size:19px;font-weight:900;text-align:center}
+  .setup .sub{font-size:13px;color:var(--t3);text-align:center;line-height:1.7;margin-top:-8px}
+  .field{display:flex;flex-direction:column;gap:7px}
+  .field label{font-size:12.5px;color:var(--t2);font-weight:700}
+  .field input,.field select{background:var(--s1);border:1px solid var(--b2);border-radius:11px;
+    padding:13px 14px;color:var(--t1);font-family:inherit;font-size:14px;outline:none}
+  .field input:focus,.field select:focus{border-color:var(--gold)}
+  .btn-primary{background:linear-gradient(135deg,var(--gold),#c9a02b);color:#1a1200;border:none;
+    border-radius:13px;padding:15px;font-size:15.5px;font-weight:900;font-family:inherit;cursor:pointer;transition:.15s}
+  .btn-primary:active{transform:scale(.98)}
+  .btn-primary:disabled{opacity:.5}
+
+  .hint{font-size:11.5px;color:var(--t3);line-height:1.7;background:var(--s1);border:1px solid var(--b1);
+    border-radius:11px;padding:12px 14px}
+  .hint b{color:var(--gold)}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s2);
+    border:1px solid var(--b2);color:var(--t1);padding:12px 20px;border-radius:12px;font-size:13.5px;
+    font-weight:700;z-index:100;box-shadow:0 8px 30px rgba(0,0,0,.5);opacity:0;transition:.3s;pointer-events:none;
+    max-width:90vw;text-align:center}
+  .toast.show{opacity:1}
+  .hidden{display:none!important}
+
+  /* رابط المشاركة */
+  .share-row{display:flex;gap:8px;align-items:center;background:var(--s1);border:1px solid var(--b1);
+    border-radius:12px;padding:10px 12px}
+  .share-row .lnk{flex:1;font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-family:monospace;direction:ltr;text-align:left}
+  .share-row button{background:var(--s2);border:1px solid var(--b2);color:var(--gold);border-radius:9px;
+    padding:8px 14px;font-weight:800;font-family:inherit;cursor:pointer;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ═══════ شاشة تسجيل الدخول (هوية البطولة) ═══════ -->
+  <div id="loginScreen" class="setup">
+    <div id="lgBrand" style="text-align:center;margin-bottom:4px">
+      <div id="lgLogo" style="width:74px;height:74px;margin:0 auto 12px;border-radius:20px;background:linear-gradient(145deg,#e6c157,#c9a02b);display:flex;align-items:center;justify-content:center;font-size:38px;box-shadow:0 8px 24px rgba(201,160,43,.3)">🎥</div>
+      <h2 id="lgTitle" style="margin-bottom:6px">استوديو البثّ</h2>
+      <p class="sub" id="lgSub" style="margin-top:0">سجّل الدخول لبثّ مبارياتك مباشرة</p>
+    </div>
+    <div class="field">
+      <label>البريد الإلكتروني</label>
+      <input id="inpEmail" type="email" placeholder="بريد حساب البطولة" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>كلمة المرور</label>
+      <input id="inpPass" type="password" placeholder="••••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')document.getElementById('btnLogin').click()">
+    </div>
+    <button id="btnLogin" class="btn-primary">تسجيل الدخول</button>
+  </div>
+
+  <!-- ═══════ شاشة قائمة المباريات ═══════ -->
+  <div id="matchesScreen" class="setup hidden" style="padding-top:16px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
+      <div id="mlLogo" style="width:46px;height:46px;border-radius:13px;background:linear-gradient(145deg,#e6c157,#c9a02b);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🏆</div>
+      <div style="flex:1;min-width:0">
+        <h2 id="mlTitle" style="font-size:17px;text-align:right;margin:0">بطولتي</h2>
+        <p style="font-size:12px;color:var(--t3);text-align:right;margin:2px 0 0">اختر مباراة لبثّها</p>
+      </div>
+    </div>
+    <div id="matchesList" style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+      <div style="text-align:center;color:var(--t3);padding:30px;font-size:13px">جارِ تحميل المباريات…</div>
+    </div>
+  </div>
+
+  <!-- شاشة الإعداد القديمة (مخفية — للتوافق) -->
+  <div id="setupScreen" class="setup hidden">
+    <input id="inpLeague" type="hidden"><select id="inpMatch" class="hidden"></select><input id="inpName" type="hidden">
+    <button id="btnEnter" class="hidden"></button>
+    <span id="authState" class="hidden"></span>
+  </div>
+
+  <!-- ═══════ شاشة الاستوديو ═══════ -->
+  <div id="studioScreen" class="hidden">
+    <div class="top">
+      <button onclick="backToMatches()" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;padding:4px 8px">←</button>
+      <div class="brand off" id="brandTag"><span class="dot"></span> الاستوديو</div>
+      <div class="conn" id="connTag"><span class="cd"></span> غير متصل</div>
+    </div>
+
+    <div class="stage" id="stage">
+      <video id="preview" autoplay playsinline muted></video>
+      <div class="stage-empty" id="stageEmpty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 10l4.55-2.27A1 1 0 0121 8.618v6.764a1 1 0 01-1.45.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        <h3>الكاميرا غير مفعّلة</h3>
+        <p>اضغط زر الكاميرا بالأسفل لتشغيل المعاينة، ثم ابدأ البث.</p>
+      </div>
+
+      <div class="live-tag hidden" id="liveTag"><span class="pulse"></span> مباشر</div>
+      <div class="watchers hidden" id="watchersTag">👁 <span id="watcherCount">0</span></div>
+      <div class="stage-timer hidden" id="stageTimer">00:00</div>
+
+      <div class="cam-controls">
+        <button class="cam-btn" id="btnCam" title="تشغيل/إيقاف الكاميرا" onclick="toggleCamera()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7zM14 5H3a2 2 0 00-2 2v10a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2z"/></svg>
+        </button>
+        <button class="cam-btn" id="btnFlip" title="قلب الكاميرا" onclick="flipCamera()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        </button>
+        <button class="cam-btn" id="btnMic" title="كتم/تشغيل الصوت" onclick="toggleMic()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="match-bar empty" id="matchBar">لم تُربط مباراة</div>
+
+      <button class="go-live start" id="goLive" onclick="toggleLive()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+        بدء البث المباشر
+      </button>
+
+      <div class="share-row hidden" id="shareRow">
+        <span class="lnk" id="shareLink"></span>
+        <button onclick="copyShare()">نسخ</button>
+      </div>
+
+      <div class="hint" style="margin-top:4px">
+        🎬 هذا التطبيق للبثّ <b>فقط</b>. النتيجة والوقت والأحداث يتحكّم بها <b>مدير المباراة</b>
+        من لوحة الإدارة، وتظهر تلقائياً فوق بثّك وتتحدّث لحظياً.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═ TimerCore — منسوخ حرفياً من league-viewer.html لتطابق الوقت 100% ═ */
+(function (root) {
+  'use strict';
+
+  var DEFAULT_STOPPAGE_CAP = 15; // إذا لم يحدد المنظم بدل ضائع
+
+  /* ── تحويل أي طابع زمني (Firebase Timestamp / Date / number) إلى ms ── */
+  function tsMs(ref) {
+    if (ref == null) return null;
+    if (typeof ref === 'number') return ref;
+    if (typeof ref.toMillis === 'function') return ref.toMillis();
+    if (typeof ref.seconds === 'number')
+      return ref.seconds * 1000 + Math.floor((ref.nanoseconds || 0) / 1e6);
+    if (ref instanceof Date) return ref.getTime();
+    return null;
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  /* ── FIX 4: مزامنة ساعة الخادم ──
+   * كل الأختام تُكتب بساعة الأدمن وتُقرأ بساعة المشاهد. أي انحراف في
+   * جهاز المشاهد (شائع: دقيقة أو أكثر) كان يزيح ساعته للأبد ويُدخله
+   * بدل الضائع مبكراً. نقيس الفرق مرة ونصحّحه في كل الحسابات. */
+  var _skew = 0;
+  function setSkew(ms) { _skew = Number(ms) || 0; }
+  function getSkew()   { return _skew; }
+  function nowMs()     { return Date.now() + _skew; }
+
+  /* ── قراءة الإعدادات: liveData ← إعدادات البطولة ← الافتراضي ── */
+  function getCfg(d, settings) {
+    d = d || {};
+    var ms = (settings && settings.matchSettings) || {};
+    function pick(a, b, c, dflt) {
+      return a || b || c || dflt;
+    }
+    return {
+      half1Duration: pick(d.half1Duration, ms.half1Duration, ms.halfDuration, 45),
+      half2Duration: pick(d.half2Duration, ms.half2Duration, ms.halfDuration, 45),
+      et1Duration:   pick(d.et1Duration,   ms.et1Duration,   null, 15),
+      et2Duration:   pick(d.et2Duration,   ms.et2Duration,   null, 15),
+      breakDuration: pick(d.breakDuration, ms.breakDuration, null, 15)
+    };
+  }
+
+  /* ── معلومات الفترة الحالية ──
+   * ترجع { dur, offsetMin, extra, extraSet, cap, keyExtra, keySet }
+   * offsetMin = مجموع المدد الاسمية للفترات السابقة (بدون بدل ضائع) */
+  function getPhase(d, settings) {
+    if (!d) return null;
+    var cfg = getCfg(d, settings);
+    var ph  = d.matchStatus;
+
+    var h1 = cfg.half1Duration;
+    var h2 = cfg.half2Duration;
+    var e1 = cfg.et1Duration;
+
+    if (ph === 'extratime1') {
+      return {
+        dur: e1, offsetMin: h1 + h2,
+        extra: d.et1ExtraMinutes || 0, extraSet: !!d.et1ExtraSet,
+        keyExtra: 'et1ExtraMinutes', keySet: 'et1ExtraSet'
+      };
+    }
+    if (ph === 'extratime2') {
+      return {
+        dur: cfg.et2Duration, offsetMin: h1 + h2 + e1,
+        extra: d.et2ExtraMinutes || 0, extraSet: !!d.et2ExtraSet,
+        keyExtra: 'et2ExtraMinutes', keySet: 'et2ExtraSet'
+      };
+    }
+    if (ph === 'live' && d.currentHalf === 2) {
+      return {
+        dur: h2, offsetMin: h1,
+        extra: d.half2ExtraMinutes || 0, extraSet: !!d.half2ExtraSet,
+        keyExtra: 'half2ExtraMinutes', keySet: 'half2ExtraSet'
+      };
+    }
+    if (ph === 'live') {
+      return {
+        dur: h1, offsetMin: 0,
+        extra: d.half1ExtraMinutes || 0, extraSet: !!d.half1ExtraSet,
+        keyExtra: 'half1ExtraMinutes', keySet: 'half1ExtraSet'
+      };
+    }
+    return null; // halftime / penalties / ended / upcoming — لا عدّاد
+  }
+
+  function capOf(phase) {
+    return phase.extraSet ? phase.extra : DEFAULT_STOPPAGE_CAP;
+  }
+
+  /* ── الثواني المنقضية منذ بداية الفترة الحالية ──
+   * ⚠️ ترجع ثواني **الفترة وحدها** (تبدأ من 0 لكل شوط).
+   * الإزاحة تُضاف عند العرض فقط. هذا يمنع تضارب الأدمن/الجمهور. */
+  function phaseSecs(d) {
+    if (!d) return 0;
+    if (d.timerPaused) return d.phaseSeconds || 0;
+    var ph = d.matchStatus, ref = null;
+    if (ph === 'live')            ref = d.currentHalf === 2 ? d.half2StartedAt : d.half1StartedAt;
+    else if (ph === 'extratime1') ref = d.et1StartedAt;
+    else if (ph === 'extratime2') ref = d.et2StartedAt;
+    var ms = tsMs(ref);
+    if (ms == null) return d.phaseSeconds || 0;
+    return Math.max(0, Math.floor((nowMs() - ms) / 1000));
+  }
+
+  /* ── الحالة الكاملة للعداد — يستخدمها الأدمن والجمهور بالتساوي ──
+   * ترجع:
+   *   displayMin / displaySec : الأرقام المعروضة على الساعة
+   *   inStoppage              : هل نحن في بدل الضائع؟
+   *   stoppageMin/Sec         : عدّاد بدل الضائع (+2:14)
+   *   shouldAutoEnd           : بلغنا السقف → أنهِ الفترة
+   *   clock                   : "50:12" جاهزة للعرض
+   *   stoppageLabel           : "+2" أو ''  */
+  function compute(d, settings) {
+    var phase = getPhase(d, settings);
+    if (!phase) return null;
+
+    var s   = phaseSecs(d);
+    var mm  = Math.floor(s / 60);
+    var ss  = s % 60;
+
+    if (mm < phase.dur) {
+      return {
+        phase: phase, inStoppage: false,
+        displayMin: phase.offsetMin + mm, displaySec: ss,
+        stoppageMin: 0, stoppageSec: 0, shouldAutoEnd: false,
+        clock: pad(phase.offsetMin + mm) + ':' + pad(ss),
+        stoppageLabel: ''
+      };
+    }
+
+    // ── انتهى الوقت الأصلي → بدل الضائع يُحسب **لحاله** ──
+    // معيار التطبيقات الرياضية (365Scores / SofaScore / FlashScore):
+    //   الساعة الرئيسية تتجمّد عند حد الفترة (45:00 / 90:00 / 105:00 / 120:00)
+    //   ولا تتجاوزه إطلاقاً، ويعمل بجانبها عدّاد منفصل +1:23 يعدّ لحاله.
+    // ❌︎ الخطأ الشائع: 46:00 ، 47:00 (الساعة تكمل) — هذا ليس سلوك التطبيقات.
+    var cap  = capOf(phase);
+    var xSec = s - phase.dur * 60;
+    var xm   = Math.floor(xSec / 60);
+    var xs   = xSec % 60;
+
+    // حد الفترة: الرقم الذي تتجمّد عنده الساعة (45 / 90 / 105 / 120)
+    var limit = phase.offsetMin + phase.dur;
+
+    // FIX 5: لا تُنهِ الفترة تلقائياً إلا إذا أعلن المنظّم بدل الضائع فعلاً.
+    //        كان السقف الافتراضي (15) ينهي الشوط وحده عند 60:05 بلا إذن.
+    var announced = phase.extraSet && phase.extra > 0;
+
+    return {
+      phase: phase, inStoppage: true,
+      // ✅︎ الساعة الرئيسية متجمّدة تماماً عند الحد — دقائق وثواني
+      displayMin: limit, displaySec: 0,
+      // ✅︎ عدّاد بدل الضائع مستقل — يعدّ لحاله بلا سقف على العرض
+      stoppageMin: xm, stoppageSec: xs,
+      shouldAutoEnd: announced && xSec >= cap * 60 + 5,
+      clock: pad(limit) + ':00',
+      // FIX 7: لا تُظهر شارة بدل الضائع في اللحظة 45:00 بالضبط.
+      //        كانت تظهر "45+1 / +0:00" قبل إعلان الحكم في كل مباراة.
+      showStoppage: announced || xSec >= 1,
+      // التسمية الرسمية: 45'+2
+      stoppageLabel: '+' + (xm + 1),
+      stoppageClock: '+' + xm + ':' + pad(xs)
+    };
+  }
+
+  /* ── دقيقة الحدث (هدف/بطاقة) — التسمية الرسمية "45+2" ──
+   * ترجع { minute, extraMinute, label } */
+  function eventMinute(d, settings) {
+    var c = compute(d, settings);
+    if (!c) return { minute: 0, extraMinute: 0, label: "0'" };
+    var p = c.phase;
+    if (!c.inStoppage) {
+      var m = c.displayMin + 1; // الدقيقة 0:30 تُسجَّل كالدقيقة 1
+      return { minute: m, extraMinute: 0, label: m + "'" };
+    }
+    // في بدل الضائع: الأساس هو حد الفترة (45/90/105/120) والزيادة تبدأ من 1
+    var base = p.offsetMin + p.dur;
+    var x    = c.stoppageMin + 1;
+    return { minute: base, extraMinute: x, label: base + '+' + x };
+  }
+
+  var API = {
+    DEFAULT_STOPPAGE_CAP: DEFAULT_STOPPAGE_CAP,
+    setSkew: setSkew, getSkew: getSkew, nowMs: nowMs,
+    tsMs: tsMs, pad: pad,
+    getCfg: getCfg, getPhase: getPhase, capOf: capOf,
+    phaseSecs: phaseSecs, compute: compute, eventMinute: eventMinute
+  };
+
+  root.TimerCore = API;
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot,
+         addDoc, deleteDoc, getDocs, serverTimestamp, query, where, arrayUnion }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+// نفس مشروع المنصة
+const firebaseConfig = {
+  apiKey: "AIzaSyDdn-sS67sthhLrZRrIDZ6ynauWVin_WNU",
+  authDomain: "footblle2.firebaseapp.com",
+  projectId: "footblle2",
+  storageBucket: "footblle2.firebasestorage.app",
+  messagingSenderId: "541343956211",
+  appId: "1:541343956211:web:a1d757a4ecd655d3e47da8"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const auth = getAuth(app);
+let _signedIn = false;
+
+// ═══ خوادم ICE ═══
+// STUN مجانية (تكفي ~85-90% من المشاهدين — عبور NAT بلا تكلفة).
+// TURN اختياري: يرفع نسبة الاتصال الناجح لـ ~99% (للشبكات الصعبة/الجوال).
+//   احصل على مفتاح مجاني (20GB/شهر) من metered.ca/openrelay وضعه هنا،
+//   أو اترك TURN فارغاً ليعمل بـ STUN فقط.
+const TURN_CONFIG = [
+  // مثال (استبدل بمفتاحك المجاني من metered.ca لتفعيل TURN):
+  // { urls:'turn:standard.relay.metered.ca:80', username:'YOUR_USER', credential:'YOUR_CRED' },
+  // { urls:'turn:standard.relay.metered.ca:443', username:'YOUR_USER', credential:'YOUR_CRED' },
+];
+const RTC_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    ...TURN_CONFIG
+  ],
+  iceCandidatePoolSize: 4
+};
+
+// ═══ الحالة ═══
+let LEAGUE='', MATCH='', BROADCASTER_NAME='';
+let localStream=null, facingMode='environment', micOn=true, camOn=false;
+let isLive=false, streamId='', startTs=0, timerInt=null;
+let viewerPeers={};      // viewerId -> RTCPeerConnection
+let unsubViewers=null;   // مستمع طلبات المشاهدين
+let watcherCount=0;
+
+const $ = id => document.getElementById(id);
+const toast = (msg) => {
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2600);
+};
+
+// ═══ التدفّق: دخول → البطولة والمباريات → اختيار → بثّ ═══
+const params = new URLSearchParams(location.search);
+let _leagueName = 'بطولتي', _leagueLogo = '';
+
+// عند تسجيل الدخول → حمّل بطولة المنظّم ومبارياته تلقائياً
+onAuthStateChanged(auth, async (u) => {
+  _signedIn = !!u;
+  if (u) {
+    await resolveLeagueForUser(u.uid);
+    showMatchesScreen();
+  }
+});
+
+// يجد بطولة هذا المنظّم من حسابه (المصدر الموثوق) — لا من الرابط
+async function resolveLeagueForUser(uid){
+  try{
+    // الأمان: البطولة تُحدَّد من حساب المنظّم في leagueAdmins، لا من الرابط.
+    // فلا يستطيع أحد بثّ بطولة ليست له عبر تعديل الرابط.
+    let lg = '';
+    const rec = await getDoc(doc(db,'leagueAdmins',uid));
+    if (rec.exists()) lg = rec.data().leagueId || '';
+    // لو الرابط يطلب بطولة مختلفة عن بطولة الحساب → نتجاهله ونستخدم بطولة الحساب
+    const urlLg = params.get('league') || '';
+    if (urlLg && lg && urlLg !== lg) {
+      toast('هذا الحساب مرتبط ببطولة أخرى');
+    }
+    LEAGUE = lg;
+    if (LEAGUE) {
+      const ls = await getDoc(doc(db,'leagues',LEAGUE));
+      if (ls.exists()) {
+        const d = ls.data();
+        _leagueName = d.name || d.title || 'بطولتي';
+        _leagueLogo = d.logo || '';
+      }
+      // إعدادات البطولة للـ TimerCore
+      try{
+        const cfg = await getDoc(doc(db,'leagues',LEAGUE,'config','settings'));
+        window._bcSettings = cfg.exists() ? cfg.data() : {};
+      }catch(e){ window._bcSettings = {}; }
+    }
+  }catch(e){ console.warn('league resolve', e); }
+}
+
+$('btnLogin').addEventListener('click', async ()=>{
+  const email = $('inpEmail').value.trim(), pass = $('inpPass').value;
+  if(!email || !pass){ toast('أدخل البريد وكلمة المرور'); return; }
+  $('btnLogin').disabled = true; $('btnLogin').textContent = 'جارِ الدخول…';
+  try{
+    await signInWithEmailAndPassword(auth, email, pass);
+    // onAuthStateChanged يكمّل التدفّق
+  }catch(e){
+    toast('فشل الدخول — تحقق من البيانات');
+    $('btnLogin').disabled = false; $('btnLogin').textContent = 'تسجيل الدخول';
+  }
+});
+
+function _logoHtml(logo, fallback){
+  if (logo && String(logo).startsWith('http'))
+    return `<img src="${logo}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
+  if (logo) return logo; // إيموجي
+  return fallback;
+}
+
+function showMatchesScreen(){
+  $('loginScreen').classList.add('hidden');
+  $('studioScreen').classList.add('hidden');
+  $('matchesScreen').classList.remove('hidden');
+  // هوية البطولة
+  $('mlTitle').textContent = _leagueName;
+  $('mlLogo').innerHTML = _logoHtml(_leagueLogo, '🏆');
+  $('lgTitle').textContent = _leagueName;
+  loadMatchesList();
+}
+function backToMatches(){
+  if (isLive){ toast('أوقف البث أولاً'); return; }
+  stopCamera();
+  showMatchesScreen();
+}
+window.backToMatches = backToMatches;
+
+async function loadMatchesList(){
+  const box = $('matchesList');
+  box.innerHTML = '<div style="text-align:center;color:var(--t3);padding:30px;font-size:13px">جارِ تحميل المباريات…</div>';
+  if (!LEAGUE){ box.innerHTML = '<div style="text-align:center;color:var(--t3);padding:30px">لا توجد بطولة مرتبطة بحسابك</div>'; return; }
+  try{
+    const snap = await getDocs(collection(db,'leagues',LEAGUE,'matches'));
+    if (snap.empty){ box.innerHTML = '<div style="text-align:center;color:var(--t3);padding:30px">لا مباريات بعد</div>'; return; }
+    const rows = [];
+    snap.forEach(d=>{ const m=d.data(); m._id=d.id; rows.push(m); });
+    // ترتيب: المباشرة أولاً، ثم القادمة، ثم المنتهية
+    const rank = s => s==='live'?0 : (s==='finished'?2:1);
+    rows.sort((a,b)=> rank(a.status)-rank(b.status));
+    box.innerHTML = rows.map(m => _matchRow(m)).join('');
+  }catch(e){
+    box.innerHTML = '<div style="text-align:center;color:var(--t3);padding:30px">تعذّر التحميل</div>';
+  }
+}
+
+function _matchRow(m){
+  const live = m.status === 'live';
+  const fin  = m.status === 'finished';
+  const badge = live
+    ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#ff2d55;color:#fff;font-size:10px;font-weight:900;padding:3px 8px;border-radius:6px"><span style="width:5px;height:5px;border-radius:50%;background:#fff"></span>مباشرة</span>'
+    : (fin ? '<span style="font-size:10px;color:var(--t3);font-weight:700">انتهت</span>'
+           : '<span style="font-size:10px;color:var(--gold);font-weight:700">قادمة</span>');
+  const score = (live||fin) ? `${m.homeScore??0} - ${m.awayScore??0}` : 'VS';
+  return `
+    <button onclick="pickMatch('${m._id}')" style="width:100%;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;transition:.15s" onmousedown="this.style.transform='scale(.98)'" onmouseup="this.style.transform=''">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:10px;min-width:0">
+        <span style="color:var(--t1);font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38%">${m.homeName||m.homeId||'?'}</span>
+        <span style="color:var(--gold);font-weight:900;font-size:15px;flex-shrink:0;font-variant-numeric:tabular-nums">${score}</span>
+        <span style="color:var(--t1);font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38%">${m.awayName||m.awayId||'?'}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+        ${badge}
+        <span style="font-size:11px;color:var(--t2);font-weight:800;display:flex;align-items:center;gap:3px">بثّ 🎥</span>
+      </div>
+    </button>`;
+}
+
+window.pickMatch = function(matchId){
+  MATCH = matchId;
+  BROADCASTER_NAME = _leagueName;
+  streamId = `${LEAGUE}__${MATCH}`;
+  $('matchesScreen').classList.add('hidden');
+  $('studioScreen').classList.remove('hidden');
+  $('brandTag').innerHTML = '<span class="dot"></span> ' + _leagueName;
+  loadMatchBar();
+  // بدء تلقائي: افتح الكاميرا فوراً (البث بضغطة واحدة بعدها)
+  setTimeout(()=>window.toggleCamera(), 300);
+};
+
+// دخول تلقائي لو الرابط فيه ?match= مباشرة (من زر الإدارة)
+(async function tryDirectMatch(){
+  if (!params.get('match')) return;
+  await new Promise(r=>{ let n=0; const i=setInterval(()=>{ if(_signedIn||n++>25){clearInterval(i);r();} },150); });
+  if (_signedIn && params.get('match')){
+    // انتظر resolveLeague
+    setTimeout(()=>window.pickMatch(params.get('match')), 300);
+  }
+})();
+
+let _mbUnsub = null;
+async function loadMatchBar(){
+  const fs = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+  // إعدادات البطولة محمّلة مسبقاً في resolveLeagueForUser
+  if (!window._bcSettings) {
+    try{ const cfg = await getDoc(doc(db,'leagues',LEAGUE,'config','settings')); window._bcSettings = cfg.exists()?cfg.data():{}; }catch(e){ window._bcSettings={}; }
+  }
+  // مستمع حيّ: النتيجة والوقت يتحكم فيهما المنظّم من الإدارة، ونعكسهما فوراً
+  if(_mbUnsub){ try{_mbUnsub();}catch(e){} }
+  _mbUnsub = fs.onSnapshot(fs.doc(db,'leagues',LEAGUE,'matches',MATCH), snap=>{
+    if(!snap.exists()) return;
+    const m = snap.data();
+    window._curMatch = m;
+    renderMatchBar(m);
+  });
+  // مؤقّت ثانية لتحديث الوقت الجاري
+  if(!window._mbTick) window._mbTick = setInterval(()=>{
+    if(window._curMatch) renderMatchBar(window._curMatch);
+  }, 1000);
+}
+function renderMatchBar(m){
+  const d = m.liveData || {};
+  const hs = d.homeScore ?? m.homeScore ?? 0;
+  const as = d.awayScore ?? m.awayScore ?? 0;
+  const ck = _bcClock(d);
+  $('matchBar').classList.remove('empty');
+  $('matchBar').innerHTML =
+    `<div class="teams"><span>${m.homeName||m.homeId||'?'}</span></div>
+     <div style="display:flex;align-items:center;gap:8px">
+       <div class="score">${hs} - ${as}</div>
+       ${ck?`<div style="color:#ff5a78;font-weight:900;font-size:13px;min-width:38px;text-align:center">${ck}</div>`:''}
+     </div>
+     <div class="teams"><span>${m.awayName||m.awayId||'?'}</span></div>`;
+}
+// حساب الوقت — المصدر الوحيد TimerCore (مطابق تماماً للإدارة والجمهور)
+function _bcClock(d){
+  if(!d || !d.matchStatus) return '';
+  const ph = d.matchStatus;
+  if(ph==='halftime'||ph==='halftime_et') return 'استراحة';
+  if(ph==='penalties') return 'ركلات';
+  if(ph==='ended') return 'انتهت';
+  if(ph==='upcoming') return '';
+  const c = window.TimerCore && window.TimerCore.compute(d, window._bcSettings||{});
+  if(!c) return '';
+  // بدل الضائع: نعرض الوقت الرسمي مع علامة + إن وُجد
+  if(c.inStoppage && c.showStoppage){
+    const extra = (c.phase && c.phase.extraSet && c.phase.extra>0) ? ('+'+c.phase.extra) : '';
+    return c.clock + (extra?(' '+extra):'');
+  }
+  return c.clock;
+}
+
+// ═══ الكاميرا ═══
+window.toggleCamera = async function(){
+  if(camOn){ stopCamera(); return; }
+  try{
+    // جودة موفّرة (480p, 24fps) — تضاعف عدد المشاهدين الممكن مقارنة بـ 720p،
+    // وتبقى واضحة تماماً لمباراة. المتصفح يخفضها تلقائياً لو ضعفت الشبكة.
+    localStream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode, width:{ideal:854,max:1280}, height:{ideal:480,max:720}, frameRate:{ideal:24,max:30} },
+      audio:{ echoCancellation:true, noiseSuppression:true }
+    });
+    const v=$('preview'); v.srcObject=localStream;
+    v.classList.toggle('rear', facingMode==='environment');
+    camOn=true; $('stageEmpty').classList.add('hidden');
+    $('btnCam').classList.remove('muted');
+    if(isLive) replaceTracksForAll();
+  }catch(e){
+    toast('تعذّر فتح الكاميرا — تأكد من الأذونات');
+  }
+};
+function stopCamera(){
+  if(localStream){ localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
+  $('preview').srcObject=null; camOn=false;
+  $('stageEmpty').classList.remove('hidden');
+}
+window.flipCamera = async function(){
+  facingMode = facingMode==='environment' ? 'user' : 'environment';
+  if(camOn){ stopCamera(); await window.toggleCamera(); }
+};
+window.toggleMic = function(){
+  if(!localStream) return;
+  micOn=!micOn;
+  localStream.getAudioTracks().forEach(t=>t.enabled=micOn);
+  $('btnMic').classList.toggle('muted',!micOn);
+  toast(micOn?'الصوت مفعّل':'الصوت مكتوم');
+};
+
+function replaceTracksForAll(){
+  Object.values(viewerPeers).forEach(pc=>{
+    const senders=pc.getSenders();
+    localStream.getTracks().forEach(track=>{
+      const s=senders.find(x=>x.track && x.track.kind===track.kind);
+      if(s) s.replaceTrack(track);
+    });
+  });
+}
+
+// ═══ البث: البدء/الإيقاف ═══
+window.toggleLive = async function(){
+  if(isLive){ await stopLive(); return; }
+  await startLive();
+};
+
+async function startLive(){
+  if(!camOn){ toast('شغّل الكاميرا أولاً'); return; }
+  $('goLive').disabled=true;
+  try{
+    // 1) أنشئ مستند البث (إشارة أنّ البث مباشر) + امسح أي طلبات قديمة
+    await setDoc(doc(db,'liveStreams',streamId),{
+      leagueId:LEAGUE, matchId:MATCH, broadcaster:BROADCASTER_NAME,
+      status:'live', startedAt:serverTimestamp(), watchers:0
+    });
+    await clearOldSignaling();
+
+    // 3) استمع لطلبات المشاهدين (كل مشاهد يضيف مستنداً في viewers)
+    listenForViewers();
+
+    isLive=true; startTs=Date.now();
+    $('goLive').classList.replace('start','stop');
+    $('goLive').innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> إيقاف البث';
+    $('liveTag').classList.remove('hidden');
+    $('watchersTag').classList.remove('hidden');
+    $('stageTimer').classList.remove('hidden');
+    $('brandTag').classList.remove('off');
+    $('brandTag').innerHTML='<span class="dot"></span> بثّ مباشر';
+    // رابط المشاركة
+    const base=location.origin+location.pathname.replace('broadcaster.html','league-viewer.html');
+    const link=`${base}?id=${LEAGUE}&match=${MATCH}&watch=1`;
+    $('shareLink').textContent=link; $('shareRow').classList.remove('hidden');
+    window._shareLink=link;
+
+    startTimer();
+    toast('🔴 البث مباشر الآن!');
+  }catch(e){
+    toast('تعذّر بدء البث: '+(e.message||e));
+    console.error(e);
+  }finally{ $('goLive').disabled=false; }
+}
+
+async function stopLive(){
+  $('goLive').disabled=true;
+  isLive=false;
+  // أغلق كل الاتصالات
+  Object.values(viewerPeers).forEach(pc=>{try{pc.close()}catch(e){}});
+  viewerPeers={};
+  if(unsubViewers){ unsubViewers(); unsubViewers=null; }
+  // حدّث الحالة
+  try{
+    await updateDoc(doc(db,'liveStreams',streamId),{status:'ended', endedAt:serverTimestamp()});
+    await updateDoc(doc(db,'leagues',LEAGUE,'matches',MATCH),{
+      'platformStream.active':false
+    }).catch(()=>{});
+    await clearOldSignaling();
+  }catch(e){}
+
+  $('goLive').classList.replace('stop','start');
+  $('goLive').innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg> بدء البث المباشر';
+  $('liveTag').classList.add('hidden');
+  $('watchersTag').classList.add('hidden');
+  $('stageTimer').classList.add('hidden');
+  $('shareRow').classList.add('hidden');
+  $('brandTag').classList.add('off');
+  $('brandTag').innerHTML='<span class="dot"></span> الاستوديو';
+  $('connTag').classList.remove('ok');
+  $('connTag').innerHTML='<span class="cd"></span> غير متصل';
+  stopTimer(); watcherCount=0; updateWatchers();
+  $('goLive').disabled=false;
+  toast('تم إيقاف البث');
+}
+
+// ═══ WebRTC: لكل مشاهد اتصال منفصل ═══
+// المشاهد يكتب طلبه في liveStreams/{id}/viewers/{viewerId} فيه offer
+// المذيع يردّ بـ answer في نفس المستند، ويتبادلان ICE عبر مجموعتين فرعيتين
+function listenForViewers(){
+  const viewersCol = collection(db,'liveStreams',streamId,'viewers');
+  unsubViewers = onSnapshot(viewersCol, snap=>{
+    snap.docChanges().forEach(async ch=>{
+      const viewerId = ch.doc.id;
+      const data = ch.doc.data();
+      if(ch.type==='added' && data.offer && !viewerPeers[viewerId]){
+        await answerViewer(viewerId, data.offer);
+      }
+      if(ch.type==='removed' && viewerPeers[viewerId]){
+        try{viewerPeers[viewerId].close()}catch(e){}
+        delete viewerPeers[viewerId];
+        watcherCount=Math.max(0,watcherCount-1); updateWatchers();
+      }
+    });
+  });
+}
+
+// حساب سقف البت المناسب حسب عدد المشاهدين الحالي
+function _targetBitrate(){
+  const n = watcherCount;
+  if (n <= 5)  return 900000;   // قليل → جودة عالية
+  if (n <= 12) return 650000;
+  if (n <= 25) return 450000;
+  return 300000;                // كثير → موفّر لثبات الجميع
+}
+function _applyAdaptiveBitrate(pc){
+  try{
+    const target = _targetBitrate();
+    pc.getSenders().forEach(s=>{
+      if(s.track && s.track.kind==='video'){
+        const p=s.getParameters(); p.encodings=p.encodings||[{}];
+        p.encodings[0].maxBitrate=target; p.encodings[0].maxFramerate=24;
+        s.setParameters(p).catch(()=>{});
+      }
+    });
+  }catch(e){}
+}
+function _reapplyAllBitrates(){
+  Object.values(viewerPeers).forEach(pc=>_applyAdaptiveBitrate(pc));
+}
+
+async function answerViewer(viewerId, offer){
+  const pc = new RTCPeerConnection(RTC_CONFIG);
+  viewerPeers[viewerId]=pc;
+
+  // أضف مسارات الكاميرا
+  localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+
+  // سقف معدل بت تكيّفي حسب عدد المشاهدين — يوزّع رفع المذيع بذكاء
+  // فيتحمّل عدداً أكبر بثبات (كلما زاد العدد، جودة أخفّ قليلاً للجميع).
+  _applyAdaptiveBitrate(pc);
+
+  // ICE من المذيع → للمشاهد
+  const bcandCol = collection(db,'liveStreams',streamId,'viewers',viewerId,'bcandidates');
+  pc.onicecandidate = e=>{
+    if(e.candidate) addDoc(bcandCol, e.candidate.toJSON()).catch(()=>{});
+  };
+  pc.onconnectionstatechange = ()=>{
+    if(pc.connectionState==='connected'){
+      watcherCount++; updateWatchers();
+      _reapplyAllBitrates();   // أعد توزيع الجودة على الجميع
+      $('connTag').classList.add('ok');
+      $('connTag').innerHTML='<span class="cd"></span> متصل';
+    }
+    if(['failed','closed','disconnected'].includes(pc.connectionState)){
+      if(viewerPeers[viewerId]){ delete viewerPeers[viewerId]; }
+    }
+  };
+
+  await pc.setRemoteDescription(new RTCSessionDescription(offer));
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  await updateDoc(doc(db,'liveStreams',streamId,'viewers',viewerId),{
+    answer:{ type:answer.type, sdp:answer.sdp }
+  });
+
+  // استقبل ICE من المشاهد
+  const vcandCol = collection(db,'liveStreams',streamId,'viewers',viewerId,'vcandidates');
+  onSnapshot(vcandCol, s=>{
+    s.docChanges().forEach(c=>{
+      if(c.type==='added'){
+        pc.addIceCandidate(new RTCIceCandidate(c.doc.data())).catch(()=>{});
+      }
+    });
+  });
+}
+
+function updateWatchers(){
+  $('watcherCount').textContent = watcherCount;
+  // تحذير لطيف عند الاقتراب من حدّ التحمّل (شبكة الجوال محدودة الرفع)
+  const tag = $('watchersTag');
+  if (watcherCount >= 25) { tag.style.background='rgba(255,45,85,.75)'; tag.title='عدد كبير — قد يتأثر الثبات على شبكة الجوال'; }
+  else if (watcherCount >= 15) { tag.style.background='rgba(230,193,87,.4)'; }
+  else { tag.style.background='rgba(0,0,0,.55)'; }
+  if(isLive) updateDoc(doc(db,'liveStreams',streamId),{watchers:watcherCount}).catch(()=>{});
+}
+
+async function clearOldSignaling(){
+  try{
+    const vs = await getDocs(collection(db,'liveStreams',streamId,'viewers'));
+    for(const d of vs.docs){ await deleteDoc(d.ref).catch(()=>{}); }
+  }catch(e){}
+}
+
+// ═══ المؤقّت ═══
+function startTimer(){ timerInt=setInterval(()=>{
+  const s=Math.floor((Date.now()-startTs)/1000);
+  const mm=String(Math.floor(s/60)).padStart(2,'0'), ss=String(s%60).padStart(2,'0');
+  $('stageTimer').textContent=`${mm}:${ss}`;
+},1000); }
+function stopTimer(){ clearInterval(timerInt); $('stageTimer').textContent='00:00'; }
+
+window.copyShare = ()=>{
+  navigator.clipboard.writeText(window._shareLink||'').then(()=>toast('نُسخ الرابط ✓'));
+};
+
+// تنبيه قبل الإغلاق أثناء البث
+window.addEventListener('beforeunload', e=>{ if(isLive){ e.preventDefault(); e.returnValue=''; } });
+</script>
+</body>
+</html>

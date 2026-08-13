@@ -147,6 +147,31 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    /* ── البثّ المباشر (WebRTC signaling) ──────────────────────
+       تكلفة صفر: الفيديو ينتقل P2P، وهنا تبادَل الإشارة النصية فقط.
+       الأمان:
+         • القراءة عامة (المشاهدة متاحة للجمهور).
+         • مستند البث الرئيسي: يديره منظّم البطولة فقط (المذيع مسجّل
+           دخول بحساب الإدارة). يحمل leagueId للتحقق.
+         • مستند المشاهد (viewers/{id}): ينشئه أي زائر (مجهول) لأنه
+           يحمل offer/ICE الخاص به فقط — لا يمسّ بيانات البطولة.
+           لا يستطيع تعديل بث غيره (id عشوائي لكل جلسة). */
+    match /liveStreams/{sid} {
+      allow read: if true;
+      // المذيع (منظّم البطولة) يفتح/يغلق البث. sid = "{leagueId}__{matchId}"
+      allow create, update, delete: if signedIn()
+        && ownsLeague(request.resource.data.get('leagueId',
+             (resource != null ? resource.data.get('leagueId','') : '')));
+
+      // مقاعد المشاهدين — إشارة WebRTC فقط
+      match /viewers/{vid} {
+        allow read: if true;
+        allow create, update, delete: if true;   // offer/answer/ICE فقط، لا بيانات حسّاسة
+        match /vcandidates/{cid} { allow read, write: if true; }
+        match /bcandidates/{cid} { allow read, write: if true; }
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

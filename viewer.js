@@ -40,6 +40,7 @@ try {
 } catch (e) {
   db = getFirestore(app);
 }
+window._fsDb = db;   // للبثّ المباشر (WebRTC receiver)
 /* analytics بعد اكتمال الرسم — لا يؤخّر أول ظهور */
 (function () {
   var go = function () {
@@ -2684,6 +2685,10 @@ window.closeMatchDetail = function() {
   document.getElementById('matchDetailOverlay')?.classList.remove('show');
   document.body.style.overflow = '';
   Object.values(_detailClocks||{}).forEach(t => clearInterval(t));
+  if (typeof _psFullStop === 'function') _psFullStop();   // أغلق البث ويوقف إعادة المحاولة
+  if (_psDetailUnsub) { try{_psDetailUnsub();}catch(e){} _psDetailUnsub=null; }
+  if (_psScoreTick) { clearInterval(_psScoreTick); _psScoreTick=null; }
+  if (typeof _destroyHlsPlayers === 'function') _destroyHlsPlayers();
 };
 
 // ── closeLiveOverlay (stub — لا توجد overlay بث منفصلة) ──
@@ -4152,8 +4157,10 @@ function _toEmbedUrl(url) {
     // Twitch
     m = url.match(/twitch\.tv\/([A-Za-z0-9_]+)/);
     if (m) return { type:'iframe', src:`https://player.twitch.tv/?channel=${m[1]}&parent=${location.hostname}&autoplay=true` };
-    // رابط فيديو مباشر (mp4/m3u8/webm)
-    if (/\.(mp4|webm|m3u8)(\?|$)/i.test(url)) return { type:'video', src:url };
+    // بثّ احترافي HLS (m3u8) → مشغّل hls.js (يتحمّل آلاف، يعمل على كل المتصفحات)
+    if (/\.m3u8(\?|$)/i.test(url)) return { type:'hls', src:url };
+    // رابط فيديو مباشر (mp4/webm)
+    if (/\.(mp4|webm)(\?|$)/i.test(url)) return { type:'video', src:url };
     // Facebook: التضمين يعمل فقط من الصفحات (Pages)، ويفشل من الحسابات الشخصية
     //   (رسالة Video Unavailable). لذا نعرضه كزر «شاهد البث» الأضمن.
     if (/facebook\.com\/|fb\.watch\//.test(url)) return { type:'link', src:url, platform:'فيسبوك' };
@@ -4172,7 +4179,314 @@ function _toEmbedUrl(url) {
 }
 
 // ── بناء قسم الفيديو المضمّن داخل صفحة المباراة ──
+// ════════════════════════════════════════════════════════════
+//  بثّ المنصة (WebRTC P2P) — يستقبل البث من تطبيق المذيع مباشرة
+//  دون أي خادم فيديو (تكلفة توزيع = صفر). الإشارة عبر Firestore.
+// ════════════════════════════════════════════════════════════
+// خوادم ICE للمشاهد — STUN متعددة + TURN اختياري (window._psTurn)
+const _PS_RTC = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    ...(Array.isArray(window._psTurn) ? window._psTurn : [])
+  ],
+  iceCandidatePoolSize: 4
+};
+let _psPeer = null, _psViewerId = null, _psStreamId = null, _psUnsubs = [];
+let _psRetry = 0, _psRetryTimer = null;
+
+function _psCleanup() {
+  try { _psPeer && _psPeer.close(); } catch(e){}
+  _psUnsubs.forEach(u => { try{ u(); }catch(e){} });
+  _psUnsubs = []; _psPeer = null;
+  // احذف مستند المشاهد ليُحرّر مقعده
+  if (_psStreamId && _psViewerId && window._fsDb) {
+    import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js").then(fs=>{
+      fs.deleteDoc(fs.doc(window._fsDb,'liveStreams',_psStreamId,'viewers',_psViewerId)).catch(()=>{});
+    });
+  }
+  _psStreamId = null; _psViewerId = null;
+}
+// إغلاق كامل ونهائي (عند مغادرة التفاصيل) — يوقف إعادة المحاولة أيضاً
+function _psFullStop() {
+  clearTimeout(_psRetryTimer); _psRetryTimer = null; _psRetry = 0;
+  _psCleanup();
+}
+
+// يُستدعى عند فتح تفاصيل مباراة فيها بث منصة نشط
+async function _psConnectViewer(streamId, videoEl, statusEl) {
+  _psCleanup();
+  _psStreamId = streamId;
+  const fs = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+  const db = window._fsDb;
+  if (!db) { if(statusEl) statusEl.textContent='تعذّر الاتصال'; return; }
+
+  _psViewerId = 'v_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const pc = new RTCPeerConnection(_PS_RTC);
+  _psPeer = pc;
+
+  // نستقبل مسار الفيديو من المذيع
+  pc.ontrack = e => {
+    if (videoEl.srcObject !== e.streams[0]) {
+      videoEl.srcObject = e.streams[0];
+      videoEl.play().catch(()=>{});
+      if (statusEl) statusEl.style.display = 'none';
+    }
+  };
+  pc.onconnectionstatechange = () => {
+    if (statusEl) {
+      if (pc.connectionState === 'connecting') { statusEl.style.display='flex'; statusEl.textContent = 'جارِ الاتصال بالبث…'; }
+      if (pc.connectionState === 'connected') { statusEl.style.display='none'; _psRetry = 0; }
+    }
+    // إعادة اتصال تلقائي عند الفشل/الانقطاع (حتى 5 محاولات بتباعد متزايد)
+    if (['failed','disconnected'].includes(pc.connectionState)) {
+      if (statusEl) { statusEl.style.display='flex'; statusEl.textContent = 'انقطع الاتصال — تُعاد المحاولة…'; }
+      if (_psRetry < 5 && _psStreamId) {
+        _psRetry++;
+        const delay = Math.min(1000 * _psRetry, 4000);
+        clearTimeout(_psRetryTimer);
+        _psRetryTimer = setTimeout(() => {
+          if (_psStreamId) _psConnectViewer(_psStreamId, videoEl, statusEl);
+        }, delay);
+      } else if (statusEl) {
+        statusEl.textContent = 'تعذّر الاتصال بالبث — تأكد أنه ما زال مباشراً';
+      }
+    }
+  };
+
+  // نحن الطرف الطالب: نُنشئ Offer (نستقبل فيديو+صوت فقط)
+  pc.addTransceiver('video', { direction: 'recvonly' });
+  pc.addTransceiver('audio', { direction: 'recvonly' });
+
+  const viewerRef = fs.doc(db,'liveStreams',streamId,'viewers',_psViewerId);
+  // ICE من المشاهد → للمذيع
+  const vcandCol = fs.collection(db,'liveStreams',streamId,'viewers',_psViewerId,'vcandidates');
+  pc.onicecandidate = ev => { if(ev.candidate) fs.addDoc(vcandCol, ev.candidate.toJSON()).catch(()=>{}); };
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  await fs.setDoc(viewerRef, { offer:{ type:offer.type, sdp:offer.sdp }, at: Date.now() });
+
+  // انتظر Answer من المذيع
+  const un1 = fs.onSnapshot(viewerRef, snap => {
+    const d = snap.data();
+    if (d && d.answer && pc.signalingState !== 'stable') {
+      pc.setRemoteDescription(new RTCSessionDescription(d.answer)).catch(()=>{});
+    }
+  });
+  // استقبل ICE من المذيع
+  const bcandCol = fs.collection(db,'liveStreams',streamId,'viewers',_psViewerId,'bcandidates');
+  const un2 = fs.onSnapshot(bcandCol, s => {
+    s.docChanges().forEach(c => {
+      if (c.type==='added') pc.addIceCandidate(new RTCIceCandidate(c.doc.data())).catch(()=>{});
+    });
+  });
+  _psUnsubs.push(un1, un2);
+}
+
+// مشغّل بث المنصة — يشترك في مستند البث ويحدّث الفيديو + التعليق لحظياً
+let _psDetailUnsub = null;
+let _psScoreTick = null;
+function _psWatchStream(streamId, matchId) {
+  if (_psDetailUnsub) { try{_psDetailUnsub();}catch(e){} _psDetailUnsub=null; }
+  const db = window._fsDb; if (!db) return;
+  import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js").then(fs=>{
+    _psDetailUnsub = fs.onSnapshot(fs.doc(db,'liveStreams',streamId), snap=>{
+      const box = document.getElementById('ps-box-'+matchId);
+      if (!box) return;
+      const d = snap.exists() ? snap.data() : null;
+      const active = d && d.status === 'live';
+      // الفيديو
+      if (active) {
+        let v = document.getElementById('ps-'+matchId);
+        if (!v) {
+          box.innerHTML = _psVideoShell(matchId, d.broadcaster||'');
+          v = document.getElementById('ps-'+matchId);
+        }
+        if (v && !v._connected) {
+          v._connected = true;
+          _psConnectViewer(streamId, v, document.getElementById('ps-'+matchId+'-status'));
+        }
+        // حدّث شريط النتيجة/الوقت من liveData، وشغّل مؤقّت ثانية إن لزم
+        const _m = (window.matches||[]).find(x=>x.id===matchId);
+        if (_m && typeof _psUpdateScorebar==='function') _psUpdateScorebar(_m);
+        if (!_psScoreTick) {
+          _psScoreTick = setInterval(()=>{
+            // يستمر ما دامت حاوية البث موجودة (لا يتوقف لو تأخّرت قائمة المباريات لحظة)
+            if (!document.getElementById('ps-scorebar-'+matchId)) { clearInterval(_psScoreTick); _psScoreTick=null; return; }
+            const mm = (window.matches||[]).find(x=>x.id===matchId);
+            if (mm) _psUpdateScorebar(mm);
+          }, 1000);
+        }
+      } else {
+        box.innerHTML = '';
+        if (_psScoreTick){ clearInterval(_psScoreTick); _psScoreTick=null; }
+        _psFullStop();
+      }
+    });
+  });
+}
+function _psVideoShell(matchId, broadcaster){
+  return `
+    <div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:900;color:var(--t2)">🎥 بثّ المنصة المباشر</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:900;color:#fff;background:#ff2d55;border-radius:999px;padding:3px 10px">
+          <span style="width:6px;height:6px;border-radius:50%;background:#fff;display:inline-block;animation:_psPulse 1.4s infinite"></span>مباشر
+        </span>
+      </div>
+      <div id="ps-wrap-${matchId}" style="position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden">
+        <video id="ps-${matchId}" autoplay playsinline controls style="width:100%;height:100%;object-fit:contain;background:#000"></video>
+        <!-- شريط النتيجة والوقت الحيّ فوق الفيديو (يتحكم فيه المنظّم من الإدارة) -->
+        <div id="ps-scorebar-${matchId}" class="ps-scorebar"></div>
+        <!-- زر ملء الشاشة (يقلب للوضع الأفقي على الجوال) -->
+        <button onclick="_psFullscreen('${matchId}')" title="ملء الشاشة" style="position:absolute;bottom:10px;left:10px;z-index:7;width:36px;height:36px;border:none;border-radius:9px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+        </button>
+        <div id="ps-${matchId}-status" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#9aa;background:#0a0e17;font-size:13px">
+          <div style="width:34px;height:34px;border:3px solid rgba(255,255,255,.15);border-top-color:#ff2d55;border-radius:50%;animation:_psSpin 1s linear infinite"></div>
+          جارِ الاتصال بالبث…
+        </div>
+      </div>
+      ${broadcaster ? `<div style="font-size:11.5px;color:var(--t3);margin-top:6px;text-align:center">🎙️ ${broadcaster}</div>` : ''}
+    </div>
+    <style>
+      @keyframes _psSpin{to{transform:rotate(360deg)}}@keyframes _psPulse{0%,100%{opacity:1}50%{opacity:.3}}
+      .ps-scorebar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:6;
+        display:flex;align-items:center;gap:9px;padding:6px 12px;border-radius:12px;
+        background:rgba(6,10,18,.82);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);
+        box-shadow:0 4px 16px rgba(0,0,0,.45);font-family:Tajawal,sans-serif;max-width:92%}
+      .ps-scorebar .ps-tm{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:#fff;
+        white-space:nowrap;max-width:96px;overflow:hidden;text-overflow:ellipsis}
+      .ps-scorebar .ps-lg{width:18px;height:18px;border-radius:50%;object-fit:cover;flex-shrink:0;
+        background:#1a2236;display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+      .ps-scorebar .ps-sc{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.1);
+        border-radius:8px;padding:2px 10px;font-size:16px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums}
+      .ps-scorebar .ps-ck{font-size:12px;font-weight:900;color:#ff5a78;min-width:34px;text-align:center;
+        font-variant-numeric:tabular-nums;line-height:1.05}
+      .ps-scorebar .ps-ck .mc-add-min{display:block;font-size:8px;color:#e6c157}
+      .ps-scorebar .ps-ck .mc-stop-row{display:flex;gap:3px;justify-content:center;font-size:9px}
+      .ps-scorebar .ps-ck .mc-clk-head{display:block;font-size:12px}
+    </style>`;
+}
+// ملء الشاشة مع قلب تلقائي للوضع الأفقي على الجوال (تجربة مشاهدة كاملة)
+window._psFullscreen = function(matchId){
+  const wrap = document.getElementById('ps-wrap-'+matchId);
+  const video = document.getElementById('ps-'+matchId);
+  const el = wrap || video;
+  if (!el) return;
+  // iOS: الفيديو نفسه يدخل ملء الشاشة
+  if (video && video.webkitEnterFullscreen && !el.requestFullscreen && !el.webkitRequestFullscreen) {
+    video.webkitEnterFullscreen(); return;
+  }
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if (req) {
+    Promise.resolve(req.call(el)).then(()=>{
+      if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
+    }).catch(()=>{ if (video && video.webkitEnterFullscreen) video.webkitEnterFullscreen(); });
+  } else if (video && video.webkitEnterFullscreen) {
+    video.webkitEnterFullscreen();
+  }
+};
+document.addEventListener('fullscreenchange', ()=>{
+  if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
+    try{ screen.orientation.unlock(); }catch(e){}
+  }
+});
+// يبني/يحدّث شريط النتيجة من liveData (يُستدعى لحظياً مع كل تحديث للمباراة)
+function _psUpdateScorebar(m){
+  const bar = document.getElementById('ps-scorebar-'+m.id);
+  if (!bar) return;
+  const d = m.liveData || {};
+  const ht = (window.teams||[]).find(t=>t.id===m.homeId) || {name:m.homeName||'', logo:m.homeLogo||''};
+  const at = (window.teams||[]).find(t=>t.id===m.awayId) || {name:m.awayName||'', logo:m.awayLogo||''};
+  const hs = d.homeScore ?? m.homeScore ?? 0;
+  const as = d.awayScore ?? m.awayScore ?? 0;
+  const ck = (typeof _clock==='function') ? _clock(d) : '';
+  const lg = (t)=> t.logo && String(t.logo).startsWith('http')
+    ? `<img class="ps-lg" src="${t.logo}">`
+    : `<span class="ps-lg">${t.logo||'⚽'}</span>`;
+  bar.innerHTML =
+    `<span class="ps-tm">${lg(ht)}${ht.name}</span>`+
+    `<span class="ps-sc">${hs}<span style="opacity:.5;font-size:12px">:</span>${as}</span>`+
+    `<span class="ps-tm">${at.name}${lg(at)}</span>`+
+    (ck?`<span class="ps-ck">${ck}</span>`:'');
+}
+// حاوية فارغة تُملأ لحظياً من المستمع (للمباريات المباشرة فقط) — لا تضيف أقساماً مكرّرة
+function _buildPlatformStream(m) {
+  if (!m || m.status !== 'live') return '';
+  const sid = `${window.LEAGUE_ID}__${m.id}`;
+  setTimeout(()=>_psWatchStream(sid, m.id), 60);
+  return `<div id="ps-box-${m.id}"></div>`;
+}
+
+// ════════════════════════════════════════════════════════════
+//  مشغّل HLS احترافي (hls.js) — يشغّل بثّ .m3u8 على كل المتصفحات،
+//  يتحمّل آلاف المشاهدين لأن التوزيع على مصدر البث (حساب صاحب البطولة).
+//  التكلفة على صاحب البطولة، لا على المنصة.
+// ════════════════════════════════════════════════════════════
+let _hlsLibPromise = null;
+let _hlsInstances = {};
+function _loadHlsLib() {
+  if (window.Hls) return Promise.resolve(window.Hls);
+  if (_hlsLibPromise) return _hlsLibPromise;
+  _hlsLibPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js';
+    s.onload = () => resolve(window.Hls);
+    s.onerror = () => reject(new Error('hls load failed'));
+    document.head.appendChild(s);
+  });
+  return _hlsLibPromise;
+}
+async function _initHlsPlayer(videoId, src) {
+  const video = document.getElementById(videoId);
+  if (!video || video._hlsReady) return;
+  video._hlsReady = true;
+  // Safari/iOS يشغّل HLS أصلاً بلا مكتبة
+  if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = src;
+    video.play().catch(()=>{});
+    return;
+  }
+  try {
+    const Hls = await _loadHlsLib();
+    if (Hls && Hls.isSupported()) {
+      // نظّف نسخة سابقة لنفس العنصر
+      if (_hlsInstances[videoId]) { try{_hlsInstances[videoId].destroy();}catch(e){} }
+      const hls = new Hls({
+        lowLatencyMode: true,
+        liveSyncDurationCount: 3,   // قريب من الحيّ
+        maxBufferLength: 20,
+        manifestLoadingMaxRetry: 6,
+        levelLoadingMaxRetry: 6
+      });
+      _hlsInstances[videoId] = hls;
+      hls.loadSource(src);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
+      hls.on(Hls.Events.ERROR, (evt, data) => {
+        if (data.fatal) {
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+          else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+        }
+      });
+    } else {
+      video.src = src; // محاولة أخيرة
+    }
+  } catch(e) {
+    video.src = src;
+  }
+}
+function _destroyHlsPlayers() {
+  Object.keys(_hlsInstances).forEach(k => { try{_hlsInstances[k].destroy();}catch(e){} });
+  _hlsInstances = {};
+}
+
 function _buildVideoEmbed(m) {
+  // بثّ المنصة يظهر عبر حاويته المستقلة (_buildPlatformStream)؛ هنا الروابط الخارجية فقط
   const url = m && (m.videoUrl || (m.liveData && m.liveData.videoUrl));
   if (!url) return '';
   // يظهر الفيديو في كل الحالات ما دام هناك رابط:
@@ -4229,9 +4543,16 @@ function _buildVideoEmbed(m) {
       </div>`;
   }
 
-  const player = emb.type === 'video'
-    ? `<video src="${emb.src}" controls autoplay playsinline style="width:100%;height:100%;border:0;background:#000"></video>`
-    : `<iframe src="${emb.src}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen frameborder="0" style="width:100%;height:100%;border:0"></iframe>`;
+  let player;
+  if (emb.type === 'hls') {
+    const _hid = 'hls-' + m.id;
+    setTimeout(() => _initHlsPlayer(_hid, emb.src), 40);
+    player = `<video id="${_hid}" controls autoplay playsinline muted style="width:100%;height:100%;border:0;background:#000"></video>`;
+  } else if (emb.type === 'video') {
+    player = `<video src="${emb.src}" controls autoplay playsinline style="width:100%;height:100%;border:0;background:#000"></video>`;
+  } else {
+    player = `<iframe src="${emb.src}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen frameborder="0" style="width:100%;height:100%;border:0"></iframe>`;
+  }
 
   // شريط النتيجة والوقت فوق الفيديو (للمباريات المباشرة فقط)
   const ht = (window.teams||[]).find(t => t.id === m.homeId) || { name:m.homeName||'', logo:m.homeLogo||'' };
@@ -5119,8 +5440,9 @@ function renderPitchViewer(lineup, isAway) {
     // ✅︎ بطاقة الراعي — راعي المباراة يتقدّم على راعي البطولة
     const _spHtml = (typeof window._spMatchHTML === 'function') ? window._spMatchHTML(m) : '';
     // 🎥 بث فيديو مضمّن — يظهر فقط إن وُجد رابط (قبل/أثناء/بعد). بلا عدّاد ولا بوابة.
+    const _psHtml = _buildPlatformStream(m);
     const _videoHtml = _buildVideoEmbed(m);
-    body.innerHTML = knockoutBadgeHtml + headerHtml + _videoHtml + _spHtml + tabsHtml + contentHtml;
+    body.innerHTML = knockoutBadgeHtml + headerHtml + _psHtml + _videoHtml + _spHtml + tabsHtml + contentHtml;
 
     overlay.classList.add('show');
     document.body.style.overflow = 'hidden';

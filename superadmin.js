@@ -335,6 +335,8 @@ window.leagueActions = function(id) {
       <button class="btn btn-green" style="width:100%;justify-content:center" onclick="window.open('league-viewer.html?id=${l.id}','_blank')">👁 فتح صفحة الجمهور ↗︎</button>
       <button class="btn btn-blue" style="width:100%;justify-content:center" onclick="window.open('league-admin.html?id=${l.id}','_blank')">⚙︎️ فتح لوحة الإدارة ↗︎</button>
       <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="copyStr('league-viewer.html?id=${l.id}')">📋 نسخ رابط الجمهور</button>
+      <button class="btn" style="width:100%;justify-content:center;background:#ff2d55;color:#fff" onclick="window.open('broadcaster.html?league=${l.id}','_blank')">🎥 فتح صفحة البثّ ↗︎</button>
+      <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="copyStr(SITE_URL + 'broadcaster.html?league=${l.id}')">📋 نسخ رابط البثّ (لصاحب البطولة)</button>
       <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="hoOpen('${l.id}')">صفحة التسليم — عرض / طباعة</button>
       <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="hoWA('${l.id}')">إرسال الروابط واتساب</button>
       <hr style="border-color:var(--border);margin:4px 0"/>
@@ -796,13 +798,43 @@ window.createLeague = async function() {
     });
 
     showToast('✅︎ تم إنشاء البطولة بنجاح! الروابط جاهزة', 'success');
-    setTimeout(() => { showPage('leagues', null); btn.disabled = false; btn.textContent = '🚀 إنشاء البطولة وتفعيلها'; }, 2000);
+    _showNewLeagueLinks(slug, name);
+    setTimeout(() => { btn.disabled = false; btn.textContent = '🚀 إنشاء البطولة وتفعيلها'; }, 1500);
   } catch(e) {
     showToast('خطأ: ' + window._trErr(e), 'error');
     btn.disabled = false;
     btn.textContent = '🚀 إنشاء البطولة وتفعيلها';
   }
 };
+
+// نافذة الروابط الثلاثة فور إنشاء البطولة
+window._showNewLeagueLinks = function(slug, name){
+  const V = SITE_URL + 'league-viewer.html?id=' + slug;
+  const A = SITE_URL + 'league-admin.html?id=' + slug;
+  const B = SITE_URL + 'broadcaster.html?league=' + slug;
+  const linkRow = (label, url, color) =>
+    `<div style="background:var(--card,#1a1a2e);border:1px solid var(--border,#2a2a3e);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:800;color:${color};margin-bottom:4px">${label}</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input readonly value="${url}" onclick="this.select()" style="flex:1;background:transparent;border:none;color:var(--muted,#9aa);font-size:11px;font-family:monospace;direction:ltr;text-align:left;outline:none">
+        <button onclick="navigator.clipboard.writeText('${url}');this.textContent='✓';setTimeout(()=>this.textContent='نسخ',1200)" style="background:${color};color:#fff;border:none;border-radius:7px;padding:6px 12px;font-weight:800;font-family:inherit;cursor:pointer;font-size:12px">نسخ</button>
+      </div>
+    </div>`;
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';
+  ov.innerHTML =
+    `<div style="background:var(--bg,#12121e);border:1px solid var(--border,#2a2a3e);border-radius:18px;padding:20px;max-width:440px;width:100%;font-family:Tajawal,sans-serif">
+      <div style="text-align:center;font-size:34px;margin-bottom:6px">🎉</div>
+      <h3 style="text-align:center;color:var(--text,#fff);margin:0 0 4px;font-size:18px">تم إنشاء «${name}»</h3>
+      <p style="text-align:center;color:var(--muted,#9aa);font-size:12.5px;margin:0 0 16px">الروابط الثلاثة جاهزة للمشاركة</p>
+      ${linkRow('👁 صفحة الجمهور', V, '#22c55e')}
+      ${linkRow('⚙️ لوحة الإدارة', A, '#3b82f6')}
+      ${linkRow('🎥 استوديو البثّ', B, '#ff2d55')}
+      <button onclick="sendWALeague('${name.replace(/'/g,'')}','${slug}','')" style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:6px;margin-bottom:8px">📱 إرسال الروابط واتساب</button>
+      <button onclick="this.closest('div[style*=fixed]').remove();showPage('leagues',null)" style="width:100%;background:var(--card,#1a1a2e);color:var(--text,#fff);border:1px solid var(--border,#2a2a3e);border-radius:10px;padding:11px;font-weight:800;font-family:inherit;cursor:pointer">تم — عرض كل البطولات</button>
+    </div>`;
+  ov.onclick = e => { if(e.target===ov){ ov.remove(); showPage('leagues',null); } };
+  document.body.appendChild(ov);
 
 window.createSubscription = async function() {
   const owner = document.getElementById('sub_owner')?.value.trim();
@@ -876,7 +908,8 @@ window.sendViaWA = function() {
   const pass = document.getElementById('nl_pass')?.value || '';
   const viewerUrl = SITE_URL + 'league-viewer.html?id=' + slug;
   const adminUrl = SITE_URL + 'league-admin.html?id=' + slug;
-  const txt = encodeURIComponent(`🏆 ${name}\n\n🌐 رابط الجمهور:\n${viewerUrl}\n\n⚙︎️ لوحة الإدارة:\n${adminUrl}\n\n📧 البريد: ${email}\n🔑 كلمة المرور: ${pass}`);
+  const broadcastUrl = SITE_URL + 'broadcaster.html?league=' + slug;
+  const txt = encodeURIComponent(`🏆 ${name}\n\n🌐 رابط الجمهور:\n${viewerUrl}\n\n⚙︎️ لوحة الإدارة:\n${adminUrl}\n\n🎥 استوديو البثّ:\n${broadcastUrl}\n\n📧 البريد: ${email}\n🔑 كلمة المرور: ${pass}`);
   window.open('https://wa.me/?text=' + txt, '_blank');
 };
 
@@ -896,7 +929,8 @@ window.hoWA   = (id) => window.sendHandoverWA(_hoData(id));
 window.sendWALeague = function(name, id, phone) {
   const viewerUrl = SITE_URL + 'league-viewer.html?id=' + id;
   const adminUrl = SITE_URL + 'league-admin.html?id=' + id;
-  const txt = encodeURIComponent(`🏆 ${name}\n\n🌐 رابط الجمهور:\n${viewerUrl}\n\n⚙︎️ لوحة الإدارة:\n${adminUrl}`);
+  const broadcastUrl = SITE_URL + 'broadcaster.html?league=' + id;
+  const txt = encodeURIComponent(`🏆 ${name}\n\n🌐 رابط الجمهور:\n${viewerUrl}\n\n⚙︎️ لوحة الإدارة:\n${adminUrl}\n\n🎥 استوديو البثّ:\n${broadcastUrl}`);
   const url = phone ? `https://wa.me/${phone}?text=${txt}` : `https://wa.me/?text=${txt}`;
   window.open(url, '_blank');
 };

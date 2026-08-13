@@ -103,10 +103,12 @@
       '<div class="sec">الروابط</div>' +
       row('الجمهور', d.viewerUrl, true, true) +
       row('الإدارة', d.adminUrl, true, true) +
+      row('استوديو البثّ 🎥', d.broadcastUrl, true, true) +
 
       '<div class="sec noprint">فتح مباشر</div>' +
       '<a class="btn b1 noprint" href="' + esc(d.adminUrl) + '" target="_blank">فتح لوحة الإدارة</a>' +
       '<a class="btn b2 noprint" href="' + esc(d.viewerUrl) + '" target="_blank">معاينة صفحة الجمهور</a>' +
+      '<a class="btn b2 noprint" href="' + esc(d.broadcastUrl) + '" target="_blank" style="background:#ff2d55;color:#fff">🎥 فتح استوديو البثّ</a>' +
 
       '<div class="sec">خطوات البداية</div>' +
       '<ol class="steps">' +
@@ -148,7 +150,8 @@
       type:   (over && over.type)  || window._nlType || 'league',
       logo:   (over && over.logo)  || '',
       viewerUrl: base + 'league-viewer.html?id=' + slug,
-      adminUrl:  base + 'league-admin.html?id='  + slug
+      adminUrl:  base + 'league-admin.html?id='  + slug,
+      broadcastUrl: base + 'broadcaster.html?league=' + slug
     };
     return d;
   }
@@ -179,6 +182,9 @@
     L.push('');
     L.push('*لوحة الإدارة*');
     L.push(d.adminUrl);
+    L.push('');
+    L.push('*استوديو البثّ* 🎥');
+    L.push(d.broadcastUrl);
     if (d.email) {
       L.push('');
       L.push('بريد الدخول: ' + d.email);

@@ -4341,6 +4341,10 @@ function _psVideoShell(matchId, broadcaster){
         <video id="ps-${matchId}" autoplay playsinline controls style="width:100%;height:100%;object-fit:contain;background:#000"></video>
         <!-- شريط النتيجة والوقت الحيّ فوق الفيديو (يتحكم فيه المنظّم من الإدارة) -->
         <div id="ps-scorebar-${matchId}" class="ps-scorebar"></div>
+        <!-- شعار المنصة (علامة مائية احترافية أعلى يمين) -->
+        <div class="ps-watermark"><img src="icon-512.png" onerror="this.parentElement.style.display='none'"></div>
+        <!-- طبقة أنيميشن الهدف (تظهر عند تسجيل هدف) -->
+        <div id="ps-goalfx-${matchId}" class="ps-goalfx"></div>
         <!-- زر ملء الشاشة (يقلب للوضع الأفقي على الجوال) -->
         <button onclick="_psFullscreen('${matchId}')" title="ملء الشاشة" style="position:absolute;bottom:10px;left:10px;z-index:7;width:36px;height:36px;border:none;border-radius:9px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
@@ -4354,21 +4358,42 @@ function _psVideoShell(matchId, broadcaster){
     </div>
     <style>
       @keyframes _psSpin{to{transform:rotate(360deg)}}@keyframes _psPulse{0%,100%{opacity:1}50%{opacity:.3}}
-      .ps-scorebar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:6;
-        display:flex;align-items:center;gap:9px;padding:6px 12px;border-radius:12px;
-        background:rgba(6,10,18,.82);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);
-        box-shadow:0 4px 16px rgba(0,0,0,.45);font-family:Tajawal,sans-serif;max-width:92%}
-      .ps-scorebar .ps-tm{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:#fff;
-        white-space:nowrap;max-width:96px;overflow:hidden;text-overflow:ellipsis}
-      .ps-scorebar .ps-lg{width:18px;height:18px;border-radius:50%;object-fit:cover;flex-shrink:0;
-        background:#1a2236;display:inline-flex;align-items:center;justify-content:center;font-size:11px}
-      .ps-scorebar .ps-sc{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.1);
-        border-radius:8px;padding:2px 10px;font-size:16px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums}
-      .ps-scorebar .ps-ck{font-size:12px;font-weight:900;color:#ff5a78;min-width:34px;text-align:center;
-        font-variant-numeric:tabular-nums;line-height:1.05}
-      .ps-scorebar .ps-ck .mc-add-min{display:block;font-size:8px;color:#e6c157}
-      .ps-scorebar .ps-ck .mc-stop-row{display:flex;gap:3px;justify-content:center;font-size:9px}
-      .ps-scorebar .ps-ck .mc-clk-head{display:block;font-size:12px}
+      /* شريط النتيجة بنمط القنوات الرياضية (bein) — أعلى يسار، أفقي أنيق */
+      .ps-scorebar{position:absolute;top:12px;left:12px;z-index:6;
+        display:flex;align-items:stretch;height:34px;border-radius:7px;overflow:hidden;
+        box-shadow:0 3px 14px rgba(0,0,0,.5);font-family:Tajawal,sans-serif;
+        border:1px solid rgba(255,255,255,.08)}
+      .ps-scorebar .ps-side{display:flex;align-items:center;gap:6px;padding:0 10px;
+        background:linear-gradient(180deg,#1a1f2e,#12151f)}
+      .ps-scorebar .ps-side.home{border-left:3px solid var(--gold)}
+      .ps-scorebar .ps-side.away{border-right:3px solid #3B7DBF}
+      .ps-scorebar .ps-tm{font-size:13px;font-weight:800;color:#fff;white-space:nowrap;
+        max-width:88px;overflow:hidden;text-overflow:ellipsis}
+      .ps-scorebar .ps-lg{width:20px;height:20px;border-radius:4px;object-fit:cover;flex-shrink:0;
+        display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+      .ps-scorebar .ps-sc{display:flex;align-items:center;gap:7px;padding:0 12px;
+        background:linear-gradient(180deg,#0b0e16,#060810);font-size:17px;font-weight:900;color:#fff;
+        font-variant-numeric:tabular-nums}
+      .ps-scorebar .ps-sc .ps-dot{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.4)}
+      .ps-scorebar .ps-ck{display:flex;align-items:center;justify-content:center;padding:0 9px;
+        background:var(--live);color:#fff;font-size:12px;font-weight:900;min-width:40px;
+        font-variant-numeric:tabular-nums;letter-spacing:.3px}
+      /* شعار المنصة — علامة مائية احترافية */
+      .ps-watermark{position:absolute;top:12px;right:12px;z-index:5;opacity:.85;
+        width:30px;height:30px;border-radius:7px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+      .ps-watermark img{width:100%;height:100%;object-fit:cover;display:block}
+      /* أنيميشن الهدف الفخم */
+      .ps-goalfx{position:absolute;inset:0;z-index:8;display:none;align-items:center;justify-content:center;
+        pointer-events:none;background:radial-gradient(circle,rgba(201,160,43,.25),rgba(0,0,0,.55))}
+      .ps-goalfx.show{display:flex;animation:psGoalBg .3s ease-out}
+      .ps-goalfx .gf-txt{font-family:Tajawal,sans-serif;font-weight:900;color:#fff;
+        font-size:clamp(34px,11vw,72px);letter-spacing:2px;text-shadow:0 4px 24px rgba(201,160,43,.9),0 2px 6px rgba(0,0,0,.7);
+        animation:psGoalPop .55s cubic-bezier(.2,1.4,.4,1);white-space:nowrap}
+      .ps-goalfx .gf-sub{position:absolute;bottom:22%;font-family:Tajawal,sans-serif;font-weight:800;
+        color:var(--gold);font-size:clamp(13px,4vw,20px);animation:psGoalSub .5s ease-out .15s both}
+      @keyframes psGoalBg{from{opacity:0}to{opacity:1}}
+      @keyframes psGoalPop{0%{transform:scale(.3) rotate(-8deg);opacity:0}60%{transform:scale(1.15) rotate(2deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+      @keyframes psGoalSub{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
     </style>`;
 }
 // ملء الشاشة مع قلب تلقائي للوضع الأفقي على الجوال (تجربة مشاهدة كاملة)
@@ -4395,6 +4420,16 @@ document.addEventListener('fullscreenchange', ()=>{
     try{ screen.orientation.unlock(); }catch(e){}
   }
 });
+// أنيميشن الهدف الفخم (يظهر عند تسجيل هدف)
+let _psLastScore = {};
+function _psPlayGoalFx(matchId, teamName){
+  const el = document.getElementById('ps-goalfx-'+matchId);
+  if (!el) return;
+  el.innerHTML = `<span class="gf-txt">⚽ GOAL!</span>${teamName?`<span class="gf-sub">${teamName}</span>`:''}`;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.classList.remove('show'); el.innerHTML=''; }, 3200);
+}
 // يبني/يحدّث شريط النتيجة من liveData (يُستدعى لحظياً مع كل تحديث للمباراة)
 function _psUpdateScorebar(m){
   const bar = document.getElementById('ps-scorebar-'+m.id);
@@ -4404,19 +4439,33 @@ function _psUpdateScorebar(m){
   const at = (window.teams||[]).find(t=>t.id===m.awayId) || {name:m.awayName||'', logo:m.awayLogo||''};
   const hs = d.homeScore ?? m.homeScore ?? 0;
   const as = d.awayScore ?? m.awayScore ?? 0;
-  const ck = (typeof _clock==='function') ? _clock(d) : '';
+  // كشف الهدف: لو زادت النتيجة عن آخر قيمة محفوظة → شغّل أنيميشن الهدف
+  const prev = _psLastScore[m.id];
+  if (prev && (hs > prev.h || as > prev.a)) {
+    const scorer = (hs > prev.h) ? (ht0=>ht0)( (window.teams||[]).find(t=>t.id===m.homeId) )
+                                 : (window.teams||[]).find(t=>t.id===m.awayId);
+    _psPlayGoalFx(m.id, scorer ? (scorer.name||'') : '');
+  }
+  _psLastScore[m.id] = { h:hs, a:as };
+  const _ckRaw = (typeof _clock==='function') ? _clock(d) : '';
+  // قبل بدء المباراة (upcoming/--): نُخفي العدّاد تماماً — يبقى البثّ + النتيجة فقط
+  // (استوديو تحليلي قبل المباراة). العدّاد يظهر لحظة ما تبدأ الإدارة المباراة.
+  const ck = (_ckRaw && _ckRaw !== '--') ? _ckRaw : '';
   const lg = (t)=> t.logo && String(t.logo).startsWith('http')
     ? `<img class="ps-lg" src="${t.logo}">`
     : `<span class="ps-lg">${t.logo||'⚽'}</span>`;
   bar.innerHTML =
-    `<span class="ps-tm">${lg(ht)}${ht.name}</span>`+
-    `<span class="ps-sc">${hs}<span style="opacity:.5;font-size:12px">:</span>${as}</span>`+
-    `<span class="ps-tm">${at.name}${lg(at)}</span>`+
-    (ck?`<span class="ps-ck">${ck}</span>`:'');
+    `<div class="ps-side home">${lg(ht)}<span class="ps-tm">${ht.name}</span></div>`+
+    `<div class="ps-sc"><span>${hs}</span><span class="ps-dot"></span><span>${as}</span></div>`+
+    `<div class="ps-side away"><span class="ps-tm">${at.name}</span>${lg(at)}</div>`+
+    (ck?`<div class="ps-ck">${ck}</div>`:'');
 }
-// حاوية فارغة تُملأ لحظياً من المستمع (للمباريات المباشرة فقط) — لا تضيف أقساماً مكرّرة
+// حاوية فارغة تُملأ لحظياً من مستمع البثّ. تظهر متى وُجد بثّ نشط —
+// حتى قبل بدء المباراة (استوديو تحليلي). المستمع نفسه يقرّر الإظهار/الإخفاء.
 function _buildPlatformStream(m) {
-  if (!m || m.status !== 'live') return '';
+  if (!m) return '';
+  // نراقب البثّ للمباريات غير المنتهية (قادمة أو مباشرة) — لدعم البثّ التحليلي المبكر
+  if (m.status === 'finished') return '';
   const sid = `${window.LEAGUE_ID}__${m.id}`;
   setTimeout(()=>_psWatchStream(sid, m.id), 60);
   return `<div id="ps-box-${m.id}"></div>`;

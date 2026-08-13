@@ -35,10 +35,10 @@
   .conn.ok .cd{background:var(--green)}
 
   /* ═══ منطقة الفيديو ═══ */
-  .stage{position:relative;width:100%;aspect-ratio:9/16;max-height:62vh;background:#000;
+  .stage{position:relative;width:100%;aspect-ratio:16/9;max-height:56vh;background:#000;
     border-radius:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
   @media(min-width:520px){.stage{border-radius:18px;margin:0 12px;width:calc(100% - 24px)}}
-  #preview{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #preview{width:100%;height:100%;object-fit:contain;transform:scaleX(-1)}
   #preview.rear{transform:none}
   .stage-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
     justify-content:center;gap:14px;color:var(--t3);text-align:center;padding:24px}
@@ -139,6 +139,43 @@
   .toast.show{opacity:1}
   .hidden{display:none!important}
 
+  /* ═══ شاشة الدخول — مطابقة تماماً لدخول الإدارة ═══ */
+  #loginScreen{position:fixed;inset:0;z-index:900;display:flex;align-items:center;justify-content:center;padding:24px;background:#121212}
+  .login-box{position:relative;z-index:1;width:100%;max-width:380px;background:#1a1a1a;border:1px solid #6B4E00;border-radius:22px;overflow:hidden}
+  .login-top{background:#141000;padding:32px 28px 24px;text-align:center;border-bottom:1px solid #6B4E00}
+  .login-badge{width:68px;height:68px;margin:0 auto 14px;background:linear-gradient(145deg,#E8BE45,#C9A02B);border-radius:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(201,160,43,.28)}
+  .login-badge img{width:100%;height:100%;object-fit:cover;border-radius:18px}
+  .login-title{font-size:22px;font-weight:900;color:var(--gold);margin-bottom:4px}
+  .login-sub{font-size:11px;color:#888}
+  .login-form{padding:28px}
+  .login-form .fl{margin-bottom:18px}
+  .login-form .fl label{display:block;font-size:11px;color:#888;margin-bottom:7px}
+  .login-form .fl input{width:100%;background:#202020;border:1px solid #383838;color:#efefef;border-radius:9px;padding:13px 14px;font-family:'Tajawal',sans-serif;font-size:13px;outline:none;transition:.2s}
+  .login-form .fl input:focus{border-color:var(--gold)}
+  .login-form .btn-primary{width:100%;background:linear-gradient(145deg,#E8BE45,#C9A02B);color:#1a1200;border:none;border-radius:11px;padding:15px;font-size:15px;font-weight:900;font-family:inherit;cursor:pointer;transition:.15s}
+  .login-form .btn-primary:active{transform:scale(.98)}
+  .login-form .btn-primary:disabled{opacity:.6}
+
+  /* ═══ بطاقات المباريات — بنمط صفحة الجمهور ═══ */
+  .mc-card{width:100%;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:12px 14px;cursor:pointer;font-family:inherit;transition:.15s;display:block;margin:0}
+  .mc-card:active{transform:scale(.985);border-color:var(--g-br)}
+  .mc-badge-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .mc-badge{font-size:10px;font-weight:800;padding:3px 9px;border-radius:6px;display:inline-flex;align-items:center;gap:5px}
+  .mc-live{background:var(--live);color:#fff}
+  .mc-livedot{width:5px;height:5px;border-radius:50%;background:#fff;animation:pulse 1.3s infinite}
+  .mc-fin{background:var(--s3);color:var(--t2)}
+  .mc-up{background:var(--g-bg);color:var(--gold);border:1px solid var(--g-br)}
+  .mc-cam{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:var(--gold)}
+  .mc-teams{display:flex;align-items:center;gap:8px}
+  .mc-team{flex:1;display:flex;align-items:center;gap:8px;min-width:0;font-weight:800;font-size:14px;color:var(--t1)}
+  .mc-team span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mc-team-a{flex-direction:row-reverse}
+  .mc-score{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:4px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:9px}
+  .mc-num{font-size:17px;font-weight:900;color:var(--t1);font-variant-numeric:tabular-nums}
+  .mc-sep{color:var(--t3);font-size:13px}
+  .mc-vs{font-size:12px;font-weight:900;color:var(--gold);letter-spacing:1px}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
   /* رابط المشاركة */
   .share-row{display:flex;gap:8px;align-items:center;background:var(--s1);border:1px solid var(--b1);
     border-radius:12px;padding:10px 12px}
@@ -151,23 +188,28 @@
 <body>
 <div class="wrap">
 
-  <!-- ═══════ شاشة تسجيل الدخول (هوية البطولة) ═══════ -->
-  <div id="loginScreen" class="setup">
-    <div id="lgBrand" style="text-align:center;margin-bottom:4px">
-      <div id="lgLogo" style="width:74px;height:74px;margin:0 auto 12px;border-radius:20px;background:linear-gradient(145deg,#e6c157,#c9a02b);display:flex;align-items:center;justify-content:center;font-size:38px;box-shadow:0 8px 24px rgba(201,160,43,.3)">🎥</div>
-      <h2 id="lgTitle" style="margin-bottom:6px">استوديو البثّ</h2>
-      <p class="sub" id="lgSub" style="margin-top:0">سجّل الدخول لبثّ مبارياتك مباشرة</p>
+  <!-- ═══════ شاشة تسجيل الدخول (مطابقة لدخول الإدارة) ═══════ -->
+  <div id="loginScreen">
+    <div class="login-box">
+      <div class="login-top">
+        <div class="login-badge" id="lgLogo">
+          <img src="icon-512.png" alt="" onerror="this.style.display='none'">
+        </div>
+        <div class="login-title" id="lgTitle">استوديو البثّ</div>
+        <div class="login-sub" id="lgSub">بثّ مبارياتك مباشرة بجودة احترافية</div>
+        <div style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:5px 14px;background:rgba(214,69,65,.08);border:1px solid rgba(214,69,65,.22);border-radius:999px;font-size:10px;color:var(--live);font-weight:700">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--live);box-shadow:0 0 8px var(--live)"></span>
+          بثّ مباشر عالي الجودة
+        </div>
+      </div>
+      <div class="login-form">
+        <div class="fl"><label>البريد الإلكتروني</label><input type="email" id="inpEmail" placeholder="بريد حساب البطولة" autocomplete="username"/></div>
+        <div class="fl"><label>كلمة المرور</label><input type="password" id="inpPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')document.getElementById('btnLogin').click()"/></div>
+        <button class="btn-primary" id="btnLogin">
+          <span id="loginBtnText">دخول الاستوديو</span>
+        </button>
+      </div>
     </div>
-    <div class="field">
-      <label>البريد الإلكتروني</label>
-      <input id="inpEmail" type="email" placeholder="بريد حساب البطولة" autocomplete="username">
-    </div>
-    <div class="field">
-      <label>كلمة المرور</label>
-      <input id="inpPass" type="password" placeholder="••••••••" autocomplete="current-password"
-        onkeydown="if(event.key==='Enter')document.getElementById('btnLogin').click()">
-    </div>
-    <button id="btnLogin" class="btn-primary">تسجيل الدخول</button>
   </div>
 
   <!-- ═══════ شاشة قائمة المباريات ═══════ -->
@@ -554,11 +596,16 @@ $('btnLogin').addEventListener('click', async ()=>{
   }
 });
 
-function _logoHtml(logo, fallback){
-  if (logo && String(logo).startsWith('http'))
-    return `<img src="${logo}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
-  if (logo) return logo; // إيموجي
-  return fallback;
+// مطابق لـ logoHtml في صفحة الجمهور — يعرض شعار الفريق بدقة
+function _logoHtml(logo, size=26, radius=7){
+  if(!logo) return `<span style="font-size:${size}px;line-height:1">⚽</span>`;
+  if(logo.startsWith('data:')||logo.startsWith('http')||logo.startsWith('/'))
+    return `<img src="${logo}" loading="lazy" style="width:${size}px;height:${size}px;border-radius:${radius}px;object-fit:cover;display:inline-block;vertical-align:middle" onerror="this.style.display='none'"/>`;
+  return `<span style="font-size:${size}px;line-height:1">${logo}</span>`;
+}
+let _bcTeams = {};   // id -> {name, logo}
+function _teamOf(idOrName){
+  return _bcTeams[idOrName] || { name:idOrName||'?', logo:'' };
 }
 
 function showMatchesScreen(){
@@ -567,7 +614,7 @@ function showMatchesScreen(){
   $('matchesScreen').classList.remove('hidden');
   // هوية البطولة
   $('mlTitle').textContent = _leagueName;
-  $('mlLogo').innerHTML = _logoHtml(_leagueLogo, '🏆');
+  $('mlLogo').innerHTML = _leagueLogo ? _logoHtml(_leagueLogo, 26, 8) : '<svg viewBox="0 0 24 24" fill="#1a1200" width="22" height="22"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4L8 14 2 9.4h7.6z"/></svg>';
   $('lgTitle').textContent = _leagueName;
   loadMatchesList();
 }
@@ -590,6 +637,13 @@ async function loadMatchesList(){
     return;
   }
   try{
+    // اجلب الفرق أولاً (للشعارات)
+    if (Object.keys(_bcTeams).length === 0){
+      try{
+        const ts = await getDocs(collection(db,'leagues',LEAGUE,'teams'));
+        ts.forEach(d=>{ const t=d.data(); _bcTeams[d.id] = { name:t.name||d.id, logo:t.logo||'' }; });
+      }catch(e){}
+    }
     const snap = await getDocs(collection(db,'leagues',LEAGUE,'matches'));
     if (snap.empty){ box.innerHTML = '<div style="text-align:center;color:var(--t3);padding:30px">لا مباريات بعد</div>'; return; }
     const rows = [];
@@ -606,21 +660,27 @@ async function loadMatchesList(){
 function _matchRow(m){
   const live = m.status === 'live';
   const fin  = m.status === 'finished';
+  const ht = _teamOf(m.homeId) ; const at = _teamOf(m.awayId);
+  const hName = m.homeName || ht.name || '?';
+  const aName = m.awayName || at.name || '?';
+  const hLogo = ht.logo || m.homeLogo || '';
+  const aLogo = at.logo || m.awayLogo || '';
   const badge = live
-    ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#ff2d55;color:#fff;font-size:10px;font-weight:900;padding:3px 8px;border-radius:6px"><span style="width:5px;height:5px;border-radius:50%;background:#fff"></span>مباشرة</span>'
-    : (fin ? '<span style="font-size:10px;color:var(--t3);font-weight:700">انتهت</span>'
-           : '<span style="font-size:10px;color:var(--gold);font-weight:700">قادمة</span>');
-  const score = (live||fin) ? `${m.homeScore??0} - ${m.awayScore??0}` : 'VS';
+    ? `<span class="mc-badge mc-live"><span class="mc-livedot"></span>مباشرة</span>`
+    : (fin ? `<span class="mc-badge mc-fin">انتهت</span>`
+           : `<span class="mc-badge mc-up">قادمة</span>`);
+  const score = (live||fin)
+    ? `<span class="mc-num">${m.homeScore??0}</span><span class="mc-sep">-</span><span class="mc-num">${m.awayScore??0}</span>`
+    : `<span class="mc-vs">VS</span>`;
   return `
-    <button onclick="pickMatch('${m._id}')" style="width:100%;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;transition:.15s" onmousedown="this.style.transform='scale(.98)'" onmouseup="this.style.transform=''">
-      <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:10px;min-width:0">
-        <span style="color:var(--t1);font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38%">${m.homeName||m.homeId||'?'}</span>
-        <span style="color:var(--gold);font-weight:900;font-size:15px;flex-shrink:0;font-variant-numeric:tabular-nums">${score}</span>
-        <span style="color:var(--t1);font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38%">${m.awayName||m.awayId||'?'}</span>
+    <button class="mc-card" onclick="pickMatch('${m._id}')">
+      <div class="mc-badge-row">${badge}
+        <span class="mc-cam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M15 10l4.55-2.27A1 1 0 0121 8.62v6.76a1 1 0 01-1.45.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>بثّ</span>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
-        ${badge}
-        <span style="font-size:11px;color:var(--t2);font-weight:800;display:flex;align-items:center;gap:3px">بثّ 🎥</span>
+      <div class="mc-teams">
+        <div class="mc-team">${_logoHtml(hLogo,30,8)}<span>${hName}</span></div>
+        <div class="mc-score">${score}</div>
+        <div class="mc-team mc-team-a"><span>${aName}</span>${_logoHtml(aLogo,30,8)}</div>
       </div>
     </button>`;
 }
@@ -706,7 +766,7 @@ window.toggleCamera = async function(){
     // جودة موفّرة (480p, 24fps) — تضاعف عدد المشاهدين الممكن مقارنة بـ 720p،
     // وتبقى واضحة تماماً لمباراة. المتصفح يخفضها تلقائياً لو ضعفت الشبكة.
     localStream = await navigator.mediaDevices.getUserMedia({
-      video:{ facingMode, width:{ideal:854,max:1280}, height:{ideal:480,max:720}, frameRate:{ideal:24,max:30} },
+      video:{ facingMode, width:{ideal:1280,max:1920}, height:{ideal:720,max:1080}, aspectRatio:{ideal:1.7777}, frameRate:{ideal:24,max:30} },
       audio:{ echoCancellation:true, noiseSuppression:true }
     });
     const v=$('preview'); v.srcObject=localStream;

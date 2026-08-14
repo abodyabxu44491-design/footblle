@@ -335,8 +335,8 @@ window.leagueActions = function(id) {
       <button class="btn btn-green" style="width:100%;justify-content:center" onclick="window.open('league-viewer.html?id=${l.id}','_blank')">👁 فتح صفحة الجمهور ↗︎</button>
       <button class="btn btn-blue" style="width:100%;justify-content:center" onclick="window.open('league-admin.html?id=${l.id}','_blank')">⚙︎️ فتح لوحة الإدارة ↗︎</button>
       <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="copyStr('league-viewer.html?id=${l.id}')">📋 نسخ رابط الجمهور</button>
-      <button class="btn" style="width:100%;justify-content:center;background:#ff2d55;color:#fff" onclick="window.open('broadcaster.html?league=${l.id}','_blank')">🎥 فتح صفحة البثّ ↗︎</button>
-      <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="copyStr(SITE_URL + 'broadcaster.html?league=${l.id}')">📋 نسخ رابط البثّ (لصاحب البطولة)</button>
+      <button class="btn" style="width:100%;justify-content:center;gap:7px;background:#141000;border:1px solid #6B4E00;color:#C9A02B" onclick="window.open('broadcaster.html?league=${l.id}','_blank')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M23 7l-7 5 7 5V7zM14 5H3a2 2 0 00-2 2v10a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2z"/></svg>فتح صفحة البثّ</button>
+      <button class="btn btn-outline" style="width:100%;justify-content:center;gap:7px" onclick="copyStr(SITE_URL + 'broadcaster.html?league=${l.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>نسخ رابط البثّ للمنظّم</button>
       <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="hoOpen('${l.id}')">صفحة التسليم — عرض / طباعة</button>
       <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="hoWA('${l.id}')">إرسال الروابط واتساب</button>
       <hr style="border-color:var(--border);margin:4px 0"/>
@@ -817,20 +817,20 @@ window._showNewLeagueLinks = function(slug, name){
       <div style="font-size:12px;font-weight:800;color:${color};margin-bottom:4px">${label}</div>
       <div style="display:flex;gap:6px;align-items:center">
         <input readonly value="${url}" onclick="this.select()" style="flex:1;background:transparent;border:none;color:var(--muted,#9aa);font-size:11px;font-family:monospace;direction:ltr;text-align:left;outline:none">
-        <button onclick="navigator.clipboard.writeText('${url}');this.textContent='✓';setTimeout(()=>this.textContent='نسخ',1200)" style="background:${color};color:#fff;border:none;border-radius:7px;padding:6px 12px;font-weight:800;font-family:inherit;cursor:pointer;font-size:12px">نسخ</button>
+        <button onclick="navigator.clipboard.writeText('${url}');this.textContent='تم';setTimeout(()=>this.textContent='نسخ',1200)" style="background:${color};color:#fff;border:none;border-radius:7px;padding:6px 12px;font-weight:800;font-family:inherit;cursor:pointer;font-size:12px">نسخ</button>
       </div>
     </div>`;
   const ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';
   ov.innerHTML =
     `<div style="background:var(--bg,#12121e);border:1px solid var(--border,#2a2a3e);border-radius:18px;padding:20px;max-width:440px;width:100%;font-family:Tajawal,sans-serif">
-      <div style="text-align:center;font-size:34px;margin-bottom:6px">🎉</div>
+      <div style="text-align:center;margin-bottom:8px;display:flex;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="#C9A02B" stroke-width="1.6" width="34" height="34"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div>
       <h3 style="text-align:center;color:var(--text,#fff);margin:0 0 4px;font-size:18px">تم إنشاء «${name}»</h3>
       <p style="text-align:center;color:var(--muted,#9aa);font-size:12.5px;margin:0 0 16px">الروابط الثلاثة جاهزة للمشاركة</p>
-      ${linkRow('👁 صفحة الجمهور', V, '#22c55e')}
-      ${linkRow('⚙️ لوحة الإدارة', A, '#3b82f6')}
-      ${linkRow('🎥 استوديو البثّ', B, '#ff2d55')}
-      <button onclick="sendWALeague('${name.replace(/'/g,'')}','${slug}','')" style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:6px;margin-bottom:8px">📱 إرسال الروابط واتساب</button>
+      ${linkRow('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="vertical-align:-2px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> صفحة الجمهور', V, '#22c55e')}
+      ${linkRow('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="vertical-align:-2px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> لوحة الإدارة', A, '#3b82f6')}
+      ${linkRow('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="vertical-align:-2px"><path d="M23 7l-7 5 7 5V7zM14 5H3a2 2 0 00-2 2v10a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2z"/></svg> استوديو البثّ', B, '#C9A02B')}
+      <button onclick="sendWALeague('${name.replace(/'/g,'')}','${slug}','')" style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:6px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 2a10 10 0 00-8.5 15.3L2 22l4.8-1.5A10 10 0 1012 2zm0 18a8 8 0 01-4.1-1.1l-.3-.2-2.8.9.9-2.8-.2-.3A8 8 0 1112 20z"/></svg>إرسال الروابط واتساب</button>
       <button onclick="this.closest('div[style*=fixed]').remove();showPage('leagues',null)" style="width:100%;background:var(--card,#1a1a2e);color:var(--text,#fff);border:1px solid var(--border,#2a2a3e);border-radius:10px;padding:11px;font-weight:800;font-family:inherit;cursor:pointer">تم — عرض كل البطولات</button>
     </div>`;
   ov.onclick = e => { if(e.target===ov){ ov.remove(); showPage('leagues',null); } };

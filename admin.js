@@ -5377,22 +5377,37 @@ function _buildLivePage(matchId, match, ht, at) {
 
           <!-- 🎥 أدوات البث: رابط الفيديو + مشاركة رابط المباراة -->
           <div style="margin-top:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:12px;font-family:Tajawal,sans-serif">
-            <!-- ⭐ بثّ المنصة المباشر — يظهر تلقائياً مكان الفيديو للجمهور -->
-            <button onclick="lpOpenBroadcaster('${mId}')" style="width:100%;margin-bottom:12px;padding:13px;border-radius:11px;border:none;background:linear-gradient(135deg,#ff2d55,#c81e45);color:#fff;font-weight:900;font-size:13.5px;cursor:pointer;font-family:Tajawal,sans-serif;display:flex;align-items:center;justify-content:center;gap:9px;box-shadow:0 4px 14px rgba(255,45,85,.3)">
-              <span style="width:9px;height:9px;border-radius:50%;background:#fff;display:inline-block"></span>
-              بثّ مباشر من المنصة — بدون يوتيوب
-            </button>
-            <div style="font-size:10px;color:var(--muted);margin-bottom:12px;text-align:center;line-height:1.6">يفتح استوديو البثّ ويبدأ تلقائياً. النتيجة والوقت يظهران فوق البث ويتحكّم بهما من هنا.</div>
-            <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
-            <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px">🎥 أو رابط بث خارجي (اختياري)</div>
-            <div style="display:flex;gap:8px">
-              <input id="lp-video-${mId}" type="url" inputmode="url" placeholder="رابط بث احترافي m3u8 (HLS) / يوتيوب / تويتش"
-                value="${(match.videoUrl||'').replace(/"/g,'&quot;')}"
-                style="flex:1;min-width:0;padding:9px 11px;border-radius:9px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-family:Tajawal,sans-serif;direction:ltr;text-align:left">
-              <button onclick="lpSaveVideoUrl('${mId}')" style="flex:0 0 auto;padding:9px 14px;border-radius:9px;border:1px solid rgba(201,160,43,.4);background:rgba(201,160,43,.14);color:var(--gold);font-weight:800;font-size:12px;cursor:pointer;font-family:Tajawal,sans-serif">حفظ</button>
+            <div style="font-size:12px;font-weight:800;color:var(--gold);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M15 10l4.55-2.27A1 1 0 0121 8.62v6.76a1 1 0 01-1.45.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              بثّ المباراة
             </div>
-            <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.7">💎 رابط <b style="color:var(--gold)">m3u8 (HLS)</b> يشغّل بثّاً احترافياً يتحمّل آلاف المشاهدين بجودة عالية (بثّ من OBS/كاميرا). يوتيوب وتويتش يظهران داخل الصفحة. فيسبوك وتيك توك كزر «شاهد البث».</div>
-            <button onclick="lpShareMatchLink('${mId}')" style="width:100%;margin-top:10px;padding:10px;border-radius:9px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:Tajawal,sans-serif">🔗 مشاركة رابط المباراة</button>
+
+            <!-- خيار ١: البثّ من كاميرا الجوال عبر المنصة -->
+            <button onclick="lpOpenBroadcaster('${mId}')" style="width:100%;padding:13px;border-radius:11px;border:1px solid var(--gold3);background:linear-gradient(180deg,#141000,#0d0b00);color:var(--gold);font-weight:800;font-size:13.5px;cursor:pointer;font-family:Tajawal,sans-serif;display:flex;align-items:center;justify-content:space-between;gap:9px">
+              <span style="display:flex;align-items:center;gap:9px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M23 7l-7 5 7 5V7zM14 5H3a2 2 0 00-2 2v10a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2z"/></svg>
+                البثّ من كاميرا الجوال
+              </span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+            <div style="font-size:10.5px;color:var(--muted);margin:7px 2px 14px;line-height:1.7">يفتح استوديو البثّ ويصوّر مباشرة من جوالك. النتيجة والوقت يظهران فوق البثّ تلقائياً.</div>
+
+            <div style="height:1px;background:var(--border);margin-bottom:14px"></div>
+
+            <!-- خيار ٢: رابط بثّ خارجي جاهز -->
+            <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:4px">رابط بثّ جاهز <span style="color:var(--muted);font-weight:600">(اختياري)</span></div>
+            <div style="font-size:10.5px;color:var(--muted);margin-bottom:9px;line-height:1.7">إن كان لديك بثّ على يوتيوب أو رابط احترافي (m3u8)، الصقه هنا ليظهر داخل صفحة الجمهور.</div>
+            <div style="display:flex;gap:8px">
+              <input id="lp-video-${mId}" type="url" inputmode="url" placeholder="https://..."
+                value="${(match.videoUrl||'').replace(/"/g,'&quot;')}"
+                style="flex:1;min-width:0;padding:10px 12px;border-radius:9px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-family:Tajawal,sans-serif;direction:ltr;text-align:left">
+              <button onclick="lpSaveVideoUrl('${mId}')" style="flex:0 0 auto;padding:10px 16px;border-radius:9px;border:none;background:var(--gold);color:#1a1200;font-weight:800;font-size:12px;cursor:pointer;font-family:Tajawal,sans-serif">حفظ</button>
+            </div>
+
+            <button onclick="lpShareMatchLink('${mId}')" style="width:100%;margin-top:12px;padding:11px;border-radius:9px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:Tajawal,sans-serif;display:flex;align-items:center;justify-content:center;gap:7px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+              مشاركة رابط المباراة مع الجمهور
+            </button>
           </div>
 
 <!-- ✅︎ قسم ركلات الترجيح الكامل -->

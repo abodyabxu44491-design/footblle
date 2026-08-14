@@ -103,12 +103,12 @@
       '<div class="sec">الروابط</div>' +
       row('الجمهور', d.viewerUrl, true, true) +
       row('الإدارة', d.adminUrl, true, true) +
-      row('استوديو البثّ 🎥', d.broadcastUrl, true, true) +
+      row('استوديو البثّ', d.broadcastUrl, true, true) +
 
       '<div class="sec noprint">فتح مباشر</div>' +
       '<a class="btn b1 noprint" href="' + esc(d.adminUrl) + '" target="_blank">فتح لوحة الإدارة</a>' +
       '<a class="btn b2 noprint" href="' + esc(d.viewerUrl) + '" target="_blank">معاينة صفحة الجمهور</a>' +
-      '<a class="btn b2 noprint" href="' + esc(d.broadcastUrl) + '" target="_blank" style="background:#ff2d55;color:#fff">🎥 فتح استوديو البثّ</a>' +
+      '<a class="btn b2 noprint" href="' + esc(d.broadcastUrl) + '" target="_blank" style="background:#141000;border:1px solid #6B4E00;color:#C9A02B"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="vertical-align:-2px;margin-left:5px"><path d="M23 7l-7 5 7 5V7zM14 5H3a2 2 0 00-2 2v10a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2z"/></svg>فتح استوديو البثّ</a>' +
 
       '<div class="sec">خطوات البداية</div>' +
       '<ol class="steps">' +

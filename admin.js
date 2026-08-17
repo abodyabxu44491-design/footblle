@@ -3602,6 +3602,17 @@ window.generatePreMatchCard = async function() {
   showToast('✅︎ تم توليد بطاقة قبل المباراة', 'success');
 };
 
+// دالة مساعدة محلية لرسم مستطيل بحواف دائرية (لبطاقات النتيجة القديمة)
+function _cardRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
 window.generatePostMatchCard = async function() {
   const lastMatch = matches.filter(m => m.status === 'finished').pop();
   if(!lastMatch) { showToast('لا توجد نتائج بعد', 'error'); return; }
@@ -3703,11 +3714,50 @@ window.generatePostMatchCard = async function() {
     ctx.fillText(details.join('  |  '), W/2, winnerY+50);
   }
   
-  // الهدافون
-  const scorersText = [lastMatch.homeScorers, lastMatch.awayScorers].filter(Boolean).join('  |  ');
-  if(scorersText) {
-    ctx.fillStyle='#aaa'; ctx.font='12px Tajawal, Arial'; ctx.textAlign='center';
-    ctx.fillText('⚽ الهدافون: ' + scorersText, W/2, winnerY+75);
+  // الهدافون — كل اسم مع شارة دقيقة ذهبية منفصلة (بدل نص مرصوص بلا فاصل)
+  const _parseScorer = (s) => {
+    const mt = String(s||'').trim().match(/^(.*?)[\s\u00A0]*(\d+\+?\d*)'?\s*$/);
+    return mt ? { name: mt[1].trim(), min: mt[2] } : { name: String(s||'').trim(), min: '' };
+  };
+  const hScorers = (lastMatch.homeScorers||'').split(',').map(s=>s.trim()).filter(Boolean).map(_parseScorer);
+  const aScorers = (lastMatch.awayScorers||'').split(',').map(s=>s.trim()).filter(Boolean).map(_parseScorer);
+  if (hScorers.length || aScorers.length) {
+    ctx.font = '700 13px Tajawal, Arial'; ctx.textAlign = 'center'; ctx.fillStyle = '#888';
+    ctx.fillText('⚽ الهدافون', W/2, winnerY+72);
+    const drawScorerRow = (list, y) => {
+      if (!list.length) return;
+      // احسب العرض الكلي لتوسيط الصف (اسم + شارة دقيقة لكل هدّاف، مفصولين بمسافة)
+      const parts = list.slice(0,6).map(sc => {
+        ctx.font = '700 14px Tajawal, Arial';
+        const nameW = ctx.measureText(sc.name).width;
+        const minTxt = sc.min ? sc.min + "'" : '';
+        ctx.font = '800 11px Tajawal, Arial';
+        const minW = minTxt ? ctx.measureText(minTxt).width + 12 : 0;
+        return { ...sc, minTxt, nameW, minW, totalW: nameW + (minTxt ? 6 + minW : 0) };
+      });
+      const gap = 22;
+      const totalRow = parts.reduce((s,p)=>s+p.totalW,0) + gap*(parts.length-1);
+      let x = W/2 - totalRow/2;
+      parts.forEach(p => {
+        // اسم اللاعب
+        ctx.textAlign = 'left'; ctx.font = '700 14px Tajawal, Arial'; ctx.fillStyle = '#ddd';
+        ctx.fillText(p.name, x, y);
+        x += p.nameW;
+        // شارة الدقيقة (مفصولة بوضوح، خلفية ذهبية خفيفة)
+        if (p.minTxt) {
+          x += 6;
+          ctx.fillStyle = 'rgba(201,160,43,0.18)';
+          _cardRoundRect(ctx, x, y-13, p.minW, 19, 6); ctx.fill();
+          ctx.textAlign = 'center'; ctx.font = '800 11px Tajawal, Arial'; ctx.fillStyle = '#C9A02B';
+          ctx.fillText(p.minTxt, x + p.minW/2, y+1);
+          x += p.minW;
+        }
+        x += gap;
+      });
+      ctx.textAlign = 'center';
+    };
+    drawScorerRow(hScorers, winnerY+96);
+    drawScorerRow(aScorers, winnerY + (hScorers.length ? 122 : 96));
   }
   
   // الجولة
@@ -8722,18 +8772,20 @@ function renderGroupsAdmin() {
           ${groupTeams.length === 0
             ? `<div style="text-align:center;padding:12px;color:var(--muted);font-size:11px">لا توجد فرق — أضف فرقاً للمجموعة</div>`
             : groupTeams.map((t, i) => {
-                const isManualQ = (g.qualifiedTeamIds||[]).includes(t.id);
-                const hasManualQ = (g.qualifiedTeamIds||[]).length > 0;
-                const isAutoQ = !hasManualQ && i < qualifyCount;
-                const isQ = isManualQ || isAutoQ;
+                const isQ = (g.qualifiedTeamIds||[]).includes(t.id);
+                const isE = (g.eliminatedTeamIds||[]).includes(t.id);
                 return `
               <div class="agc-team-row">
-                <span style="color:${isQ ? 'var(--green)' : 'var(--muted)'};font-size:10px;font-weight:700;width:16px">${i + 1}</span>
+                <span style="color:${isQ ? 'var(--green)' : isE ? 'var(--red)' : 'var(--muted)'};font-size:10px;font-weight:700;width:16px">${i + 1}</span>
                 <span style="font-size:18px">${typeof logoHtml === 'function' ? logoHtml(t.logo, 20, 5) : t.logo || '⚽'}</span>
                 <span style="flex:1;font-size:12px;font-weight:600">${t.name}</span>
-                <button onclick="adminToggleQualified('${g.id}','${t.id}')"
-                  style="font-size:9px;padding:2px 7px;border-radius:5px;border:1px solid ${isManualQ?'var(--green)':'var(--border2)'};background:${isManualQ?'rgba(39,174,96,.15)':'transparent'};color:${isManualQ?'var(--green)':'var(--muted)'};cursor:pointer;white-space:nowrap">
-                  ${isManualQ ? '✅︎ متأهل' : '+ تأهيل'}
+                <button onclick="adminSetQualifyStatus('${g.id}','${t.id}','qualify')"
+                  style="font-size:9px;padding:2px 7px;border-radius:5px;border:1px solid ${isQ?'var(--green)':'var(--border2)'};background:${isQ?'rgba(39,174,96,.15)':'transparent'};color:${isQ?'var(--green)':'var(--muted)'};cursor:pointer;white-space:nowrap">
+                  ${isQ ? '✅︎ متأهل' : '+ تأهيل'}
+                </button>
+                <button onclick="adminSetQualifyStatus('${g.id}','${t.id}','eliminate')"
+                  style="font-size:9px;padding:2px 7px;border-radius:5px;border:1px solid ${isE?'var(--red)':'var(--border2)'};background:${isE?'rgba(214,69,65,.15)':'transparent'};color:${isE?'var(--red)':'var(--muted)'};cursor:pointer;white-space:nowrap">
+                  ${isE ? '❌ خارج' : '+ إخراج'}
                 </button>
                 <button class="icon-btn del" style="width:24px;height:24px;font-size:10px" onclick="adminRemoveTeamFromGroup('${g.id}','${t.id}')">✕</button>
               </div>`;
@@ -8783,27 +8835,36 @@ window.renderGroupsAdmin = renderGroupsAdmin;
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ── E. إدارة المجموعات — العمليات ──
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-window.adminToggleQualified = async function(groupId, teamId) {
+// تحديد حالة الفريق يدوياً: تأهيل أو إخراج — كل ضغطة تبدّل الحالة (تشغيل/إلغاء)،
+// والحالتان متنافيتان (فريق متأهل لا يكون خارجاً في نفس الوقت والعكس).
+window.adminSetQualifyStatus = async function(groupId, teamId, action){
   const g = adminGroups.find(x => x.id === groupId);
   if(!g) return;
-  const current = g.qualifiedTeamIds || [];
-  let updated;
-  if(current.includes(teamId)) {
-    updated = current.filter(id => id !== teamId);
-  } else {
-    updated = [...current, teamId];
+  let qualified = (g.qualifiedTeamIds || []).slice();
+  let eliminated = (g.eliminatedTeamIds || []).slice();
+  if(action === 'qualify'){
+    if(qualified.includes(teamId)) qualified = qualified.filter(id=>id!==teamId);
+    else { qualified.push(teamId); eliminated = eliminated.filter(id=>id!==teamId); }
+  } else if(action === 'eliminate'){
+    if(eliminated.includes(teamId)) eliminated = eliminated.filter(id=>id!==teamId);
+    else { eliminated.push(teamId); qualified = qualified.filter(id=>id!==teamId); }
   }
-  try {
-    /* ✅︎ رجّعنا خطوتين منفصلتين (أثبت أنها الطريقة المضمونة):
-       تحديد الفريق متأهلاً هنا لا يغيّر qualificationPublished إطلاقاً.
-       الظهور للجمهور يتم فقط بالضغط على زر "اعتماد ونشر" بالأسفل. */
+  try{
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'groups', groupId), {
-      qualifiedTeamIds: updated,
+      qualifiedTeamIds: qualified,
+      eliminatedTeamIds: eliminated,
       updatedAt: serverTimestamp()
     });
-    showToast(updated.includes(teamId) ? '✅︎ حُدد الفريق متأهلاً (لسه ما ظهر للجمهور — اضغط اعتماد ونشر)' : 'تم إلغاء التأهل', 'success');
-  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+    const msg = action === 'qualify'
+      ? (qualified.includes(teamId) ? '✅︎ حُدد الفريق متأهلاً (اضغط اعتماد ونشر ليظهر)' : 'تم إلغاء التأهل')
+      : (eliminated.includes(teamId) ? '❌ حُدد الفريق خارجاً (اضغط اعتماد ونشر ليظهر)' : 'تم إلغاء الإخراج');
+    showToast(msg, 'success');
+  }catch(e){ showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
+// إبقاء الاسم القديم يعمل (توافق خلفي) — يوجَّه لتأهيل فقط
+window.adminToggleQualified = function(groupId, teamId){ return window.adminSetQualifyStatus(groupId, teamId, 'qualify'); };
+
+
 
 // ✅︎ FIX §2: اعتماد المتأهلين رسمياً ونشرهم للجمهور
 window.adminPublishQualification = async function(groupId) {
@@ -8812,8 +8873,8 @@ window.adminPublishQualification = async function(groupId) {
   const isPublished = g.qualificationPublished === true;
   const next = !isPublished;
 
-  if (next && (g.qualifiedTeamIds || []).length === 0) {
-    showToast('حدد المتأهلين أولاً قبل الاعتماد', 'error');
+  if (next && (g.qualifiedTeamIds || []).length === 0 && (g.eliminatedTeamIds || []).length === 0) {
+    showToast('حدد المتأهلين أو الخارجين أولاً قبل الاعتماد', 'error');
     return;
   }
 

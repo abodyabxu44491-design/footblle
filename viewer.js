@@ -1209,6 +1209,13 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
       </div>`;
     }).join('');
   }
+  // خزّن بيانات اللاعب الحالي للمشاركة + فعّل زر المشاركة
+  window._shCurrentPlayer = {
+    player, team, appearances, yellowCount, redCount, assistCount,
+    playerMatches: playerMatches.slice(0,5)
+  };
+  const shBtn = document.getElementById('shPlayerBtn');
+  if (shBtn) shBtn.innerHTML = _shButton('_shSharePlayerStats()', 'مشاركة الإحصائيات');
   document.getElementById('playerModalOverlay').classList.add('open');
 };
 window.closePlayerModal = function() {
@@ -1234,6 +1241,850 @@ function computeGroupStats(teamIds) {
   return stats;
 }
 
+// أيقونات SVG أنيقة (بدل الإيموجي) لشارات التأهل/الإخراج — تُبنى مرة، خفيفة الوزن
+// ══════════════════════════════════════════════════════════════════
+//  🔗 نظام المشاركة الموحّد للجمهور (تشكيلة / هدّافون / لاعب / مجموعة)
+//  يبني صورة Canvas بهوية المنصة + نص منشور مرتّب + رابط، ويشاركها.
+// ══════════════════════════════════════════════════════════════════
+const _SH_GOLD = '#C9A02B', _SH_GOLD2 = '#F0C84A', _SH_DARK = '#080808';
+
+// أيقونة مشاركة SVG أنيقة (لا نص) — تُستخدم في كل أزرار المشاركة الجديدة
+function _shShareIconSvg(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"/></svg>';
+}
+// زر مشاركة موحّد: دائري صغير، ذهبي عند التحويم، بلا نص — يُدرَج بـ HTML string
+function _shButton(onclickAttr, title, extraStyle){
+  return `<button class="sh-round-btn" onclick="${onclickAttr}" title="${title||'مشاركة'}" aria-label="مشاركة" style="${extraStyle||''}">${_shShareIconSvg()}</button>`;
+}
+// رابط صفحة الجمهور الحالية (نفس منطق cards-system لضمان رابط سليم)
+function _shPublicUrl(){
+  try{
+    return `${location.origin}${location.pathname.replace(/\/[^/]*$/,'/')}league-viewer.html?id=${window.LEAGUE_ID}`;
+  }catch(e){ return location.href; }
+}
+function _shLeagueName(){ return (window.league && window.league.name) || 'منصة بطولات'; }
+
+// نص المشاركة الموحّد: عنوان واضح لنوع الصورة + تفاصيل + رابط المنصة — نفس أسلوب أزرار الإدارة
+function _shBuildText(kind, lines){
+  const L = [];
+  const name = _shLeagueName();
+  L.push('🏆 *' + name + '*');
+  L.push('');
+  L.push(...lines);
+  L.push('');
+  L.push('━━━━━━━━━━━━━━');
+  L.push('📲 تابع كل التفاصيل والبث المباشر:');
+  L.push(_shPublicUrl());
+  L.push('');
+  L.push('_منصة بطولات_');
+  return L.join('\n');
+}
+
+// مشاركة صورة Canvas + نص — يفتح مشاركة النظام (يدعم الصورة)، وإلا تنزيل + نسخ نص
+async function _shShareCanvas(canvas, text, filename){
+  try{
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
+    if(!blob) throw new Error('no blob');
+    const file = new File([blob], (filename||'card')+'.png', {type:'image/png'});
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({title:_shLeagueName(), text, files:[file]});
+      return;
+    }
+    // بديل: تنزيل + نسخ النص
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=(filename||'card')+'.png'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    if(navigator.clipboard) navigator.clipboard.writeText(text).catch(()=>{});
+    if(window.showToast) window.showToast('تم حفظ الصورة ونسخ النص — الصقه عند النشر', 'success');
+  }catch(e){
+    if(window.showToast) window.showToast('تعذّرت المشاركة', 'error');
+    console.warn('_shShareCanvas', e);
+  }
+}
+
+// ── أدوات رسم مشتركة بهوية المنصة (خلفية داكنة + إطار ذهبي + شريط علوي/سفلي) ──
+function _shLoadImg(src){
+  return new Promise(res=>{
+    if(!src){ res(null); return; }
+    if(String(src).length <= 4){ res(null); return; } // إيموجي، لا صورة
+    const img = new Image(); img.crossOrigin='anonymous';
+    img.onload = ()=>res(img); img.onerror = ()=>res(null);
+    img.src = src;
+  });
+}
+// ══════════════════════════════════════════════════════════════════
+//  🎨 مكتبة أيقونات رياضية (SVG مرسومة مباشرة على Canvas)
+//  بديل احترافي عن الإيموجي — تظهر بشكل موحّد ومتقن على كل الأجهزة
+// ══════════════════════════════════════════════════════════════════
+const _shIcons = {
+  // كرة قدم — دوائر وخطوط الخماسي التقليدي (أسلوب outline يعمل مع أي لون)
+  ball(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x,y);
+    ctx.strokeStyle=color; ctx.lineWidth=s*0.06;
+    ctx.beginPath(); ctx.arc(0,0,s/2,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,s*0.16,0,Math.PI*2); ctx.stroke();
+    for(let i=0;i<5;i++){
+      const a = -Math.PI/2 + i*(Math.PI*2/5);
+      const x1=Math.cos(a)*s*0.16, y1=Math.sin(a)*s*0.16;
+      const x2=Math.cos(a)*s*0.42, y2=Math.sin(a)*s*0.42;
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineWidth=s*0.045; ctx.stroke();
+    }
+    ctx.restore();
+  },
+  // كأس (بطولة/إحصائيات)
+  trophy(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=s*0.05;
+    ctx.beginPath();
+    ctx.moveTo(s*0.28,s*0.08); ctx.lineTo(s*0.72,s*0.08);
+    ctx.lineTo(s*0.68,s*0.42);
+    ctx.quadraticCurveTo(s*0.5,s*0.58,s*0.32,s*0.42);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(s*0.28,s*0.12); ctx.quadraticCurveTo(s*0.05,s*0.14,s*0.1,s*0.32); ctx.quadraticCurveTo(s*0.14,s*0.42,s*0.3,s*0.36); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.72,s*0.12); ctx.quadraticCurveTo(s*0.95,s*0.14,s*0.9,s*0.32); ctx.quadraticCurveTo(s*0.86,s*0.42,s*0.7,s*0.36); ctx.stroke();
+    ctx.fillRect(s*0.44,s*0.56,s*0.12,s*0.18);
+    ctx.beginPath(); ctx.moveTo(s*0.3,s*0.82); ctx.lineTo(s*0.7,s*0.82); ctx.lineTo(s*0.62,s*0.72); ctx.lineTo(s*0.38,s*0.72); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  },
+  // ميدالية (ترتيب الهدافين)
+  medal(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x,y); ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=s*0.05;
+    ctx.beginPath(); ctx.arc(0,s*0.08,s*0.34,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.arc(0,s*0.08,s*0.22,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  },
+  // حذاء (هدّاف/أهداف)
+  boot(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.fillStyle=color; ctx.strokeStyle=color; ctx.lineWidth=s*0.04;
+    ctx.beginPath();
+    ctx.moveTo(s*0.12,s*0.3); ctx.lineTo(s*0.12,s*0.55);
+    ctx.quadraticCurveTo(s*0.12,s*0.68,s*0.28,s*0.68);
+    ctx.lineTo(s*0.85,s*0.68); ctx.quadraticCurveTo(s*0.95,s*0.68,s*0.92,s*0.58);
+    ctx.quadraticCurveTo(s*0.75,s*0.5,s*0.55,s*0.3);
+    ctx.quadraticCurveTo(s*0.42,s*0.18,s*0.3,s*0.22);
+    ctx.quadraticCurveTo(s*0.18,s*0.24,s*0.12,s*0.3);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  },
+  // قفاز (صناعات/تمريرات حاسمة)
+  boots(ctx,x,y,s,color){ _shIcons.boot(ctx,x,y,s,color); },
+  // تقويم (المباريات)
+  calendar(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.lineWidth=s*0.07;
+    _shRoundRect(ctx,0,s*0.14,s,s*0.8,s*0.08); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,s*0.36); ctx.lineTo(s,s*0.36); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.26,0); ctx.lineTo(s*0.26,s*0.22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.74,0); ctx.lineTo(s*0.74,s*0.22); ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.fillRect(s*0.22,s*0.5,s*0.14,s*0.14); ctx.fillRect(s*0.44,s*0.5,s*0.14,s*0.14); ctx.fillRect(s*0.66,s*0.5,s*0.14,s*0.14);
+    ctx.restore();
+  },
+  // منحنى صاعد (المعدّل/الإحصائيات)
+  trending(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.lineWidth=s*0.08; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.beginPath(); ctx.moveTo(0,s*0.75); ctx.lineTo(s*0.32,s*0.42); ctx.lineTo(s*0.5,s*0.58); ctx.lineTo(s,s*0.12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.68,s*0.12); ctx.lineTo(s,s*0.12); ctx.lineTo(s,s*0.42); ctx.stroke();
+    ctx.restore();
+  },
+  // بطاقة صفراء/حمراء (مستطيل بحواف دائرية)
+  card(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s*0.35,y-s/2);
+    ctx.fillStyle=color; _shRoundRect(ctx,0,0,s*0.7,s,s*0.12); ctx.fill();
+    ctx.restore();
+  },
+  // مجموعة أشخاص (المجموعات)
+  users(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x,y); ctx.fillStyle=color;
+    ctx.beginPath(); ctx.arc(-s*0.18,-s*0.08,s*0.16,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.18,-s*0.08,s*0.16,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-s*0.18,s*0.28,s*0.24,s*0.2,0,Math.PI,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(s*0.18,s*0.28,s*0.24,s*0.2,0,Math.PI,Math.PI*2); ctx.fill();
+    ctx.restore();
+  },
+  // نجمة (لقب/تميّز)
+  star(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x,y); ctx.fillStyle=color;
+    ctx.beginPath();
+    for(let i=0;i<5;i++){
+      const a1=-Math.PI/2+i*(Math.PI*2/5), a2=a1+Math.PI/5;
+      const x1=Math.cos(a1)*s/2, y1=Math.sin(a1)*s/2;
+      const x2=Math.cos(a2)*s*0.22, y2=Math.sin(a2)*s*0.22;
+      if(i===0) ctx.moveTo(x1,y1); else ctx.lineTo(x1,y1);
+      ctx.lineTo(x2,y2);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  },
+  // هدف/شبكة (قناص)
+  target(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x,y); ctx.strokeStyle=color; ctx.lineWidth=s*0.07;
+    [0.5,0.32,0.14].forEach(r=>{ ctx.beginPath(); ctx.arc(0,0,s*r,0,Math.PI*2); ctx.stroke(); });
+    ctx.restore();
+  },
+  // شارة تحقق (متأهل)
+  check(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.lineWidth=s*0.16; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.beginPath(); ctx.moveTo(s*0.15,s*0.52); ctx.lineTo(s*0.4,s*0.78); ctx.lineTo(s*0.85,s*0.22); ctx.stroke();
+    ctx.restore();
+  },
+  // علامة خروج (إقصاء)
+  cross(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.lineWidth=s*0.14; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(s*0.2,s*0.2); ctx.lineTo(s*0.8,s*0.8); ctx.moveTo(s*0.8,s*0.2); ctx.lineTo(s*0.2,s*0.8); ctx.stroke();
+    ctx.restore();
+  },
+  // درع (حراسة/دفاع صلب)
+  shield(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.fillStyle=color;
+    ctx.beginPath();
+    ctx.moveTo(s*0.5,0); ctx.lineTo(s*0.95,s*0.16); ctx.lineTo(s*0.95,s*0.5);
+    ctx.quadraticCurveTo(s*0.95,s*0.85,s*0.5,s);
+    ctx.quadraticCurveTo(s*0.05,s*0.85,s*0.05,s*0.5);
+    ctx.lineTo(s*0.05,s*0.16); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  },
+  // شارة نار (فورمة عالية/مقاتل)
+  fire(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.fillStyle=color;
+    ctx.beginPath();
+    ctx.moveTo(s*0.5,0);
+    ctx.quadraticCurveTo(s*0.9,s*0.35,s*0.65,s*0.55);
+    ctx.quadraticCurveTo(s*0.75,s*0.3,s*0.55,s*0.25);
+    ctx.quadraticCurveTo(s*0.6,s*0.5,s*0.4,s*0.6);
+    ctx.quadraticCurveTo(s*0.2,s*0.7,s*0.3,s*0.9);
+    ctx.quadraticCurveTo(s*0.05,s*0.75,s*0.1,s*0.5);
+    ctx.quadraticCurveTo(s*0.15,s*0.2,s*0.5,0);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  },
+  // موبايل/بث (متابعة)
+  broadcast(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x,y); ctx.strokeStyle=color; ctx.lineWidth=s*0.09; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(0,s*0.1,s*0.1,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+    ctx.beginPath(); ctx.arc(0,s*0.1,s*0.28,-Math.PI*0.75,-Math.PI*0.25); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,s*0.1,s*0.44,-Math.PI*0.75,-Math.PI*0.25); ctx.stroke();
+    ctx.restore();
+  },
+};
+// رسم أيقونة بمربع خلفية دائري خفيف (أسلوب "شارة") — تُستخدم في العناوين والإحصائيات
+function _shIconBadge(ctx, name, x, y, size, color, bgAlpha){
+  if(bgAlpha){
+    ctx.fillStyle = color + Math.round(bgAlpha*255).toString(16).padStart(2,'0');
+    ctx.beginPath(); ctx.arc(x, y, size*0.62, 0, Math.PI*2); ctx.fill();
+  }
+  const fn = _shIcons[name];
+  if(fn) fn(ctx, x, y, size, color);
+}
+
+function _shRoundRect(ctx,x,y,w,h,r){
+  ctx.beginPath(); ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+// خلفية رياضية احترافية: تدرّج داكن + ملمس خطوط قطرية خفيفة (يوحي بالملعب) + توهّج زوايا + إطار مزدوج
+function _shBg(ctx,W,H){
+  const g = ctx.createRadialGradient(W/2,H*0.15,0,W/2,H*0.15,W*1.1);
+  g.addColorStop(0,'#151515'); g.addColorStop(0.5,'#0d0d0d'); g.addColorStop(1,'#050505');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  // ملمس خطوط قطرية خفيفة جداً (هوية ملعب/استوديو رياضي)
+  ctx.save();
+  ctx.strokeStyle='rgba(255,255,255,.018)'; ctx.lineWidth=2;
+  for(let i=-H; i<W+H; i+=34){
+    ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+H,H); ctx.stroke();
+  }
+  ctx.restore();
+  // توهّج ذهبي خفيف في الزاوية العلوية (لمسة استوديو)
+  const glow = ctx.createRadialGradient(W*0.5,0,0,W*0.5,0,W*0.6);
+  glow.addColorStop(0,'rgba(201,160,43,.09)'); glow.addColorStop(1,'rgba(201,160,43,0)');
+  ctx.fillStyle=glow; ctx.fillRect(0,0,W,H*0.4);
+  // إطار مزدوج: خارجي ذهبي، داخلي خافت
+  ctx.strokeStyle=_SH_GOLD; ctx.lineWidth=3;
+  ctx.strokeRect(10,10,W-20,H-20);
+  ctx.strokeStyle='rgba(201,160,43,.25)'; ctx.lineWidth=1;
+  ctx.strokeRect(16,16,W-32,H-32);
+}
+// عنوان البطاقة بأسلوب رياضي: أيقونة SVG دائرية أعلى، عنوان تحتها، خط ذهبي فاصل
+function _shHeader(ctx,W,title,sub,iconName){
+  ctx.textAlign='center';
+  let titleY = 46, lineY = 56, subY = 76;
+  if(iconName){
+    _shIconBadge(ctx, iconName, W/2, 34, 30, _SH_GOLD, 0.14);
+    titleY = 84; lineY = 94; subY = 114;
+  }
+  ctx.fillStyle=_SH_GOLD; ctx.font='900 24px Tajawal,Arial';
+  ctx.fillText(title, W/2, titleY);
+  const tw = ctx.measureText(title).width;
+  const lineW = Math.min(tw*0.6, 160);
+  ctx.strokeStyle=_SH_GOLD; ctx.lineWidth=2.5; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(W/2-lineW/2, lineY); ctx.lineTo(W/2+lineW/2, lineY); ctx.stroke();
+  if(sub){ ctx.fillStyle='#888'; ctx.font='600 13px Tajawal,Arial'; ctx.fillText(sub, W/2, subY); }
+  return iconName ? 130 : (sub ? 90 : 70); // ارتفاع الرأس الكلي — تستخدمه الدوال لحساب headerH بدقة
+}
+function _shFooter(ctx,W,H){
+  ctx.textAlign='center';
+  const label = _shLeagueName() + '  ·  تابع البث المباشر والتفاصيل';
+  ctx.font='700 12px Tajawal,Arial';
+  const tw = ctx.measureText(label).width;
+  const iconSize = 15;
+  const startX = W/2 - tw/2 - iconSize - 6;
+  _shIconBadge(ctx, 'broadcast', startX, H-26, iconSize, 'rgba(201,160,43,.75)', 0);
+  ctx.fillStyle='rgba(201,160,43,.65)';
+  ctx.fillText(label, W/2 + iconSize/2, H-22);
+}
+
+// ── مشاركة ترتيب مجموعة ──
+window._shShareGroup = async function(groupId){
+  const d = window._shGroupsData && window._shGroupsData[groupId];
+  if(!d || !d.sorted || !d.sorted.length){ if(window.showToast) window.showToast('لا توجد بيانات لهذه المجموعة', 'error'); return; }
+  if(window.showToast) window.showToast('جارِ تجهيز الصورة…', 'success');
+  try{
+    const canvas = await _shGenGroupCanvas(d);
+    const lines = ['🔷 *ترتيب ' + (d.icon||'👥') + ' المجموعة ' + (d.name||'') + '*', ''];
+    d.sorted.forEach((t,i) => {
+      const s = d.gs[t.id]||{};
+      const tag = (d.showBadges && d.manualQ.has(t.id)) ? ' ✅' : (d.showBadges && d.manualE.has(t.id)) ? ' ❌' : '';
+      lines.push(`${i+1}. ${t.name} — ${s.pts||0} نقطة${tag}`);
+    });
+    const text = _shBuildText('group', lines);
+    _shShareCanvas(canvas, text, 'group-'+(d.name||'table'));
+  }catch(e){ console.warn('_shShareGroup', e); if(window.showToast) window.showToast('تعذّرت مشاركة المجموعة', 'error'); }
+};
+
+async function _shGenGroupCanvas(d){
+  const W = 1080;
+  const headerH = 210, rowH = 96, footH = 90;
+  const H = headerH + d.sorted.length*rowH + footH;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  _shBg(ctx, W, H);
+  _shHeader(ctx, W, 'المجموعة ' + (d.name||''), _shLeagueName(), 'users');
+
+  // رأس الأعمدة
+  let y = headerH;
+  ctx.textAlign='center'; ctx.font='700 13px Tajawal,Arial'; ctx.fillStyle='#666';
+  ctx.fillText('#', 80, y);
+  ctx.fillText('ل', W-330, y);
+  ctx.fillText('ف', W-260, y);
+  ctx.fillText('ت', W-200, y);
+  ctx.fillText('خ', W-140, y);
+  ctx.fillText('ن', W-70, y);
+  y += 26;
+  ctx.strokeStyle='rgba(255,255,255,.1)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(40,y); ctx.lineTo(W-40,y); ctx.stroke();
+  y += 14;
+
+  for(let i=0;i<d.sorted.length;i++){
+    const t = d.sorted[i];
+    const s = d.gs[t.id]||{};
+    const isQ = d.showBadges && d.manualQ.has(t.id);
+    const isE = d.showBadges && d.manualE.has(t.id);
+    const rowY = y + rowH/2 - 14;
+    if(isQ){ ctx.fillStyle='rgba(39,174,96,.08)'; ctx.fillRect(40,y,W-80,rowH-8); }
+    else if(isE){ ctx.fillStyle='rgba(214,69,65,.06)'; ctx.fillRect(40,y,W-80,rowH-8); }
+    else if(i%2===0){ ctx.fillStyle='rgba(255,255,255,.02)'; ctx.fillRect(40,y,W-80,rowH-8); }
+    // رقم الترتيب
+    ctx.textAlign='center'; ctx.font='900 20px Tajawal,Arial';
+    ctx.fillStyle = isQ?'#27ae60':isE?'#d64541':'#888';
+    ctx.fillText(String(i+1), 80, rowY+24);
+    // شعار + اسم الفريق
+    const logoImg = await _shLoadImg(t.logo);
+    const lx = 130, avSize=44;
+    if(logoImg){
+      ctx.save(); ctx.beginPath(); ctx.arc(lx+avSize/2, rowY+18, avSize/2, 0, Math.PI*2); ctx.clip();
+      ctx.drawImage(logoImg, lx, rowY-4, avSize, avSize); ctx.restore();
+    }
+    ctx.textAlign='right'; ctx.font='800 21px Tajawal,Arial'; ctx.fillStyle='#fff';
+    ctx.fillText(t.name, W-360, rowY+26);
+    // شارة تأهل/إخراج SVG-like (دائرة صغيرة + علامة)
+    if(isQ || isE){
+      const bx = W-360 - ctx.measureText(t.name).width - 34;
+      const bColor = isQ ? '#27ae60' : '#d64541';
+      ctx.fillStyle = isQ ? 'rgba(39,174,96,.18)' : 'rgba(214,69,65,.18)';
+      _shRoundRect(ctx, bx-6, rowY+2, 30, 26, 8); ctx.fill();
+      _shIconBadge(ctx, isQ?'check':'cross', bx+9, rowY+15, 15, bColor, 0);
+    }
+    // الأعمدة الرقمية
+    ctx.textAlign='center'; ctx.font='700 17px Tajawal,Arial'; ctx.fillStyle='#ccc';
+    ctx.fillText(String(s.p||0), W-330, rowY+24);
+    ctx.fillStyle='#27ae60'; ctx.fillText(String(s.w||0), W-260, rowY+24);
+    ctx.fillStyle='#ccc'; ctx.fillText(String(s.d||0), W-200, rowY+24);
+    ctx.fillStyle='#d64541'; ctx.fillText(String(s.l||0), W-140, rowY+24);
+    ctx.fillStyle=_SH_GOLD; ctx.font='900 22px Tajawal,Arial'; ctx.fillText(String(s.pts||0), W-70, rowY+24);
+    y += rowH;
+  }
+
+  _shFooter(ctx, W, H);
+  return canvas;
+}
+
+// ── مشاركة إحصائيات لاعب ──
+window._shSharePlayerStats = async function(){
+  const d = window._shCurrentPlayer;
+  if(!d || !d.player){ if(window.showToast) window.showToast('تعذّر تجهيز البيانات', 'error'); return; }
+  if(window.showToast) window.showToast('جارِ تجهيز الصورة…', 'success');
+  try{
+    const canvas = await _shGenPlayerCanvas(d);
+    const lines = [
+      '⭐ *بطاقة إحصائيات*',
+      d.player.name + (d.team && d.team.name ? ' — ' + d.team.name : ''),
+      '',
+      '⚽ أهداف: ' + (d.player.goals||0),
+      d.assistCount ? '👟 صناعات: ' + d.assistCount : '',
+      '🗓 مباريات: ' + d.appearances,
+    ].filter(Boolean);
+    const text = _shBuildText('player', lines);
+    _shShareCanvas(canvas, text, 'player-'+(d.player.name||'stats'));
+  }catch(e){ console.warn('_shSharePlayerStats', e); if(window.showToast) window.showToast('تعذّرت مشاركة الإحصائيات', 'error'); }
+};
+
+// لقب تلقائي بحسب نمط اللاعب (لمسة احترافية زائدة)
+function _shPlayerTitle(d){
+  const g = d.player.goals||0, a = d.assistCount||0;
+  if(g>=8 && a>=5) return { text:'نجم شامل', icon:'star' };
+  if(g>=6) return { text:'القنّاص', icon:'target' };
+  if(a>=5) return { text:'صانع الألعاب', icon:'boots' };
+  if(d.redCount>=1) return { text:'مقاتل الملعب', icon:'fire' };
+  if(d.appearances>=8) return { text:'العمود الفقري', icon:'shield' };
+  return { text:'لاعب مميز', icon:'ball' };
+}
+
+async function _shGenPlayerCanvas(d){
+  const W = 1080;
+  const matchesN = (d.playerMatches||[]).length;
+  const hasCards = !!(d.yellowCount || d.redCount);
+  const H = 500 + 140 + 40 + (hasCards?36:0) + (matchesN ? 38+matchesN*54 : 0) + 90;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  _shBg(ctx, W, H);
+
+  const p = d.player, team = d.team || {};
+  const [photoImg, logoImg] = await Promise.all([
+    _shLoadImg((typeof _lineupPhoto==='function') ? _lineupPhoto({id:p.playerId,name:p.name}, p.teamId) : ''),
+    _shLoadImg(team.logo)
+  ]);
+
+  // ── صورة اللاعب الكبيرة دائرية أعلى البطاقة ──
+  const avY = 190, avSize = 220;
+  ctx.save(); ctx.beginPath(); ctx.arc(W/2, avY, avSize/2, 0, Math.PI*2); ctx.clip();
+  if(photoImg) ctx.drawImage(photoImg, W/2-avSize/2, avY-avSize/2, avSize, avSize);
+  else{
+    ctx.fillStyle='#0d1526'; ctx.fillRect(W/2-avSize/2, avY-avSize/2, avSize, avSize);
+    if(window._playerSilhouetteSVG){ /* رمز افتراضي بسيط */ }
+    ctx.fillStyle=_SH_GOLD; ctx.font='900 80px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText((p.name||'؟')[0]||'؟', W/2, avY+6);
+    ctx.textBaseline='alphabetic';
+  }
+  ctx.restore();
+  ctx.strokeStyle=_SH_GOLD; ctx.lineWidth=5;
+  ctx.beginPath(); ctx.arc(W/2, avY, avSize/2, 0, Math.PI*2); ctx.stroke();
+  // شعار الفريق الصغير أسفل يمين الصورة
+  if(logoImg){
+    const lx=W/2+avSize/2-18, ly=avY+avSize/2-18;
+    ctx.save(); ctx.beginPath(); ctx.arc(lx, ly, 26, 0, Math.PI*2); ctx.clip();
+    ctx.fillStyle='#0a0a0a'; ctx.fillRect(lx-26,ly-26,52,52);
+    ctx.drawImage(logoImg, lx-24, ly-24, 48, 48); ctx.restore();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(lx, ly, 26, 0, Math.PI*2); ctx.stroke();
+  }
+
+  // ── اللقب التلقائي (أيقونة SVG + نص، لمسة احترافية) ──
+  const title = _shPlayerTitle(d);
+  ctx.textAlign='center'; ctx.font='800 20px Tajawal,Arial';
+  const ttTextW = ctx.measureText(title.text).width;
+  const ttIconGap = 30;
+  const ttW = ttTextW + ttIconGap + 50;
+  ctx.fillStyle='rgba(201,160,43,.15)'; ctx.strokeStyle='rgba(201,160,43,.4)'; ctx.lineWidth=1.5;
+  _shRoundRect(ctx, W/2-ttW/2, 316, ttW, 40, 20); ctx.fill(); ctx.stroke();
+  _shIconBadge(ctx, title.icon, W/2 - ttTextW/2 - 14, 336, 16, _SH_GOLD, 0);
+  ctx.fillStyle=_SH_GOLD;
+  ctx.fillText(title.text, W/2 + ttIconGap/2, 342);
+
+  // ── اسم اللاعب والفريق ──
+  ctx.fillStyle='#fff'; ctx.font='900 38px Tajawal,Arial';
+  ctx.fillText(p.name || '', W/2, 412);
+  ctx.fillStyle='#999'; ctx.font='700 18px Tajawal,Arial';
+  ctx.fillText(team.name || '', W/2, 444);
+
+  // ── شبكة الإحصائيات (4 خلايا) — أيقونات SVG بدل الإيموجي ──
+  const stats = [
+    ['ball', String(p.goals||0), 'أهداف', _SH_GOLD],
+    ['boots', String(d.assistCount||0), 'صناعات', '#27ae60'],
+    ['calendar', String(d.appearances||0), 'مباريات', '#3B7DBF'],
+    ['trending', d.appearances ? ((p.goals||0)/d.appearances).toFixed(1) : '0.0', 'معدّل', '#c084fc'],
+  ];
+  const gridY = 500, cellW = (W-120)/4, cellH = 140;
+  stats.forEach((s,i) => {
+    const cx = 60 + i*cellW + cellW/2;
+    ctx.fillStyle='rgba(255,255,255,.04)'; ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1;
+    _shRoundRect(ctx, 60+i*cellW+8, gridY, cellW-16, cellH, 14); ctx.fill(); ctx.stroke();
+    ctx.textAlign='center';
+    _shIconBadge(ctx, s[0], cx, gridY+38, 26, s[3], 0);
+    ctx.font='900 30px Tajawal,Arial'; ctx.fillStyle=s[3]; ctx.fillText(s[1], cx, gridY+90);
+    ctx.font='700 13px Tajawal,Arial'; ctx.fillStyle='#888'; ctx.fillText(s[2], cx, gridY+114);
+  });
+
+  // ── بطاقات (صفراء/حمراء) إن وُجدت — أيقونة بطاقة SVG بدل الإيموجي ──
+  let y2 = gridY + cellH + 40;
+  if(d.yellowCount || d.redCount){
+    ctx.textAlign='center';
+    const parts = [];
+    if(d.yellowCount) parts.push({icon:'card', color:'#e6c157', txt:d.yellowCount+' صفراء'});
+    if(d.redCount) parts.push({icon:'card', color:'#d64541', txt:d.redCount+' حمراء'});
+    ctx.font='700 16px Tajawal,Arial';
+    const totalW = parts.reduce((s,pt)=>s + ctx.measureText(pt.txt).width + 30, 0) + (parts.length-1)*24;
+    let cx = W/2 - totalW/2;
+    parts.forEach((pt,idx)=>{
+      _shIconBadge(ctx, pt.icon, cx+9, y2-6, 15, pt.color, 0);
+      ctx.textAlign='left'; ctx.fillStyle='#888';
+      ctx.fillText(pt.txt, cx+24, y2);
+      cx += ctx.measureText(pt.txt).width + 24 + 30 + (idx<parts.length-1?24:0);
+    });
+    ctx.textAlign='center';
+    y2 += 36;
+  }
+
+  // ── آخر ٥ مباريات (سجلّ مصغّر) — أيقونات كرة/قفاز بدل الإيموجي ──
+  if(d.playerMatches && d.playerMatches.length){
+    ctx.textAlign='right'; ctx.fillStyle=_SH_GOLD; ctx.font='800 17px Tajawal,Arial';
+    ctx.fillText('آخر المباريات', W-60, y2+10);
+    y2 += 38;
+    d.playerMatches.forEach(pm => {
+      ctx.fillStyle='rgba(255,255,255,.03)';
+      _shRoundRect(ctx, 60, y2-24, W-120, 46, 10); ctx.fill();
+      ctx.textAlign='right'; ctx.font='700 15px Tajawal,Arial'; ctx.fillStyle='#ddd';
+      ctx.fillText('ضد ' + (pm.opp && pm.opp.name || '؟'), W-80, y2+6);
+      const rColor = pm.rc==='var(--green)'?'#27ae60':pm.rc==='var(--red)'?'#d64541':_SH_GOLD;
+      ctx.textAlign='left'; ctx.font='800 14px Tajawal,Arial'; ctx.fillStyle=rColor;
+      let bx = 80;
+      const scoreTxt = pm.my+'-'+pm.op;
+      ctx.fillText(scoreTxt, bx, y2+6);
+      bx += ctx.measureText(scoreTxt).width + 14;
+      if(pm.myGoals){ _shIconBadge(ctx,'ball',bx+7,y2+1,13,rColor,0); ctx.fillText(' '+pm.myGoals, bx+16, y2+6); bx += 34; }
+      if(pm.myAssist){ _shIconBadge(ctx,'boots',bx+7,y2+1,13,rColor,0); ctx.fillText(' '+pm.myAssist, bx+16, y2+6); }
+      y2 += 54;
+    });
+  }
+
+  _shFooter(ctx, W, H);
+  return canvas;
+}
+
+// ── مشاركة أعلى ٥ هدّافين ──
+window._shShareTopScorers = async function(){
+  const data = (typeof buildScorersData === 'function' ? buildScorersData() : []).slice(0,5);
+  if(!data.length){ if(window.showToast) window.showToast('لا توجد أهداف بعد', 'error'); return; }
+  if(window.showToast) window.showToast('جارِ تجهيز الصورة…', 'success');
+  try{
+    const canvas = await _shGenScorersCanvas(data);
+    const lines = ['🥇 *قائمة الهدّافين*', ''];
+    data.forEach((p,i)=> lines.push(`${i+1}. ${p.name} — ${p.goals} هدف`));
+    const text = _shBuildText('scorers', lines);
+    _shShareCanvas(canvas, text, 'top-scorers');
+  }catch(e){ console.warn('_shShareTopScorers', e); if(window.showToast) window.showToast('تعذّرت مشاركة الهدّافين', 'error'); }
+};
+
+async function _shGenScorersCanvas(data){
+  const W = 1080, rowH = 138, headerH = 230;
+  const H = headerH + data.length*rowH + 90;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  _shBg(ctx, W, H);
+  _shHeader(ctx, W, 'قائمة الهدّافين', _shLeagueName(), 'trophy');
+
+  const medalColor = i => i===0 ? '#FFD700' : i===1 ? '#C0C0C0' : i===2 ? '#CD7F32' : _SH_GOLD;
+  let y = headerH;
+  const teams = window.teams || [];
+  for(let i=0;i<data.length;i++){
+    const p = data[i];
+    const team = teams.find(t=>t.id===p.teamId);
+    const rowY = y + rowH/2;
+    // خلفية الصف
+    ctx.fillStyle = i%2===0 ? 'rgba(255,255,255,.02)' : 'transparent';
+    ctx.fillRect(40, y, W-80, rowH);
+    // دائرة الترتيب — ميدالية SVG للثلاثة الأوائل، رقم ذهبي لما بعدهم
+    ctx.fillStyle = medalColor(i);
+    ctx.beginPath(); ctx.arc(96, rowY, 26, 0, Math.PI*2); ctx.fill();
+    if(i < 3){
+      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.beginPath(); ctx.arc(96, rowY+3, 15, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#1a1200'; ctx.font='900 16px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(String(i+1), 96, rowY+4);
+      ctx.textBaseline='alphabetic';
+    } else {
+      ctx.fillStyle = '#1a1200'; ctx.font='900 22px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(String(i+1), 96, rowY+1);
+      ctx.textBaseline='alphabetic';
+    }
+    // صورة اللاعب
+    const photo = (typeof _lineupPhoto==='function') ? _lineupPhoto({id:p.playerId,name:p.name}, p.teamId) : '';
+    const img = await _shLoadImg(photo);
+    const avX = 168, avSize = 72;
+    ctx.save(); ctx.beginPath(); ctx.arc(avX, rowY, avSize/2, 0, Math.PI*2); ctx.clip();
+    if(img) ctx.drawImage(img, avX-avSize/2, rowY-avSize/2, avSize, avSize);
+    else{ ctx.fillStyle='#0d1526'; ctx.fillRect(avX-avSize/2, rowY-avSize/2, avSize, avSize); }
+    ctx.restore();
+    ctx.strokeStyle = medalColor(i); ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(avX, rowY, avSize/2, 0, Math.PI*2); ctx.stroke();
+    // شعار الفريق الصغير
+    if(team){
+      const logoImg = await _shLoadImg(team.logo);
+      if(logoImg){
+        ctx.save(); ctx.beginPath(); ctx.arc(avX+avSize/2-4, rowY+avSize/2-4, 15, 0, Math.PI*2); ctx.clip();
+        ctx.drawImage(logoImg, avX+avSize/2-19, rowY+avSize/2-19, 30, 30); ctx.restore();
+      }
+    }
+    // اسم اللاعب + الفريق
+    ctx.textAlign='right'; ctx.fillStyle='#fff'; ctx.font='800 24px Tajawal,Arial';
+    ctx.fillText(p.name, W-260, rowY-10);
+    ctx.fillStyle='#888'; ctx.font='600 15px Tajawal,Arial';
+    ctx.fillText((team && team.name) || '', W-260, rowY+18);
+    // عدد الأهداف — رقم كبير + أيقونة كرة صغيرة بدل كلمة نصية فقط
+    ctx.textAlign='center'; ctx.fillStyle=_SH_GOLD; ctx.font='900 34px Tajawal,Arial';
+    ctx.fillText(String(p.goals), W-100, rowY+2);
+    _shIconBadge(ctx, 'ball', W-100, rowY+24, 13, '#666', 0);
+    ctx.fillStyle='#666'; ctx.font='700 11px Tajawal,Arial';
+    ctx.fillText('هدف', W-100, rowY+42);
+    // خط فاصل
+    if(i < data.length-1){
+      ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(40, y+rowH); ctx.lineTo(W-40, y+rowH); ctx.stroke();
+    }
+    y += rowH;
+  }
+  _shFooter(ctx, W, H);
+  return canvas;
+}
+
+// ── مشاركة التشكيلة (الفريق المعروض حالياً في التبويب) ──
+window._shShareLineup = async function(_uid){
+  const data = window._shLineupData && window._shLineupData[_uid];
+  if(!data){ if(window.showToast) window.showToast('تعذّر تجهيز التشكيلة', 'error'); return; }
+  const awayShown = document.getElementById('vlu-away-'+_uid)?.style.display === 'block';
+  const lineup = awayShown ? data.al : data.hl;
+  const team = awayShown ? data.at : data.ht;
+  if(!lineup || !lineup.players || !lineup.players.filter(p=>!p.isSub).length){
+    if(window.showToast) window.showToast('لا توجد تشكيلة لهذا الفريق بعد', 'error'); return;
+  }
+  if(window.showToast) window.showToast('جارِ تجهيز الصورة…', 'success');
+  try{
+    const teamId = awayShown ? data.awayId : data.homeId;
+    const canvas = await _shGenLineupCanvas(lineup, team, awayShown, teamId);
+    const text = _shBuildText('lineup', [
+      '👥 *تشكيلة ' + (team.name||'') + '*',
+      lineup.formation ? 'التشكيل: ' + lineup.formation : ''
+    ].filter(Boolean));
+    _shShareCanvas(canvas, text, 'lineup-'+(team.name||'team'));
+  }catch(e){ console.warn('_shShareLineup', e); if(window.showToast) window.showToast('تعذّرت مشاركة التشكيلة', 'error'); }
+};
+
+async function _shGenLineupCanvas(lineup, team, isAway, teamId){
+  const starters = lineup.players.filter(p=>!p.isSub);
+  const subs = lineup.players.filter(p=>p.isSub).filter(()=> lineup.showBench !== false);
+  const W = 1080;
+  const pitchH = 1180;
+  const rowH = 96;
+  const benchRows = Math.ceil(subs.length/3);
+  const benchH = subs.length ? (74 + benchRows*144 + 16) : 0;   // 144=cellH+gap، +16 هامش أمان أسفل آخر صف
+  const H = 170 + pitchH + benchH + 90;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const accent = isAway ? '#C0392B' : _SH_GOLD;
+
+  _shBg(ctx, W, H);
+  const [logoImg] = await Promise.all([_shLoadImg(team.logo)]);
+  // شعار الفريق أعلى البطاقة
+  if(logoImg){
+    ctx.save(); ctx.beginPath(); ctx.arc(W/2, 78, 34, 0, Math.PI*2); ctx.clip();
+    ctx.drawImage(logoImg, W/2-34, 78-34, 68, 68); ctx.restore();
+    ctx.strokeStyle = accent; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(W/2, 78, 34, 0, Math.PI*2); ctx.stroke();
+  }
+  ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.font='900 26px Tajawal,Arial';
+  ctx.fillText(team.name || '', W/2, 138);
+  if(lineup.formation){
+    ctx.fillStyle=accent; ctx.font='800 15px Tajawal,Arial';
+    ctx.fillText('التشكيل: ' + lineup.formation, W/2, 162);
+  }
+
+  // ── أرضية الملعب (مطابقة تماماً لتصميم الملعب الحقيقي في صفحة الجمهور) ──
+  const pitchY = 178;
+  const pitchX = 24, pitchW = W-48;
+  _shRoundRect(ctx, pitchX, pitchY, pitchW, pitchH, 16);
+  ctx.save(); ctx.clip();
+  // تدرّج عمودي فاتح→غامق (نفس vpGrass الحقيقي: 2e8b40 → 268038 → 1f7231)
+  const grassGrad = ctx.createLinearGradient(0, pitchY, 0, pitchY+pitchH);
+  grassGrad.addColorStop(0, '#2e8b40');
+  grassGrad.addColorStop(0.5, '#268038');
+  grassGrad.addColorStop(1, '#1f7231');
+  ctx.fillStyle = grassGrad;
+  ctx.fillRect(pitchX, pitchY, pitchW, pitchH);
+  // توهّج شعاعي أعلى الملعب (نفس vpGlow الحقيقي)
+  const pitchGlow = ctx.createRadialGradient(W/2, pitchY+pitchH*0.35, 0, W/2, pitchY+pitchH*0.35, pitchW*0.8);
+  pitchGlow.addColorStop(0, 'rgba(75,179,95,.45)');
+  pitchGlow.addColorStop(1, 'rgba(31,114,49,0)');
+  ctx.fillStyle = pitchGlow;
+  ctx.fillRect(pitchX, pitchY, pitchW, pitchH);
+  // شرائط جزّ أفقية متناوبة (نفس نمط الجمهور الحقيقي — أفقية لا عمودية، بشفافية خفيفة)
+  const nStripes = 12, stripeH = (pitchH*0.94)/nStripes, stripesTop = pitchY + pitchH*0.03;
+  for(let i=0;i<nStripes;i++){
+    ctx.fillStyle = i%2===0 ? 'rgba(255,255,255,0)' : 'rgba(255,255,255,.10)';
+    ctx.fillRect(pitchX, stripesTop+i*stripeH, pitchW, stripeH);
+  }
+  ctx.restore();
+  // ── خطوط الملعب (نفس نسب opt: boxW:56%, boxH:16%, sixW:28%, sixH:7%, centerR:14%) ──
+  const L = 'rgba(255,255,255,.78)', Lf = 'rgba(255,255,255,.55)';
+  ctx.strokeStyle=L; ctx.lineWidth=2.2;
+  // الإطار الخارجي (5% إلى 95% أفقياً، 3% إلى 97% رأسياً)
+  _shRoundRect(ctx, pitchX+pitchW*0.05, pitchY+pitchH*0.03, pitchW*0.90, pitchH*0.94, 4); ctx.stroke();
+  // خط المنتصف + دائرة المنتصف + نقطة المنتصف
+  ctx.beginPath(); ctx.moveTo(pitchX+pitchW*0.05, pitchY+pitchH*0.5); ctx.lineTo(pitchX+pitchW*0.95, pitchY+pitchH*0.5); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W/2, pitchY+pitchH*0.5, pitchW*0.14, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle=L; ctx.beginPath(); ctx.arc(W/2, pitchY+pitchH*0.5, 3.2, 0, Math.PI*2); ctx.fill();
+  // منطقة الجزاء العلوية: كبيرة (56%×16%) + صغيرة (28%×7%) + نقطة جزاء
+  const boxW=pitchW*0.56, boxH=pitchH*0.16, sixW=pitchW*0.28, sixH=pitchH*0.07;
+  const boxX = W/2 - boxW/2, sixX = W/2 - sixW/2;
+  ctx.strokeStyle=L; ctx.lineWidth=2.2;
+  ctx.strokeRect(boxX, pitchY+pitchH*0.03, boxW, boxH);
+  ctx.strokeStyle=Lf; ctx.lineWidth=1.8;
+  ctx.strokeRect(sixX, pitchY+pitchH*0.03, sixW, sixH);
+  ctx.fillStyle=L; ctx.beginPath(); ctx.arc(W/2, pitchY+pitchH*0.03+boxH-pitchH*0.09, 3.2, 0, Math.PI*2); ctx.fill();
+  // منطقة الجزاء السفلية (نفس الأبعاد، معكوسة)
+  ctx.strokeStyle=L; ctx.lineWidth=2.2;
+  ctx.strokeRect(boxX, pitchY+pitchH*0.97-boxH, boxW, boxH);
+  ctx.strokeStyle=Lf; ctx.lineWidth=1.8;
+  ctx.strokeRect(sixX, pitchY+pitchH*0.97-sixH, sixW, sixH);
+  ctx.fillStyle=L; ctx.beginPath(); ctx.arc(W/2, pitchY+pitchH*0.97-boxH+pitchH*0.09, 3.2, 0, Math.PI*2); ctx.fill();
+  // أقواس الأركان الأربعة (نفس نمط الجمهور: خط أخفّ Lf)
+  ctx.strokeStyle=Lf; ctx.lineWidth=1.8;
+  [[pitchX+pitchW*0.05,pitchY+pitchH*0.03],[pitchX+pitchW*0.95,pitchY+pitchH*0.03],
+   [pitchX+pitchW*0.05,pitchY+pitchH*0.97],[pitchX+pitchW*0.95,pitchY+pitchH*0.97]].forEach(([cx,cy],idx)=>{
+    const angles = [[0,Math.PI/2],[Math.PI/2,Math.PI],[-Math.PI/2,0],[Math.PI,Math.PI*1.5]];
+    ctx.beginPath(); ctx.arc(cx, cy, 12, angles[idx][0], angles[idx][1]); ctx.stroke();
+  });
+
+  // ── رسم اللاعبين حسب إحداثيات x/y (نفس منطق العرض الحيّ) ──
+  const avSize = starters.length <= 6 ? 78 : starters.length <= 9 ? 70 : 62;
+  const nameFS = 15;
+  // نفس منحنى التوزيع الرأسي المستخدم فعلياً في صفحة الجمهور (_persp):
+  // 7% أعلى الملعب إلى 95% أسفله، بمنحنى طفيف (أُس 0.94) لا خطّي.
+  const _persp = (yPct) => { const t = yPct/100; return 7 + Math.pow(t, 0.94) * 88; };
+  await Promise.all(starters.map(async (p, i) => {
+    const x = pitchX + (p.x ?? 50)/100 * pitchW;
+    const y = pitchY + (_persp(p.y ?? 50)/100) * pitchH;
+    const isGK = i===0 || p.position==='GK';
+    const num = p.number || (i+1);
+    const photo = (typeof _lineupPhoto === 'function') ? _lineupPhoto(p, teamId) : '';
+    const img = await _shLoadImg(photo);
+    // دائرة اللاعب
+    ctx.save();
+    ctx.beginPath(); ctx.arc(x, y, avSize/2, 0, Math.PI*2); ctx.clip();
+    if(img){ ctx.drawImage(img, x-avSize/2, y-avSize/2, avSize, avSize); }
+    else{
+      ctx.fillStyle = '#0d1526'; ctx.fillRect(x-avSize/2, y-avSize/2, avSize, avSize);
+      ctx.fillStyle = isGK ? '#a86bd6' : accent; ctx.font = (avSize*0.4)+'px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(String(num), x, y);
+      ctx.textBaseline='alphabetic';
+    }
+    ctx.restore();
+    ctx.strokeStyle = isGK ? '#a86bd6' : accent; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, avSize/2, 0, Math.PI*2); ctx.stroke();
+    // شارة الرقم
+    ctx.fillStyle='#fff'; ctx.strokeStyle='#1f7231'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(x+avSize/2-6, y+avSize/2-6, 13, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#111'; ctx.font='900 13px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(String(num), x+avSize/2-6, y+avSize/2-6+1);
+    ctx.textBaseline='alphabetic';
+    // شارة الكابتن
+    const isCap = lineup.captain && p.name && (p.name===lineup.captain || (p.id && p.id===lineup.captainId));
+    if(isCap){
+      ctx.fillStyle='#111'; ctx.strokeStyle='#e6c157'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(x-avSize/2+6, y+avSize/2-6, 11, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#e6c157'; ctx.font='900 11px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('C', x-avSize/2+6, y+avSize/2-6+1);
+      ctx.textBaseline='alphabetic';
+    }
+    // اسم اللاعب
+    const shortName = (p.name||'').split(' ').slice(-1)[0] || String(num);
+    ctx.font='800 '+nameFS+'px Tajawal,Arial'; ctx.textAlign='center';
+    const tw = ctx.measureText(shortName).width + 18;
+    ctx.fillStyle='rgba(8,16,8,.88)';
+    _shRoundRect(ctx, x-tw/2, y+avSize/2+10, tw, 24, 6); ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.fillText(shortName, x, y+avSize/2+27);
+  }));
+
+  // ── قسم البدلاء (بطاقات مستطيلة، مطابقة لتصميم الجمهور الحقيقي) ──
+  if(subs.length){
+    let by = pitchY + pitchH + 34;
+    _shIconBadge(ctx, 'users', W-40-72, by-6, 16, accent, 0);
+    ctx.textAlign='right'; ctx.fillStyle=accent; ctx.font='900 18px Tajawal,Arial';
+    ctx.fillText('مقاعد البدلاء', W-56, by);
+    // شارة العدد (نفس شكل الأصل: كبسولة ذهبية بجانب العنوان)
+    const countTxt = String(subs.length);
+    ctx.font='900 13px Tajawal,Arial';
+    const ctW = ctx.measureText(countTxt).width + 16;
+    ctx.fillStyle='rgba(201,160,43,.14)'; _shRoundRect(ctx, W-56-96-ctW, by-16, ctW, 22, 11); ctx.fill();
+    ctx.fillStyle=accent; ctx.textAlign='center'; ctx.fillText(countTxt, W-56-96-ctW/2, by);
+    ctx.strokeStyle='rgba(201,160,43,.25)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(40, by+14); ctx.lineTo(W-40, by+14); ctx.stroke();
+    by += 40;
+    const cols = 3, gap = 12;
+    const cellW = (W-80-gap*(cols-1))/cols, cellH = 132;
+    await Promise.all(subs.map(async (p, i) => {
+      const col = i % cols, row = Math.floor(i/cols);
+      const tileX = 40 + col*(cellW+gap);
+      const tileY = by + row*(cellH+gap);
+      const cx = tileX + cellW/2;
+      // بطاقة الخلفية (نفس أسلوب بطاقة الأصل: خلفية s2 + حدود)
+      ctx.fillStyle='rgba(255,255,255,.035)'; ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1;
+      _shRoundRect(ctx, tileX, tileY, cellW, cellH, 12); ctx.fill(); ctx.stroke();
+      const cy = tileY + 42;
+      const photo = (typeof _lineupPhoto === 'function') ? _lineupPhoto(p, teamId) : '';
+      const img = await _shLoadImg(photo);
+      const bAv = 46;
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, bAv/2, 0, Math.PI*2); ctx.clip();
+      if(img) ctx.drawImage(img, cx-bAv/2, cy-bAv/2, bAv, bAv);
+      else{ ctx.fillStyle='#1c2740'; ctx.fillRect(cx-bAv/2, cy-bAv/2, bAv, bAv); }
+      ctx.restore();
+      ctx.strokeStyle='rgba(230,205,140,.4)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(cx, cy, bAv/2, 0, Math.PI*2); ctx.stroke();
+      // شارة الرقم بيضاء (تطابق الأصل تماماً — الأصل يستخدم أبيض لا ذهبي هنا)
+      ctx.fillStyle='#fff'; ctx.strokeStyle='#151515'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(cx+bAv/2-4, cy+bAv/2-4, 10, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#111'; ctx.font='900 10px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(String(p.number||'—'), cx+bAv/2-4, cy+bAv/2-4+1);
+      ctx.textBaseline='alphabetic';
+      const bName = (p.name||'—').split(' ').slice(0,2).join(' ');
+      ctx.fillStyle='#ddd'; ctx.font='700 12px Tajawal,Arial'; ctx.textAlign='center';
+      ctx.fillText(bName.length>14?bName.slice(0,13)+'…':bName, cx, cy+bAv/2+22);
+      // شارات حالة اللاعب (مصاب/موقوف/غائب) — نفس تفاصيل الأصل، مفقودة سابقاً هنا
+      if(p.status && p.status!=='active'){
+        const statusMap = { injured:{txt:'مصاب', color:'#C0392B'}, suspended:{txt:'موقوف', color:_SH_GOLD}, absent:{txt:'غائب', color:'#888'} };
+        const st = statusMap[p.status];
+        if(st){
+          ctx.font='700 9px Tajawal,Arial';
+          const stW = ctx.measureText(st.txt).width + 12;
+          ctx.fillStyle = st.color + '22';
+          _shRoundRect(ctx, cx-stW/2, cy+bAv/2+30, stW, 15, 5); ctx.fill();
+          ctx.fillStyle = st.color;
+          ctx.fillText(st.txt, cx, cy+bAv/2+41);
+        }
+      }
+    }));
+  }
+
+  _shFooter(ctx, W, H);
+  return canvas;
+}
+
+function _qSvgCheck(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="11" height="11" style="flex-shrink:0"><path d="M20 6L9 17l-5-5"/></svg>';
+}
+function _qSvgX(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="10" height="10" style="flex-shrink:0"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+}
 function renderGroupsStandings() {
   const el=document.getElementById('groupsContent');
   if(!el) return;
@@ -1244,9 +2095,13 @@ function renderGroupsStandings() {
     const sorted=gTeams.sort((a,b)=>{const sa=gs[a.id]||{},sb=gs[b.id]||{};if((sb.pts||0)!==(sa.pts||0))return(sb.pts||0)-(sa.pts||0);const fa={...a,...sa},fb={...b,...sb};return applyTiebreak(fa,fb,matches);});
     const qCount=g.qualify||2;
     const manualQ=new Set(g.qualifiedTeamIds||[]);
-    // ✅︎ FIX §2: لا نُظهر المتأهلين للجمهور إلا بعد الاعتماد الرسمي
+    const manualE=new Set(g.eliminatedTeamIds||[]);
+    // التأهل والإخراج يدويان بالكامل — لا استنتاج تلقائي. تظهر فقط بعد الاعتماد الرسمي.
     const isPublished = g.qualificationPublished === true;
-    const hasManualQ = isPublished && manualQ.size > 0;
+    const showBadges = isPublished;
+    // خزّن بيانات المجموعة للمشاركة (بعد حساب التأهل كي تُطابق الشارات الظاهرة للجمهور)
+    window._shGroupsData = window._shGroupsData || {};
+    window._shGroupsData[g.id] = { name: g.name, icon: g.icon, sorted, gs, qCount, manualQ, manualE, showBadges };
 
     const groupMatches=matches.filter(m=>gTeams.some(t=>t.id===m.homeId)&&gTeams.some(t=>t.id===m.awayId));
     const gmHtml=groupMatches.length?`
@@ -1278,7 +2133,10 @@ function renderGroupsStandings() {
     return `<div class="group-card">
       <div class="group-header">
         <div class="group-title">${g.icon||'👥'} المجموعة ${g.name||''}</div>
-        <div class="group-sub">${hasManualQ?`✅︎ ${manualQ.size} متأهل`:`متأهلون: أفضل ${qCount}`}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="group-sub">${showBadges&&manualQ.size ? `✅ ${manualQ.size} متأهل` : `متأهلون: أفضل ${qCount}`}</div>
+          ${_shButton(`_shShareGroup('${g.id}')`, 'مشاركة المجموعة')}
+        </div>
       </div>
       <div class="gt-header">
         <div>#</div><div>الفريق</div>
@@ -1286,25 +2144,24 @@ function renderGroupsStandings() {
       </div>
       ${sorted.map((t,i)=>{
         const s=gs[t.id]||{};const gd=(s.gf||0)-(s.ga||0);
-        // ✅︎ FIX §2: علامات التأهل تظهر فقط بعد الاعتماد الرسمي
-        const isQ=hasManualQ?manualQ.has(t.id):i<qCount;
-        const isElim=hasManualQ&&!manualQ.has(t.id)&&manualQ.size>=qCount;
-        // إذا لم يُعتمد بعد — لا نُظهر أي علامة تأهل أو إقصاء
-        const showBadges = isPublished;
-        return`<div class="gt-row${(isQ&&showBadges)?' gt-row-qualified':''}${(isElim&&showBadges)?' gt-row-eliminated':''}">
-          <div class="gt-pos" style="color:${(isQ&&showBadges)?'var(--green)':(isElim&&showBadges)?'var(--red)':'var(--t3)'}">${i+1}</div>
+        // يدويّ بالكامل: فقط ما حدّده المنظّم صراحة (بلا أي استنتاج تلقائي)
+        const isQ = showBadges && manualQ.has(t.id);
+        const isElim = showBadges && manualE.has(t.id);
+        const rowColor = isQ?'var(--green)':isElim?'var(--red)':'var(--t3)';
+        return`<div class="gt-row${isQ?' gt-row-qualified':''}${isElim?' gt-row-eliminated':''}">
+          <div class="gt-pos" style="color:${rowColor}">${i+1}</div>
           <div class="gt-team">
             <span>${logoHtml(t.logo,18,4)}</span>
             <span class="gt-name">${t.name}</span>
-            ${(isQ&&showBadges)?'<span class="qualify-badge">✅︎ متأهل</span>':''}
-            ${(isElim&&showBadges)?'<span class="elim-badge">❌︎ خرج</span>':''}
+            ${isQ?`<span class="qualify-badge">${_qSvgCheck()}متأهل</span>`:''}
+            ${isElim?`<span class="elim-badge">${_qSvgX()}خرج</span>`:''}
           </div>
           <div class="gt-val">${s.p||0}</div>
           <div class="gt-val" style="color:var(--green)">${s.w||0}</div>
           <div class="gt-val">${s.d||0}</div>
           <div class="gt-val" style="color:var(--red)">${s.l||0}</div>
           <div class="gt-val" style="color:${gd>0?'var(--green)':gd<0?'var(--red)':'#666'}">${gd>0?'+'+gd:gd}</div>
-          <div class="gt-pts" style="color:${(isQ&&showBadges)?'var(--green)':'var(--gold)'}">${s.pts||0}</div>
+          <div class="gt-pts" style="color:${isQ?'var(--green)':'var(--gold)'}">${s.pts||0}</div>
         </div>`;
       }).join('')}
       ${gmHtml}
@@ -3067,6 +3924,8 @@ function renderScorers() {
     home.innerHTML = data.length
       ? data.map((p, i) => _statRow(p, i, 'goals', 'var(--gold)', 'هدف')).join('')
       : _emptyStat('⚽', 'لا توجد أهداف بعد');
+    const shBtn = document.getElementById('shScorersBtn');
+    if (shBtn) shBtn.innerHTML = data.length ? _shButton('_shShareTopScorers()', 'مشاركة الهدّافين') : '';
   }
   renderStats();
 }
@@ -4192,7 +5051,9 @@ const _PS_RTC = {
     { urls: 'stun:stun.cloudflare.com:3478' },
     ...(Array.isArray(window._psTurn) ? window._psTurn : [])
   ],
-  iceCandidatePoolSize: 4
+  iceCandidatePoolSize: 8,
+  bundlePolicy: 'max-bundle',
+  rtcpMuxPolicy: 'require'
 };
 let _psPeer = null, _psViewerId = null, _psStreamId = null, _psUnsubs = [];
 let _psRetry = 0, _psRetryTimer = null;
@@ -4222,6 +5083,21 @@ function _psFullStop() {
   _psCleanup();
 }
 
+// إعادة اتصال ذكية: تباعد متزايد (1s,2s,4s… بحدّ أقصى 8s) لا تستسلم أبداً
+// طالما البث مباشر. تُنظّف الاتصال القديم أولاً لتفادي التسريب.
+function _psReconnectViewer(oldPc, videoEl, statusEl){
+  if (!_psStreamId) return;
+  _psRetry = (_psRetry||0) + 1;
+  const delay = Math.min(1000 * Math.pow(2, Math.min(_psRetry-1, 3)), 8000); // 1,2,4,8,8…
+  clearTimeout(_psRetryTimer);
+  _psRetryTimer = setTimeout(() => {
+    if (!_psStreamId) return;
+    // لو تعافى الاتصال وحده، لا تُعد
+    if (oldPc && oldPc.connectionState === 'connected'){ _psRetry = 0; if(statusEl) statusEl.style.display='none'; return; }
+    _psConnectViewer(_psStreamId, videoEl, statusEl);
+  }, delay);
+}
+
 // يُستدعى عند فتح تفاصيل مباراة فيها بث منصة نشط
 async function _psConnectViewer(streamId, videoEl, statusEl) {
   _psCleanup();
@@ -4237,30 +5113,47 @@ async function _psConnectViewer(streamId, videoEl, statusEl) {
   // نستقبل مسار الفيديو من المذيع
   _psVideoEl = videoEl;
   pc.ontrack = e => {
+    // buffer صغير يمتصّ تذبذب الشبكة الضعيفة (يقلّل التقطيع مقابل تأخير بسيط ~نصف ثانية)
+    try{
+      pc.getReceivers().forEach(r=>{
+        if(r.track && 'playoutDelayHint' in r) r.playoutDelayHint = 0.5;
+        if(r.track && 'jitterBufferTarget' in r) r.jitterBufferTarget = 500;
+      });
+    }catch(_){}
     if (videoEl.srcObject !== e.streams[0]) {
       videoEl.srcObject = e.streams[0];
-      videoEl.play().catch(()=>{});
+      // نحاول التشغيل بالصوت مباشرة؛ لو منع المتصفح autoplay، نشغّل مكتوماً
+      // ثم نفعّل الصوت تلقائياً عند أول تفاعل للمستخدم (نقرة/لمسة في أي مكان).
+      videoEl.muted = false;
+      videoEl.play().then(()=>{
+        _psSyncMuteBtn(_psMatchIdOf(videoEl), false);
+      }).catch(()=>{
+        videoEl.muted = true;
+        videoEl.play().catch(()=>{});
+        _psArmAutoUnmute(videoEl);
+      });
       if (statusEl) statusEl.style.display = 'none';
     }
   };
   pc.onconnectionstatechange = () => {
+    const st = pc.connectionState;
     if (statusEl) {
-      if (pc.connectionState === 'connecting') { statusEl.style.display='flex'; statusEl.textContent = 'جارِ الاتصال بالبث…'; }
-      if (pc.connectionState === 'connected') { statusEl.style.display='none'; _psRetry = 0; }
+      if (st === 'connecting') { statusEl.style.display='flex'; statusEl.textContent = 'جارِ الاتصال بالبث…'; }
+      if (st === 'connected') { statusEl.style.display='none'; _psRetry = 0; }
     }
-    // إعادة اتصال تلقائي عند الفشل/الانقطاع (حتى 5 محاولات بتباعد متزايد)
-    if (['failed','disconnected'].includes(pc.connectionState)) {
-      if (statusEl) { statusEl.style.display='flex'; statusEl.textContent = 'انقطع الاتصال — تُعاد المحاولة…'; }
-      if (_psRetry < 5 && _psStreamId) {
-        _psRetry++;
-        const delay = Math.min(1000 * _psRetry, 4000);
-        clearTimeout(_psRetryTimer);
-        _psRetryTimer = setTimeout(() => {
-          if (_psStreamId) _psConnectViewer(_psStreamId, videoEl, statusEl);
-        }, delay);
-      } else if (statusEl) {
-        statusEl.textContent = 'تعذّر الاتصال بالبث — تأكد أنه ما زال مباشراً';
-      }
+    // 'disconnected' غالباً مؤقّت (تذبذب شبكة) — ننتظر قليلاً قبل التدخّل،
+    // فقد يتعافى وحده. 'failed' انقطاع فعلي → نعيد الاتصال فوراً.
+    if (st === 'disconnected') {
+      if (statusEl) { statusEl.style.display='flex'; statusEl.textContent = 'الشبكة متذبذبة…'; }
+      clearTimeout(_psRetryTimer);
+      _psRetryTimer = setTimeout(() => {
+        if (_psStreamId && ['disconnected','failed'].includes(pc.connectionState)) {
+          _psReconnectViewer(pc, videoEl, statusEl);
+        }
+      }, 2500);
+    } else if (st === 'failed') {
+      if (statusEl) { statusEl.style.display='flex'; statusEl.textContent = 'إعادة الاتصال…'; }
+      _psReconnectViewer(pc, videoEl, statusEl);
     }
   };
 
@@ -4306,8 +5199,8 @@ function _psWatchStream(streamId, matchId) {
       if (!box) return;
       const d = snap.exists() ? snap.data() : null;
       const active = d && d.status === 'live';
-      // كشف إعادة جديدة → اعرضها بأنيميشن احترافي
-      if (d && d.replay && d.replay.url && d.replay.at && d.replay.at !== _psLastReplayAt[matchId]) {
+      // كشف إعادة جديدة (P2P عبر data أو Storage عبر url) → اعرضها بأنيميشن احترافي
+      if (d && d.replay && (d.replay.data || d.replay.url) && d.replay.at && d.replay.at !== _psLastReplayAt[matchId]) {
         _psLastReplayAt[matchId] = d.replay.at;
         _psShowReplay(matchId, d.replay);
       }
@@ -4320,7 +5213,16 @@ function _psWatchStream(streamId, matchId) {
         }
         if (v && !v._connected) {
           v._connected = true;
-          _psConnectViewer(streamId, v, document.getElementById('ps-'+matchId+'-status'));
+          // بث احترافي عبر خادم (HLS، يتحمّل آلاف) لو متاح، وإلا P2P المباشر.
+          if (d.hlsUrl && d.streamMode === 'hls') {
+            v._mode = 'hls';
+            _initHlsPlayer('ps-'+matchId, d.hlsUrl);
+            const st = document.getElementById('ps-'+matchId+'-status');
+            if (st) st.style.display = 'none';
+          } else {
+            v._mode = 'p2p';
+            _psConnectViewer(streamId, v, document.getElementById('ps-'+matchId+'-status'));
+          }
         }
         // حدّث شريط النتيجة/الوقت من liveData، وشغّل مؤقّت ثانية إن لزم
         const _m = (window.matches||[]).find(x=>x.id===matchId);
@@ -4354,12 +5256,18 @@ function _psVideoShell(matchId, broadcaster){
         <video id="ps-${matchId}" autoplay playsinline muted style="width:100%;height:100%;object-fit:contain;background:#000" onclick="_psToggleFsControls('${matchId}')"></video>
         <!-- شريط النتيجة والوقت الحيّ فوق الفيديو (يتحكم فيه المنظّم من الإدارة) -->
         <div id="ps-scorebar-${matchId}" class="ps-scorebar"></div>
+        <button class="ps-fs-exit" onclick="_psExitPseudoFs(document.getElementById('ps-wrap-${matchId}'))" title="خروج">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
         <!-- شعار المنصة (علامة مائية احترافية أعلى يمين) -->
         <div class="ps-watermark"><img src="icon-512.png" onerror="this.parentElement.style.display='none'"></div>
         <!-- أزرار التحكم (كتم + ملء الشاشة) — تبقى مع الشريط في ملء الشاشة -->
         <button onclick="_psToggleMute('${matchId}')" id="ps-mute-${matchId}" title="الصوت" style="position:absolute;bottom:10px;left:52px;z-index:7;width:36px;height:36px;border:none;border-radius:9px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5zM4.5 4.5l15 15M15.54 8.46a5 5 0 011.4 2.54" style="opacity:.9"/></svg>
         </button>
+        <div id="ps-soundhint-${matchId}" onclick="_psToggleMute('${matchId}')" style="position:absolute;bottom:52px;left:10px;z-index:8;background:var(--gold);color:#1a1200;font-size:11px;font-weight:900;padding:5px 10px;border-radius:8px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.4);display:flex;align-items:center;gap:5px;animation:_psSoundPulse 1.6s infinite">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14"/></svg>اضغط للصوت
+        </div>
         <button onclick="_psFullscreen('${matchId}')" title="ملء الشاشة" style="position:absolute;bottom:10px;left:10px;z-index:7;width:36px;height:36px;border:none;border-radius:9px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
         </button>
@@ -4372,36 +5280,80 @@ function _psVideoShell(matchId, broadcaster){
     </div>
     <style>
       @keyframes _psSpin{to{transform:rotate(360deg)}}@keyframes _psPulse{0%,100%{opacity:1}50%{opacity:.3}}
+      @keyframes _psSoundPulse{0%,100%{transform:scale(1);box-shadow:0 3px 12px rgba(0,0,0,.4)}50%{transform:scale(1.06);box-shadow:0 4px 18px rgba(201,160,43,.6)}}
       /* ملء الشاشة: الحاوية تتمدّد كاملة، والشريط يبقى ظاهراً ويكبر قليلاً */
       [id^="ps-wrap-"]:fullscreen{width:100vw;height:100vh;border-radius:0;background:#000;
-        display:flex;align-items:center;justify-content:center}
-      [id^="ps-wrap-"]:-webkit-full-screen{width:100vw;height:100vh;border-radius:0;background:#000}
+        display:flex;align-items:center;justify-content:center;overflow:visible}
+      [id^="ps-wrap-"]:-webkit-full-screen{width:100vw;height:100vh;border-radius:0;background:#000;overflow:visible}
       [id^="ps-wrap-"]:fullscreen video{width:100%;height:100%}
-      [id^="ps-wrap-"]:fullscreen .ps-scorebar{top:18px;left:18px;height:40px;transform:scale(1.1);transform-origin:top left}
-      [id^="ps-wrap-"]:fullscreen .ps-watermark{top:18px;right:18px;width:38px;height:38px}
-      /* شريط النتيجة بنمط القنوات الرياضية (bein) — أعلى يسار، أفقي أنيق */
-      .ps-scorebar{position:absolute;top:12px;left:12px;z-index:6;
-        display:flex;align-items:stretch;height:34px;border-radius:7px;overflow:hidden;
-        box-shadow:0 3px 14px rgba(0,0,0,.5);font-family:Tajawal,sans-serif;
-        border:1px solid rgba(255,255,255,.08)}
-      .ps-scorebar .ps-side{display:flex;align-items:center;gap:6px;padding:0 10px;
-        background:linear-gradient(180deg,#1a1f2e,#12151f)}
-      .ps-scorebar .ps-side.home{border-left:3px solid var(--gold)}
-      .ps-scorebar .ps-side.away{border-right:3px solid #3B7DBF}
-      .ps-scorebar .ps-tm{font-size:13px;font-weight:800;color:#fff;white-space:nowrap;
-        max-width:88px;overflow:hidden;text-overflow:ellipsis}
-      .ps-scorebar .ps-lg{width:20px;height:20px;border-radius:4px;object-fit:cover;flex-shrink:0;
-        display:inline-flex;align-items:center;justify-content:center;font-size:13px}
-      .ps-scorebar .ps-sc{display:flex;align-items:center;gap:7px;padding:0 12px;
-        background:linear-gradient(180deg,#0b0e16,#060810);font-size:17px;font-weight:900;color:#fff;
+      [id^="ps-wrap-"]:-webkit-full-screen video{width:100%;height:100%}
+      /* ملء الشاشة: الشريط يبقى على الجانب (يسار) بحجم مكبّر متناسق — لا يقفز ولا يختفي عند الهدف */
+      [id^="ps-wrap-"]:fullscreen .ps-scorebar,
+      [id^="ps-wrap-"]:-webkit-full-screen .ps-scorebar{
+        top:22px;left:22px;height:44px;
+        transform:scale(1.12);transform-origin:top left;z-index:2147483647}
+      [id^="ps-wrap-"]:fullscreen .ps-scorebar .ps-tm,
+      [id^="ps-wrap-"]:-webkit-full-screen .ps-scorebar .ps-tm{display:inline!important;max-width:200px;font-size:14px}
+      [id^="ps-wrap-"]:fullscreen .ps-scorebar .ps-tm-sh,
+      [id^="ps-wrap-"]:-webkit-full-screen .ps-scorebar .ps-tm-sh{display:none!important}
+      [id^="ps-wrap-"]:fullscreen .ps-watermark,
+      [id^="ps-wrap-"]:-webkit-full-screen .ps-watermark{top:22px;right:22px;width:44px;height:44px}
+      /* ملء شاشة زائف (iOS/سفاري): الحاوية تملأ النافذة والشريط يبقى ظاهراً على الجانب */
+      .ps-pseudo-fs{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;
+        max-width:none!important;aspect-ratio:auto!important;border-radius:0!important;z-index:99999!important;
+        background:#000!important;margin:0!important;overflow:visible!important}
+      /* أثناء ملء الشاشة الزائف: أخفِ شريط التنقّل وأي عناصر صفحة */
+      body:has(.ps-pseudo-fs) .bottom-nav,
+      body:has(.ps-pseudo-fs) #bottomNav{display:none!important}
+      .ps-pseudo-fs video{width:100%!important;height:100%!important;object-fit:contain!important}
+      .ps-pseudo-fs .ps-scorebar{top:22px;left:22px;height:44px;transform:scale(1.12);
+        transform-origin:top left;z-index:100001}
+      .ps-pseudo-fs .ps-scorebar .ps-tm{display:inline!important;max-width:200px;font-size:14px}
+      .ps-pseudo-fs .ps-scorebar .ps-tm-sh{display:none!important}
+      .ps-pseudo-fs .ps-watermark{top:22px;right:22px;width:44px;height:44px}
+      .ps-pseudo-fs .ps-fs-exit{display:flex!important}
+      /* زر الخروج يمين-أسفل حتى لا يتعارض مع الشريط والشعار أعلى */
+      .ps-fs-exit{display:none;position:absolute;bottom:18px;right:18px;z-index:100002;width:40px;height:40px;
+        border:none;border-radius:10px;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);color:#fff;
+        align-items:center;justify-content:center;cursor:pointer}
+      .ps-scorebar{position:absolute;top:10px;left:10px;z-index:6;
+        display:flex;align-items:stretch;height:27px;border-radius:7px;overflow:hidden;
+        box-shadow:0 3px 12px rgba(0,0,0,.45);font-family:Tajawal,sans-serif;
+        border:1px solid rgba(201,160,43,.28);backdrop-filter:blur(4px)}
+      .ps-scorebar .ps-side{display:flex;align-items:center;gap:5px;padding:0 7px;
+        background:linear-gradient(180deg,rgba(26,31,46,.95),rgba(18,21,31,.95))}
+      .ps-scorebar .ps-side.home{border-bottom:2px solid var(--gold)}
+      .ps-scorebar .ps-side.away{border-bottom:2px solid #3B7DBF}
+      .ps-scorebar .ps-tm{display:none}
+      .ps-scorebar .ps-tm-sh{display:inline;font-size:11.5px;font-weight:900;color:#fff;letter-spacing:.2px;
+        white-space:nowrap;max-width:58px;overflow:hidden;text-overflow:ellipsis}
+      .ps-scorebar .ps-lg{width:16px;height:16px;border-radius:3px;object-fit:cover;flex-shrink:0;
+        display:inline-flex;align-items:center;justify-content:center;font-size:10px}
+      .ps-scorebar .ps-sc{display:flex;align-items:center;gap:5px;padding:0 9px;
+        background:linear-gradient(180deg,#0b0e16,#060810);font-size:14px;font-weight:900;color:#fff;
         font-variant-numeric:tabular-nums}
-      .ps-scorebar .ps-sc .ps-dot{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.4)}
-      .ps-scorebar .ps-ck{display:flex;align-items:center;justify-content:center;padding:0 9px;
-        background:var(--live);color:#fff;font-size:12px;font-weight:900;min-width:40px;
-        font-variant-numeric:tabular-nums;letter-spacing:.3px}
-      /* شعار المنصة — علامة مائية احترافية */
-      .ps-watermark{position:absolute;top:12px;right:12px;z-index:5;opacity:.85;
-        width:30px;height:30px;border-radius:7px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+      .ps-scorebar .ps-sc .ps-dot{width:2px;height:2px;border-radius:50%;background:rgba(201,160,43,.55)}
+      .ps-scorebar .ps-sc span.ps-goal-flash{animation:psGoalFlash 1s ease-out;
+        display:inline-block;border-radius:3px}
+      @keyframes psGoalFlash{0%{color:#fff;text-shadow:none}
+        20%{color:#1a1200;background:var(--gold);text-shadow:0 0 8px var(--gold);padding:0 3px}
+        100%{color:#fff;text-shadow:none;background:transparent}}
+      .ps-scorebar .ps-ck{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px;
+        background:linear-gradient(180deg,#e6c157,#c9a02b);color:#1a1200;min-width:36px;gap:0;line-height:1.05}
+      .ps-scorebar .ps-ck .ps-tk{font-size:10.5px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:.2px}
+      .ps-scorebar .ps-ck .ps-ph{font-size:7px;font-weight:800;opacity:.82;letter-spacing:.1px}
+      /* على الشاشات الأوسع (تابلت/كمبيوتر) نُظهر الاسم الكامل بحجم مناسب */
+      @media(min-width:560px){
+        .ps-scorebar{height:30px;top:12px;left:12px}
+        .ps-scorebar .ps-tm{display:inline;font-size:12px;font-weight:800;color:#fff;white-space:nowrap;
+          max-width:120px;overflow:hidden;text-overflow:ellipsis}
+        .ps-scorebar .ps-tm-sh{display:none}
+        .ps-scorebar .ps-sc{font-size:15px}
+      }
+      /* شعار المنصة — علامة مائية مصغّرة متناسقة مع الشريط */
+      .ps-watermark{position:absolute;top:10px;right:10px;z-index:5;opacity:.85;
+        width:27px;height:27px;border-radius:7px;overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,.4);
+        border:1px solid rgba(201,160,43,.28);background:rgba(10,14,22,.55);backdrop-filter:blur(4px)}
       .ps-watermark img{width:100%;height:100%;object-fit:cover;display:block}
       /* نافذة الإعادة الاحترافية */
       .ps-replay{position:absolute;inset:0;z-index:9;background:#000;display:flex;align-items:center;justify-content:center;
@@ -4419,6 +5371,12 @@ function _psVideoShell(matchId, broadcaster){
         line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
       .ps-replay-bar{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,.15);z-index:2}
       .ps-replay-fill{height:100%;width:0;background:var(--gold);transition:width .2s linear}
+      .ps-replay-ctrls{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:3;
+        display:flex;gap:8px}
+      .ps-rc-btn{min-width:40px;height:36px;padding:0 12px;border:1px solid rgba(201,160,43,.4);border-radius:9px;
+        background:rgba(10,14,22,.7);backdrop-filter:blur(6px);color:#fff;font-family:Tajawal,sans-serif;
+        font-size:13px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center}
+      .ps-rc-btn:active{transform:scale(.94)}
     </style>`;
 }
 // ملء الشاشة مع قلب تلقائي للوضع الأفقي على الجوال (تجربة مشاهدة كاملة)
@@ -4427,32 +5385,105 @@ window._psFullscreen = function(matchId){
   const video = document.getElementById('ps-'+matchId);
   const el = wrap || video;
   if (!el) return;
-  // iOS: الفيديو نفسه يدخل ملء الشاشة
-  if (video && video.webkitEnterFullscreen && !el.requestFullscreen && !el.webkitRequestFullscreen) {
-    video.webkitEnterFullscreen(); return;
-  }
+
+  // لو نحن أصلاً في «ملء شاشة زائف» → اخرج منه
+  if (wrap && wrap.classList.contains('ps-pseudo-fs')) { _psExitPseudoFs(wrap); return; }
+
+  // نفضّل ملء شاشة الحاوية (يُبقي شريط النتيجة ظاهراً فوق الفيديو).
   const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
   if (req) {
     Promise.resolve(req.call(el)).then(()=>{
       if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
-    }).catch(()=>{ if (video && video.webkitEnterFullscreen) video.webkitEnterFullscreen(); });
+    }).catch(()=>{
+      // فشل ملء شاشة الحاوية → ملء شاشة زائف (الشريط يبقى ظاهراً)
+      _psEnterPseudoFs(wrap || el);
+    });
+  } else if (wrap) {
+    // iOS/سفاري لا يدعم requestFullscreen للحاوية:
+    // نستخدم «ملء شاشة زائف» بدل ملء شاشة الفيديو الأصلي (الذي يُخفي الشريط).
+    _psEnterPseudoFs(wrap);
   } else if (video && video.webkitEnterFullscreen) {
     video.webkitEnterFullscreen();
   }
 };
+// ملء شاشة زائف: تكبير الحاوية لملء نافذة المتصفح عبر CSS ثابت — الشريط يبقى فوق الفيديو.
+function _psEnterPseudoFs(wrap){
+  if (!wrap) return;
+  wrap.classList.add('ps-pseudo-fs');
+  document.documentElement.style.overflow = 'hidden';
+  // أخفِ شريط التنقّل السفلي (إخفاء كامل لكل شيء عدا البث)
+  const nav = document.getElementById('bottomNav') || document.querySelector('.bottom-nav');
+  if (nav){ nav._psPrevDisplay = nav.style.display; nav.style.display = 'none'; }
+  if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
+  // زر خروج + مفتاح ESC
+  wrap._psEscHandler = (e)=>{ if(e.key==='Escape') _psExitPseudoFs(wrap); };
+  document.addEventListener('keydown', wrap._psEscHandler);
+}
+function _psExitPseudoFs(wrap){
+  if (!wrap) return;
+  wrap.classList.remove('ps-pseudo-fs');
+  document.documentElement.style.overflow = '';
+  const nav = document.getElementById('bottomNav') || document.querySelector('.bottom-nav');
+  if (nav){ nav.style.display = nav._psPrevDisplay || ''; }
+  if (screen.orientation && screen.orientation.unlock){ try{ screen.orientation.unlock(); }catch(e){} }
+  if (wrap._psEscHandler){ document.removeEventListener('keydown', wrap._psEscHandler); wrap._psEscHandler=null; }
+}
+window._psExitPseudoFs = _psExitPseudoFs;
 document.addEventListener('fullscreenchange', ()=>{
   if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
     try{ screen.orientation.unlock(); }catch(e){}
   }
 });
+// استخراج matchId من عنصر الفيديو (id = ps-<matchId>)
+function _psMatchIdOf(v){ return v && v.id ? v.id.replace(/^ps-/,'') : ''; }
+// مزامنة شكل زر الكتم مع الحالة الفعلية
+function _psSyncMuteBtn(matchId, muted){
+  const btn = document.getElementById('ps-mute-'+matchId);
+  const hint = document.getElementById('ps-soundhint-'+matchId);
+  if(btn){
+    btn.style.background = muted ? 'rgba(0,0,0,.55)' : 'var(--live)';
+    btn.innerHTML = muted
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5zM4.5 4.5l15 15M15.54 8.46a5 5 0 011.4 2.54" style="opacity:.9"/></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>';
+  }
+  if(hint && !muted) hint.style.display = 'none';
+}
+// تفعيل الصوت تلقائياً عند أول تفاعل للمستخدم (يلتفّ حول سياسة autoplay)
+let _psAutoUnmuteArmed = false;
+function _psArmAutoUnmute(videoEl){
+  if(_psAutoUnmuteArmed) return;
+  _psAutoUnmuteArmed = true;
+  const unmute = ()=>{
+    try{
+      if(_psVideoEl){ _psVideoEl.muted = false; _psVideoEl.play().catch(()=>{});
+        _psSyncMuteBtn(_psMatchIdOf(_psVideoEl), false); }
+    }catch(e){}
+    document.removeEventListener('pointerdown', unmute, true);
+    document.removeEventListener('touchstart', unmute, true);
+    document.removeEventListener('keydown', unmute, true);
+    _psAutoUnmuteArmed = false;
+  };
+  document.addEventListener('pointerdown', unmute, true);
+  document.addEventListener('touchstart', unmute, true);
+  document.addEventListener('keydown', unmute, true);
+}
+
 // كتم/تشغيل صوت البث (يبدأ مكتوماً لأن autoplay يتطلب ذلك)
 window._psToggleMute = function(matchId){
   const v = document.getElementById('ps-'+matchId);
   const btn = document.getElementById('ps-mute-'+matchId);
+  const hint = document.getElementById('ps-soundhint-'+matchId);
   if (!v) return;
   v.muted = !v.muted;
   if (!v.muted) v.play().catch(()=>{});
-  if (btn) btn.style.background = v.muted ? 'rgba(0,0,0,.55)' : 'var(--live)';
+  if (btn){
+    btn.style.background = v.muted ? 'rgba(0,0,0,.55)' : 'var(--live)';
+    btn.innerHTML = v.muted
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5zM4.5 4.5l15 15M15.54 8.46a5 5 0 011.4 2.54" style="opacity:.9"/></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>';
+  }
+  // أخفِ شارة «اضغط للصوت» بمجرد تفعيل الصوت
+  if (hint && !v.muted) hint.style.display = 'none';
 };
 // نقرة على الفيديو تفعّل الصوت أول مرة (تجربة مثل التطبيقات)
 window._psToggleFsControls = function(matchId){
@@ -4465,50 +5496,119 @@ let _psLastReplayAt = {};
 function _psShowReplay(matchId, replay){
   const wrap = document.getElementById('ps-wrap-'+matchId);
   if (!wrap) return;
-  // أزل أي نافذة سابقة
   const old = document.getElementById('ps-replay-'+matchId);
   if (old) old.remove();
+  // المصدر: P2P (data base64) أو Storage (url)
+  const src = replay.data || replay.url;
+  if (!src) return;
   const ov = document.createElement('div');
   ov.id = 'ps-replay-'+matchId;
   ov.className = 'ps-replay';
   ov.innerHTML = `
-    <div class="ps-replay-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="15" height="15"><path d="M1 4v6h6M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>REPLAY · الإعادة</div>
-    <video class="ps-replay-vid" src="${replay.url}" autoplay playsinline></video>
+    <div class="ps-replay-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="15" height="15"><path d="M1 4v6h6M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>REPLAY · الإعادة${replay.slow?' · بطيئة':''}</div>
+    <video class="ps-replay-vid" src="${src}" autoplay playsinline></video>
+    <div class="ps-replay-ctrls">
+      <button class="ps-rc-btn" data-act="speed" title="السرعة">${replay.slow?'0.5×':'1×'}</button>
+      <button class="ps-rc-btn" data-act="again" title="إعادة التشغيل"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="15" height="15"><path d="M1 4v6h6M3.51 15a9 9 0 102.13-9.36L1 10"/></svg></button>
+    </div>
     <button class="ps-replay-close" aria-label="إغلاق">×</button>
     <div class="ps-replay-bar"><div class="ps-replay-fill"></div></div>`;
   wrap.appendChild(ov);
   const vid = ov.querySelector('.ps-replay-vid');
   const fill = ov.querySelector('.ps-replay-fill');
+  // سرعة الإعادة البطيئة
+  let slow = !!replay.slow;
+  const applySpeed = ()=>{ vid.playbackRate = slow ? 0.5 : 1; };
+  vid.onloadedmetadata = applySpeed;
   const close = ()=>{ try{vid.pause();}catch(e){} ov.classList.add('out'); setTimeout(()=>ov.remove(),300); };
   ov.querySelector('.ps-replay-close').onclick = close;
+  // أزرار التحكم
+  ov.querySelector('[data-act="again"]').onclick = ()=>{ try{ vid.currentTime=0; vid.play(); }catch(e){} };
+  ov.querySelector('[data-act="speed"]').onclick = (e)=>{
+    slow = !slow; applySpeed(); e.target.textContent = slow?'0.5×':'1×';
+  };
   vid.onended = close;
   vid.ontimeupdate = ()=>{ if(vid.duration) fill.style.width = (vid.currentTime/vid.duration*100)+'%'; };
-  // إغلاق تلقائي احتياطي بعد 30 ثانية
-  setTimeout(close, 30000);
+  // إغلاق تلقائي احتياطي (أطول للبطيئة)
+  setTimeout(close, slow ? 45000 : 30000);
   requestAnimationFrame(()=>ov.classList.add('show'));
 }
 // يبني/يحدّث شريط النتيجة من liveData (يُستدعى لحظياً مع كل تحديث للمباراة)
-function _psUpdateScorebar(m){
+// شعار الفريق (رابط/إيموجي/افتراضي) — يُبنى مرة واحدة
+function _psLogo(t){
+  return t.logo && String(t.logo).startsWith('http')
+    ? `<img class="ps-lg" src="${t.logo}" loading="lazy">`
+    : (t.logo ? `<span class="ps-lg">${t.logo}</span>`
+              : `<span class="ps-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="15" height="15" style="opacity:.7"><circle cx="12" cy="12" r="9"/><path d="M12 7l2.5 1.8-1 3h-3l-1-3z"/></svg></span>`);
+}
+// اسم مختصر بأسلوب القنوات: للأسماء اللاتينية 3 أحرف (RMA/BAR)،
+// وللعربية نُبقي الكلمة الأولى كاملة (الاختصار بالأحرف يشوّه العربية).
+function _psShort(name){
+  const n = String(name||'').trim();
+  if(!n) return '';
+  const isArabic = /[\u0600-\u06FF]/.test(n);
+  if(isArabic){
+    const w = n.split(/\s+/);
+    // كلمة واحدة → كاملة؛ أكثر → أول كلمة (أوضح من دمج أحرف)
+    return w[0];
+  }
+  const w = n.split(/\s+/);
+  if(w.length>=2) return (w[0][0]+w[1][0]+(w[1][1]||'')).toUpperCase();
+  return n.slice(0,3).toUpperCase();
+}
+// ① البناء (مرة واحدة): الشعارات والأسماء الثابتة — لا تُلمس كل ثانية
+function _psBuildScorebar(m){
   const bar = document.getElementById('ps-scorebar-'+m.id);
-  if (!bar) return;
-  const d = m.liveData || {};
+  if(!bar) return;
   const ht = (window.teams||[]).find(t=>t.id===m.homeId) || {name:m.homeName||'', logo:m.homeLogo||''};
   const at = (window.teams||[]).find(t=>t.id===m.awayId) || {name:m.awayName||'', logo:m.awayLogo||''};
+  bar.innerHTML =
+    `<div class="ps-side home">${_psLogo(ht)}<span class="ps-tm" title="${(ht.name||'').replace(/"/g,'')}">${ht.name||''}</span><span class="ps-tm-sh">${_psShort(ht.name)}</span></div>`+
+    `<div class="ps-sc"><span id="ps-hs-${m.id}">0</span><span class="ps-dot"></span><span id="ps-as-${m.id}">0</span></div>`+
+    `<div class="ps-side away"><span class="ps-tm" title="${(at.name||'').replace(/"/g,'')}">${at.name||''}</span><span class="ps-tm-sh">${_psShort(at.name)}</span>${_psLogo(at)}</div>`+
+    `<div class="ps-ck" id="ps-ck-${m.id}" style="display:none"><span class="ps-ph" id="ps-ph-${m.id}"></span><span class="ps-tk" id="ps-tk-${m.id}"></span></div>`;
+  bar._built = true;
+}
+// شارة الشوط بأسلوب القنوات
+function _psPhaseLabel(d){
+  const st = d && d.matchStatus;
+  if(st==='halftime') return 'الاستراحة';
+  if(st==='extratime1') return 'و.إ 1';
+  if(st==='extratime2') return 'و.إ 2';
+  if(st==='penalties') return 'ركلات';
+  if(d && d.currentHalf===2) return 'ش2';
+  if(d && (d.currentHalf===1 || st==='live')) return 'ش1';
+  return '';
+}
+// وميض ذهبي قصير عند تغيّر النتيجة (مثل القنوات)
+function _psFlash(el){
+  if(!el) return;
+  el.classList.remove('ps-goal-flash');
+  void el.offsetWidth; // إعادة تشغيل الأنيميشن
+  el.classList.add('ps-goal-flash');
+}
+// ② التحديث (كل ثانية): النتيجة والوقت فقط — بلا إعادة بناء ولا وميض شعارات
+function _psUpdateScorebar(m){
+  const bar = document.getElementById('ps-scorebar-'+m.id);
+  if(!bar) return;
+  if(!bar._built) _psBuildScorebar(m);
+  const d = m.liveData || {};
   const hs = d.homeScore ?? m.homeScore ?? 0;
   const as = d.awayScore ?? m.awayScore ?? 0;
   const _ckRaw = (typeof _clock==='function') ? _clock(d) : '';
-  // قبل بدء المباراة (upcoming/--): نُخفي العدّاد تماماً — يبقى البثّ + النتيجة فقط
-  // (استوديو تحليلي قبل المباراة). العدّاد يظهر لحظة ما تبدأ الإدارة المباراة.
   const ck = (_ckRaw && _ckRaw !== '--') ? _ckRaw : '';
-  const lg = (t)=> t.logo && String(t.logo).startsWith('http')
-    ? `<img class="ps-lg" src="${t.logo}">`
-    : (t.logo ? `<span class="ps-lg">${t.logo}</span>`
-              : `<span class="ps-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="15" height="15" style="opacity:.7"><circle cx="12" cy="12" r="9"/><path d="M12 7l2.5 1.8-1 3h-3l-1-3z"/></svg></span>`);
-  bar.innerHTML =
-    `<div class="ps-side home">${lg(ht)}<span class="ps-tm">${ht.name}</span></div>`+
-    `<div class="ps-sc"><span>${hs}</span><span class="ps-dot"></span><span>${as}</span></div>`+
-    `<div class="ps-side away"><span class="ps-tm">${at.name}</span>${lg(at)}</div>`+
-    (ck?`<div class="ps-ck">${ck}</div>`:'');
+  const phase = _psPhaseLabel(d);
+  const H = document.getElementById('ps-hs-'+m.id);
+  const A = document.getElementById('ps-as-'+m.id);
+  const C = document.getElementById('ps-ck-'+m.id);
+  const PH = document.getElementById('ps-ph-'+m.id);
+  const TK = document.getElementById('ps-tk-'+m.id);
+  if(H && H.textContent !== String(hs)){ H.textContent = hs; _psFlash(H); }
+  if(A && A.textContent !== String(as)){ A.textContent = as; _psFlash(A); }
+  if(TK) TK.textContent = ck;
+  if(PH) PH.textContent = phase;
+  // نُظهر كبسولة الوقت فقط عند بدء المباراة (استوديو تحليلي قبلها)
+  if(C) C.style.display = (ck || phase) ? '' : 'none';
 }
 // حاوية فارغة تُملأ لحظياً من مستمع البثّ. تظهر متى وُجد بثّ نشط —
 // حتى قبل بدء المباراة (استوديو تحليلي). المستمع نفسه يقرّر الإظهار/الإخفاء.
@@ -5320,6 +6420,10 @@ function renderPitchViewer(lineup, isAway) {
         const hasHL = hl && hl.players && hl.players.filter(p=>!p.isSub).length > 0;
         const hasAL = al && al.players && al.players.filter(p=>!p.isSub).length > 0;
 
+        // خزّن بيانات المشاركة لهذه التشكيلة (يقرأها زر المشاركة لمعرفة الفريق المعروض حالياً)
+        window._shLineupData = window._shLineupData || {};
+        window._shLineupData[_uid] = { hl, al, ht, at, matchId, homeId: m.homeId, awayId: m.awayId };
+
         if (!hasHL && !hasAL) {
           return `<div style="text-align:center;padding:40px 20px;color:var(--t3)">
             <div style="font-size:40px;margin-bottom:10px;opacity:.3">👥</div>
@@ -5329,7 +6433,7 @@ function renderPitchViewer(lineup, isAway) {
         }
 
         return `
-          <div style="display:flex;gap:6px;margin-bottom:12px">
+          <div style="display:flex;gap:6px;margin-bottom:12px;align-items:center">
             <button onclick="(function(btn){
               document.getElementById('vlu-home-${_uid}').style.display='block';
               document.getElementById('vlu-away-${_uid}').style.display='none';
@@ -5356,6 +6460,7 @@ function renderPitchViewer(lineup, isAway) {
               font-size:11px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">
               ${at.name} ${hasAL ? '' : '(لم تُدخَل)'}
             </button>
+            ${_shButton(`_shShareLineup('${_uid}')`, 'مشاركة التشكيلة')}
           </div>
           <div id="vlu-home-${_uid}">${renderPitchViewer(hl, false)}</div>
           <div id="vlu-away-${_uid}" style="display:none">${renderPitchViewer(al, true)}</div>`;

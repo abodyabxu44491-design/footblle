@@ -350,6 +350,17 @@ if('serviceWorker' in navigator) {
               <div class="toggle-row" onclick="toggleSw(this)" data-key="maintenance"><div class="tg-info"><div class="tg-name">وضع الصيانة</div><div class="tg-desc">يوقف المنصة مؤقتاً للصيانة</div></div><div class="tg-sw"></div></div>
             </div>
           </div>
+          <div class="card">
+            <div class="card-hd"><div class="card-title">📡 خادم البث (للآلاف — مركزي)</div></div>
+            <div class="card-bd">
+              <p style="color:#8a93a5;font-size:12.5px;line-height:1.7;margin:0 0 12px">
+                اضبطه <b>مرة واحدة</b> ويسري على <b>كل البطولات تلقائياً</b>. المذيع في أي بطولة يضغط «بدء البث» فقط — لا يرى أي إعداد.
+                اتركه فارغاً ليعمل البث المباشر P2P (يكفي ~30 مشاهد). لدعم مئات/آلاف، أعدّ خادماً مجانياً (راجع دليل الخادم) وضع عنوانه هنا.
+              </p>
+              <div class="fg"><label>عنوان خادم النشر (WHIP)</label><input class="fi" id="platformHlsServer" placeholder="https://stream.نطاقك.com:8889" style="direction:ltr;text-align:left"/></div>
+              <div class="fg"><label>عنوان المشاهدة عبر Cloudflare (اختياري)</label><input class="fi" id="platformHlsCdn" placeholder="https://stream.نطاقك.com:8888" style="direction:ltr;text-align:left"/></div>
+            </div>
+          </div>
           <button class="btn btn-gold" style="width:100%;padding:14px" onclick="savePlatformSettings()">💾 حفظ الإعدادات</button>
         </div>
       </div>

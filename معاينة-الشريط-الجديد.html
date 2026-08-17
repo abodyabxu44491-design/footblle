@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>معاينة الشريط الجانبي + الشعار</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{--gold:#C9A02B;--live:#d64541}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0a0a;font-family:Tajawal,sans-serif;color:#fff;padding:24px;line-height:1.7}
+  h1{font-size:20px;margin-bottom:6px}
+  p.sub{color:#999;font-size:13px;margin-bottom:24px}
+  .demo{max-width:680px;margin:0 auto 26px}
+  .label{font-size:13px;color:var(--gold);font-weight:800;margin:20px 0 10px}
+  .stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;
+    background:linear-gradient(160deg,#1f7a34,#0f5220)}
+  .stage::after{content:'';position:absolute;inset:0;
+    background:repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 40px,transparent 40px 80px)}
+  .ps-scorebar{position:absolute;top:12px;left:12px;z-index:6;
+    display:flex;align-items:stretch;height:32px;border-radius:8px;overflow:hidden;
+    box-shadow:0 4px 16px rgba(0,0,0,.5);border:1px solid rgba(201,160,43,.3);backdrop-filter:blur(4px)}
+  .ps-scorebar .ps-side{display:flex;align-items:center;gap:6px;padding:0 9px;
+    background:linear-gradient(180deg,rgba(26,31,46,.96),rgba(18,21,31,.96))}
+  .ps-scorebar .ps-side.home{border-bottom:2px solid var(--gold)}
+  .ps-scorebar .ps-side.away{border-bottom:2px solid #3B7DBF}
+  .ps-scorebar .ps-tm-sh{font-size:13px;font-weight:900;color:#fff;letter-spacing:.3px}
+  .ps-scorebar .ps-lg{width:19px;height:19px;border-radius:4px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:12px;background:#333}
+  .ps-scorebar .ps-sc{display:flex;align-items:center;gap:6px;padding:0 11px;
+    background:linear-gradient(180deg,#0b0e16,#060810);font-size:16px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums}
+  .ps-scorebar .ps-sc .ps-dot{width:3px;height:3px;border-radius:50%;background:rgba(201,160,43,.6)}
+  .ps-scorebar .ps-sc span.ps-goal-flash{animation:psGoalFlash 1s ease-out;display:inline-block;border-radius:4px}
+  @keyframes psGoalFlash{0%{color:#fff}20%{color:#1a1200;background:var(--gold);text-shadow:0 0 10px var(--gold);padding:0 4px}100%{color:#fff;background:transparent}}
+  .ps-scorebar .ps-ck{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 10px;
+    background:linear-gradient(180deg,#e6c157,#c9a02b);color:#1a1200;min-width:42px;line-height:1.12}
+  .ps-scorebar .ps-ck .ps-tk{font-size:12px;font-weight:900;font-variant-numeric:tabular-nums}
+  .ps-scorebar .ps-ck .ps-ph{font-size:8px;font-weight:800;opacity:.85}
+  .ps-watermark{position:absolute;top:12px;right:12px;z-index:5;opacity:.9;
+    width:32px;height:32px;border-radius:8px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.45);
+    border:1px solid rgba(201,160,43,.3);background:rgba(10,14,22,.6);backdrop-filter:blur(4px);
+    display:flex;align-items:center;justify-content:center}
+  .ps-watermark .logo-fake{color:var(--gold);font-weight:900;font-size:15px}
+  .btn{background:var(--gold);color:#1a1200;border:none;border-radius:8px;padding:9px 16px;font-family:inherit;font-weight:900;cursor:pointer;font-size:13px;margin-top:16px;margin-left:6px}
+  .note{background:#151515;border:1px solid #2a2a2a;border-radius:10px;padding:14px;font-size:13px;color:#bbb;margin-top:14px}
+</style>
+</head>
+<body>
+  <h1>🎬 الشريط الجانبي + شعار المنصة</h1>
+  <p class="sub">الشريط على اليسار (زي التطبيقات) بحجم متناسق، وشعار المنصة على اليمين مرتّب. اضغط «هدف» لترى الوميض الذهبي.</p>
+  <div class="demo">
+    <div class="label">أثناء المباراة</div>
+    <div class="stage">
+      <div class="ps-scorebar">
+        <div class="ps-side home"><span class="ps-lg">🦅</span><span class="ps-tm-sh">الهلال</span></div>
+        <div class="ps-sc"><span id="h1">1</span><span class="ps-dot"></span><span id="a1">1</span></div>
+        <div class="ps-side away"><span class="ps-tm-sh">النصر</span><span class="ps-lg">🟡</span></div>
+        <div class="ps-ck"><span class="ps-ph">ش2</span><span class="ps-tk">67:14</span></div>
+      </div>
+      <div class="ps-watermark"><span class="logo-fake">B</span></div>
+    </div>
+    <button class="btn" onclick="goal('h1')">⚽ هدف للهلال</button>
+    <button class="btn" onclick="goal('a1')">⚽ هدف للنصر</button>
+  </div>
+  <div class="demo">
+    <div class="label">قبل المباراة (بلا وقت)</div>
+    <div class="stage">
+      <div class="ps-scorebar">
+        <div class="ps-side home"><span class="ps-lg">🔵</span><span class="ps-tm-sh">الاتحاد</span></div>
+        <div class="ps-sc"><span>0</span><span class="ps-dot"></span><span>0</span></div>
+        <div class="ps-side away"><span class="ps-tm-sh">الأهلي</span><span class="ps-lg">🟢</span></div>
+      </div>
+      <div class="ps-watermark"><span class="logo-fake">B</span></div>
+    </div>
+  </div>
+  <div class="note">
+    <b style="color:var(--gold)">في ملء الشاشة:</b> الشريط يبقى على الجانب (يسار) بحجم مكبّر قليلاً، والشعار يمين — كلاهما لا يختفي عند الهدف على كل الأجهزة.
+    <br><b style="color:var(--gold)">على الشاشات الأوسع:</b> تظهر أسماء الفرق كاملة تلقائياً.
+  </div>
+<script>
+function goal(id){const el=document.getElementById(id);el.textContent=(parseInt(el.textContent)||0)+1;el.classList.remove('ps-goal-flash');void el.offsetWidth;el.classList.add('ps-goal-flash');}
+</script>
+</body>
+</html>

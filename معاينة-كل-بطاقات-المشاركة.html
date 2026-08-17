@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>معاينة البطاقات — التصميم الرياضي الجديد (SVG)</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0a0a;font-family:Tajawal,sans-serif;color:#fff;padding:24px;line-height:1.7}
+  h1{font-size:20px;margin-bottom:6px}
+  p.sub{color:#999;font-size:13px;margin-bottom:28px}
+  .card-block{max-width:480px;margin:0 auto 44px}
+  .label{font-size:14px;color:#C9A02B;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  canvas{width:100%;height:auto;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.5);display:block}
+  .note{background:#151515;border:1px solid #2a2a2a;border-radius:10px;padding:12px 14px;font-size:12px;color:#999;margin-top:10px;line-height:1.8}
+  .badge{display:inline-block;background:rgba(201,160,43,.15);color:#C9A02B;border:1px solid rgba(201,160,43,.35);
+    border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;margin-bottom:16px}
+</style>
+</head>
+<body>
+  <span class="badge">✨ نسخة محدّثة: تصميم رياضي + كل الأيقونات SVG بدل الإيموجي</span>
+  <h1>🖼️ معاينة كل بطاقات المشاركة الأربع</h1>
+  <p class="sub">نفس كود الرسم بالضبط من viewer.js الفعلي، ببيانات تجريبية.</p>
+
+  <div class="card-block">
+    <div class="label">1️⃣ مشاركة التشكيلة</div>
+    <canvas id="c1"></canvas>
+    <div class="note">ملعب بشرائط عشب متبادلة + أقواس جزاء ومنتصف حقيقية + أقواس أركان + مقاعد بدلاء بأيقونة SVG.</div>
+  </div>
+
+  <div class="card-block">
+    <div class="label">2️⃣ مشاركة آخر 5 هدّافين</div>
+    <canvas id="c2"></canvas>
+    <div class="note">أيقونة كأس SVG بالرأس + ميداليات دائرية للثلاثة الأوائل + أيقونة كرة SVG بجانب كل رقم أهداف.</div>
+  </div>
+
+  <div class="card-block">
+    <div class="label">3️⃣ مشاركة إحصائيات اللاعب</div>
+    <canvas id="c3"></canvas>
+    <div class="note">لقب بأيقونة SVG (هدف/نجمة/درع...) + شبكة إحصائيات بأيقونات SVG + بطاقات وسجل مباريات بأيقونات كرة/قفاز.</div>
+  </div>
+
+  <div class="card-block">
+    <div class="label">4️⃣ مشاركة ترتيب المجموعة</div>
+    <canvas id="c4"></canvas>
+    <div class="note">أيقونة مجموعة SVG بالرأس + شارات تأهل/خروج بعلامة صح/إكس SVG موحّدة.</div>
+  </div>
+
+<script>
+const _SH_GOLD = '#C9A02B';
+
+const _shIcons = {
+  ball(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x,y);
+    ctx.strokeStyle=color; ctx.lineWidth=s*0.06;
+    ctx.beginPath(); ctx.arc(0,0,s/2,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,s*0.16,0,Math.PI*2); ctx.stroke();
+    for(let i=0;i<5;i++){
+      const a = -Math.PI/2 + i*(Math.PI*2/5);
+      const x1=Math.cos(a)*s*0.16, y1=Math.sin(a)*s*0.16;
+      const x2=Math.cos(a)*s*0.42, y2=Math.sin(a)*s*0.42;
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineWidth=s*0.045; ctx.stroke();
+    }
+    ctx.restore();
+  },
+  trophy(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=s*0.05;
+    ctx.beginPath();
+    ctx.moveTo(s*0.28,s*0.08); ctx.lineTo(s*0.72,s*0.08);
+    ctx.lineTo(s*0.68,s*0.42);
+    ctx.quadraticCurveTo(s*0.5,s*0.58,s*0.32,s*0.42);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(s*0.28,s*0.12); ctx.quadraticCurveTo(s*0.05,s*0.14,s*0.1,s*0.32); ctx.quadraticCurveTo(s*0.14,s*0.42,s*0.3,s*0.36); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.72,s*0.12); ctx.quadraticCurveTo(s*0.95,s*0.14,s*0.9,s*0.32); ctx.quadraticCurveTo(s*0.86,s*0.42,s*0.7,s*0.36); ctx.stroke();
+    ctx.fillRect(s*0.44,s*0.56,s*0.12,s*0.18);
+    ctx.beginPath(); ctx.moveTo(s*0.3,s*0.82); ctx.lineTo(s*0.7,s*0.82); ctx.lineTo(s*0.62,s*0.72); ctx.lineTo(s*0.38,s*0.72); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  },
+  boot(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.fillStyle=color; ctx.strokeStyle=color; ctx.lineWidth=s*0.04;
+    ctx.beginPath();
+    ctx.moveTo(s*0.12,s*0.3); ctx.lineTo(s*0.12,s*0.55);
+    ctx.quadraticCurveTo(s*0.12,s*0.68,s*0.28,s*0.68);
+    ctx.lineTo(s*0.85,s*0.68); ctx.quadraticCurveTo(s*0.95,s*0.68,s*0.92,s*0.58);
+    ctx.quadraticCurveTo(s*0.75,s*0.5,s*0.55,s*0.3);
+    ctx.quadraticCurveTo(s*0.42,s*0.18,s*0.3,s*0.22);
+    ctx.quadraticCurveTo(s*0.18,s*0.24,s*0.12,s*0.3);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  },
+  boots(ctx,x,y,s,color){ _shIcons.boot(ctx,x,y,s,color); },
+  calendar(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.lineWidth=s*0.07;
+    roundRect(ctx,0,s*0.14,s,s*0.8,s*0.08); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,s*0.36); ctx.lineTo(s,s*0.36); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.26,0); ctx.lineTo(s*0.26,s*0.22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.74,0); ctx.lineTo(s*0.74,s*0.22); ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.fillRect(s*0.22,s*0.5,s*0.14,s*0.14); ctx.fillRect(s*0.44,s*0.5,s*0.14,s*0.14); ctx.fillRect(s*0.66,s*0.5,s*0.14,s*0.14);
+    ctx.restore();
+  },
+  trending(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.lineWidth=s*0.08; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.beginPath(); ctx.moveTo(0,s*0.75); ctx.lineTo(s*0.32,s*0.42); ctx.lineTo(s*0.5,s*0.58); ctx.lineTo(s,s*0.12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.68,s*0.12); ctx.lineTo(s,s*0.12); ctx.lineTo(s,s*0.42); ctx.stroke();
+    ctx.restore();
+  },
+  card(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s*0.35,y-s/2);
+    ctx.fillStyle=color; roundRect(ctx,0,0,s*0.7,s,s*0.12); ctx.fill();
+    ctx.restore();
+  },
+  users(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x,y); ctx.fillStyle=color;
+    ctx.beginPath(); ctx.arc(-s*0.18,-s*0.08,s*0.16,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.18,-s*0.08,s*0.16,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-s*0.18,s*0.28,s*0.24,s*0.2,0,Math.PI,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(s*0.18,s*0.28,s*0.24,s*0.2,0,Math.PI,Math.PI*2); ctx.fill();
+    ctx.restore();
+  },
+  star(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x,y); ctx.fillStyle=color;
+    ctx.beginPath();
+    for(let i=0;i<5;i++){
+      const a1=-Math.PI/2+i*(Math.PI*2/5), a2=a1+Math.PI/5;
+      const x1=Math.cos(a1)*s/2, y1=Math.sin(a1)*s/2;
+      const x2=Math.cos(a2)*s*0.22, y2=Math.sin(a2)*s*0.22;
+      if(i===0) ctx.moveTo(x1,y1); else ctx.lineTo(x1,y1);
+      ctx.lineTo(x2,y2);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  },
+  target(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x,y); ctx.strokeStyle=color; ctx.lineWidth=s*0.07;
+    [0.5,0.32,0.14].forEach(r=>{ ctx.beginPath(); ctx.arc(0,0,s*r,0,Math.PI*2); ctx.stroke(); });
+    ctx.restore();
+  },
+  check(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.lineWidth=s*0.16; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.beginPath(); ctx.moveTo(s*0.15,s*0.52); ctx.lineTo(s*0.4,s*0.78); ctx.lineTo(s*0.85,s*0.22); ctx.stroke();
+    ctx.restore();
+  },
+  cross(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.lineWidth=s*0.14; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(s*0.2,s*0.2); ctx.lineTo(s*0.8,s*0.8); ctx.moveTo(s*0.8,s*0.2); ctx.lineTo(s*0.2,s*0.8); ctx.stroke();
+    ctx.restore();
+  },
+  shield(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.fillStyle=color;
+    ctx.beginPath();
+    ctx.moveTo(s*0.5,0); ctx.lineTo(s*0.95,s*0.16); ctx.lineTo(s*0.95,s*0.5);
+    ctx.quadraticCurveTo(s*0.95,s*0.85,s*0.5,s);
+    ctx.quadraticCurveTo(s*0.05,s*0.85,s*0.05,s*0.5);
+    ctx.lineTo(s*0.05,s*0.16); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  },
+  fire(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.fillStyle=color;
+    ctx.beginPath();
+    ctx.moveTo(s*0.5,0);
+    ctx.quadraticCurveTo(s*0.9,s*0.35,s*0.65,s*0.55);
+    ctx.quadraticCurveTo(s*0.75,s*0.3,s*0.55,s*0.25);
+    ctx.quadraticCurveTo(s*0.6,s*0.5,s*0.4,s*0.6);
+    ctx.quadraticCurveTo(s*0.2,s*0.7,s*0.3,s*0.9);
+    ctx.quadraticCurveTo(s*0.05,s*0.75,s*0.1,s*0.5);
+    ctx.quadraticCurveTo(s*0.15,s*0.2,s*0.5,0);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  },
+  broadcast(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x,y); ctx.strokeStyle=color; ctx.lineWidth=s*0.09; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(0,s*0.1,s*0.1,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+    ctx.beginPath(); ctx.arc(0,s*0.1,s*0.28,-Math.PI*0.75,-Math.PI*0.25); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,s*0.1,s*0.44,-Math.PI*0.75,-Math.PI*0.25); ctx.stroke();
+    ctx.restore();
+  },
+};
+function _shIconBadge(ctx, name, x, y, size, color, bgAlpha){
+  if(bgAlpha){
+    ctx.fillStyle = color + Math.round(bgAlpha*255).toString(16).padStart(2,'0');
+    ctx.beginPath(); ctx.arc(x, y, size*0.62, 0, Math.PI*2); ctx.fill();
+  }
+  const fn = _shIcons[name];
+  if(fn) fn(ctx, x, y, size, color);
+}
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath(); ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+function _shBg(ctx,W,H){
+  const g = ctx.createRadialGradient(W/2,H*0.15,0,W/2,H*0.15,W*1.1);
+  g.addColorStop(0,'#151515'); g.addColorStop(0.5,'#0d0d0d'); g.addColorStop(1,'#050505');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.save();
+  ctx.strokeStyle='rgba(255,255,255,.018)'; ctx.lineWidth=2;
+  for(let i=-H; i<W+H; i+=34){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+H,H); ctx.stroke(); }
+  ctx.restore();
+  const glow = ctx.createRadialGradient(W*0.5,0,0,W*0.5,0,W*0.6);
+  glow.addColorStop(0,'rgba(201,160,43,.09)'); glow.addColorStop(1,'rgba(201,160,43,0)');
+  ctx.fillStyle=glow; ctx.fillRect(0,0,W,H*0.4);
+  ctx.strokeStyle=_SH_GOLD; ctx.lineWidth=3;
+  ctx.strokeRect(10,10,W-20,H-20);
+  ctx.strokeStyle='rgba(201,160,43,.25)'; ctx.lineWidth=1;
+  ctx.strokeRect(16,16,W-32,H-32);
+}
+function _shHeader(ctx,W,title,sub,iconName){
+  ctx.textAlign='center';
+  let titleY = 46, lineY = 56, subY = 76;
+  if(iconName){
+    _shIconBadge(ctx, iconName, W/2, 34, 30, _SH_GOLD, 0.14);
+    titleY = 84; lineY = 94; subY = 114;
+  }
+  ctx.fillStyle=_SH_GOLD; ctx.font='900 24px Tajawal,Arial';
+  ctx.fillText(title, W/2, titleY);
+  const tw = ctx.measureText(title).width;
+  const lineW = Math.min(tw*0.6, 160);
+  ctx.strokeStyle=_SH_GOLD; ctx.lineWidth=2.5; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(W/2-lineW/2, lineY); ctx.lineTo(W/2+lineW/2, lineY); ctx.stroke();
+  if(sub){ ctx.fillStyle='#888'; ctx.font='600 13px Tajawal,Arial'; ctx.fillText(sub, W/2, subY); }
+}
+function _shFooter(ctx,W,H){
+  ctx.textAlign='center';
+  const label = 'كأس الأحياء الكبرى  ·  تابع البث المباشر والتفاصيل';
+  ctx.font='700 12px Tajawal,Arial';
+  const tw = ctx.measureText(label).width;
+  const iconSize = 15;
+  const startX = W/2 - tw/2 - iconSize - 6;
+  _shIconBadge(ctx, 'broadcast', startX, H-26, iconSize, 'rgba(201,160,43,.75)', 0);
+  ctx.fillStyle='rgba(201,160,43,.65)';
+  ctx.fillText(label, W/2 + iconSize/2, H-22);
+}
+function fakeAvatar(ctx,x,y,size,txt,color){
+  ctx.fillStyle='#0d1526'; ctx.beginPath(); ctx.arc(x,y,size/2,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=color; ctx.font='900 '+(size*0.36)+'px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(txt, x, y+2); ctx.textBaseline='alphabetic';
+}
+
+function drawLineup(){
+  const W=1080, pitchH=1180, accent=_SH_GOLD;
+  const starters = [
+    {name:'محمد الحارس', number:1, x:50, y:92, isGK:true},
+    {name:'سعد الظهير', number:2, x:18, y:74},
+    {name:'خالد المدافع', number:4, x:38, y:78},
+    {name:'فهد المدافع', number:5, x:62, y:78},
+    {name:'عمر الظهير', number:3, x:82, y:74},
+    {name:'ناصر الوسط', number:6, x:30, y:52},
+    {name:'تركي الوسط', number:8, x:50, y:48, captain:true},
+    {name:'ماجد الوسط', number:10, x:70, y:52},
+    {name:'سلطان الجناح', number:7, x:20, y:22},
+    {name:'عبدالله المهاجم', number:9, x:50, y:14},
+    {name:'يوسف الجناح', number:11, x:80, y:22},
+  ];
+  const subs = [
+    {name:'أحمد بديل', number:12},{name:'ريان بديل', number:14},{name:'زياد بديل', number:15, status:'injured'},
+    {name:'باسل بديل', number:16},{name:'وليد بديل', number:17},{name:'حمد بديل', number:18},
+  ];
+  const benchRows = Math.ceil(subs.length/3);
+  const benchH = 74 + benchRows*144 + 16;
+  const H = 170 + pitchH + benchH + 90;
+  const canvas = document.getElementById('c1'); canvas.width=W; canvas.height=H;
+  const ctx = canvas.getContext('2d');
+  _shBg(ctx,W,H);
+  ctx.textAlign='center';
+  fakeAvatar(ctx, W/2, 78, 68, 'ن', '#fff');
+  ctx.strokeStyle=accent; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(W/2,78,34,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.font='900 26px Tajawal,Arial'; ctx.fillText('نادي النصر', W/2, 138);
+  ctx.fillStyle=accent; ctx.font='800 15px Tajawal,Arial'; ctx.fillText('التشكيل: 4-3-3', W/2, 162);
+
+  const pitchY=178;
+  const pitchX=24, pitchW=W-48;
+  roundRect(ctx,pitchX,pitchY,pitchW,pitchH,16);
+  ctx.save(); ctx.clip();
+  const grassGrad = ctx.createLinearGradient(0,pitchY,0,pitchY+pitchH);
+  grassGrad.addColorStop(0,'#2e8b40'); grassGrad.addColorStop(0.5,'#268038'); grassGrad.addColorStop(1,'#1f7231');
+  ctx.fillStyle=grassGrad; ctx.fillRect(pitchX,pitchY,pitchW,pitchH);
+  const pitchGlow = ctx.createRadialGradient(W/2,pitchY+pitchH*0.35,0,W/2,pitchY+pitchH*0.35,pitchW*0.8);
+  pitchGlow.addColorStop(0,'rgba(75,179,95,.45)'); pitchGlow.addColorStop(1,'rgba(31,114,49,0)');
+  ctx.fillStyle=pitchGlow; ctx.fillRect(pitchX,pitchY,pitchW,pitchH);
+  const nStripes=12, stripeH=(pitchH*0.94)/nStripes, stripesTop=pitchY+pitchH*0.03;
+  for(let i=0;i<nStripes;i++){ ctx.fillStyle=i%2===0?'rgba(255,255,255,0)':'rgba(255,255,255,.10)'; ctx.fillRect(pitchX,stripesTop+i*stripeH,pitchW,stripeH); }
+  ctx.restore();
+  const L='rgba(255,255,255,.78)', Lf='rgba(255,255,255,.55)';
+  ctx.strokeStyle=L; ctx.lineWidth=2.2;
+  roundRect(ctx,pitchX+pitchW*0.05,pitchY+pitchH*0.03,pitchW*0.90,pitchH*0.94,4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pitchX+pitchW*0.05,pitchY+pitchH*0.5); ctx.lineTo(pitchX+pitchW*0.95,pitchY+pitchH*0.5); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W/2,pitchY+pitchH*0.5,pitchW*0.14,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle=L; ctx.beginPath(); ctx.arc(W/2,pitchY+pitchH*0.5,3.2,0,Math.PI*2); ctx.fill();
+  const boxW=pitchW*0.56, boxH=pitchH*0.16, sixW=pitchW*0.28, sixH=pitchH*0.07;
+  const boxX=W/2-boxW/2, sixX=W/2-sixW/2;
+  ctx.strokeStyle=L; ctx.lineWidth=2.2; ctx.strokeRect(boxX,pitchY+pitchH*0.03,boxW,boxH);
+  ctx.strokeStyle=Lf; ctx.lineWidth=1.8; ctx.strokeRect(sixX,pitchY+pitchH*0.03,sixW,sixH);
+  ctx.fillStyle=L; ctx.beginPath(); ctx.arc(W/2,pitchY+pitchH*0.03+boxH-pitchH*0.09,3.2,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle=L; ctx.lineWidth=2.2; ctx.strokeRect(boxX,pitchY+pitchH*0.97-boxH,boxW,boxH);
+  ctx.strokeStyle=Lf; ctx.lineWidth=1.8; ctx.strokeRect(sixX,pitchY+pitchH*0.97-sixH,sixW,sixH);
+  ctx.fillStyle=L; ctx.beginPath(); ctx.arc(W/2,pitchY+pitchH*0.97-boxH+pitchH*0.09,3.2,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle=Lf; ctx.lineWidth=1.8;
+  [[pitchX+pitchW*0.05,pitchY+pitchH*0.03],[pitchX+pitchW*0.95,pitchY+pitchH*0.03],
+   [pitchX+pitchW*0.05,pitchY+pitchH*0.97],[pitchX+pitchW*0.95,pitchY+pitchH*0.97]].forEach(([cx,cy],idx)=>{
+    const angles=[[0,Math.PI/2],[Math.PI/2,Math.PI],[-Math.PI/2,0],[Math.PI,Math.PI*1.5]];
+    ctx.beginPath(); ctx.arc(cx,cy,12,angles[idx][0],angles[idx][1]); ctx.stroke();
+  });
+
+  const avSize=78, nameFS=15;
+  const _persp = (yPct) => { const t=yPct/100; return 7 + Math.pow(t,0.94)*88; };
+  starters.forEach((p,i)=>{
+    const x=pitchX+(p.x)/100*pitchW, y=pitchY+(_persp(p.y)/100)*pitchH;
+    fakeAvatar(ctx,x,y,avSize,String(p.number),p.isGK?'#a86bd6':accent);
+    ctx.strokeStyle=p.isGK?'#a86bd6':accent; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(x,y,avSize/2,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.strokeStyle='#1f7231'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(x+avSize/2-6,y+avSize/2-6,13,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#111'; ctx.font='900 13px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(String(p.number), x+avSize/2-6, y+avSize/2-6+1); ctx.textBaseline='alphabetic';
+    if(p.captain){
+      ctx.fillStyle='#111'; ctx.strokeStyle='#e6c157'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(x-avSize/2+6,y+avSize/2-6,11,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#e6c157'; ctx.font='900 11px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('C', x-avSize/2+6, y+avSize/2-6+1); ctx.textBaseline='alphabetic';
+    }
+    const shortName=p.name.split(' ').slice(-1)[0];
+    ctx.font='800 '+nameFS+'px Tajawal,Arial'; ctx.textAlign='center';
+    const tw=ctx.measureText(shortName).width+18;
+    ctx.fillStyle='rgba(8,16,8,.88)'; roundRect(ctx,x-tw/2,y+avSize/2+10,tw,24,6); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.fillText(shortName, x, y+avSize/2+27);
+  });
+
+  let by=pitchY+pitchH+34;
+  _shIconBadge(ctx, 'users', W-40-72, by-6, 16, accent, 0);
+  ctx.textAlign='right'; ctx.fillStyle=accent; ctx.font='900 18px Tajawal,Arial';
+  ctx.fillText('مقاعد البدلاء', W-56, by);
+  const countTxt=String(subs.length);
+  ctx.font='900 13px Tajawal,Arial';
+  const ctW=ctx.measureText(countTxt).width+16;
+  ctx.fillStyle='rgba(201,160,43,.14)'; roundRect(ctx,W-56-96-ctW,by-16,ctW,22,11); ctx.fill();
+  ctx.fillStyle=accent; ctx.textAlign='center'; ctx.fillText(countTxt,W-56-96-ctW/2,by);
+  ctx.strokeStyle='rgba(201,160,43,.25)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(40,by+14); ctx.lineTo(W-40,by+14); ctx.stroke();
+  by+=40;
+  const cols=3, gap=12, cellW=(W-80-gap*(cols-1))/cols, cellH=132;
+  subs.forEach((p,i)=>{
+    const col=i%cols, row=Math.floor(i/cols);
+    const tileX=40+col*(cellW+gap), tileY=by+row*(cellH+gap);
+    const cx=tileX+cellW/2;
+    ctx.fillStyle='rgba(255,255,255,.035)'; ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1;
+    roundRect(ctx,tileX,tileY,cellW,cellH,12); ctx.fill(); ctx.stroke();
+    const cy=tileY+42;
+    fakeAvatar(ctx,cx,cy,46,String(p.number),'#eee');
+    ctx.strokeStyle='rgba(230,205,140,.4)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(cx,cy,23,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.strokeStyle='#151515'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(cx+19,cy+19,10,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#111'; ctx.font='900 10px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(String(p.number), cx+19, cy+20); ctx.textBaseline='alphabetic';
+    ctx.fillStyle='#ddd'; ctx.font='700 12px Tajawal,Arial'; ctx.textAlign='center';
+    ctx.fillText(p.name, cx, cy+45);
+    if(p.status && p.status!=='active'){
+      const statusMap={injured:{txt:'مصاب',color:'#C0392B'},suspended:{txt:'موقوف',color:_SH_GOLD},absent:{txt:'غائب',color:'#888'}};
+      const st=statusMap[p.status];
+      if(st){
+        ctx.font='700 9px Tajawal,Arial';
+        const stW=ctx.measureText(st.txt).width+12;
+        ctx.fillStyle=st.color+'22'; roundRect(ctx,cx-stW/2,cy+68,stW,15,5); ctx.fill();
+        ctx.fillStyle=st.color; ctx.fillText(st.txt,cx,cy+79);
+      }
+    }
+  });
+  _shFooter(ctx,W,H);
+}
+
+function drawScorers(){
+  const W=1080, rowH=138, headerH=230;
+  const data=[
+    {name:'عبدالله الحربي', goals:14, team:'النصر'},
+    {name:'سلمان القحطاني', goals:11, team:'الهلال'},
+    {name:'فيصل العتيبي', goals:9, team:'الاتحاد'},
+    {name:'ماجد الشمري', goals:7, team:'الأهلي'},
+    {name:'ريان الدوسري', goals:6, team:'التعاون'},
+  ];
+  const H=headerH+data.length*rowH+90;
+  const canvas=document.getElementById('c2'); canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  _shBg(ctx,W,H); _shHeader(ctx,W,'قائمة الهدّافين','كأس الأحياء الكبرى','trophy');
+  const medalColor=i=>i===0?'#FFD700':i===1?'#C0C0C0':i===2?'#CD7F32':_SH_GOLD;
+  let y=headerH;
+  data.forEach((p,i)=>{
+    const rowY=y+rowH/2;
+    ctx.fillStyle=i%2===0?'rgba(255,255,255,.02)':'transparent'; ctx.fillRect(40,y,W-80,rowH);
+    ctx.fillStyle=medalColor(i); ctx.beginPath(); ctx.arc(96,rowY,26,0,Math.PI*2); ctx.fill();
+    if(i<3){
+      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.beginPath(); ctx.arc(96,rowY+3,15,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#1a1200'; ctx.font='900 16px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(String(i+1),96,rowY+4); ctx.textBaseline='alphabetic';
+    }else{
+      ctx.fillStyle='#1a1200'; ctx.font='900 22px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(String(i+1),96,rowY+1); ctx.textBaseline='alphabetic';
+    }
+    fakeAvatar(ctx,168,rowY,72,p.name[0],'#fff');
+    ctx.strokeStyle=medalColor(i); ctx.lineWidth=3; ctx.beginPath(); ctx.arc(168,rowY,36,0,Math.PI*2); ctx.stroke();
+    ctx.textAlign='right'; ctx.fillStyle='#fff'; ctx.font='800 24px Tajawal,Arial';
+    ctx.fillText(p.name, W-260, rowY-10);
+    ctx.fillStyle='#888'; ctx.font='600 15px Tajawal,Arial'; ctx.fillText(p.team, W-260, rowY+18);
+    ctx.textAlign='center'; ctx.fillStyle=_SH_GOLD; ctx.font='900 34px Tajawal,Arial';
+    ctx.fillText(String(p.goals), W-100, rowY+2);
+    _shIconBadge(ctx,'ball',W-100,rowY+24,13,'#666',0);
+    ctx.fillStyle='#666'; ctx.font='700 11px Tajawal,Arial'; ctx.fillText('هدف', W-100, rowY+42);
+    if(i<data.length-1){ ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(40,y+rowH); ctx.lineTo(W-40,y+rowH); ctx.stroke(); }
+    y+=rowH;
+  });
+  _shFooter(ctx,W,H);
+}
+
+function _shPlayerTitle(d){
+  const g=d.goals||0, a=d.assists||0;
+  if(g>=8&&a>=5) return {text:'نجم شامل',icon:'star'};
+  if(g>=6) return {text:'القنّاص',icon:'target'};
+  if(a>=5) return {text:'صانع الألعاب',icon:'boots'};
+  if(d.red>=1) return {text:'مقاتل الملعب',icon:'fire'};
+  if(d.apps>=8) return {text:'العمود الفقري',icon:'shield'};
+  return {text:'لاعب مميز',icon:'ball'};
+}
+function drawPlayer(){
+  const W=1080;
+  const d = { name:'عبدالله الحربي', team:'نادي النصر', goals:14, assists:6, apps:16, yellow:3, red:0,
+    matches:[{opp:'الهلال',my:2,op:1,rc:'win',g:1,a:0},{opp:'الاتحاد',my:1,op:1,rc:'draw',g:0,a:1},
+      {opp:'الأهلي',my:3,op:0,rc:'win',g:2,a:0},{opp:'التعاون',my:0,op:1,rc:'loss',g:0,a:0},
+      {opp:'الشباب',my:2,op:0,rc:'win',g:1,a:1}] };
+  const matchesN=d.matches.length, hasCards=true;
+  const H=500+140+40+(hasCards?36:0)+(matchesN?38+matchesN*54:0)+90;
+  const canvas=document.getElementById('c3'); canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  _shBg(ctx,W,H);
+  const avY=190, avSize=220;
+  fakeAvatar(ctx,W/2,avY,avSize,d.name[0],_SH_GOLD);
+  ctx.strokeStyle=_SH_GOLD; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(W/2,avY,avSize/2,0,Math.PI*2); ctx.stroke();
+  const lx=W/2+avSize/2-18, ly=avY+avSize/2-18;
+  ctx.fillStyle='#0a0a0a'; ctx.beginPath(); ctx.arc(lx,ly,26,0,Math.PI*2); ctx.fill();
+  fakeAvatar(ctx,lx,ly,48,'ن','#fff');
+  ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(lx,ly,26,0,Math.PI*2); ctx.stroke();
+
+  const title=_shPlayerTitle({goals:d.goals,assists:d.assists,red:d.red,apps:d.apps});
+  ctx.textAlign='center'; ctx.font='800 20px Tajawal,Arial';
+  const ttTextW=ctx.measureText(title.text).width;
+  const ttIconGap=30;
+  const ttW=ttTextW+ttIconGap+50;
+  ctx.fillStyle='rgba(201,160,43,.15)'; ctx.strokeStyle='rgba(201,160,43,.4)'; ctx.lineWidth=1.5;
+  roundRect(ctx,W/2-ttW/2,316,ttW,40,20); ctx.fill(); ctx.stroke();
+  _shIconBadge(ctx,title.icon,W/2-ttTextW/2-14,336,16,_SH_GOLD,0);
+  ctx.fillStyle=_SH_GOLD; ctx.fillText(title.text, W/2+ttIconGap/2, 342);
+
+  ctx.fillStyle='#fff'; ctx.font='900 38px Tajawal,Arial'; ctx.fillText(d.name, W/2, 412);
+  ctx.fillStyle='#999'; ctx.font='700 18px Tajawal,Arial'; ctx.fillText(d.team, W/2, 444);
+
+  const stats=[['ball',String(d.goals),'أهداف',_SH_GOLD],['boots',String(d.assists),'صناعات','#27ae60'],
+    ['calendar',String(d.apps),'مباريات','#3B7DBF'],['trending',(d.goals/d.apps).toFixed(1),'معدّل','#c084fc']];
+  const gridY=500, cellW=(W-120)/4, cellH=140;
+  stats.forEach((s,i)=>{
+    const cx=60+i*cellW+cellW/2;
+    ctx.fillStyle='rgba(255,255,255,.04)'; ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1;
+    roundRect(ctx,60+i*cellW+8,gridY,cellW-16,cellH,14); ctx.fill(); ctx.stroke();
+    ctx.textAlign='center';
+    _shIconBadge(ctx,s[0],cx,gridY+38,26,s[3],0);
+    ctx.font='900 30px Tajawal,Arial'; ctx.fillStyle=s[3]; ctx.fillText(s[1],cx,gridY+90);
+    ctx.font='700 13px Tajawal,Arial'; ctx.fillStyle='#888'; ctx.fillText(s[2],cx,gridY+114);
+  });
+
+  let y2=gridY+cellH+40;
+  if(d.yellow||d.red){
+    const parts=[];
+    if(d.yellow) parts.push({icon:'card',color:'#e6c157',txt:d.yellow+' صفراء'});
+    if(d.red) parts.push({icon:'card',color:'#d64541',txt:d.red+' حمراء'});
+    ctx.font='700 16px Tajawal,Arial';
+    const totalW=parts.reduce((s,pt)=>s+ctx.measureText(pt.txt).width+30,0)+(parts.length-1)*24;
+    let cx=W/2-totalW/2;
+    parts.forEach((pt,idx)=>{
+      _shIconBadge(ctx,pt.icon,cx+9,y2-6,15,pt.color,0);
+      ctx.textAlign='left'; ctx.fillStyle='#888'; ctx.fillText(pt.txt,cx+24,y2);
+      cx+=ctx.measureText(pt.txt).width+24+30+(idx<parts.length-1?24:0);
+    });
+    ctx.textAlign='center'; y2+=36;
+  }
+  ctx.textAlign='right'; ctx.fillStyle=_SH_GOLD; ctx.font='800 17px Tajawal,Arial';
+  ctx.fillText('آخر المباريات', W-60, y2+10); y2+=38;
+  d.matches.forEach(pm=>{
+    ctx.fillStyle='rgba(255,255,255,.03)'; roundRect(ctx,60,y2-24,W-120,46,10); ctx.fill();
+    ctx.textAlign='right'; ctx.font='700 15px Tajawal,Arial'; ctx.fillStyle='#ddd';
+    ctx.fillText('ضد '+pm.opp, W-80, y2+6);
+    const rColor=pm.rc==='win'?'#27ae60':pm.rc==='loss'?'#d64541':_SH_GOLD;
+    ctx.textAlign='left'; ctx.font='800 14px Tajawal,Arial'; ctx.fillStyle=rColor;
+    let bx=80; const scoreTxt=pm.my+'-'+pm.op;
+    ctx.fillText(scoreTxt, bx, y2+6); bx+=ctx.measureText(scoreTxt).width+14;
+    if(pm.g){ _shIconBadge(ctx,'ball',bx+7,y2+1,13,rColor,0); ctx.fillText(' '+pm.g, bx+16, y2+6); bx+=34; }
+    if(pm.a){ _shIconBadge(ctx,'boots',bx+7,y2+1,13,rColor,0); ctx.fillText(' '+pm.a, bx+16, y2+6); }
+    y2+=54;
+  });
+  _shFooter(ctx,W,H);
+}
+
+function drawGroup(){
+  const W=1080, headerH=210, rowH=96, footH=90;
+  const teams=[
+    {name:'النصر',p:6,w:5,d:1,l:0,pts:16,q:true},
+    {name:'الهلال',p:6,w:4,d:1,l:1,pts:13,q:true},
+    {name:'الاتحاد',p:6,w:2,d:2,l:2,pts:8,q:false},
+    {name:'الأهلي',p:6,w:0,d:2,l:4,pts:2,e:true},
+  ];
+  const H=headerH+teams.length*rowH+footH;
+  const canvas=document.getElementById('c4'); canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  _shBg(ctx,W,H); _shHeader(ctx,W,'المجموعة A','كأس الأحياء الكبرى','users');
+  let y=headerH;
+  ctx.textAlign='center'; ctx.font='700 13px Tajawal,Arial'; ctx.fillStyle='#666';
+  ctx.fillText('#',80,y); ctx.fillText('ل',W-330,y); ctx.fillText('ف',W-260,y);
+  ctx.fillText('ت',W-200,y); ctx.fillText('خ',W-140,y); ctx.fillText('ن',W-70,y);
+  y+=26; ctx.strokeStyle='rgba(255,255,255,.1)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(40,y); ctx.lineTo(W-40,y); ctx.stroke(); y+=14;
+
+  teams.forEach((t,i)=>{
+    const isQ=t.q, isE=t.e;
+    const rowY=y+rowH/2-14;
+    if(isQ){ ctx.fillStyle='rgba(39,174,96,.08)'; ctx.fillRect(40,y,W-80,rowH-8); }
+    else if(isE){ ctx.fillStyle='rgba(214,69,65,.06)'; ctx.fillRect(40,y,W-80,rowH-8); }
+    else if(i%2===0){ ctx.fillStyle='rgba(255,255,255,.02)'; ctx.fillRect(40,y,W-80,rowH-8); }
+    ctx.textAlign='center'; ctx.font='900 20px Tajawal,Arial';
+    ctx.fillStyle=isQ?'#27ae60':isE?'#d64541':'#888'; ctx.fillText(String(i+1),80,rowY+24);
+    fakeAvatar(ctx,152,rowY+18,44,t.name[0],'#fff');
+    ctx.textAlign='right'; ctx.font='800 21px Tajawal,Arial'; ctx.fillStyle='#fff';
+    ctx.fillText(t.name, W-360, rowY+26);
+    if(isQ||isE){
+      const bx=W-360-ctx.measureText(t.name).width-34;
+      const bColor=isQ?'#27ae60':'#d64541';
+      ctx.fillStyle=isQ?'rgba(39,174,96,.18)':'rgba(214,69,65,.18)';
+      roundRect(ctx,bx-6,rowY+2,30,26,8); ctx.fill();
+      _shIconBadge(ctx,isQ?'check':'cross',bx+9,rowY+15,15,bColor,0);
+    }
+    ctx.textAlign='center'; ctx.font='700 17px Tajawal,Arial'; ctx.fillStyle='#ccc';
+    ctx.fillText(String(t.p),W-330,rowY+24);
+    ctx.fillStyle='#27ae60'; ctx.fillText(String(t.w),W-260,rowY+24);
+    ctx.fillStyle='#ccc'; ctx.fillText(String(t.d),W-200,rowY+24);
+    ctx.fillStyle='#d64541'; ctx.fillText(String(t.l),W-140,rowY+24);
+    ctx.fillStyle=_SH_GOLD; ctx.font='900 22px Tajawal,Arial'; ctx.fillText(String(t.pts),W-70,rowY+24);
+    y+=rowH;
+  });
+  _shFooter(ctx,W,H);
+}
+
+document.fonts.load('900 24px Tajawal').then(()=>document.fonts.load('700 15px Tajawal')).then(()=>{
+  drawLineup(); drawScorers(); drawPlayer(); drawGroup();
+});
+setTimeout(()=>{ drawLineup(); drawScorers(); drawPlayer(); drawGroup(); }, 600);
+</script>
+</body>
+</html>

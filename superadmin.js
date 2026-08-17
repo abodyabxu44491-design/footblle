@@ -865,6 +865,8 @@ window.savePlatformSettings = async function() {
     platformName: document.getElementById('platformName')?.value,
     signature: document.getElementById('platformSig')?.value,
     welcome: document.getElementById('platformWelcome')?.value,
+    hlsServer: (document.getElementById('platformHlsServer')?.value || '').trim(),
+    hlsCdn: (document.getElementById('platformHlsCdn')?.value || '').trim(),
     updatedAt: serverTimestamp(),
   };
   document.querySelectorAll('.toggle-row[data-key]').forEach(row => {
@@ -964,6 +966,27 @@ window.showPage = function(name, sb, mn) {
     if((i.getAttribute('onclick') || '').includes("'" + name + "'")) i.classList.add('active');
   });
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  if(name === 'platform') _loadPlatformSettings();
+};
+
+// تحميل إعدادات المنصة المركزية لملء الحقول
+window._loadPlatformSettings = async function(){
+  try{
+    const snap = await getDoc(doc(db,'settings','platform'));
+    if(!snap.exists()) return;
+    const s = snap.data();
+    const set = (id,v)=>{ const el=document.getElementById(id); if(el && v!=null) el.value = v; };
+    set('platformName', s.platformName);
+    set('platformSig', s.signature);
+    set('platformWelcome', s.welcome);
+    set('platformHlsServer', s.hlsServer);
+    set('platformHlsCdn', s.hlsCdn);
+    document.querySelectorAll('#page-platform .toggle-row[data-key]').forEach(row=>{
+      const k = row.dataset.key;
+      if(s[k] === false) row.querySelector('.tg-sw').classList.remove('on');
+      else if(s[k] === true) row.querySelector('.tg-sw').classList.add('on');
+    });
+  }catch(e){ console.warn('load platform settings', e); }
 };
 
 window.toggleSw = function(row) { row.querySelector('.tg-sw').classList.toggle('on'); };

@@ -1007,32 +1007,49 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 /* ══ المجموعات — تحسينات ══ */
 .gt-row-qualified {
   border-right: 3px solid var(--green) !important;
-  background: rgba(39,174,96,.05) !important;
+  background: linear-gradient(90deg, rgba(39,174,96,.07), transparent 65%) !important;
 }
 .gt-row-eliminated {
   border-right: 3px solid var(--red) !important;
-  opacity: 0.7;
+  background: linear-gradient(90deg, rgba(214,69,65,.05), transparent 65%);
+  opacity: 0.8;
 }
-.qualify-badge {
-  font-size: 9px;
-  background: rgba(39,174,96,.12);
-  color: var(--green);
-  border: 1px solid rgba(39,174,96,.3);
-  border-radius: 5px;
-  padding: 1px 5px;
+/* شارات بأسلوب التطبيقات الرسمية: كبسولة دائرية + أيقونة SVG محاذاة + نص */
+.qualify-badge, .elim-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: 20px;
+  padding: 2.5px 8px 2.5px 7px;
   margin-right: 4px;
   white-space: nowrap;
+  line-height: 1;
+  letter-spacing: .1px;
+  flex-shrink: 0;
+}
+.qualify-badge svg, .elim-badge svg { flex-shrink: 0; }
+.qualify-badge {
+  background: rgba(39,174,96,.14);
+  color: var(--green);
+  border: 1px solid rgba(39,174,96,.32);
 }
 .elim-badge {
-  font-size: 9px;
-  background: rgba(229,57,53,.1);
+  background: rgba(214,69,65,.14);
   color: var(--red);
-  border: 1px solid rgba(229,57,53,.2);
-  border-radius: 5px;
-  padding: 1px 5px;
-  margin-right: 4px;
-  white-space: nowrap;
+  border: 1px solid rgba(214,69,65,.32);
 }
+/* زر المشاركة الموحّد — دائري صغير أنيق، أيقونة SVG فقط بلا نص */
+.sh-round-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:50%; flex-shrink:0;
+  background:rgba(201,160,43,.1); border:1px solid rgba(201,160,43,.28);
+  color:var(--gold); cursor:pointer; padding:0; transition:.15s;
+}
+.sh-round-btn:active{ transform:scale(.9); background:rgba(201,160,43,.22); }
+.sh-round-btn svg{ display:block; }
+
 /* مباريات المجموعة */
 .group-matches-toggle {
   display: flex;
@@ -1619,10 +1636,12 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .gt-name{font-size:11px;font-weight:700;color:var(--t1)}
 .gt-val{font-size:11px;color:var(--t2)}
 .gt-pts{font-size:13px;font-weight:900}
-.gt-row-qualified{background:rgba(45,198,83,.05)}
-.gt-row-eliminated{background:rgba(192,57,43,.04);opacity:.7}
-.qualify-badge{font-size:8px;background:rgba(45,198,83,.12);border:1px solid rgba(45,198,83,.3);color:var(--green);border-radius:4px;padding:1px 5px;white-space:nowrap}
-.elim-badge{font-size:8px;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.25);color:var(--red);border-radius:4px;padding:1px 5px;white-space:nowrap}
+.gt-row-qualified{background:linear-gradient(90deg,rgba(45,198,83,.07),transparent 65%);border-right:3px solid var(--green)}
+.gt-row-eliminated{background:linear-gradient(90deg,rgba(192,57,43,.05),transparent 65%);border-right:3px solid var(--red);opacity:.82}
+.qualify-badge,.elim-badge{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:800;border-radius:20px;padding:2px 7px 2px 6px;white-space:nowrap;line-height:1;flex-shrink:0}
+.qualify-badge svg,.elim-badge svg{flex-shrink:0}
+.qualify-badge{background:rgba(45,198,83,.14);border:1px solid rgba(45,198,83,.32);color:var(--green)}
+.elim-badge{background:rgba(192,57,43,.14);border:1px solid rgba(192,57,43,.32);color:var(--red)}
 
 /* مباريات المجموعة */
 .group-matches-toggle{

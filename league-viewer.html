@@ -134,7 +134,10 @@ if('serviceWorker' in navigator) {
     <!-- الهدافون المصغر -->
     <div class="home-sub-header">
       <div class="home-sub-title">🥇 الهدافون</div>
-      <button onclick="switchTab('stats',null)" class="home-sub-btn">عرض الكل</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="shScorersBtn"></span>
+        <button onclick="switchTab('stats',null)" class="home-sub-btn">عرض الكل</button>
+      </div>
     </div>
     <div id="homeScorers"></div>
 
@@ -291,7 +294,8 @@ if('serviceWorker' in navigator) {
     <div class="pm-handle" onclick="closePlayerModal()"></div>
     <div class="pm-header">
       <div class="pm-logo" id="pmLogo">⚽</div>
-      <div><div class="pm-name" id="pmName">—</div><div class="pm-team" id="pmTeam">—</div><div id="pmTitle" style="display:none;margin-top:5px"></div></div>
+      <div style="flex:1;min-width:0"><div class="pm-name" id="pmName">—</div><div class="pm-team" id="pmTeam">—</div><div id="pmTitle" style="display:none;margin-top:5px"></div></div>
+      <span id="shPlayerBtn"></span>
     </div>
     <div class="pm-grid">
       <div class="pm-stat"><div class="pm-stat-val" id="pmGoals">0</div><div class="pm-stat-lbl">⚽ أهداف</div></div>

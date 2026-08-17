@@ -1554,11 +1554,15 @@
       L.push('⚽ ' + (ht.name||'') + '  ' + hs + ' - ' + as_ + '  ' + (at.name||''));
       if (m.penaltyScoreHome != null && m.homeScore === m.awayScore)
         L.push('🥅 ركلات الترجيح: ' + m.penaltyScoreHome + ' - ' + m.penaltyScoreAway);
-      // الهدّافون مرتّبون تحت كل فريق
-      const hSc = (m.homeScorers||'').split(',').map(s=>s.trim()).filter(Boolean);
-      const aSc = (m.awayScorers||'').split(',').map(s=>s.trim()).filter(Boolean);
-      if (hSc.length) { L.push(''); L.push('⚽ ' + (ht.name||'') + ':'); hSc.forEach(s => L.push('  • ' + s)); }
-      if (aSc.length) { L.push(''); L.push('⚽ ' + (at.name||'') + ':'); aSc.forEach(s => L.push('  • ' + s)); }
+      // الهدّافون مرتّبون تحت كل فريق — كل اسم مفصول بوضوح عن دقيقته
+      const _parseScorerLine = (s) => {
+        const mt = String(s||'').trim().match(/^(.*?)[\s\u00A0]*(\d+\+?\d*)'?\s*$/);
+        return mt ? { name: mt[1].trim(), min: mt[2] } : { name: String(s||'').trim(), min: '' };
+      };
+      const hSc = (m.homeScorers||'').split(',').map(s=>s.trim()).filter(Boolean).map(_parseScorerLine);
+      const aSc = (m.awayScorers||'').split(',').map(s=>s.trim()).filter(Boolean).map(_parseScorerLine);
+      if (hSc.length) { L.push(''); L.push('⚽ ' + (ht.name||'') + ':'); hSc.forEach(s => L.push('  • ' + s.name + (s.min ? '  —  ' + s.min + "'" : ''))); }
+      if (aSc.length) { L.push(''); L.push('⚽ ' + (at.name||'') + ':'); aSc.forEach(s => L.push('  • ' + s.name + (s.min ? '  —  ' + s.min + "'" : ''))); }
       const mom = ex.mom || m.manOfMatch;
       if (mom) { L.push(''); L.push('🌟 رجل المباراة: ' + mom); }
     } else if (type === 'mom') {

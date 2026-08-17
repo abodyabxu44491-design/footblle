@@ -95,6 +95,33 @@
   .replay-btn:active{transform:scale(.98)}
   .replay-btn.busy{opacity:.6;pointer-events:none}
   .replay-btn svg{width:19px;height:19px}
+  /* ═══ وضع ملء الشاشة الكامل للبث ═══ */
+  body.full-broadcast .top,
+  body.full-broadcast .panel{display:none!important}
+  body.full-broadcast .wrap{max-width:none;padding:0;margin:0}
+  body.full-broadcast .stage{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;
+    max-height:none!important;margin:0!important;border-radius:0!important;aspect-ratio:auto!important;z-index:9998}
+  body.full-broadcast #preview{object-fit:contain}
+  body.full-broadcast .cam-controls{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0));z-index:9999}
+  /* الشريط الحيّ (النتيجة/الوقت) في المذيع يبقى ظاهراً ومكبّراً */
+  body.full-broadcast #bcScorebar,body.full-broadcast .bc-scorebar{transform:scale(1.1);transform-origin:top left}
+  /* لوحة الإعادة المطوّرة */
+  .replay-panel{margin-top:10px;padding:12px;border:1.5px solid var(--gold);border-radius:14px;background:var(--g-bg)}
+  .replay-panel.hidden{display:none}
+  .rp-head{display:flex;align-items:center;gap:7px;color:var(--gold);font-weight:900;font-size:13.5px;margin-bottom:10px}
+  .rp-durations{display:flex;gap:6px;margin-bottom:8px}
+  .rp-dur{flex:1;padding:8px 4px;border:1px solid var(--b1);border-radius:9px;background:var(--s1);color:var(--t2);
+    font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;transition:.15s}
+  .rp-dur.active{background:var(--gold);color:#1a1200;border-color:var(--gold)}
+  .rp-options{margin-bottom:9px}
+  .rp-opt{width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--b1);
+    border-radius:9px;background:var(--s1);color:var(--t2);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .rp-check{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--t3);flex-shrink:0;transition:.15s;position:relative}
+  .rp-opt.on .rp-check{background:var(--gold);border-color:var(--gold)}
+  .rp-opt.on .rp-check::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#1a1200;font-size:11px;font-weight:900}
+  .rp-status{margin-top:8px;font-size:11.5px;color:var(--t3);text-align:center;min-height:16px;line-height:1.5}
+  .rp-status.ok{color:var(--gold)}
+  .rp-status.err{color:var(--red)}
 
   /* شريط التعليق الحي */
   .ticker{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:13px 14px}
@@ -285,10 +312,14 @@
         <button class="cam-btn" id="btnMic" title="كتم/تشغيل الصوت" onclick="toggleMic()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
         </button>
+        <button class="cam-btn" id="btnFullBroadcast" title="ملء الشاشة الكامل" onclick="toggleFullBroadcast()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+        </button>
       </div>
     </div>
 
     <div class="panel">
+      <button id="btnAudioMode" onclick="toggleAudioMode()" style="width:100%;padding:9px;border:1px solid var(--b1);border-radius:11px;background:var(--s1);color:var(--t2);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:9px">🏟️ أجواء الملعب</button>
       <div class="match-bar empty" id="matchBar">لم تُربط مباراة</div>
 
       <button class="go-live start" id="goLive" onclick="toggleLive()">
@@ -296,11 +327,28 @@
         بدء البث المباشر
       </button>
 
-      <!-- زر الإعادة (يُرسل آخر لقطة للجمهور) -->
-      <button class="replay-btn hidden" id="btnReplay" onclick="publishReplay(12)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
-        <span>إعادة آخر لقطة</span>
-      </button>
+      <!-- لوحة الإعادة (تظهر أثناء البث) -->
+      <div class="replay-panel hidden" id="replayPanel">
+        <div class="rp-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M1 4v6h6M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+          <span>إعادة اللقطة للجمهور</span>
+        </div>
+        <div class="rp-durations">
+          <button class="rp-dur" onclick="publishReplay(6)">٦ ثوانٍ</button>
+          <button class="rp-dur active" onclick="publishReplay(12)">١٢ ثانية</button>
+          <button class="rp-dur" onclick="publishReplay(20)">٢٠ ثانية</button>
+        </div>
+        <div class="rp-options">
+          <button class="rp-opt" id="rpSlowBtn" onclick="_rpToggleSlow()">
+            <span class="rp-check" id="rpSlowChk"></span>🐢 إعادة بطيئة (سلو موشن)
+          </button>
+        </div>
+        <button class="replay-btn" id="btnReplay" onclick="publishReplay()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+          <span id="replayBtnLabel">▶ أرسل الإعادة الآن (١٢ ثانية)</span>
+        </button>
+        <div class="rp-status" id="rpStatus"></div>
+      </div>
 
       <div class="share-row hidden" id="shareRow">
         <span class="lnk" id="shareLink"></span>
@@ -310,6 +358,10 @@
       <div class="hint" style="margin-top:4px">
         <span class="hint-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7zM14 5H3a2 2 0 00-2 2v10a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2z"/></svg></span>
         <span class="hint-tx"><b class="hint-hd" style="color:var(--t1)">تطبيق البثّ</b>مخصّص للبثّ <b>فقط</b>. النتيجة والوقت والأحداث يتحكّم بها <b>مدير المباراة</b> من لوحة الإدارة، وتظهر تلقائياً فوق بثّك وتتحدّث لحظياً.</span>
+      </div>
+      <div class="hint" style="margin-top:8px;border-color:rgba(214,69,65,.25);background:rgba(214,69,65,.06)">
+        <span class="hint-ic" style="background:rgba(214,69,65,.12);color:var(--live)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+        <span class="hint-tx"><b class="hint-hd" style="color:var(--t1)">لتفادي صدى الصوت</b>لا تفتح <b>صفحة المشاهدة</b> على نفس الجهاز أثناء البثّ. استخدم زر «🏟️ أجواء الملعب» لصوت طبيعي، و«🎙️ تعليق صوتي» لو تعلّق بمايك قريب من فمك.</span>
       </div>
     </div>
   </div>
@@ -544,11 +596,17 @@ let _signedIn = false;
 // TURN اختياري: يرفع نسبة الاتصال الناجح لـ ~99% (للشبكات الصعبة/الجوال).
 //   احصل على مفتاح مجاني (20GB/شهر) من metered.ca/openrelay وضعه هنا،
 //   أو اترك TURN فارغاً ليعمل بـ STUN فقط.
+// ⚠️ موصى به بشدّة: سجّل مجاناً في https://dashboard.metered.ca (20GB/شهر)
+//    واستبدل القيم أدناه بمفتاحك الخاص — يرفع نجاح الاتصال من ~88% إلى ~99%.
+//    المفاتيح العامة التجريبية قد تُوقَف أو تُستهلك؛ مفتاحك الخاص أضمن.
 const TURN_CONFIG = [
-  // مثال (استبدل بمفتاحك المجاني من metered.ca لتفعيل TURN):
-  // { urls:'turn:standard.relay.metered.ca:80', username:'YOUR_USER', credential:'YOUR_CRED' },
+  // ← ضع مفتاحك الخاص هنا (الأفضل):
+  // { urls:'turn:standard.relay.metered.ca:80',  username:'YOUR_USER', credential:'YOUR_CRED' },
   // { urls:'turn:standard.relay.metered.ca:443', username:'YOUR_USER', credential:'YOUR_CRED' },
+  // { urls:'turns:standard.relay.metered.ca:443?transport=tcp', username:'YOUR_USER', credential:'YOUR_CRED' },
 ];
+// هل فُعّل TURN فعلياً؟ (لعرض مؤشّر للمذيع)
+const TURN_ENABLED = TURN_CONFIG.length > 0;
 const RTC_CONFIG = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -628,6 +686,11 @@ async function resolveLeagueForUser(uid){
         const cfg = await getDoc(doc(db,'leagues',LEAGUE,'config','settings'));
         window._bcSettings = cfg.exists() ? cfg.data() : {};
       }catch(e){ window._bcSettings = {}; }
+      // إعدادات المنصة المركزية (خادم البث) — يضبطها السوبر أدمن مرة واحدة لكل البطولات
+      try{
+        const pf = await getDoc(doc(db,'settings','platform'));
+        window._platformSettings = pf.exists() ? pf.data() : {};
+      }catch(e){ window._platformSettings = {}; }
     }
   }catch(e){ console.warn('league resolve', e); }
 }
@@ -808,6 +871,66 @@ function _bcClock(d){
   return c.clock;
 }
 
+// ═══ وضع الصوت ═══
+// «stadium» = أجواء الملعب: بلا معالجة مكالمات (لا صدى، صوت جمهور كامل، ستيريو).
+// «commentary» = تعليق بمايك قريب من الفم: معالجة خفيفة لإلغاء صدى الغرفة.
+let audioMode = (function(){ try{ return localStorage.getItem('bc_audio_mode')||'stadium'; }catch(e){ return 'stadium'; } })();
+function _audioConstraints(){
+  if(audioMode === 'commentary'){
+    // مايك قريب من الفم داخل غرفة: نلغي صدى الغرفة فقط، بلا كتم عدواني.
+    return { echoCancellation:true, noiseSuppression:true, autoGainControl:false, channelCount:1, sampleRate:48000 };
+  }
+  // أجواء الملعب (الافتراضي): صوت طبيعي كامل بلا معالجة مكالمات — يمنع الصدى المتقطّع والـ"تنفّس".
+  return { echoCancellation:false, noiseSuppression:false, autoGainControl:false, channelCount:2, sampleRate:48000 };
+}
+window.toggleAudioMode = async function(){
+  audioMode = (audioMode === 'stadium') ? 'commentary' : 'stadium';
+  try{ localStorage.setItem('bc_audio_mode', audioMode); }catch(e){}
+  const lbl = audioMode==='stadium' ? '🏟️ أجواء الملعب' : '🎙️ تعليق صوتي';
+  const b = $('btnAudioMode'); if(b) b.textContent = lbl;
+  toast('وضع الصوت: ' + (audioMode==='stadium'?'أجواء الملعب (بلا صدى)':'تعليق صوتي'));
+  // لو الكاميرا شغّالة، أعِد التقاط الصوت بالإعداد الجديد دون قطع الفيديو.
+  if(camOn && localStream){
+    try{
+      const newAudio = await navigator.mediaDevices.getUserMedia({ audio: _audioConstraints() });
+      const newTrack = newAudio.getAudioTracks()[0];
+      const oldTrack = localStream.getAudioTracks()[0];
+      if(oldTrack){ localStream.removeTrack(oldTrack); oldTrack.stop(); }
+      localStream.addTrack(newTrack);
+      newTrack.enabled = micOn;
+      // بدّل المسار الصوتي عند كل المشاهدين المتصلين
+      Object.values(viewerPeers).forEach(pc=>{
+        const sender = pc.getSenders().find(s=>s.track && s.track.kind==='audio');
+        if(sender) sender.replaceTrack(newTrack).catch(()=>{});
+      });
+    }catch(e){ toast('تعذّر تبديل وضع الصوت'); }
+  }
+};
+
+// ═══ ملء الشاشة الكامل للبث (إخفاء كل شيء عدا الفيديو والتحكم الأساسي) ═══
+window.toggleFullBroadcast = function(){
+  const stage = $('stage');
+  const isOn = document.body.classList.toggle('full-broadcast');
+  if(isOn){
+    // ادخل ملء شاشة المتصفح على منطقة الفيديو
+    const req = stage.requestFullscreen || stage.webkitRequestFullscreen;
+    if(req){ Promise.resolve(req.call(stage)).catch(()=>{}); }
+    if(screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
+    document.documentElement.style.overflow='hidden';
+  }else{
+    if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+    if(screen.orientation && screen.orientation.unlock){ try{screen.orientation.unlock();}catch(e){} }
+    document.documentElement.style.overflow='';
+  }
+};
+// خروج تلقائي لو خرج المستخدم من ملء الشاشة بزر النظام
+document.addEventListener('fullscreenchange', ()=>{
+  if(!document.fullscreenElement && document.body.classList.contains('full-broadcast')){
+    document.body.classList.remove('full-broadcast');
+    document.documentElement.style.overflow='';
+  }
+});
+
 // ═══ الكاميرا ═══
 window.toggleCamera = async function(){
   if(camOn){ stopCamera(); return; }
@@ -816,7 +939,7 @@ window.toggleCamera = async function(){
     // وتبقى واضحة تماماً لمباراة. المتصفح يخفضها تلقائياً لو ضعفت الشبكة.
     localStream = await navigator.mediaDevices.getUserMedia({
       video:{ facingMode, width:{ideal:1280,max:1920}, height:{ideal:720,max:1080}, aspectRatio:{ideal:1.7777}, frameRate:{ideal:24,max:30} },
-      audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true, channelCount:1 }
+      audio: _audioConstraints()
     });
     const v=$('preview'); v.srcObject=localStream;
     v.classList.toggle('rear', facingMode==='environment');
@@ -861,7 +984,9 @@ function _startReplayBuffer(){
   if(!localStream || !window.MediaRecorder) return;
   try{
     const mime = _pickMime();
-    _replayRec = new MediaRecorder(localStream, mime?{mimeType:mime,videoBitsPerSecond:1200000}:undefined);
+    // bitrate منخفض (400kbps) للإعادة: يبقي 12ث تحت ~600KB لينشر فوراً بلا Storage.
+    // (الإعادة لقطة قصيرة، الجودة المنخفضة مقبولة مقابل الفورية والمجانية.)
+    _replayRec = new MediaRecorder(localStream, mime?{mimeType:mime,videoBitsPerSecond:400000}:undefined);
     _replayChunks = [];
     _replayRec.ondataavailable = e=>{
       if(e.data && e.data.size>0){
@@ -879,39 +1004,181 @@ function _stopReplayBuffer(){
   _replayRec=null; _replayChunks=[];
 }
 
-// نشر إعادة آخر N ثانية للجمهور
+// ═══ حالة لوحة الإعادة ═══
+let _rpSeconds = 12;   // المدة المختارة
+let _rpSlow = false;   // إعادة بطيئة
+
+window._rpSetDuration = function(sec, btn){
+  _rpSeconds = sec;
+  document.querySelectorAll('.rp-dur').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const lbl = $('replayBtnLabel');
+  if(lbl) lbl.textContent = `▶ أرسل الإعادة الآن (${sec===6?'٦ ثوانٍ':sec===20?'٢٠ ثانية':'١٢ ثانية'})`;
+};
+window._rpToggleSlow = function(){
+  _rpSlow = !_rpSlow;
+  const btn = $('rpSlowBtn'); if(btn) btn.classList.toggle('on', _rpSlow);
+};
+
+// نشر الإعادة: P2P فوري (مجاني) + Storage احتياطي تلقائي.
+// المذيع يبني المقطع ويرسله بطريقتين معاً — الجمهور يعرض أياً منهما يصل أولاً.
 window.publishReplay = async function(seconds){
-  seconds = seconds || 12;
+  seconds = seconds || _rpSeconds || 12;
+  // إن ضُغط زر مدة محدّد، فعّله بصرياً
+  if(arguments.length && (seconds===6||seconds===12||seconds===20)){
+    const map={6:0,12:1,20:2};
+    const btns=document.querySelectorAll('.rp-dur');
+    _rpSetDuration(seconds, btns[map[seconds]]);
+  }
   if(_replayBusy){ return; }
-  if(!isLive){ toast('ابدأ البث أولاً'); return; }
-  if(!_replayChunks.length){ toast('لا يوجد تسجيل كافٍ بعد'); return; }
+  if(!isLive){ _rpMsg('ابدأ البث أولاً','err'); return; }
+  if(!_replayChunks.length){ _rpMsg('لا يوجد تسجيل كافٍ بعد — انتظر ثوانٍ','err'); return; }
   _replayBusy = true;
   const btn = $('btnReplay');
   if(btn){ btn.disabled=true; btn.classList.add('busy'); }
+  _rpMsg('جارِ تجهيز الإعادة…','');
+
   try{
     const cutoff = Date.now() - seconds*1000;
     const parts = _replayChunks.filter(c=>c.t>=cutoff).map(c=>c.blob);
-    if(!parts.length){ toast('لا يوجد تسجيل كافٍ'); return; }
+    if(!parts.length){ _rpMsg('لا يوجد تسجيل كافٍ','err'); return; }
     const type = parts[0].type || 'video/webm';
     const blob = new Blob(parts, {type});
-    // ارفع لـ Storage (مقطع صغير ~2MB)
-    const fname = `replays/${streamId}/${Date.now()}.${type.includes('mp4')?'mp4':'webm'}`;
-    const sref = storageRef(storage, fname);
-    await uploadBytes(sref, blob, {contentType:type});
-    const url = await getDownloadURL(sref);
-    // انشر للجمهور عبر liveStreams
-    await updateDoc(doc(db,'liveStreams',streamId),{
-      replay:{ url, type, at:Date.now(), seconds }
-    });
-    toast('تم إرسال الإعادة للجمهور');
+    const at = Date.now();
+
+    // ══ ① P2P فوري: نحوّل المقطع لـ base64 وننشره مباشرة في liveStreams ══
+    // المقاطع القصيرة (6-20 ثانية بجودة موفّرة) عادة < 700KB — مناسبة للنشر المباشر.
+    // فائدة: يظهر فوراً للجمهور بلا Storage ولا انتظار رفع.
+    let sentInstant = false;
+    try{
+      // المقطع القصير يُنشر مباشرة. ملاحظة: base64 يكبر ~33%، وحدّ مستند Firestore 1MB.
+      // لذا نسمح بـ blob حتى ~680KB (≈ 900KB بعد base64) ليبقى تحت الحدّ بأمان.
+      if(blob.size <= 680000){
+        const b64 = await _blobToBase64(blob);
+        // تحقّق نهائي من الحجم بعد التحويل (أمان إضافي)
+        if(b64.length <= 950000){
+          await updateDoc(doc(db,'liveStreams',streamId),{
+            replay:{ data:b64, type, at, seconds, slow:_rpSlow, mode:'p2p' }
+          });
+          sentInstant = true;
+          _rpMsg('✓ أُرسلت الإعادة فوراً للجمهور','ok');
+        }
+      }
+    }catch(e){ console.warn('p2p replay', e); }
+
+    // ══ ② Storage احتياطي: للمقاطع الأكبر أو لو فشل الفوري ══
+    if(!sentInstant){
+      _rpMsg('جارِ رفع الإعادة (مقطع أطول)…','');
+      try{
+        const fname = `replays/${streamId}/${at}.${type.includes('mp4')?'mp4':'webm'}`;
+        const sref = storageRef(storage, fname);
+        await uploadBytes(sref, blob, {contentType:type});
+        const url = await getDownloadURL(sref);
+        await updateDoc(doc(db,'liveStreams',streamId),{
+          replay:{ url, type, at, seconds, slow:_rpSlow, mode:'storage' }
+        });
+        _rpMsg('✓ أُرسلت الإعادة للجمهور','ok');
+      }catch(e2){
+        console.warn('storage replay', e2);
+        // رسالة دقيقة حسب الخطأ
+        const msg = String(e2 && e2.code||'').includes('unauthorized') || String(e2&&e2.message||'').includes('storage/unauthorized')
+          ? 'فعّل خدمة Storage وقواعدها لإرسال المقاطع الأطول (أو استخدم مدة أقصر لإرسال فوري)'
+          : 'تعذّر إرسال الإعادة — جرّب مدة أقصر (تُرسل فوراً بلا Storage)';
+        _rpMsg(msg,'err');
+      }
+    }
+    // مسح رسالة النجاح بعد قليل
+    setTimeout(()=>{ const s=$('rpStatus'); if(s && s.classList.contains('ok')) _rpMsg('',''); }, 4000);
   }catch(e){
-    toast('تعذّر إرسال الإعادة');
+    _rpMsg('تعذّر تجهيز الإعادة','err');
     console.warn('publishReplay', e);
   }finally{
     _replayBusy=false;
     if(btn){ btn.disabled=false; btn.classList.remove('busy'); }
   }
 };
+function _rpMsg(txt, cls){
+  const s = $('rpStatus'); if(!s) return;
+  s.textContent = txt||''; s.className = 'rp-status' + (cls?(' '+cls):'');
+}
+function _blobToBase64(blob){
+  return new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=>res(r.result);   // data:...;base64,....
+    r.onerror = rej;
+    r.readAsDataURL(blob);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  البث الاحترافي عبر خادم HLS (WHIP) — لآلاف المشاهدين
+//  المذيع يرفع نسخة واحدة للخادم، والخادم يوزّعها HLS عبر Cloudflare.
+//  يُفعّل تلقائياً لو صاحب البطولة ضبط عنوان الخادم في الإعدادات.
+// ═══════════════════════════════════════════════════════════
+let _whipPc = null, _whipResource = null;
+function _hlsServerUrl(){
+  try{
+    // الأولوية لإعداد المنصة المركزي (يسري على كل البطولات)، ثم إعداد البطولة كبديل.
+    const p = (window._platformSettings && window._platformSettings.hlsServer) || '';
+    const l = (window._bcSettings && window._bcSettings.hlsServer) || '';
+    return (p || l).trim().replace(/\/$/,'');
+  }catch(e){ return ''; }
+}
+function _streamPath(){ return `${LEAGUE}__${MATCH}`; }
+async function _startWhip(){
+  const server = _hlsServerUrl();
+  if(!server || !localStream) return false;
+  try{
+    _whipPc = new RTCPeerConnection({ iceServers:[{urls:'stun:stun.l.google.com:19302'}], bundlePolicy:'max-bundle' });
+    localStream.getTracks().forEach(t=>_whipPc.addTrack(t, localStream));
+    _whipPc.getSenders().forEach(s=>{
+      if(s.track && s.track.kind==='video'){
+        const p=s.getParameters(); p.encodings=p.encodings||[{}];
+        p.encodings[0].maxBitrate = 1500000;   // نسخة واحدة = جودة ممتازة
+        p.degradationPreference = 'balanced';
+        s.setParameters(p).catch(()=>{});
+      }
+    });
+    const offer = await _whipPc.createOffer();
+    await _whipPc.setLocalDescription(offer);
+    await _whipWaitIce(_whipPc);
+    const url = `${server}/${_streamPath()}/whip`;
+    const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/sdp'}, body:_whipPc.localDescription.sdp });
+    if(!res.ok) throw new Error('WHIP '+res.status);
+    _whipResource = res.headers.get('Location') || url;
+    const answer = await res.text();
+    await _whipPc.setRemoteDescription({type:'answer', sdp:answer});
+    const hlsPublic = _hlsPublicUrl();
+    if(hlsPublic){ await updateDoc(doc(db,'liveStreams',streamId),{ hlsUrl:hlsPublic, streamMode:'hls' }).catch(()=>{}); }
+    return true;
+  }catch(e){
+    console.warn('WHIP failed', e);
+    toast('تعذّر البث للخادم — سيعمل البث المباشر P2P');
+    _stopWhip();
+    return false;
+  }
+}
+function _whipWaitIce(pc){
+  return new Promise(res=>{
+    if(pc.iceGatheringState==='complete') return res();
+    const t=setTimeout(res, 2000);
+    pc.onicegatheringstatechange = ()=>{ if(pc.iceGatheringState==='complete'){ clearTimeout(t); res(); } };
+  });
+}
+function _hlsPublicUrl(){
+  const server = _hlsServerUrl();
+  if(!server) return '';
+  const pCdn = (window._platformSettings && window._platformSettings.hlsCdn) || '';
+  const lCdn = (window._bcSettings && window._bcSettings.hlsCdn) || '';
+  const cdn = (pCdn || lCdn).trim().replace(/\/$/,'');
+  const base = cdn || server;
+  return `${base}/${_streamPath()}/index.m3u8`;
+}
+function _stopWhip(){
+  try{ if(_whipResource) fetch(_whipResource,{method:'DELETE'}).catch(()=>{}); }catch(e){}
+  try{ if(_whipPc) _whipPc.close(); }catch(e){}
+  _whipPc=null; _whipResource=null;
+}
 
 function replaceTracksForAll(){
   Object.values(viewerPeers).forEach(pc=>{
@@ -959,12 +1226,19 @@ async function startLive(){
     const base=location.origin+location.pathname.replace('broadcaster.html','league-viewer.html');
     const link=`${base}?id=${LEAGUE}&match=${MATCH}&watch=1`;
     $('shareLink').textContent=link; $('shareRow').classList.remove('hidden');
-    $('btnReplay').classList.remove('hidden');
+    $('replayPanel').classList.remove('hidden');
     window._shareLink=link;
 
     startTimer();
     _startQualityMonitor();
-    toast('البث مباشر الآن');
+    // بث احترافي عبر الخادم (WHIP→HLS) لآلاف المشاهدين — لو ضبط صاحب البطولة عنوان الخادم.
+    if(_hlsServerUrl()){
+      const ok = await _startWhip();
+      if(ok) toast('📡 بث احترافي عبر الخادم — يتحمّل آلاف المشاهدين');
+      else toast('البث مباشر الآن (P2P)');
+    } else {
+      toast('البث مباشر الآن');
+    }
   }catch(e){
     toast('تعذّر بدء البث: '+(e.message||e));
     console.error(e);
@@ -978,10 +1252,11 @@ async function stopLive(){
   // أغلق كل الاتصالات
   Object.values(viewerPeers).forEach(pc=>{try{pc.close()}catch(e){}});
   viewerPeers={};
+  _stopWhip();   // أوقف البث الاحترافي للخادم
   if(unsubViewers){ unsubViewers(); unsubViewers=null; }
   // حدّث الحالة
   try{
-    await updateDoc(doc(db,'liveStreams',streamId),{status:'ended', endedAt:serverTimestamp()});
+    await updateDoc(doc(db,'liveStreams',streamId),{status:'ended', endedAt:serverTimestamp(), hlsUrl:null, streamMode:null});
     await updateDoc(doc(db,'leagues',LEAGUE,'matches',MATCH),{
       'platformStream.active':false
     }).catch(()=>{});
@@ -994,7 +1269,7 @@ async function stopLive(){
   $('watchersTag').classList.add('hidden');
   $('stageTimer').classList.add('hidden');
   $('shareRow').classList.add('hidden');
-  $('btnReplay').classList.add('hidden');
+  $('replayPanel').classList.add('hidden');
   $('brandTag').classList.add('off');
   $('brandTag').innerHTML='<span class="dot"></span> الاستوديو';
   $('connTag').classList.remove('ok');
@@ -1028,10 +1303,11 @@ function listenForViewers(){
 // حساب سقف البت المناسب حسب عدد المشاهدين الحالي
 function _targetBitrate(){
   const n = watcherCount;
-  if (n <= 5)  return 900000;   // قليل → جودة عالية
-  if (n <= 12) return 650000;
-  if (n <= 25) return 450000;
-  return 300000;                // كثير → موفّر لثبات الجميع
+  if (n <= 5)  return 800000;   // قليل → جودة عالية
+  if (n <= 12) return 550000;
+  if (n <= 25) return 380000;
+  if (n <= 50) return 260000;
+  return 180000;                // أعداد كبيرة → موفّر جداً لثبات الجميع بلا تقطيع
 }
 function _applyAdaptiveBitrate(pc){
   try{
@@ -1040,10 +1316,33 @@ function _applyAdaptiveBitrate(pc){
       if(s.track && s.track.kind==='video'){
         const p=s.getParameters(); p.encodings=p.encodings||[{}];
         p.encodings[0].maxBitrate=target; p.encodings[0].maxFramerate=24;
+        // على النت الضعيف: خفّض الدقة للحفاظ على السلاسة بدل التقطيع/التجمّد.
+        p.degradationPreference = 'balanced';
+        s.setParameters(p).catch(()=>{});
+      }
+      // جودة صوت عالية ثابتة (128kbps) — لا تتأثر بعدد المشاهدين لأن الصوت خفيف.
+      if(s.track && s.track.kind==='audio'){
+        const p=s.getParameters(); p.encodings=p.encodings||[{}];
+        p.encodings[0].maxBitrate=128000;
         s.setParameters(p).catch(()=>{});
       }
     });
   }catch(e){}
+}
+// تفعيل stereo + bitrate صوت عالٍ في SDP (opus) — لأجواء ملعب أوسع
+function _boostAudioSdp(sdp){
+  try{
+    return sdp.replace(/(a=fmtp:\d+ )/g, function(m){
+      // نضيف معاملات opus لو لم تكن موجودة
+      return m;
+    }).replace(/(a=rtpmap:(\d+) opus\/48000\/2[\r\n]+)/g, function(full, line, pt){
+      const fmtpRe = new RegExp('a=fmtp:'+pt+' ([^\\r\\n]*)');
+      if(fmtpRe.test(sdp)){
+        return full; // سيُعالَج أدناه
+      }
+      return line + 'a=fmtp:'+pt+' stereo=1;sprop-stereo=1;maxaveragebitrate=128000\r\n';
+    });
+  }catch(e){ return sdp; }
 }
 function _reapplyAllBitrates(){
   Object.values(viewerPeers).forEach(pc=>_applyAdaptiveBitrate(pc));
@@ -1079,6 +1378,8 @@ async function answerViewer(viewerId, offer){
 
   await pc.setRemoteDescription(new RTCSessionDescription(offer));
   const answer = await pc.createAnswer();
+  // حسّن صوت opus (ستيريو + bitrate عالٍ) قبل التثبيت
+  try{ answer.sdp = _boostAudioSdp(answer.sdp); }catch(e){}
   await pc.setLocalDescription(answer);
   await updateDoc(doc(db,'liveStreams',streamId,'viewers',viewerId),{
     answer:{ type:answer.type, sdp:answer.sdp }
@@ -1097,13 +1398,17 @@ async function answerViewer(viewerId, offer){
 
 function updateWatchers(){
   $('watcherCount').textContent = watcherCount;
-  // تحذير لطيف عند الاقتراب من حدّ التحمّل (شبكة الجوال محدودة الرفع)
   const tag = $('watchersTag');
-  if (watcherCount >= 25) { tag.style.background='rgba(255,45,85,.75)'; tag.title='عدد كبير — قد يتأثر الثبات على شبكة الجوال'; }
+  if (watcherCount >= 40) {
+    tag.style.background='rgba(255,45,85,.85)'; tag.title='عدد كبير جداً — يُنصح بالتحويل لبث HLS للثبات';
+    if(!_hlsAdvised){ _hlsAdvised=true; toast('📡 عدد المشاهدين كبير — لثبات أفضل فعّل بث HLS من الإعدادات'); }
+  }
+  else if (watcherCount >= 25) { tag.style.background='rgba(255,45,85,.7)'; tag.title='عدد كبير — قد يتأثر الثبات على شبكة الجوال'; }
   else if (watcherCount >= 15) { tag.style.background='rgba(230,193,87,.4)'; }
   else { tag.style.background='rgba(0,0,0,.55)'; }
   if(isLive) updateDoc(doc(db,'liveStreams',streamId),{watchers:watcherCount}).catch(()=>{});
 }
+let _hlsAdvised = false;
 
 async function clearOldSignaling(){
   try{
@@ -1162,6 +1467,9 @@ function _setQuality(level){
 window.copyShare = ()=>{
   navigator.clipboard.writeText(window._shareLink||'').then(()=>toast('نُسخ الرابط'));
 };
+
+// ضبط تسمية زر وضع الصوت حسب المحفوظ
+(function(){ const b=$('btnAudioMode'); if(b) b.textContent = audioMode==='stadium' ? '🏟️ أجواء الملعب' : '🎙️ تعليق صوتي'; })();
 
 // تنبيه قبل الإغلاق أثناء البث
 window.addEventListener('beforeunload', e=>{ if(isLive){ e.preventDefault(); e.returnValue=''; } });

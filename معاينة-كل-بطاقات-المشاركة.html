@@ -248,7 +248,7 @@ function drawLineup(){
     {name:'عمر الظهير', number:3, x:82, y:74},
     {name:'ناصر الوسط', number:6, x:30, y:52},
     {name:'تركي الوسط', number:8, x:50, y:48, captain:true},
-    {name:'ماجد الوسط', number:10, x:70, y:52},
+    {name:'ماجد الوسط', number:10, x:70, y:52, motm:true},
     {name:'سلطان الجناح', number:7, x:20, y:22},
     {name:'عبدالله المهاجم', number:9, x:50, y:14},
     {name:'يوسف الجناح', number:11, x:80, y:22},
@@ -307,9 +307,20 @@ function drawLineup(){
   const _persp = (yPct) => { const t=yPct/100; return 7 + Math.pow(t,0.94)*88; };
   starters.forEach((p,i)=>{
     const x=pitchX+(p.x)/100*pitchW, y=pitchY+(_persp(p.y)/100)*pitchH;
+    const isMotm = !!p.motm;
     fakeAvatar(ctx,x,y,avSize,String(p.number),p.isGK?'#a86bd6':accent);
-    ctx.strokeStyle=p.isGK?'#a86bd6':accent; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.arc(x,y,avSize/2,0,Math.PI*2); ctx.stroke();
+    if(isMotm){
+      ctx.shadowColor='rgba(230,193,87,.75)'; ctx.shadowBlur=14;
+      ctx.strokeStyle='#e6c157'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.arc(x,y,avSize/2,0,Math.PI*2); ctx.stroke();
+      ctx.shadowBlur=0;
+    } else {
+      const ringGrad = ctx.createLinearGradient(x-avSize/2,y-avSize/2,x+avSize/2,y+avSize/2);
+      if(p.isGK){ ringGrad.addColorStop(0,'#a86bd6'); ringGrad.addColorStop(1,'#7b3fb0'); }
+      else { ringGrad.addColorStop(0,'#e6c157'); ringGrad.addColorStop(1,'#b8860b'); }
+      ctx.strokeStyle=ringGrad; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(x,y,avSize/2,0,Math.PI*2); ctx.stroke();
+    }
     ctx.fillStyle='#fff'; ctx.strokeStyle='#1f7231'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.arc(x+avSize/2-6,y+avSize/2-6,13,0,Math.PI*2); ctx.fill(); ctx.stroke();
     ctx.fillStyle='#111'; ctx.font='900 13px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -319,6 +330,14 @@ function drawLineup(){
       ctx.beginPath(); ctx.arc(x-avSize/2+6,y+avSize/2-6,11,0,Math.PI*2); ctx.fill(); ctx.stroke();
       ctx.fillStyle='#e6c157'; ctx.font='900 11px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText('C', x-avSize/2+6, y+avSize/2-6+1); ctx.textBaseline='alphabetic';
+    }
+    if(isMotm){
+      const sx=x+avSize/2-3, sy=y-avSize/2+3;
+      const starGrad = ctx.createLinearGradient(sx-9,sy-9,sx+9,sy+9);
+      starGrad.addColorStop(0,'#e6c157'); starGrad.addColorStop(1,'#b8860b');
+      ctx.fillStyle=starGrad; ctx.strokeStyle='#1f7231'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(sx,sy,9.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      _shIconBadge(ctx,'star',sx,sy,11,'#1a1200',0);
     }
     const shortName=p.name.split(' ').slice(-1)[0];
     ctx.font='800 '+nameFS+'px Tajawal,Arial'; ctx.textAlign='center';
@@ -344,25 +363,25 @@ function drawLineup(){
     const col=i%cols, row=Math.floor(i/cols);
     const tileX=40+col*(cellW+gap), tileY=by+row*(cellH+gap);
     const cx=tileX+cellW/2;
-    ctx.fillStyle='rgba(255,255,255,.035)'; ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1;
+    ctx.fillStyle='#141824'; ctx.strokeStyle='rgba(255,255,255,.09)'; ctx.lineWidth=1;
     roundRect(ctx,tileX,tileY,cellW,cellH,12); ctx.fill(); ctx.stroke();
-    const cy=tileY+42;
-    fakeAvatar(ctx,cx,cy,46,String(p.number),'#eee');
-    ctx.strokeStyle='rgba(230,205,140,.4)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(cx,cy,23,0,Math.PI*2); ctx.stroke();
-    ctx.fillStyle='#fff'; ctx.strokeStyle='#151515'; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.arc(cx+19,cy+19,10,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle='#111'; ctx.font='900 10px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(String(p.number), cx+19, cy+20); ctx.textBaseline='alphabetic';
-    ctx.fillStyle='#ddd'; ctx.font='700 12px Tajawal,Arial'; ctx.textAlign='center';
-    ctx.fillText(p.name, cx, cy+45);
+    const cy=tileY+40;
+    fakeAvatar(ctx,cx,cy,44,String(p.number),'#eee');
+    ctx.strokeStyle='rgba(230,205,140,.4)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(cx,cy,22,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.strokeStyle='#141824'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(cx+18,cy+18,9,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#111'; ctx.font='900 9px Tajawal,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(String(p.number), cx+18, cy+19); ctx.textBaseline='alphabetic';
+    ctx.fillStyle='#eee'; ctx.font='700 12px Tajawal,Arial'; ctx.textAlign='center';
+    ctx.fillText(p.name, cx, cy+44);
     if(p.status && p.status!=='active'){
-      const statusMap={injured:{txt:'مصاب',color:'#C0392B'},suspended:{txt:'موقوف',color:_SH_GOLD},absent:{txt:'غائب',color:'#888'}};
+      const statusMap={injured:{txt:'🤕 مصاب',color:'#C0392B'},suspended:{txt:'🟨 موقوف',color:_SH_GOLD},absent:{txt:'❌ غائب',color:'#888'}};
       const st=statusMap[p.status];
       if(st){
-        ctx.font='700 9px Tajawal,Arial';
-        const stW=ctx.measureText(st.txt).width+12;
-        ctx.fillStyle=st.color+'22'; roundRect(ctx,cx-stW/2,cy+68,stW,15,5); ctx.fill();
-        ctx.fillStyle=st.color; ctx.fillText(st.txt,cx,cy+79);
+        ctx.font='700 10px Tajawal,Arial';
+        const stW=Math.min(ctx.measureText(st.txt).width+14, cellW-16);
+        ctx.fillStyle=st.color+'22'; roundRect(ctx,cx-stW/2,cy+52,stW,17,5); ctx.fill();
+        ctx.fillStyle=st.color; ctx.fillText(st.txt,cx,cy+64);
       }
     }
   });

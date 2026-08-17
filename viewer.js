@@ -1924,110 +1924,29 @@ async function _shGenLineupCanvas(lineup, team, isAway, teamId, m){
     : { boxW:56, boxH:16, sixW:28, sixH:7,  centerR:14, spot:9, nStripes:12 };  // ملعب كامل
   const pitchY = 178;
   const pitchX = 24, pitchW = W-48;
-
-  // ══════════════════════════════════════════════════════════════════════
-  // الملعب المائل — مطابق حرفياً لصفحة الجمهور:
-  // هناك، الأرضية (عشب + توهج + شرائط + كل الخطوط) هي طبقة SVG واحدة عليها
-  // transform: perspective(820px) rotateX(26deg) scale(1.015) ، بينما اللاعبون
-  // فوقها في طبقة منفصلة غير مائلة. هنا نرسم نفس الأرضية بمقاييسها الأصلية
-  // على كانفس مساعد مسطّح، ثم "نلصقها" على البطاقة عبر إسقاط منظوري حقيقي
-  // (شرائح أفقية رفيعة، كل شريحة تُعاد مطابقتها هندسياً لموضعها بعد الميلان)
-  // بدل الاكتفاء بتأثير إضاءة يوهم بالعمق فقط.
-  // ══════════════════════════════════════════════════════════════════════
-
-  // -- 1) رسم الأرضية "مسطّحة" على كانفس مساعد بنفس القيم الحقيقية تماماً --
-  const pitchSrc = document.createElement('canvas');
-  pitchSrc.width = pitchW; pitchSrc.height = pitchH;
-  const pctx = pitchSrc.getContext('2d');
+  _shRoundRect(ctx, pitchX, pitchY, pitchW, pitchH, 16);
+  ctx.save(); ctx.clip();
   // تدرّج عمودي فاتح→غامق (نفس vpGrass الحقيقي: 2e8b40 → 268038 → 1f7231)
-  const grassGrad = pctx.createLinearGradient(0, 0, 0, pitchH);
+  const grassGrad = ctx.createLinearGradient(0, pitchY, 0, pitchY+pitchH);
   grassGrad.addColorStop(0, '#2e8b40');
   grassGrad.addColorStop(0.5, '#268038');
   grassGrad.addColorStop(1, '#1f7231');
-  pctx.fillStyle = grassGrad;
-  pctx.fillRect(0, 0, pitchW, pitchH);
+  ctx.fillStyle = grassGrad;
+  ctx.fillRect(pitchX, pitchY, pitchW, pitchH);
   // توهّج شعاعي أعلى الملعب (نفس vpGlow الحقيقي)
-  const pitchGlow = pctx.createRadialGradient(pitchW/2, pitchH*0.35, 0, pitchW/2, pitchH*0.35, pitchW*0.8);
+  const pitchGlow = ctx.createRadialGradient(W/2, pitchY+pitchH*0.35, 0, W/2, pitchY+pitchH*0.35, pitchW*0.8);
   pitchGlow.addColorStop(0, 'rgba(75,179,95,.45)');
   pitchGlow.addColorStop(1, 'rgba(31,114,49,0)');
-  pctx.fillStyle = pitchGlow;
-  pctx.fillRect(0, 0, pitchW, pitchH);
-  // شرائط جزّ أفقية متناوبة — عدد الشرائط يتبع نوع الملعب (8/10/12) تماماً كصفحة الجمهور
-  const nStripes = _pitchCfg.nStripes, stripeH = (pitchH*0.94)/nStripes, stripesTop = pitchH*0.03;
-  for(let i=0;i<nStripes;i++){
-    pctx.fillStyle = i%2===0 ? 'rgba(255,255,255,0)' : 'rgba(255,255,255,.10)';
-    pctx.fillRect(0, stripesTop+i*stripeH, pitchW, stripeH);
-  }
-  // ── خطوط الملعب (نِسَب _pitchCfg الديناميكية) ──
-  const L = 'rgba(255,255,255,.78)', Lf = 'rgba(255,255,255,.55)';
-  pctx.strokeStyle=L; pctx.lineWidth=2.2;
-  _shRoundRect(pctx, pitchW*0.05, pitchH*0.03, pitchW*0.90, pitchH*0.94, 4); pctx.stroke();
-  pctx.beginPath(); pctx.moveTo(pitchW*0.05, pitchH*0.5); pctx.lineTo(pitchW*0.95, pitchH*0.5); pctx.stroke();
-  pctx.beginPath(); pctx.arc(pitchW/2, pitchH*0.5, pitchW*(_pitchCfg.centerR/100), 0, Math.PI*2); pctx.stroke();
-  pctx.fillStyle=L; pctx.beginPath(); pctx.arc(pitchW/2, pitchH*0.5, 3.2, 0, Math.PI*2); pctx.fill();
-  const boxW=pitchW*(_pitchCfg.boxW/100), boxH=pitchH*(_pitchCfg.boxH/100), sixW=pitchW*(_pitchCfg.sixW/100), sixH=pitchH*(_pitchCfg.sixH/100);
-  const boxX = pitchW/2 - boxW/2, sixX = pitchW/2 - sixW/2;
-  pctx.strokeStyle=L; pctx.lineWidth=2.2;
-  pctx.strokeRect(boxX, pitchH*0.03, boxW, boxH);
-  pctx.strokeStyle=Lf; pctx.lineWidth=1.8;
-  pctx.strokeRect(sixX, pitchH*0.03, sixW, sixH);
-  if(_pitchCfg.spot){
-    pctx.fillStyle=L; pctx.beginPath(); pctx.arc(pitchW/2, pitchH*0.03+boxH-pitchH*(_pitchCfg.spot/100), 3.2, 0, Math.PI*2); pctx.fill();
-  }
-  pctx.strokeStyle=L; pctx.lineWidth=2.2;
-  pctx.strokeRect(boxX, pitchH*0.97-boxH, boxW, boxH);
-  pctx.strokeStyle=Lf; pctx.lineWidth=1.8;
-  pctx.strokeRect(sixX, pitchH*0.97-sixH, sixW, sixH);
-  if(_pitchCfg.spot){
-    pctx.fillStyle=L; pctx.beginPath(); pctx.arc(pitchW/2, pitchH*0.97-boxH+pitchH*(_pitchCfg.spot/100), 3.2, 0, Math.PI*2); pctx.fill();
-  }
-  pctx.strokeStyle=Lf; pctx.lineWidth=1.8;
-  const cornerR = pitchW*0.02;
-  [[pitchW*0.05,pitchH*0.03],[pitchW*0.95,pitchH*0.03],
-   [pitchW*0.05,pitchH*0.97],[pitchW*0.95,pitchH*0.97]].forEach(([cx,cy],idx)=>{
-    const angles = [[0,Math.PI/2],[Math.PI/2,Math.PI],[-Math.PI/2,0],[Math.PI,Math.PI*1.5]];
-    pctx.beginPath(); pctx.arc(cx, cy, cornerR, angles[idx][0], angles[idx][1]); pctx.stroke();
-  });
-
-  // -- 2) إسقاط منظوري حقيقي (مطابق لـ CSS: perspective(820px) rotateX(26deg) scale(1.015) origin:50% 100%) --
-  const _P_THETA = 26 * Math.PI / 180;
-  const _P_SCALE = 1.015;
-  const _P_D = pitchH * 1.8; // نسبة معادلة لِـ 820px مقابل ارتفاع الملعب الفعلي في صفحة الجمهور
-  function _pProj(xPct, yPct){
-    let lx = (xPct/100 - 0.5) * pitchW;
-    let ly = (yPct/100 - 1) * pitchH;           // 0 عند الأسفل (الحارس)، -pitchH عند الأعلى (الهجوم)
-    lx *= _P_SCALE; ly *= _P_SCALE;
-    const yRot = ly * Math.cos(_P_THETA);
-    const zRot = ly * Math.sin(_P_THETA);
-    const s = _P_D / (_P_D - zRot);
-    return { x: pitchX + pitchW/2 + lx*s, y: pitchY + pitchH + yRot*s, s };
-  }
-
-  _shRoundRect(ctx, pitchX, pitchY, pitchW, pitchH, 16);
-  ctx.save(); ctx.clip();
-  // خلفية .pitch الأساسية غير المائلة (تظهر في زوايا البطاقة التي لا تغطّيها الأرضية المائلة —
-  // تماماً كما يظهر في صفحة الجمهور خلف الأرضية المائلة)
-  const baseBg = ctx.createLinearGradient(pitchX, pitchY, pitchX+pitchW*0.6, pitchY+pitchH);
-  baseBg.addColorStop(0, '#0d3d1e'); baseBg.addColorStop(0.45, '#0a3319'); baseBg.addColorStop(1, '#072712');
-  ctx.fillStyle = baseBg;
+  ctx.fillStyle = pitchGlow;
   ctx.fillRect(pitchX, pitchY, pitchW, pitchH);
-  // لصق الأرضية المسطّحة على شكل شرائح رفيعة مُسقطة بالمنظور — هذا ما يُنتج الميلان الحقيقي
-  const _STRIPS = 200;
-  for(let i=0;i<_STRIPS;i++){
-    const y0 = i/_STRIPS*pitchH, y1 = (i+1)/_STRIPS*pitchH;
-    const y0Pct = y0/pitchH*100, y1Pct = y1/pitchH*100;
-    const p0 = _pProj(0, y0Pct), p1 = _pProj(100, y0Pct), p2 = _pProj(0, y1Pct);
-    const sw = pitchW, sh = y1 - y0;
-    const a = (p1.x - p0.x)/sw, b = (p1.y - p0.y)/sw;
-    const c = (p2.x - p0.x)/sh, d = (p2.y - p0.y)/sh;
-    const e = p0.x - a*0 - c*y0, f = p0.y - b*0 - d*y0;
-    ctx.save();
-    ctx.setTransform(a, b, c, d, e, f);
-    ctx.drawImage(pitchSrc, 0, y0, sw, sh, 0, y0, sw, sh);
-    ctx.restore();
+  // شرائط جزّ أفقية متناوبة — عدد الشرائط يتبع نوع الملعب (8/10/12) تماماً كصفحة الجمهور
+  const nStripes = _pitchCfg.nStripes, stripeH = (pitchH*0.94)/nStripes, stripesTop = pitchY + pitchH*0.03;
+  for(let i=0;i<nStripes;i++){
+    ctx.fillStyle = i%2===0 ? 'rgba(255,255,255,0)' : 'rgba(255,255,255,.10)';
+    ctx.fillRect(pitchX, stripesTop+i*stripeH, pitchW, stripeH);
   }
-  // ✅ تعتيم علوي خفيف + إضاءة علوية ناعمة — طبقتان مسطّحتان فوق الأرضية المائلة
-  //    (نفس الطبقتين غير المائلتين في صفحة الجمهور، تُرسمان بلا ميلان أيضاً هناك)
+  // ✅ تعتيم علوي خفيف + إضاءة علوية ناعمة (نفس الطبقتين الإضافيتين فوق الملعب في صفحة الجمهور —
+  //    هذا هو أثر "الميلان" البصري الذي يُعطي إحساس العمق ثلاثي الأبعاد للأرضية المائلة)
   const topDark = ctx.createLinearGradient(0, pitchY, 0, pitchY+pitchH);
   topDark.addColorStop(0, 'rgba(0,0,0,.14)');
   topDark.addColorStop(0.28, 'rgba(0,0,0,0)');
@@ -2041,6 +1960,41 @@ async function _shGenLineupCanvas(lineup, team, isAway, teamId, m){
   ctx.fillStyle = topHi;
   ctx.fillRect(pitchX, pitchY, pitchW, pitchH);
   ctx.restore();
+  // ── خطوط الملعب (نِسَب _pitchCfg الديناميكية بدل الأرقام الثابتة) ──
+  const L = 'rgba(255,255,255,.78)', Lf = 'rgba(255,255,255,.55)';
+  ctx.strokeStyle=L; ctx.lineWidth=2.2;
+  // الإطار الخارجي (5% إلى 95% أفقياً، 3% إلى 97% رأسياً)
+  _shRoundRect(ctx, pitchX+pitchW*0.05, pitchY+pitchH*0.03, pitchW*0.90, pitchH*0.94, 4); ctx.stroke();
+  // خط المنتصف + دائرة المنتصف + نقطة المنتصف
+  ctx.beginPath(); ctx.moveTo(pitchX+pitchW*0.05, pitchY+pitchH*0.5); ctx.lineTo(pitchX+pitchW*0.95, pitchY+pitchH*0.5); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W/2, pitchY+pitchH*0.5, pitchW*(_pitchCfg.centerR/100), 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle=L; ctx.beginPath(); ctx.arc(W/2, pitchY+pitchH*0.5, 3.2, 0, Math.PI*2); ctx.fill();
+  // منطقة الجزاء العلوية + الصغيرة + نقطة جزاء (إن وُجدت لهذا النوع من الملاعب)
+  const boxW=pitchW*(_pitchCfg.boxW/100), boxH=pitchH*(_pitchCfg.boxH/100), sixW=pitchW*(_pitchCfg.sixW/100), sixH=pitchH*(_pitchCfg.sixH/100);
+  const boxX = W/2 - boxW/2, sixX = W/2 - sixW/2;
+  ctx.strokeStyle=L; ctx.lineWidth=2.2;
+  ctx.strokeRect(boxX, pitchY+pitchH*0.03, boxW, boxH);
+  ctx.strokeStyle=Lf; ctx.lineWidth=1.8;
+  ctx.strokeRect(sixX, pitchY+pitchH*0.03, sixW, sixH);
+  if(_pitchCfg.spot){
+    ctx.fillStyle=L; ctx.beginPath(); ctx.arc(W/2, pitchY+pitchH*0.03+boxH-pitchH*(_pitchCfg.spot/100), 3.2, 0, Math.PI*2); ctx.fill();
+  }
+  // منطقة الجزاء السفلية (نفس الأبعاد، معكوسة)
+  ctx.strokeStyle=L; ctx.lineWidth=2.2;
+  ctx.strokeRect(boxX, pitchY+pitchH*0.97-boxH, boxW, boxH);
+  ctx.strokeStyle=Lf; ctx.lineWidth=1.8;
+  ctx.strokeRect(sixX, pitchY+pitchH*0.97-sixH, sixW, sixH);
+  if(_pitchCfg.spot){
+    ctx.fillStyle=L; ctx.beginPath(); ctx.arc(W/2, pitchY+pitchH*0.97-boxH+pitchH*(_pitchCfg.spot/100), 3.2, 0, Math.PI*2); ctx.fill();
+  }
+  // أقواس الأركان الأربعة (نصف قطر متناسب مع أبعاد الملعب — نفس نسبة 2% في SVG الأصلي)
+  ctx.strokeStyle=Lf; ctx.lineWidth=1.8;
+  const cornerR = pitchW*0.02;
+  [[pitchX+pitchW*0.05,pitchY+pitchH*0.03],[pitchX+pitchW*0.95,pitchY+pitchH*0.03],
+   [pitchX+pitchW*0.05,pitchY+pitchH*0.97],[pitchX+pitchW*0.95,pitchY+pitchH*0.97]].forEach(([cx,cy],idx)=>{
+    const angles = [[0,Math.PI/2],[Math.PI/2,Math.PI],[-Math.PI/2,0],[Math.PI,Math.PI*1.5]];
+    ctx.beginPath(); ctx.arc(cx, cy, cornerR, angles[idx][0], angles[idx][1]); ctx.stroke();
+  });
 
   // ── رسم اللاعبين — مطابقة حرفية لتصميم الجمهور الحقيقي (تدرّج حلقة، شارة رقم بيضاء بحدّ أخضر، نجمة MOTM) ──
   // ✅ نفس تدرّج الأحجام الأربعة المستخدم في صفحة الجمهور (56/50/46/42px) مُكبَّراً بنفس النسبة لحجم البطاقة

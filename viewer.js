@@ -4424,13 +4424,7 @@ function renderStats() {
   // زر مشاركة الإحصائيات كاملة (هدّافون + صنّاع + بطاقات في بطاقة واحدة)
   const fullShBtn = document.getElementById('shStatsFullBtn');
   if (fullShBtn) fullShBtn.innerHTML = scorers.length ? _shButton('_shShareFullStats()', 'مشاركة الإحصائيات') : '';
-  // زر مشاركة صفحة الإحصائيات كاملة (هدّافون + صنّاع + بطاقات) بنفس ترتيب الصفحة
-  const fullShBtn = document.getElementById('shStatsFullBtn');
-  if (fullShBtn) {
-    const hasAny = scorers.length || (window.StatsCore && (window.StatsCore.buildYellows({matches:matches||[],teams:teams||[],rosters:_rosters}).length || window.StatsCore.buildReds({matches:matches||[],teams:teams||[],rosters:_rosters}).length));
-    fullShBtn.innerHTML = hasAny ? _shButton('_shShareFullStats()', 'مشاركة الإحصائيات') : '';
-  }
-
+  
   // 2) الصنّاع — لا يظهر إلا إذا فعّله المنظّم
   const assistsBlock = document.getElementById('stb-assists');
   const showAssists = opts.showAssists === true;

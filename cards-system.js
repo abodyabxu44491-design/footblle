@@ -928,31 +928,34 @@
       const drawScorerCol = (list, cx0) => {
         let yy = listY;
         if (!list.length) { drawText(ctx, '—', cx0, yy, '400 17px Tajawal,Arial', '#666', 'center'); return yy + lh; }
-        list.slice(0,8).forEach(s => {
-          // فصل الاسم عن الدقيقة: «سالم 12» أو «سالم 12'»
+        // ✅ تجميع الأهداف حسب اسم اللاعب — الاسم يظهر مرة واحدة فقط، وبجانبه
+        //    كرة ⚽ لكل هدف سجّله (ثنائية = كرتان، هاتريك = ثلاث...) بدل تكرار
+        //    اسمه مرة لكل هدف مع دقيقته
+        const grouped = [];
+        list.forEach(s => {
           const mt = s.match(/^(.*?)[\s\u00A0]*(\d+\+?\d*)'?\s*$/);
-          const nm  = mt ? mt[1].trim() : s;
-          const min = mt ? mt[2] : '';
-          ctx.textAlign = 'center';
+          const nm = (mt ? mt[1] : s).trim();
+          if (!nm) return;
+          const found = grouped.find(g => g.name === nm);
+          if (found) found.count++; else grouped.push({ name: nm, count: 1 });
+        });
+        grouped.slice(0,8).forEach(g => {
+          const balls = '⚽'.repeat(Math.min(g.count, 6)); // سقف بصري احترازي
           // الاسم
           ctx.font = '700 19px Tajawal,Arial'; ctx.fillStyle = '#eee';
-          const nmFit = fitName(ctx, nm, 200);
+          const nmFit = fitName(ctx, g.name, 200);
           const nmW = ctx.measureText(nmFit).width;
-          if (min) {
-            // شارة دقيقة ذهبية يسار الاسم
-            ctx.font = '800 14px Tajawal,Arial';
-            const minTxt = min + "'";
-            const minW = ctx.measureText(minTxt).width + 14;
-            const total = nmW + 8 + minW;
+          if (balls) {
+            ctx.font = '15px Arial';
+            const ballsW = ctx.measureText(balls).width;
+            const total = nmW + 8 + ballsW;
             const startX = cx0 + total/2;
             ctx.textAlign = 'right'; ctx.font = '700 19px Tajawal,Arial'; ctx.fillStyle = '#eee';
             ctx.fillText(nmFit, startX, yy);
-            const bx = startX - nmW - 8 - minW;
-            ctx.fillStyle = `rgba(${rgb},0.16)`;
-            roundRect(ctx, bx, yy-15, minW, 24, 7); ctx.fill();
-            ctx.textAlign = 'center'; ctx.font = '800 14px Tajawal,Arial'; ctx.fillStyle = accent;
-            ctx.fillText(minTxt, bx + minW/2, yy+1);
+            ctx.textAlign = 'left'; ctx.font = '15px Arial'; ctx.fillStyle = '#eee';
+            ctx.fillText(balls, startX - nmW - 8, yy+1);
           } else {
+            ctx.textAlign = 'center';
             ctx.fillText(nmFit, cx0, yy);
           }
           yy += lh;

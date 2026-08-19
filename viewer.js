@@ -1599,15 +1599,19 @@ async function _shGenGroupCanvas(d){
   _shBg(ctx, W, H);
   _shHeader(ctx, W, 'المجموعة ' + (d.name||''), _shLeagueName(), 'users');
 
+  // مواقع ثابتة (يمين→يسار) مطابقة تماماً لترتيب صفحة الجمهور:
+  // # ، الفريق (شعار ثم اسم ملاصق له) ، ل ، ف ، ت ، خ ، ± ، ن
+  const posX = 1000;              // رقم الترتيب
+  const avSize = 44;
+  const logoX = 895;               // بداية شعار الفريق
+  const nameRightX = logoX - 16;   // اسم الفريق يبدأ هنا ملاصقاً للشعار ويمتد يساراً
+  const nameMinX = 420;            // أقصى امتداد يساري مسموح للاسم (يحمي أعمدة الإحصائيات)
+  const cols = [['ل',370],['ف',310],['ت',250],['خ',190],['±',130],['ن',70]];
+
   // رأس الأعمدة
   let y = headerH;
   ctx.textAlign='center'; ctx.font='700 13px Tajawal,Arial'; ctx.fillStyle='#666';
-  ctx.fillText('#', 80, y);
-  ctx.fillText('ل', W-330, y);
-  ctx.fillText('ف', W-260, y);
-  ctx.fillText('ت', W-200, y);
-  ctx.fillText('خ', W-140, y);
-  ctx.fillText('ن', W-70, y);
+  cols.forEach(([label,x]) => ctx.fillText(label, x, y));
   y += 26;
   ctx.strokeStyle='rgba(255,255,255,.1)'; ctx.lineWidth=1;
   ctx.beginPath(); ctx.moveTo(40,y); ctx.lineTo(W-40,y); ctx.stroke();
@@ -1616,40 +1620,57 @@ async function _shGenGroupCanvas(d){
   for(let i=0;i<d.sorted.length;i++){
     const t = d.sorted[i];
     const s = d.gs[t.id]||{};
+    const gd = (s.gf||0)-(s.ga||0);
     const isQ = d.showBadges && d.manualQ.has(t.id);
     const isE = d.showBadges && d.manualE.has(t.id);
     const rowY = y + rowH/2 - 14;
     if(isQ){ ctx.fillStyle='rgba(39,174,96,.08)'; ctx.fillRect(40,y,W-80,rowH-8); }
     else if(isE){ ctx.fillStyle='rgba(214,69,65,.06)'; ctx.fillRect(40,y,W-80,rowH-8); }
     else if(i%2===0){ ctx.fillStyle='rgba(255,255,255,.02)'; ctx.fillRect(40,y,W-80,rowH-8); }
-    // رقم الترتيب
+
+    // رقم الترتيب — أقصى اليمين
     ctx.textAlign='center'; ctx.font='900 20px Tajawal,Arial';
     ctx.fillStyle = isQ?'#27ae60':isE?'#d64541':'#888';
-    ctx.fillText(String(i+1), 80, rowY+24);
-    // شعار + اسم الفريق
+    ctx.fillText(String(i+1), posX, rowY+24);
+
+    // شعار الفريق — ملاصق لرقم الترتيب
     const logoImg = await _shLoadImg(t.logo);
-    const lx = 130, avSize=44;
     if(logoImg){
-      ctx.save(); ctx.beginPath(); ctx.arc(lx+avSize/2, rowY+18, avSize/2, 0, Math.PI*2); ctx.clip();
-      _shDrawImgCover(ctx, logoImg, lx, rowY-4, avSize); ctx.restore();
+      ctx.save(); ctx.beginPath(); ctx.arc(logoX+avSize/2, rowY+18, avSize/2, 0, Math.PI*2); ctx.clip();
+      _shDrawImgCover(ctx, logoImg, logoX, rowY-4, avSize); ctx.restore();
     }
+
+    // شارة تأهل/إخراج — تُحجز مساحتها أولاً (تظهر يسار الاسم، كما في صفحة الجمهور)
+    const badgeReserve = (isQ || isE) ? 38 : 0;
+
+    // اسم الفريق — ملاصق للشعار مباشرة (بلا فراغ)، يمتد يساراً مع تقليم تلقائي عند الازدحام
+    const maxNameW = Math.max(60, nameRightX - badgeReserve - nameMinX);
     ctx.textAlign='right'; ctx.font='800 21px Tajawal,Arial'; ctx.fillStyle='#fff';
-    ctx.fillText(t.name, W-360, rowY+26);
-    // شارة تأهل/إخراج SVG-like (دائرة صغيرة + علامة)
-    if(isQ || isE){
-      const bx = W-360 - ctx.measureText(t.name).width - 34;
+    let dispName = t.name || '';
+    if (ctx.measureText(dispName).width > maxNameW) {
+      while (dispName.length > 1 && ctx.measureText(dispName + '…').width > maxNameW) dispName = dispName.slice(0, -1);
+      dispName += '…';
+    }
+    ctx.fillText(dispName, nameRightX, rowY+26);
+
+    // شارة تأهل/إخراج — يسار الاسم مباشرة
+    if (isQ || isE) {
+      const nameW = ctx.measureText(dispName).width;
+      const bx = nameRightX - nameW - 8 - 30;
       const bColor = isQ ? '#27ae60' : '#d64541';
       ctx.fillStyle = isQ ? 'rgba(39,174,96,.18)' : 'rgba(214,69,65,.18)';
-      _shRoundRect(ctx, bx-6, rowY+2, 30, 26, 8); ctx.fill();
-      _shIconBadge(ctx, isQ?'check':'cross', bx+9, rowY+15, 15, bColor, 0);
+      _shRoundRect(ctx, bx, rowY+2, 30, 26, 8); ctx.fill();
+      _shIconBadge(ctx, isQ?'check':'cross', bx+15, rowY+15, 15, bColor, 0);
     }
-    // الأعمدة الرقمية
+
+    // الأعمدة الرقمية — نفس ترتيب الرأس (ل، ف، ت، خ، ±، ن) يساراً
     ctx.textAlign='center'; ctx.font='700 17px Tajawal,Arial'; ctx.fillStyle='#ccc';
-    ctx.fillText(String(s.p||0), W-330, rowY+24);
-    ctx.fillStyle='#27ae60'; ctx.fillText(String(s.w||0), W-260, rowY+24);
-    ctx.fillStyle='#ccc'; ctx.fillText(String(s.d||0), W-200, rowY+24);
-    ctx.fillStyle='#d64541'; ctx.fillText(String(s.l||0), W-140, rowY+24);
-    ctx.fillStyle=_SH_GOLD; ctx.font='900 22px Tajawal,Arial'; ctx.fillText(String(s.pts||0), W-70, rowY+24);
+    ctx.fillText(String(s.p||0), cols[0][1], rowY+24);
+    ctx.fillStyle='#27ae60'; ctx.fillText(String(s.w||0), cols[1][1], rowY+24);
+    ctx.fillStyle='#ccc'; ctx.fillText(String(s.d||0), cols[2][1], rowY+24);
+    ctx.fillStyle='#d64541'; ctx.fillText(String(s.l||0), cols[3][1], rowY+24);
+    ctx.fillStyle = gd>0?'#27ae60':gd<0?'#d64541':'#999'; ctx.fillText(gd>0?'+'+gd:String(gd), cols[4][1], rowY+24);
+    ctx.fillStyle=_SH_GOLD; ctx.font='900 22px Tajawal,Arial'; ctx.fillText(String(s.pts||0), cols[5][1], rowY+24);
     y += rowH;
   }
 
@@ -1883,35 +1904,6 @@ async function _shGenScorersCanvas(data){
   return canvas;
 }
 
-// ── مشاركة الإحصائيات كاملة (هدّافون + صنّاع + بطاقات صفراء/حمراء) — بنفس ترتيب صفحة الإحصائيات ──
-window._shShareFullStats = async function(){
-  if(window.showToast) window.showToast('جارِ تجهيز الصورة…', 'success');
-  try{
-    const opts = (typeof _displayOpts === 'function') ? _displayOpts() : {};
-    (teams || []).forEach(t => { if (t && t.id) _ensureRosterLoaded(t.id); });
-    const rosters = (typeof _collectScorerRosters === 'function') ? _collectScorerRosters() : {};
-    const scorers = (typeof buildScorersData === 'function' ? buildScorersData() : []).slice(0,5);
-    let assists = [];
-    if(opts.showAssists === true && window.StatsCore){
-      assists = window.StatsCore.buildAssists({ matches: matches||[], teams: teams||[], rosters }).slice(0,5);
-    }
-    let yellows = [], reds = [];
-    if(window.StatsCore){
-      yellows = window.StatsCore.buildYellows({ matches: matches||[], teams: teams||[], rosters }).slice(0,5);
-      reds    = window.StatsCore.buildReds({ matches: matches||[], teams: teams||[], rosters }).slice(0,5);
-    }
-    if(!scorers.length && !assists.length && !yellows.length && !reds.length){
-      if(window.showToast) window.showToast('لا توجد إحصائيات بعد', 'error'); return;
-    }
-    const canvas = await _shGenFullStatsCanvas({ scorers, assists, yellows, reds });
-    const lines = ['📊 *إحصائيات البطولة*', ''];
-    if(scorers[0]) lines.push('🥇 الهدّاف: ' + scorers[0].name + ' — ' + scorers[0].goals + ' هدف');
-    if(assists[0]) lines.push('👟 الصانع: ' + assists[0].name + ' — ' + assists[0].count + ' صناعة');
-    const text = _shBuildText('stats', lines);
-    _shShareCanvas(canvas, text, 'tournament-stats');
-  }catch(e){ console.warn('_shShareFullStats', e); if(window.showToast) window.showToast('تعذّرت مشاركة الإحصائيات', 'error'); }
-};
-
 function _shTrim(str, max){ str = str||''; return str.length>max ? str.slice(0,max-1)+'…' : str; }
 
 // ── مشاركة إحصائية مباراة واحدة (استحواذ/تسديدات/ركنيات...) كصورة ──
@@ -1985,7 +1977,11 @@ async function _shGenMatchStatsCanvas(statsData, ht, at, m){
 
   const hasScore = m && m.homeScore!=null && m.awayScore!=null;
   ctx.font='900 44px Tajawal,Arial'; ctx.fillStyle=_SH_GOLD;
-  ctx.fillText(hasScore ? `${m.homeScore} - ${m.awayScore}` : 'vs', W/2, cyLogo+14);
+  // ⚠️ الشعار المضيف يمين والضيف يسار، لكن نص الكانفس يُرسم LTR دائماً بغضّ النظر
+  // عن اتجاه الصفحة — فلو كتبنا "homeScore - awayScore" يطلع رقم المضيف يسار
+  // ورقم الضيف يمين، أي عكس موقع الشعارين تماماً (يبان الخاسر كأنه الفايز).
+  // نكتب رقم الضيف أولاً (يسار) ثم المضيف (يمين) ليطابق موضع الشعارين فعلياً.
+  ctx.fillText(hasScore ? `${m.awayScore} - ${m.homeScore}` : 'vs', W/2, cyLogo+14);
   ctx.font='700 13px Tajawal,Arial'; ctx.fillStyle='#888';
   ctx.fillText('📊 إحصائية المباراة', W/2, cyLogo+rLogo+34);
 
@@ -2693,7 +2689,7 @@ function renderKnockoutBracket() {
     }
     window._shBracketData = { rounds: resolvedRounds, thirdRound };
     const bShBtn1 = document.getElementById('shBracketBtn');
-    if (bShBtn1) bShBtn1.innerHTML = resolvedRounds.some(r=>r.matchesWithSlot.length) ? _shButton('_shShareBracket()', 'مشاركة الشجرة') : '';
+    if (bShBtn1) bShBtn1.innerHTML = resolvedRounds.length ? _shButton('_shShareBracket()', 'مشاركة الشجرة') : '';
   } else {
     // fallback: بناء من matches العادية (لا توجد بنية knockoutRounds محفوظة أصلاً)
     const roundGroups = {};
@@ -2717,15 +2713,18 @@ function renderKnockoutBracket() {
   }
 }
 
-// ── مشاركة شجرة البطولة — كل الأدوار مرتّبة عمودياً بنفس هوية بطاقات المشاركة ──
+// ── مشاركة شجرة البطولة — نفس تصميم صفحة الجمهور بالضبط (شجرة عمودية يسار/يمين
+//    تتلاقى بالنهائي لو كانت "شجرة نظيفة"، وإلا قائمة أدوار كصفحة الجمهور) ──
 window._shShareBracket = async function(){
   const d = window._shBracketData;
-  if(!d || !d.rounds || !d.rounds.length || !d.rounds.some(r=>r.matchesWithSlot.length)){
+  if(!d || !d.rounds || !d.rounds.length){
     if(window.showToast) window.showToast('لا توجد شجرة بعد', 'error'); return;
   }
   if(window.showToast) window.showToast('جارِ تجهيز الصورة…', 'success');
   try{
-    const canvas = await _shGenBracketCanvas(d.rounds, d.thirdRound);
+    const canvas = isCleanBracket(d.rounds)
+      ? await _shGenBracketTreeCanvas(d.rounds, d.thirdRound)
+      : await _shGenBracketCanvas(d.rounds, d.thirdRound);
     const lines = ['🌳 *شجرة البطولة*', ''];
     const finalRound = d.rounds[d.rounds.length-1];
     const finalMatch = finalRound && finalRound.matchesWithSlot[0] && finalRound.matchesWithSlot[0].m;
@@ -2798,6 +2797,142 @@ async function _shGenBracketCanvas(rounds, thirdRound){
     }
     y += roundGap - matchGap;
   }
+  _shFooter(ctx, W, H);
+  return canvas;
+}
+
+// ── صندوق مباراة واحد داخل شجرة البطولة (يطابق تصميم btMatchBox في صفحة الجمهور) ──
+function _btBoxCanvas(ctx, m, x, y, w, h, isFinal){
+  const hasHome = m && (m.homeId || m.homeName);
+  const hasAway = m && (m.awayId || m.awayName);
+  ctx.fillStyle = isFinal ? 'rgba(201,160,43,.08)' : 'rgba(255,255,255,.03)';
+  _shRoundRect(ctx,x,y,w,h,10); ctx.fill();
+  ctx.strokeStyle = isFinal ? 'rgba(201,160,43,.5)' : 'rgba(255,255,255,.08)';
+  ctx.lineWidth = isFinal?2:1;
+  _shRoundRect(ctx,x,y,w,h,10); ctx.stroke();
+  const rowH2 = h/2;
+  if(!hasHome && !hasAway){
+    ctx.textAlign='center'; ctx.fillStyle='#555'; ctx.font=`700 ${isFinal?17:13}px Tajawal,Arial`;
+    ctx.fillText('TBD', x+w/2, y+rowH2/2+5);
+    ctx.fillText('TBD', x+w/2, y+rowH2+rowH2/2+5);
+    ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x+10,y+rowH2); ctx.lineTo(x+w-10,y+rowH2); ctx.stroke();
+    return;
+  }
+  const teamsArr = window.teams || [];
+  const ht = m.homeId ? (teamsArr.find(t=>t.id===m.homeId)||{name:m.homeName||'TBD',logo:''}) : {name:m.homeName||'TBD',logo:''};
+  const at = m.awayId ? (teamsArr.find(t=>t.id===m.awayId)||{name:m.awayName||'TBD',logo:''}) : {name:m.awayName||'TBD',logo:''};
+  const isFin = m.status === 'finished', isLive = m.status === 'live';
+  const _ps = _penScore(m);
+  const hw = isFin && (_ps ? _ps.h > _ps.a : (m.homeScore??0) > (m.awayScore??0));
+  const aw = isFin && (_ps ? _ps.a > _ps.h : (m.awayScore??0) > (m.homeScore??0));
+  const rows = [
+    {team:ht, win:hw, score: isFin||isLive ? (m.homeScore??0) : null, pen: isFin&&_ps ? _ps.h : null},
+    {team:at, win:aw, score: isFin||isLive ? (m.awayScore??0) : null, pen: isFin&&_ps ? _ps.a : null},
+  ];
+  const nameFS = isFinal?17:13, scoreFS = isFinal?19:14;
+  for(let ri=0; ri<2; ri++){
+    const rw = rows[ri];
+    const cy = y + rowH2*ri + rowH2/2;
+    ctx.textAlign='right'; ctx.font = (rw.win?'800 ':'600 ')+nameFS+'px Tajawal,Arial';
+    ctx.fillStyle = rw.win ? '#fff' : '#999';
+    ctx.fillText(_shTrim(rw.team.name||'TBD', isFinal?16:12), x+w-14, cy+5);
+    ctx.textAlign='left'; ctx.font='900 '+scoreFS+'px Tajawal,Arial';
+    ctx.fillStyle = rw.win ? _SH_GOLD : '#777';
+    ctx.fillText(rw.score!=null ? String(rw.score)+(rw.pen!=null?' ('+rw.pen+')':'') : (isLive?'—':''), x+14, cy+5);
+  }
+  ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(x+10,y+rowH2); ctx.lineTo(x+w-10,y+rowH2); ctx.stroke();
+  if(isLive){ ctx.fillStyle='#e5533d'; ctx.beginPath(); ctx.arc(x+16,y+14,5,0,Math.PI*2); ctx.fill(); }
+}
+
+// ── شجرة البطولة العمودية بنفس بنية buildVerticalBracketHTML بالضبط: كل دور تمهيدي
+//    ينقسم لمسارين (يمين/يسار) يتلاقيان بسهم لأسفل، وينتهيان بصندوق النهائي +
+//    تتويج البطل (لو انتهت) + مباراة تحديد المركز الثالث (لو موجودة) ──
+async function _shGenBracketTreeCanvas(rounds, thirdRound){
+  const W = 1080;
+  const finalRound = rounds[rounds.length-1];
+  const pre = rounds.slice(0,-1);
+  const headerH = 140, roundLabelH = 46, matchH = 96, matchGap = 16, arrowH = 40;
+  const colGap = 40, sideMargin = 40, vsGap = 70;
+  const colW = (W - sideMargin*2 - vsGap) / 2;
+
+  const roundMeta = pre.map(r=>{
+    const arr = buildSlotArr(r);
+    const half = r.slots/2;
+    const leftSlots = arr.slice(0,half), rightSlots = arr.slice(half);
+    const n = Math.max(leftSlots.length, rightSlots.length, 1);
+    const colH = n*matchH + (n-1)*matchGap;
+    return { leftSlots, rightSlots, n, colH };
+  });
+
+  const finalMatch = (finalRound.matchesWithSlot[0] || {}).m || null;
+  const isFinDone = finalMatch && finalMatch.status === 'finished';
+  const finalBoxW = 560, finalBoxH = 130;
+
+  let H = headerH;
+  roundMeta.forEach(rm => { H += roundLabelH + rm.colH + arrowH; });
+  H += roundLabelH + finalBoxH + 30;
+  if(isFinDone) H += 130;
+  if(thirdRound) H += 150;
+  H += 90;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  _shBg(ctx, W, H);
+  _shHeader(ctx, W, 'شجرة البطولة', _shLeagueName(), 'trophy');
+
+  let y = headerH;
+  const leftX = sideMargin, rightX = W-sideMargin-colW;
+  pre.forEach((r, ridx)=>{
+    const rm = roundMeta[ridx];
+    ctx.textAlign='center'; ctx.fillStyle='#ccc'; ctx.font='900 16px Tajawal,Arial';
+    ctx.fillText(r.name||'', W/2, y+22);
+    y += roundLabelH;
+    rm.leftSlots.forEach((m,i)=> _btBoxCanvas(ctx, m, leftX, y+i*(matchH+matchGap), colW, matchH, false));
+    rm.rightSlots.forEach((m,i)=> _btBoxCanvas(ctx, m, rightX, y+i*(matchH+matchGap), colW, matchH, false));
+    ctx.textAlign='center'; ctx.fillStyle='rgba(201,160,43,.55)'; ctx.font='22px Tajawal,Arial';
+    ctx.fillText('⚔', W/2, y+rm.colH/2+8);
+    y += rm.colH;
+    ctx.fillStyle='rgba(201,160,43,.65)'; ctx.font='22px Tajawal,Arial'; ctx.textAlign='center';
+    ctx.fillText('⬇', W/2, y+arrowH*0.7);
+    y += arrowH;
+  });
+
+  ctx.textAlign='center'; ctx.fillStyle=_SH_GOLD; ctx.font='900 18px Tajawal,Arial';
+  ctx.fillText(finalRound.name||'', W/2, y+22);
+  y += roundLabelH;
+  _btBoxCanvas(ctx, finalMatch, W/2-finalBoxW/2, y, finalBoxW, finalBoxH, true);
+  y += finalBoxH + 30;
+
+  if(isFinDone){
+    const _ps = _penScore(finalMatch);
+    const hw = _ps ? _ps.h>_ps.a : (finalMatch.homeScore??0) > (finalMatch.awayScore??0);
+    const teamsArr = window.teams || [];
+    const champ = hw
+      ? (finalMatch.homeName || (teamsArr.find(t=>t.id===finalMatch.homeId)||{}).name)
+      : (finalMatch.awayName || (teamsArr.find(t=>t.id===finalMatch.awayId)||{}).name);
+    if(champ){
+      ctx.textAlign='center';
+      ctx.font='40px Tajawal,Arial'; ctx.fillText('🏆', W/2, y+40);
+      ctx.font='900 26px Tajawal,Arial'; ctx.fillStyle=_SH_GOLD;
+      ctx.fillText(champ, W/2, y+78);
+      ctx.font='700 14px Tajawal,Arial'; ctx.fillStyle='#999';
+      ctx.fillText('بطل البطولة', W/2, y+104);
+      y += 130;
+    }
+  }
+
+  if(thirdRound){
+    const m3 = (thirdRound.matchesWithSlot[0] || {}).m || null;
+    ctx.textAlign='center'; ctx.fillStyle='#cc8888'; ctx.font='800 15px Tajawal,Arial';
+    ctx.fillText('🥉 ' + (thirdRound.name||''), W/2, y+20);
+    y += 30;
+    _btBoxCanvas(ctx, m3, W/2-260, y, 520, 96, false);
+    y += 96 + 20;
+  }
+
   _shFooter(ctx, W, H);
   return canvas;
 }
@@ -4421,10 +4556,7 @@ function renderStats() {
   // زر مشاركة جدول الهدّافين (أعلى 5 دائماً، بغض النظر عن حالة «عرض المزيد»)
   const scShBtn = document.getElementById('shStatsScorersBtn');
   if (scShBtn) scShBtn.innerHTML = scorers.length ? _shButton('_shShareTopScorers()', 'مشاركة الهدّافين') : '';
-  // زر مشاركة الإحصائيات كاملة (هدّافون + صنّاع + بطاقات في بطاقة واحدة)
-  const fullShBtn = document.getElementById('shStatsFullBtn');
-  if (fullShBtn) fullShBtn.innerHTML = scorers.length ? _shButton('_shShareFullStats()', 'مشاركة الإحصائيات') : '';
-  
+
   // 2) الصنّاع — لا يظهر إلا إذا فعّله المنظّم
   const assistsBlock = document.getElementById('stb-assists');
   const showAssists = opts.showAssists === true;

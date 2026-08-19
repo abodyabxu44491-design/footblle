@@ -9275,6 +9275,33 @@ function renderKnockoutAdmin() {
       </div>
     </div>`;
 
+  // ── تفعيل مباراة تحديد المركز الثالث ──────────────────────────
+  // عند التفعيل: بمجرد انتهاء أي مباراة نصف نهائي (الدور قبل الأخير)، يتقدّم
+  // الخاسر تلقائياً لمباراة المركز الثالث بينما يتقدّم الفائز للنهائي كالمعتاد.
+  // تُنشأ مباراة المركز الثالث تلقائياً وتظهر للجمهور بمجرد اكتمالها (بشرط نشر الشجرة).
+  const thirdOn = settings.thirdPlaceEnabled === true;
+  const thirdPlaceBar = `
+    <div style="margin-bottom:14px;padding:12px 14px;
+      background:${thirdOn ? 'rgba(168,85,247,.07)' : 'var(--card2)'};
+      border:1px solid ${thirdOn ? 'rgba(168,85,247,.3)' : 'var(--border2)'};
+      border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:${thirdOn ? '#c084fc' : 'var(--text)'}">
+          🥉 مباراة تحديد المركز الثالث
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">
+          ${thirdOn ? 'مفعّلة — خاسرا نصف النهائي يتأهلان لها تلقائياً' : 'عند التفعيل: خاسرا نصف النهائي يتأهلان لها تلقائياً بدل الخروج'}
+        </div>
+      </div>
+      <button onclick="toggleThirdPlace()"
+        style="padding:8px 16px;border-radius:9px;font-family:Tajawal,sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;
+        border:1px solid ${thirdOn ? 'rgba(168,85,247,.4)' : 'var(--border2)'};
+        background:${thirdOn ? 'rgba(168,85,247,.15)' : 'transparent'};
+        color:${thirdOn ? '#c084fc' : 'var(--muted)'}">
+        ${thirdOn ? '✓ مفعّلة' : 'تفعيل'}
+      </button>
+    </div>`;
+
   // ── مجمّع الفرق المتأهلة المتاحة (للتذكير فوق الشجرة) ──
   const placed = _getPlacedKnockoutTeamIds();
   const availablePool = _getQualifiedPool().filter(t => !placed.has(t.id));
@@ -9342,7 +9369,7 @@ function renderKnockoutAdmin() {
     `;
   }).join('');
 
-  el.innerHTML = publishBar + poolBar + `<div class="ab-tree">${treeHtml}</div>`;
+  el.innerHTML = publishBar + thirdPlaceBar + poolBar + `<div class="ab-tree">${treeHtml}</div>`;
 }
 
 // ── صندوق مباراة واحد في الشجرة التفاعلية ──
@@ -9553,6 +9580,92 @@ window.adminResetBracket = async function() {
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
+// ── تفعيل/تعطيل مباراة تحديد المركز الثالث ──────────────────────
+window.toggleThirdPlace = async function() {
+  const next = !(settings.thirdPlaceEnabled === true);
+  try {
+    await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'),
+      { thirdPlaceEnabled: next, updatedAt: serverTimestamp() }, { merge: true });
+    settings.thirdPlaceEnabled = next;
+    if (next) await _ensureThirdPlaceRound();
+    showToast(next
+      ? '✅︎ تفعيل مباراة تحديد المركز الثالث — ستُملأ تلقائياً بخاسرَي نصف النهائي'
+      : '🔒 تم إيقاف مباراة تحديد المركز الثالث (المباراة الحالية إن وُجدت تبقى كما هي)', 'success');
+    renderKnockoutAdmin();
+  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
+// دور "مباراة تحديد المركز الثالث" — نتعرّف عليه بعلامة isThirdPlace أو باحتواء
+// الاسم على كلمة "ثالث" (لدعم الأدوار المُنشأة يدوياً قديماً عبر نافذة "إضافة دور")
+function _isThirdPlaceRound(r) { return !!(r && (r.isThirdPlace || /ثالث/.test(r.name || ''))); }
+
+// ينشئ دور "مباراة تحديد المركز الثالث" إن لم يكن موجوداً — مباراة واحدة فارغة
+// بانتظار خاسرَي نصف النهائي، بمعزل تام عن التسلسل الأساسي لأدوار الشجرة
+async function _ensureThirdPlaceRound() {
+  const existing = adminKnockoutRounds.find(_isThirdPlaceRound);
+  if (existing) return existing;
+  const mainRounds = [...adminKnockoutRounds].filter(r => !_isThirdPlaceRound(r)).sort((a,b)=>(a.order??0)-(b.order??0));
+  const finalRound = mainRounds[mainRounds.length - 1];
+  const ref = doc(collection(db, 'leagues', LEAGUE_ID, 'knockoutRounds'));
+  const data = {
+    name: 'مباراة تحديد المركز الثالث',
+    order: (finalRound ? (finalRound.order ?? 0) : 0) + 0.5,
+    slots: 1,
+    isThirdPlace: true,
+    matchIds: [],
+    createdAt: serverTimestamp(),
+  };
+  await setDoc(ref, data);
+  const created = { id: ref.id, ...data };
+  adminKnockoutRounds.push(created);
+  return created;
+}
+
+// يُقدّم خاسر نصف النهائي تلقائياً لمباراة تحديد المركز الثالث (لا يُستدعى إلا إذا
+// كانت مفعّلة من الإعدادات — انظر استدعاءها داخل _autoAdvanceWinner)
+async function _advanceLoserToThirdPlace(curMatch, loserId, loserName, loserLogo) {
+  if (!loserId) return;
+  const round = await _ensureThirdPlaceRound();
+  const isHome = (curMatch.knockoutSlot ?? 0) % 2 === 0;
+  const existingIds = round.matchIds || [];
+
+  for (const mid of existingIds) {
+    const nm = matches.find(m => m.id === mid);
+    if (!nm) continue;
+    const updateData = isHome
+      ? { homeId: loserId, homeName: loserName, homeLogo: loserLogo }
+      : { awayId: loserId, awayName: loserName, awayLogo: loserLogo };
+    try { await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', mid), updateData); }
+    catch(e) { console.warn('advanceLoserToThirdPlace:', e.message); }
+    return;
+  }
+
+  // لا مباراة بعد → أنشئها (معلّقة حتى يكتمل الخاسر الثاني أو يضيف المنظم التفاصيل)
+  const matchRef = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
+  await setDoc(matchRef, _lightMatch({
+    homeId:   isHome ? loserId   : '',
+    homeName: isHome ? loserName : 'TBD',
+    homeLogo: isHome ? loserLogo : '',
+    awayId:   isHome ? ''        : loserId,
+    awayName: isHome ? 'TBD'     : loserName,
+    awayLogo: isHome ? ''        : loserLogo,
+    status: 'pending', homeScore: null, awayScore: null,
+    homeScorers: '', awayScorers: '',
+    date: null, time: null, venue: null,
+    round: round.order ?? 0,
+    knockoutRoundId:   round.id,
+    knockoutRoundName: round.name || 'مباراة تحديد المركز الثالث',
+    knockoutSlot:      0,
+    isKnockout:        true,
+    isThirdPlace:      true,
+    createdAt: serverTimestamp(),
+  }));
+  await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'knockoutRounds', round.id), {
+    matchIds: [...existingIds, matchRef.id],
+    updatedAt: serverTimestamp()
+  });
+}
+
 window.wizConfirmKnockout = window.adminConfirmBracketCreate;
 
 
@@ -9638,7 +9751,9 @@ window.adminSaveKnockoutRound = async function () {
   if (!name) { showToast('أدخل اسم الدور', 'error'); return; }
   try {
     await addDoc(collection(db, 'leagues', LEAGUE_ID, 'knockoutRounds'), {
-      name, order: adminKnockoutRounds.length, matches: [], createdAt: serverTimestamp()
+      name, order: adminKnockoutRounds.length, matches: [],
+      isThirdPlace: /ثالث/.test(name),
+      createdAt: serverTimestamp()
     });
     showToast(`✅︎ تمت إضافة "${name}"`, 'success');
     closeModal('modal-knockout-round');
@@ -9819,7 +9934,7 @@ async function _autoAdvanceWinner(roundId, matchId, homeScore, awayScore) {
 
   const twoLegs = !!(settings && settings.koTwoLegs);
 
-  let winnerId, winnerName, winnerLogo;
+  let winnerId, winnerName, winnerLogo, loserId, loserName, loserLogo;
 
   if (twoLegs) {
     // ── نظام الذهاب والإياب: يتأهل صاحب المجموع الكلي بعد اكتمال المباراتين ──
@@ -9859,17 +9974,38 @@ async function _autoAdvanceWinner(roundId, matchId, homeScore, awayScore) {
     winnerId = winId;
     winnerName = wTeam.name || (winId === match.homeId ? match.homeName : match.awayName);
     winnerLogo = wTeam.logo || '';
+    const loseId = winId === teamA ? teamB : teamA;
+    const lTeam = teams.find(t => t.id === loseId) || {};
+    loserId = loseId;
+    loserName = lTeam.name || (loseId === match.homeId ? match.homeName : match.awayName);
+    loserLogo = lTeam.logo || '';
   } else {
     // ── مباراة واحدة (النظام الافتراضي) ──
     winnerId   = homeScore > awayScore ? match.homeId   : match.awayId;
     winnerName = homeScore > awayScore ? match.homeName : match.awayName;
     winnerLogo = homeScore > awayScore ? match.homeLogo : match.awayLogo;
+    loserId    = homeScore > awayScore ? match.awayId   : match.homeId;
+    loserName  = homeScore > awayScore ? match.awayName : match.homeName;
+    loserLogo  = homeScore > awayScore ? match.awayLogo : match.homeLogo;
   }
 
-  // أوجد الدور التالي
-  const roundsSorted = [...adminKnockoutRounds].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  // أوجد الدور التالي — نستبعد دور "مباراة تحديد المركز الثالث" من التسلسل الأساسي
+  // (له مسار خاص أدناه) حتى لا يتداخل مع تقدّم الفائزين للنهائي
+  const roundsSorted = [...adminKnockoutRounds].filter(r => !_isThirdPlaceRound(r)).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const curIdx = roundsSorted.findIndex(r => r.id === roundId);
-  if (curIdx === -1 || curIdx >= roundsSorted.length - 1) return; // النهائي
+  if (curIdx === -1) return;
+
+  // ── مباراة تحديد المركز الثالث: الدور الحالي هو "نصف النهائي" (قبل الأخير)
+  //    إن كانت الميزة مفعّلة، يتقدّم الخاسر تلقائياً — بمعزل عن تقدّم الفائز أدناه ──
+  if (curIdx === roundsSorted.length - 2 && settings && settings.thirdPlaceEnabled === true) {
+    const curMatchForLoser = matches.find(m => m.id === matchId);
+    if (curMatchForLoser) {
+      _advanceLoserToThirdPlace(curMatchForLoser, loserId, loserName, loserLogo)
+        .catch(e => console.warn('thirdPlaceAdvance:', e.message));
+    }
+  }
+
+  if (curIdx >= roundsSorted.length - 1) return; // كان النهائي — لا يوجد دور تالٍ للفائز
 
   const nextRound = roundsSorted[curIdx + 1];
   if (!nextRound) return;

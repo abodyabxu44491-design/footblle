@@ -1441,6 +1441,23 @@ const _shIcons = {
     ctx.beginPath(); ctx.moveTo(s*0.15,s*0.52); ctx.lineTo(s*0.4,s*0.78); ctx.lineTo(s*0.85,s*0.22); ctx.stroke();
     ctx.restore();
   },
+  // سيوف متقاطعة (VS بين مساري الشجرة)
+  swords(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.lineWidth=s*0.1; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.beginPath(); ctx.moveTo(s*0.12,s*0.12); ctx.lineTo(s*0.88,s*0.88); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.88,s*0.12); ctx.lineTo(s*0.12,s*0.88); ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.beginPath(); ctx.arc(s*0.12,s*0.12,s*0.07,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.88,s*0.12,s*0.07,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  },
+  // سهم لأسفل (انتقال بين أدوار الشجرة)
+  arrowDown(ctx,x,y,s,color){
+    ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.lineWidth=s*0.14; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.beginPath(); ctx.moveTo(s*0.5,s*0.08); ctx.lineTo(s*0.5,s*0.82); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.25,s*0.58); ctx.lineTo(s*0.5,s*0.9); ctx.lineTo(s*0.75,s*0.58); ctx.stroke();
+    ctx.restore();
+  },
   // علامة خروج (إقصاء)
   cross(ctx,x,y,s,color){
     ctx.save(); ctx.translate(x-s/2,y-s/2); ctx.strokeStyle=color; ctx.lineWidth=s*0.14; ctx.lineCap='round';
@@ -2892,11 +2909,9 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
     y += roundLabelH;
     rm.leftSlots.forEach((m,i)=> _btBoxCanvas(ctx, m, leftX, y+i*(matchH+matchGap), colW, matchH, false));
     rm.rightSlots.forEach((m,i)=> _btBoxCanvas(ctx, m, rightX, y+i*(matchH+matchGap), colW, matchH, false));
-    ctx.textAlign='center'; ctx.fillStyle='rgba(201,160,43,.55)'; ctx.font='22px Tajawal,Arial';
-    ctx.fillText('⚔', W/2, y+rm.colH/2+8);
+    _shIconBadge(ctx, 'swords', W/2, y+rm.colH/2, 22, 'rgba(201,160,43,.75)', 0.1);
     y += rm.colH;
-    ctx.fillStyle='rgba(201,160,43,.65)'; ctx.font='22px Tajawal,Arial'; ctx.textAlign='center';
-    ctx.fillText('⬇', W/2, y+arrowH*0.7);
+    _shIconBadge(ctx, 'arrowDown', W/2, y+arrowH*0.5, 24, 'rgba(201,160,43,.8)', 0);
     y += arrowH;
   });
 
@@ -2915,7 +2930,7 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
       : (finalMatch.awayName || (teamsArr.find(t=>t.id===finalMatch.awayId)||{}).name);
     if(champ){
       ctx.textAlign='center';
-      ctx.font='40px Tajawal,Arial'; ctx.fillText('🏆', W/2, y+40);
+      _shIconBadge(ctx, 'trophy', W/2, y+20, 40, _SH_GOLD, 0.12);
       ctx.font='900 26px Tajawal,Arial'; ctx.fillStyle=_SH_GOLD;
       ctx.fillText(champ, W/2, y+78);
       ctx.font='700 14px Tajawal,Arial'; ctx.fillStyle='#999';
@@ -2927,7 +2942,9 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
   if(thirdRound){
     const m3 = (thirdRound.matchesWithSlot[0] || {}).m || null;
     ctx.textAlign='center'; ctx.fillStyle='#cc8888'; ctx.font='800 15px Tajawal,Arial';
-    ctx.fillText('🥉 ' + (thirdRound.name||''), W/2, y+20);
+    const _tw3 = ctx.measureText(thirdRound.name||'').width;
+    _shIconBadge(ctx, 'medal', W/2 - _tw3/2 - 16, y+14, 18, '#cc8888', 0);
+    ctx.fillText(thirdRound.name||'', W/2+9, y+20);
     y += 30;
     _btBoxCanvas(ctx, m3, W/2-260, y, 520, 96, false);
     y += 96 + 20;

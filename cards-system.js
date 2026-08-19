@@ -396,6 +396,70 @@
     return loadImg(_state.leagueLogoOverride || getLeague().logo);
   }
 
+  // ── أيقونات SVG-vector مرسومة مباشرة على الـ canvas ─────────────────
+  // نفس لغة أيقونات المنصة (خطوط، viewBox 24×24) بدل الاعتماد على خط
+  // الإيموجي في نظام التشغيل — الذي يختلف شكله وموضعه بين جهاز وآخر
+  // ويظهر أحياناً بلا لون أو بمحاذاة عمودية خاطئة داخل الصورة المُصدَّرة.
+  const ICON_PATHS = {
+    ball:   'M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M12 7.5l3.3 2.4-1.3 3.9h-4l-1.3-3.9z M12 3v4.5M4.6 9.8l4.1 1.5M19.4 9.8l-4.1 1.5M8 19.6l2-4.3M16 19.6l-2-4.3',
+    trophy: 'M7 4h10v5a5 5 0 0 1-10 0z M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3 M10 14h4M9 20h6M12 14v6',
+    finish: 'M5 21V4M5 5h13l-2.5 4L18 13H5',
+    calendar:'M3 5h18v16H3z M3 10h18M8 3v4M16 3v4',
+    clock:  'M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M12 7v5l3.5 2',
+    stadium:'M12 9m-9 -4.5a9 4.5 0 1 0 18 0a9 4.5 0 1 0 -18 0 M3 9v5c0 2.5 4 4.5 9 4.5s9-2 9-4.5V9',
+    whistle:'M8 13m-5 0a5 5 0 1 0 10 0a5 5 0 1 0 -10 0 M13 13h8V8l-8 3 M8 13h.01',
+    mic:    'M9 3h6v10a3 3 0 0 1-6 0z M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6',
+    star:   'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
+    handshake:'M2 11l4-4 4 2 2-1 2 1 4-2 4 4 M6 13l3 3 2-2 2 2 3-3 M2 11v4l4 4M22 11v4l-4 4',
+  };
+
+  // كاش لصور الأيقونات الجاهزة (تُرسم مرة واحدة بدقة 3x ثم تُعاد بلا تكلفة)
+  const _iconCache = {};
+  function _iconImg(name, color) {
+    const key = name + '|' + color;
+    if (_iconCache[key]) return _iconCache[key];
+    const d = ICON_PATHS[name];
+    if (!d) return null;
+    const SCALE = 3, PX = 24 * SCALE;
+    const c = document.createElement('canvas');
+    c.width = PX; c.height = PX;
+    const cx = c.getContext('2d');
+    cx.scale(SCALE, SCALE);
+    cx.strokeStyle = color; cx.lineWidth = 1.9;
+    cx.lineCap = 'round'; cx.lineJoin = 'round';
+    cx.stroke(new Path2D(d));
+    _iconCache[key] = c;
+    return c;
+  }
+
+  // يرسم أيقونة SVG بحجم size مُتمركزة رأسياً وأفقياً حول (cx, cy)
+  function drawIcon(ctx, name, cx, cy, size, color) {
+    const img = _iconImg(name, color || '#eee');
+    if (!img) return;
+    ctx.drawImage(img, cx - size/2, cy - size/2, size, size);
+  }
+
+  // يرسم أيقونة + نص كوحدة واحدة منسّقة (بديل مباشر لِـ "🏁 نص")
+  // align: 'center' | 'left' | 'right' — نقطة x المرجعية لمنتصف الوحدة كاملة
+  function drawIconText(ctx, name, text, x, y, font, color, align, iconColor, gap, shadowColor, shadowBlur) {
+    gap = gap == null ? 8 : gap;
+    ctx.font = font; ctx.textAlign = 'left';
+    const tw = ctx.measureText(text).width;
+    const iconSize = parseInt(font.match(/(\d+)px/)[1], 10) * 0.9;
+    const total = iconSize + gap + tw;
+    let startX;
+    if (align === 'left') startX = x;
+    else if (align === 'right') startX = x - total;
+    else startX = x - total / 2;
+    if (shadowColor) { ctx.save(); ctx.shadowColor = shadowColor; ctx.shadowBlur = shadowBlur || 6; }
+    drawIcon(ctx, name, startX + iconSize/2, y - iconSize*0.33, iconSize, iconColor || color);
+    ctx.textAlign = 'left'; ctx.fillStyle = color;
+    ctx.fillText(text, startX + iconSize + gap, y);
+    if (shadowColor) ctx.restore();
+    ctx.textAlign = 'center';
+    return total;
+  }
+
   // ── hex → rgb ─────────────────────────────────────────────────────
   function hexToRgb(hex) {
     const r = parseInt(hex.slice(1,3),16);
@@ -461,9 +525,8 @@
       const r = size * 0.18;
       ctx.roundRect(x, y, size, size, r); ctx.clip();
       _drawImgCover(ctx, img, x, y, size); ctx.restore();
-    } else if (emoji && emoji.length <= 4) {
-      ctx.font = `${size*0.75}px Arial`; ctx.textAlign = 'center';
-      ctx.fillText(emoji, x+size/2, y+size*0.78);
+    } else {
+      drawIcon(ctx, 'ball', x+size/2, y+size/2, size*0.65, '#666');
     }
   }
 
@@ -485,18 +548,17 @@
       ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.clip();
       _drawImgCover(ctx, img, cx-R, cy-R, size); ctx.restore();
     } else {
-      ctx.font = `${size*0.62}px Arial`; ctx.textAlign = 'center';
-      ctx.fillText(emoji || '⚽', cx, cy+size*0.22);
+      drawIcon(ctx, 'ball', cx, cy, size*0.55, '#888');
     }
     // شارة "الفائز" صغيرة أعلى الشعار
     if (highlight) {
       const by = cy - R - 14;
+      const t = 'الفائز';
       ctx.font = '700 15px Tajawal,Arial';
-      const t = '★ الفائز';
-      const tw = ctx.measureText(t).width + 22;
+      const tw = ctx.measureText(t).width + 22 + 20;
       roundRect(ctx, cx-tw/2, by-14, tw, 28, 14);
       ctx.fillStyle = accent || GOLD; ctx.fill();
-      drawText(ctx, t, cx, by+5, '700 15px Tajawal,Arial', '#0c0c0d', 'center');
+      drawIconText(ctx, 'star', t, cx, by+5, '700 15px Tajawal,Arial', '#0c0c0d', 'center', '#0c0c0d', 6);
     }
   }
 
@@ -625,9 +687,11 @@
 
     } else {
       // بدون شعار
-      ctx.font = '32px Arial'; ctx.textAlign = 'center'; ctx.fillText('🏆', W/2-100, cy+11);
+      drawIcon(ctx, 'trophy', W/2-100, cy+2, 34, accent);
       ctx.font = 'bold 28px Tajawal,Arial'; ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
       ctx.fillText(name, W/2+20, cy+11);
+      ctx.textAlign = 'center';
     }
 
     return BH;
@@ -711,12 +775,13 @@
       // التسمية
       drawText(ctx, d.label, cx+cw/2, startY+22, '600 14px Tajawal,Arial', '#666', 'center');
 
-      // القيمة مع أيقونة
-      const val = `${d.icon}  ${d.val}`;
+      // القيمة مع أيقونة SVG (تُقاس أولاً لتصغير الخط تلقائياً إن لزم)
+      const val = String(d.val);
       ctx.font = '700 19px Tajawal,Arial';
-      const vtw = ctx.measureText(val).width;
-      const fs  = vtw > cw-24 ? Math.max(13, 19*(cw-24)/vtw) : 19;
-      drawText(ctx, val, cx+cw/2, startY+56, `700 ${fs}px Tajawal,Arial`, '#eeeeee', 'center');
+      const iconGap = 22; // أيقونة 17px + فراغ 8 تقريباً
+      let vtw = ctx.measureText(val).width + iconGap;
+      const fs = vtw > cw-24 ? Math.max(13, 19*(cw-24)/vtw) : 19;
+      drawIconText(ctx, d.icon, val, cx+cw/2, startY+56, `700 ${fs}px Tajawal,Arial`, '#eeeeee', 'center', '#888', 8);
     });
     return H_CELL;
   }
@@ -815,11 +880,11 @@
     const timeVal = fmt12(extras.time || m.time);
     const dateVal = extras.date || m.date || '';
     const cells = [
-      { icon: '📅', label: 'التاريخ', val: dateVal },
-      { icon: '⏰', label: 'الوقت',  val: timeVal },
-      { icon: '🏟️', label: 'الملعب', val: extras.venue       || m.venue       || '' },
-      { icon: '🧑‍⚖️', label: 'الحكم',  val: extras.referee  || m.referee  || '' },
-      { icon: '🎙️', label: 'المعلق', val: extras.commentator || m.commentator || '' },
+      { icon: 'calendar', label: 'التاريخ', val: dateVal },
+      { icon: 'clock',    label: 'الوقت',  val: timeVal },
+      { icon: 'stadium',  label: 'الملعب', val: extras.venue       || m.venue       || '' },
+      { icon: 'whistle',  label: 'الحكم',  val: extras.referee  || m.referee  || '' },
+      { icon: 'mic',      label: 'المعلق', val: extras.commentator || m.commentator || '' },
     ].filter(d => d.val);
     const row1 = cells.slice(0, 2);
     const row2 = cells.slice(2, 4);
@@ -861,8 +926,8 @@
 
     // ─ 2) شارة نهاية المباراة + المرحلة
     const stage    = extras.stage || m.knockoutRoundName || (m.groupName ? (m.groupName + (m.round ? ' · الجولة ' + m.round : '')) : (m.round ? `الجولة ${m.round}` : ''));
-    const endLabel = stage ? `🏁  نهاية المباراة  ·  ${stage}` : '🏁  نهاية المباراة';
-    drawText(ctx, endLabel, W/2, curY+16, '700 17px Tajawal,Arial', '#666', 'center');
+    const endLabel = stage ? `نهاية المباراة  ·  ${stage}` : 'نهاية المباراة';
+    drawIconText(ctx, 'finish', endLabel, W/2, curY+16, '700 17px Tajawal,Arial', '#666', 'center');
     curY += 38;
 
     // ─ 3) قسم الفرق + النتيجة
@@ -887,16 +952,16 @@
       const _isKO = !!(m.isKnockout || m.knockoutRoundId != null || m.knockoutRoundName) ||
                     (getSettings().type === 'knockout');
       const verb  = _isKO ? 'يتأهل' : 'الفائز';
-      const label = _isKO ? `🏆  ${winnerName}  ${verb}` : `🏆  ${verb}:  ${winnerName}`;
+      const label = _isKO ? `${winnerName}  ${verb}` : `${verb}:  ${winnerName}`;
       ctx.font = 'bold 24px Tajawal,Arial'; ctx.textAlign = 'center';
-      const tw = ctx.measureText(label).width + 48;
+      const tw = ctx.measureText(label).width + 48 + 30;
       ctx.fillStyle = `rgba(${rgb},0.1)`;
       ctx.strokeStyle = `rgba(${rgb},0.3)`; ctx.lineWidth = 1;
       roundRect(ctx, W/2-tw/2, curY, tw, 38, 19); ctx.fill(); ctx.stroke();
-      drawText(ctx, label, W/2, curY+25, 'bold 22px Tajawal,Arial', accent, 'center', `rgba(${rgb},0.4)`, 8);
+      drawIconText(ctx, 'trophy', label, W/2, curY+25, 'bold 22px Tajawal,Arial', accent, 'center');
       curY += 50;
     } else {
-      drawText(ctx, '🤝  تعادل', W/2, curY+20, 'bold 22px Tajawal,Arial', '#888', 'center');
+      drawIconText(ctx, 'handshake', 'تعادل', W/2, curY+20, 'bold 22px Tajawal,Arial', '#888', 'center');
       curY += 44;
     }
 
@@ -907,7 +972,7 @@
     const hSc = (m.homeScorers||'').split(',').map(s=>s.trim()).filter(Boolean);
     const aSc = (m.awayScorers||'').split(',').map(s=>s.trim()).filter(Boolean);
     if (hSc.length || aSc.length) {
-      drawText(ctx, '⚽  الهدافون', W/2, curY, '700 16px Tajawal,Arial', accent, 'center');
+      drawIconText(ctx, 'ball', 'الهدافون', W/2, curY, '700 16px Tajawal,Arial', accent, 'center');
       curY += 34;
 
       const colHomeX = W * 0.27;   // المضيف يسار — مطابقٌ لجهة شعاره
@@ -940,20 +1005,28 @@
           if (found) found.count++; else grouped.push({ name: nm, count: 1 });
         });
         grouped.slice(0,8).forEach(g => {
-          const balls = '⚽'.repeat(Math.min(g.count, 6)); // سقف بصري احترازي
-          // الاسم
+          const ballCount = Math.min(g.count, 6); // سقف بصري احترازي
+          // الاسم — يُقاس أولاً لحساب مكان صف الكرات بدقة
           ctx.font = '700 19px Tajawal,Arial'; ctx.fillStyle = '#eee';
           const nmFit = fitName(ctx, g.name, 200);
           const nmW = ctx.measureText(nmFit).width;
-          if (balls) {
-            ctx.font = '15px Arial';
-            const ballsW = ctx.measureText(balls).width;
+
+          if (ballCount) {
+            const BALL = 15, BALL_GAP = 3;
+            const ballsW = ballCount * BALL + (ballCount - 1) * BALL_GAP;
             const total = nmW + 8 + ballsW;
-            const startX = cx0 + total/2;
+            const startX = cx0 + total / 2;               // حافة الاسم اليمنى
+            // الاسم — محاذاة يمين، بحجم وخط ثابتين
             ctx.textAlign = 'right'; ctx.font = '700 19px Tajawal,Arial'; ctx.fillStyle = '#eee';
             ctx.fillText(nmFit, startX, yy);
-            ctx.textAlign = 'left'; ctx.font = '15px Arial'; ctx.fillStyle = '#eee';
-            ctx.fillText(balls, startX - nmW - 8, yy+1);
+            // صف كرات SVG — بجانب الاسم مباشرة، ممركزة رأسياً على منتصف ارتفاع الاسم
+            // (لا فوقه) وبمسافات متساوية بدل اعتماد خط الإيموجي المتفاوت
+            const ballCy = yy - 7; // منتصف ارتفاع النص تقريباً (19px Tajawal)
+            let bx = startX - nmW - 8 - BALL/2;
+            for (let k = 0; k < ballCount; k++) {
+              drawIcon(ctx, 'ball', bx, ballCy, BALL, GOLD2);
+              bx -= (BALL + BALL_GAP);
+            }
           } else {
             ctx.textAlign = 'center';
             ctx.fillText(nmFit, cx0, yy);
@@ -974,7 +1047,7 @@
       curY += 6;
       drawDivider(ctx, W, curY, 0.18);
       curY += 28;
-      drawText(ctx, `🌟  رجل المباراة:  ${mom}`, W/2, curY, 'bold 21px Tajawal,Arial', accent, 'center', `rgba(${rgb},0.4)`, 8);
+      drawIconText(ctx, 'star', `رجل المباراة:  ${mom}`, W/2, curY, 'bold 21px Tajawal,Arial', accent, 'center', GOLD2, 8, `rgba(${rgb},0.4)`, 8);
     }
 
     drawBottomBar(ctx, W, H);
@@ -1137,7 +1210,7 @@
     drawDivider(ctx, W, curY, 0.22); curY += 18;
 
     // 2) كأس + "تأهل إلى"
-    drawText(ctx, '🏆', W/2, curY+70, '78px Arial', '#fff', 'center');
+    drawIcon(ctx, 'trophy', W/2, curY+55, 74, accent);
     curY += 84;
     // ✅ لا تكتب "تأهّل إلى" بلا مرحلة — كانت تظهر معلّقة بلا معنى
     if (nextStage) { drawText(ctx, 'تأهّل إلى', W/2, curY, '700 20px Tajawal,Arial', '#666', 'center'); curY += 30; }
@@ -1159,7 +1232,7 @@
       ctx.save(); ctx.beginPath(); ctx.arc(W/2, curY+ls/2, ls/2, 0, Math.PI*2); ctx.clip();
       _drawImgCover(ctx, wImg, W/2-ls/2, curY, ls); ctx.restore();
     } else {
-      ctx.font = '110px Arial'; ctx.textAlign = 'center'; ctx.fillText('⚽', W/2, curY+110);
+      drawIcon(ctx, 'ball', W/2, curY+ls/2, 100, '#888');
     }
     curY += ls + 22;
 

@@ -489,7 +489,29 @@
     }
   }
 
-  // ── كتابة نص ─────────────────────────────────────────────────────
+  // ── تصغير الخط تلقائياً حتى يدخل النص ضمن أقصى عرض متاح ────────────
+  // fontTemplate(size) يرجع سلسلة الخط الكاملة، مثال: s => `bold ${s}px Tajawal,Arial`
+  function fitFontSize(ctx, text, maxWidth, fontTemplate, baseSize, minSize, step) {
+    step = step || 2; minSize = minSize || 14;
+    let size = baseSize;
+    while (size > minSize) {
+      ctx.font = fontTemplate(size);
+      if (ctx.measureText(text).width <= maxWidth) break;
+      size -= step;
+    }
+    ctx.font = fontTemplate(size);
+    return size;
+  }
+
+  // ── قص النص بعلامة … إذا تجاوز أقصى عرض حتى بعد أصغر خط ممكن ───────
+  function truncateToWidth(ctx, text, maxWidth) {
+    if (ctx.measureText(text).width <= maxWidth) return text;
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+    return t.length > 1 ? t + '…' : t;
+  }
+
+  // ── كتابة نص ـ يدعم maxWidth اختياري (يرسم بـ ctx.fillText مع تضييق تلقائي) ─
   function drawText(ctx, text, x, y, font, color, align, shadowColor, shadowBlur) {
     // ✅︎ إعادة تصميم: بلا ظلال أو توهج — نص نظيف حاد فقط
     ctx.font = font; ctx.textAlign = align || 'center';
@@ -642,7 +664,9 @@
     const name   = getLeagueName();
     const accent = _state.accentColor || GOLD;
     const rgb    = hexToRgb(accent);
-    const BH     = 72;
+    const BH     = 96;               // ✅ شريط أطول يعطي الشعار والاسم مساحة تنفّس
+    const SIDE_PAD = 56;              // هامش آمن من حواف البطاقة
+    const maxTextAreaW = W - SIDE_PAD * 2;
 
     // خلفية الشريط
     ctx.fillStyle = 'rgba(255,255,255,0.03)';
@@ -656,42 +680,53 @@
     ctx.beginPath(); ctx.moveTo(120, topY+BH+2.5); ctx.lineTo(W-120, topY+BH+2.5); ctx.stroke();
 
     const cy = topY + BH / 2;
-    const logoSz = 48;
+    const logoSz = 68;                // ✅ شعار أكبر وأوضح (كان 48)
+    const gap    = 18;
 
     if (lgImg) {
-      // شعار + نص مركزي
-      ctx.font = 'bold 28px Tajawal,Arial';
-      const tw = ctx.measureText(name).width;
-      const gap = 14;
+      // نحسب أقصى عرض متاح لاسم البطولة بعد طرح الشعار والمسافة والهوامش
+      const nameMaxW = maxTextAreaW - logoSz - gap;
+      const fontSize = fitFontSize(ctx, name, nameMaxW, s => `bold ${s}px Tajawal,Arial`, 30, 18, 2);
+      const fittedName = truncateToWidth(ctx, name, nameMaxW);
+      const tw = ctx.measureText(fittedName).width;
       const total = logoSz + gap + tw;
       const startX = (W - total) / 2;
 
       // هالة الشعار
       ctx.fillStyle = `rgba(${rgb},0.15)`;
-      ctx.beginPath(); ctx.arc(startX+logoSz/2, cy, logoSz/2+7, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(startX+logoSz/2, cy, logoSz/2+9, 0, Math.PI*2); ctx.fill();
 
       // الشعار دائري
       ctx.save(); ctx.beginPath();
       ctx.arc(startX+logoSz/2, cy, logoSz/2, 0, Math.PI*2); ctx.clip();
       _drawImgCover(ctx, lgImg, startX, cy-logoSz/2, logoSz); ctx.restore();
 
-      // حلقة رفيعة هادئة
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(startX+logoSz/2, cy, logoSz/2+1.5, 0, Math.PI*2); ctx.stroke();
+      // حلقة رفيعة هادئة بلون الهوية
+      ctx.strokeStyle = `rgba(${rgb},0.45)`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(startX+logoSz/2, cy, logoSz/2+2, 0, Math.PI*2); ctx.stroke();
 
-      // اسم البطولة
-      ctx.font = 'bold 28px Tajawal,Arial';
-      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff';
-      ctx.fillText(name, startX+logoSz+gap, cy+10);
-      ctx.textAlign = 'center';
+      // اسم البطولة — محاذاة رأسية دقيقة بمنتصف الشعار
+      ctx.font = `bold ${fontSize}px Tajawal,Arial`;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffffff';
+      ctx.fillText(fittedName, startX+logoSz+gap, cy+1);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
 
     } else {
-      // بدون شعار
-      drawIcon(ctx, 'trophy', W/2-100, cy+2, 34, accent);
-      ctx.font = 'bold 28px Tajawal,Arial'; ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'left';
-      ctx.fillText(name, W/2+20, cy+11);
-      ctx.textAlign = 'center';
+      // بدون شعار — أيقونة كأس + الاسم، بمحاذاة مركزية موحدة ومساحة كافية
+      ctx.font = 'bold 30px Tajawal,Arial';
+      const nameMaxW = maxTextAreaW - 70;
+      const fontSize = fitFontSize(ctx, name, nameMaxW, s => `bold ${s}px Tajawal,Arial`, 30, 18, 2);
+      const fittedName = truncateToWidth(ctx, name, nameMaxW);
+      const tw = ctx.measureText(fittedName).width;
+      const iconSz = 38, gap2 = 16;
+      const total = iconSz + gap2 + tw;
+      const startX = (W - total) / 2;
+
+      drawIcon(ctx, 'trophy', startX+iconSz/2, cy, iconSz, accent);
+      ctx.font = `bold ${fontSize}px Tajawal,Arial`; ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(fittedName, startX+iconSz+gap2, cy+1);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     }
 
     return BH;
@@ -1209,18 +1244,27 @@
     let curY     = ID_TOP + idH + 14;
     drawDivider(ctx, W, curY, 0.22); curY += 18;
 
+    const SAFE_W = W - 140; // أقصى عرض آمن لأي نص/عنصر على البطاقة (هامش 70 من كل جهة)
+
     // 2) كأس + "تأهل إلى"
     drawIcon(ctx, 'trophy', W/2, curY+55, 74, accent);
-    curY += 84;
+    // ✅ حساب دقيق: مركز الكأس عند curY+55 بارتفاع 74 → قاعدته تقريباً عند curY+92.
+    //    النص يُرسم بخط 20px يمتد لأعلى عن نقطة الأساس (baseline) بمقدار الـ ascent تقريباً،
+    //    فنترك فراغاً كافياً بعد القاعدة قبل رسم النص حتى لا يتلامسا فعلياً على الشاشة.
+    curY += 128;
     // ✅ لا تكتب "تأهّل إلى" بلا مرحلة — كانت تظهر معلّقة بلا معنى
     if (nextStage) { drawText(ctx, 'تأهّل إلى', W/2, curY, '700 20px Tajawal,Arial', '#666', 'center'); curY += 30; }
     else           { drawText(ctx, 'تأهّل للدور التالي', W/2, curY, '700 20px Tajawal,Arial', '#666', 'center'); curY += 30; }
 
     if (nextStage) {
-      const nw = (() => { ctx.font = 'bold 18px Tajawal,Arial'; return ctx.measureText(nextStage).width+44; })();
+      // ✅ اسم المرحلة يُضغط تلقائياً إذا كان طويلاً حتى لا يتجاوز حدود الشارة
+      const stageMaxW = SAFE_W - 44;
+      const stageSize = fitFontSize(ctx, nextStage, stageMaxW, s => `bold ${s}px Tajawal,Arial`, 18, 13, 1);
+      const fittedStage = truncateToWidth(ctx, nextStage, stageMaxW);
+      const nw = Math.min(ctx.measureText(fittedStage).width + 44, SAFE_W);
       ctx.fillStyle = `rgba(${rgb},0.1)`; ctx.strokeStyle = `rgba(${rgb},0.25)`; ctx.lineWidth = 1;
       roundRect(ctx, W/2-nw/2, curY, nw, 36, 18); ctx.fill(); ctx.stroke();
-      drawText(ctx, nextStage, W/2, curY+24, 'bold 18px Tajawal,Arial', accent, 'center');
+      drawText(ctx, fittedStage, W/2, curY+24, `bold ${stageSize}px Tajawal,Arial`, accent, 'center');
       curY += 50;
     }
 
@@ -1236,18 +1280,32 @@
     }
     curY += ls + 22;
 
-    // 4) اسم المتأهل (بلا توهج)
-    drawText(ctx, qualName, W/2, curY, 'bold 54px Tajawal,Arial', '#ffffff', 'center');
+    // 4) اسم المتأهل — يُصغَّر تلقائياً إذا كان الاسم طويلاً حتى لا يخرج عن حدود البطاقة
+    const qualSize = fitFontSize(ctx, qualName, SAFE_W, s => `bold ${s}px Tajawal,Arial`, 54, 26, 2);
+    const fittedQualName = truncateToWidth(ctx, qualName, SAFE_W);
+    drawText(ctx, fittedQualName, W/2, curY, `bold ${qualSize}px Tajawal,Arial`, '#ffffff', 'center');
     curY += 28;
     drawDivider(ctx, W, curY); curY += 24;
 
-    // 5) نتيجة المباراة
-    const sLabel = `${ht.name}  ${hs} – ${as_}  ${at.name}`;
-    ctx.font = 'bold 24px Tajawal,Arial'; ctx.textAlign = 'center';
-    const sW = ctx.measureText(sLabel).width + 40;
+    // 5) نتيجة المباراة — أسماء الفريقين + النتيجة، بخط موحّد يُقاس ويُرسم بنفس الحجم
+    //    وتُصغَّر تلقائياً أو تُختصر عند الحاجة حتى لا تتراكب الكلمات فوق بعضها
+    const scoreFont = 'bold 22px Tajawal,Arial';
+    const buildLabel = (h, a) => `${h}  ${hs} – ${as_}  ${a}`;
+    let sLabel = buildLabel(ht.name, at.name);
+    ctx.font = scoreFont;
+    if (ctx.measureText(sLabel).width > SAFE_W - 40) {
+      // أولاً: نحاول اختصار كل اسم فريق على حدة قبل قص التسمية كاملة
+      const perNameMax = (SAFE_W - 40 - ctx.measureText(`  ${hs} – ${as_}  `).width) / 2;
+      const hName = truncateToWidth(ctx, ht.name, Math.max(perNameMax, 60));
+      const aName = truncateToWidth(ctx, at.name, Math.max(perNameMax, 60));
+      sLabel = buildLabel(hName, aName);
+    }
+    ctx.font = scoreFont; ctx.textAlign = 'center';
+    sLabel = truncateToWidth(ctx, sLabel, SAFE_W - 40);
+    const sW = Math.min(ctx.measureText(sLabel).width + 40, SAFE_W);
     ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.strokeStyle = `rgba(${rgb},0.12)`; ctx.lineWidth = 1;
     roundRect(ctx, W/2-sW/2, curY, sW, 38, 19); ctx.fill(); ctx.stroke();
-    drawText(ctx, sLabel, W/2, curY+26, 'bold 22px Tajawal,Arial', '#888', 'center');
+    drawText(ctx, sLabel, W/2, curY+26, scoreFont, '#888', 'center');
     if (hasPens) {
       drawText(ctx, `(ركلات: ${m.penaltyScoreHome} – ${m.penaltyScoreAway})`, W/2, curY+60, '700 17px Tajawal,Arial', '#9b59b6', 'center');
     }

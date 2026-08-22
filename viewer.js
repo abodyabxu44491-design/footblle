@@ -1246,7 +1246,16 @@ function computeGroupStats(teamIds) {
 //  🔗 نظام المشاركة الموحّد للجمهور (تشكيلة / هدّافون / لاعب / مجموعة)
 //  يبني صورة Canvas بهوية المنصة + نص منشور مرتّب + رابط، ويشاركها.
 // ══════════════════════════════════════════════════════════════════
-const _SH_GOLD = '#C9A02B', _SH_GOLD2 = '#F0C84A', _SH_DARK = '#080808';
+const _SH_GOLD = '#C9A02B', _SH_GOLD2 = '#F0C84A', _SH_DARK = '#080808', _SH_STEEL = '#3A4A5E';
+
+// ── تحويل لون HEX إلى "r,g,b" (مطابق لدالة hexToRgb في cards-system.js) ──
+function _shHexToRgb(hex){
+  hex = (hex||'').replace('#','');
+  if (hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
+  const n = parseInt(hex,16);
+  if (isNaN(n)) return '201,160,43';
+  return `${(n>>16)&255},${(n>>8)&255},${n&255}`;
+}
 
 // أيقونة مشاركة SVG أنيقة (لا نص) — تُستخدم في كل أزرار المشاركة الجديدة
 function _shShareIconSvg(){
@@ -1513,79 +1522,116 @@ function _shRoundRect(ctx,x,y,w,h,r){
   ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
 }
 // خلفية رياضية احترافية: تدرّج داكن + ملمس خطوط قطرية خفيفة (يوحي بالملعب) + توهّج زوايا + إطار مزدوج
-function _shBg(ctx,W,H){
-  // ── خلفية عميقة بتدرّج غني (بدل التدرّج المسطّح البسيط) ──
-  const g = ctx.createRadialGradient(W/2,H*0.18,0,W/2,H*0.18,W*1.25);
-  g.addColorStop(0,   '#1a1a1a');
-  g.addColorStop(0.28,'#121212');
-  g.addColorStop(0.6, '#0a0a0a');
-  g.addColorStop(1,   '#040404');
-  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+// ✅ موحّدة مع قسم "بطاقات المشاركة" بالإدارة (cards-system.js → drawBackground)
+// نفس التدرّج، نفس الأشرطة القطرية، نفس الأشرطة العلوية/السفلية الذهبية المزدوجة،
+// نفس الإطار الدائري ونفس ختم الملعب التكتيكي — لضمان هوية بصرية واحدة للمنصّة كاملة.
+function _shBg(ctx,W,H,accentHex){
+  const ac  = accentHex || _SH_GOLD;
+  const rgb = _shHexToRgb(ac);
+  const st  = _shHexToRgb(_SH_STEEL);
 
-  // ── توهّج ذهبي علوي ناعم (يتدرّج بالكامل حتى الشفافية الصفرية بدون أي قطع) ──
-  const glowTop = ctx.createRadialGradient(W*0.5,0,0,W*0.5,0,W*0.9);
-  glowTop.addColorStop(0,   'rgba(201,160,43,.13)');
-  glowTop.addColorStop(0.35,'rgba(201,160,43,.055)');
-  glowTop.addColorStop(0.7, 'rgba(201,160,43,.015)');
-  glowTop.addColorStop(1,   'rgba(201,160,43,0)');
-  ctx.fillStyle=glowTop; ctx.fillRect(0,0,W,H);
+  // تدرّج عمودي غنيّ — عمق رياضي
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0,   '#14161c');
+  bg.addColorStop(0.45,'#0d0f13');
+  bg.addColorStop(1,   '#070809');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
 
-  // ── توهّج ذهبي سفلي خفيف جداً لموازنة العمق (لمسة استوديو احترافي) ──
-  const glowBot = ctx.createRadialGradient(W*0.5,H,0,W*0.5,H,W*0.8);
-  glowBot.addColorStop(0,'rgba(201,160,43,.05)'); glowBot.addColorStop(1,'rgba(201,160,43,0)');
-  ctx.fillStyle=glowBot; ctx.fillRect(0,0,W,H);
-
-  // ── تظليل خفيف بالزوايا (vignette) يعطي عمقاً وتركيزاً على المحتوى ──
-  const vig = ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.42,W/2,H/2,Math.max(W,H)*0.75);
-  vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,.35)');
-  ctx.fillStyle=vig; ctx.fillRect(0,0,W,H);
-
-  // ── إطار مزدوج أنيق: خارجي ذهبي بارز، داخلي رفيع خافت ──
-  ctx.strokeStyle=_SH_GOLD; ctx.lineWidth=3;
-  ctx.strokeRect(10,10,W-20,H-20);
-  ctx.strokeStyle='rgba(201,160,43,.25)'; ctx.lineWidth=1;
-  ctx.strokeRect(16,16,W-32,H-32);
-
-  // ── زوايا ذهبية مزخرفة (لمسة بطاقة عالمية أنيقة — بلا أي خطوط عابرة للصورة) ──
-  const cl = 26; // طول ذراع كل زاوية
-  ctx.strokeStyle = _SH_GOLD2; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
-  const corners = [
-    [22,22,   1, 1], [W-22,22,   -1, 1],
-    [22,H-22, 1,-1], [W-22,H-22,-1,-1],
-  ];
-  corners.forEach(([cx,cy,dx,dy])=>{
+  // أشرطة قطرية ديناميكية (إحساس الحركة كخلفيات الأندية)
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = -2; i < 8; i++) {
+    const x = i * (W / 6);
     ctx.beginPath();
-    ctx.moveTo(cx, cy+cl*dy); ctx.lineTo(cx, cy); ctx.lineTo(cx+cl*dx, cy);
-    ctx.stroke();
-  });
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + W * 0.28, 0);
+    ctx.lineTo(x + W * 0.28 - H * 0.5, H);
+    ctx.lineTo(x - H * 0.5, H);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? `rgba(${rgb},0.020)` : `rgba(${st},0.020)`;
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // توهّج قطري علوي من الزاوية (طاقة)
+  const cg = ctx.createRadialGradient(W*0.82, H*0.08, 0, W*0.82, H*0.08, W*0.85);
+  cg.addColorStop(0, `rgba(${rgb},0.18)`);
+  cg.addColorStop(0.5, `rgba(${rgb},0.04)`);
+  cg.addColorStop(1, 'transparent');
+  ctx.fillStyle = cg; ctx.fillRect(0, 0, W, H);
+
+  // إضاءة سفلية خافتة (توازن)
+  const bgl = ctx.createRadialGradient(W*0.2, H*0.95, 0, W*0.2, H*0.95, W*0.7);
+  bgl.addColorStop(0, `rgba(${st},0.10)`);
+  bgl.addColorStop(1, 'transparent');
+  ctx.fillStyle = bgl; ctx.fillRect(0, 0, W, H);
+
+  // شريط علوي مزدوج ذهبي (أعرض = طاقة أكبر)
+  ctx.fillStyle = ac; ctx.fillRect(0, 0, W, 8);
+  ctx.fillStyle = `rgba(${st},0.6)`; ctx.fillRect(0, 8, W, 3);
+  // شريط سفلي مطابق
+  ctx.fillStyle = ac; ctx.fillRect(0, H-8, W, 8);
+  ctx.fillStyle = `rgba(${st},0.6)`; ctx.fillRect(0, H-11, W, 3);
+
+  // إطار خارجي رفيع
+  const pad = 26;
+  ctx.strokeStyle = `rgba(${rgb},0.26)`;
+  ctx.lineWidth = 1.5;
+  _shRoundRect(ctx, pad, pad, W - pad*2, H - pad*2, 22);
+  ctx.stroke();
+
+  // watermark رياضي خفيف: دائرة تكتيكية كبيرة أسفل-وسط (كلوحة المدرّب)
+  ctx.save();
+  ctx.strokeStyle = `rgba(${rgb},0.05)`;
+  ctx.lineWidth = 2;
+  const wmY = H * 0.72, wmR = W * 0.34;
+  ctx.beginPath(); ctx.arc(W/2, wmY, wmR, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W/2, wmY, wmR*0.6, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W/2-wmR, wmY); ctx.lineTo(W/2+wmR, wmY); ctx.stroke();
+  ctx.restore();
 }
-// عنوان البطاقة بأسلوب رياضي: أيقونة SVG دائرية أعلى، عنوان تحتها، خط ذهبي فاصل
+// عنوان البطاقة بأسلوب رياضي: أيقونة SVG دائرية أعلى، عنوان تحتها،
+// وفاصل مزدوج (ذهبي + فولاذي) مطابق تماماً لفاصل شريط الهوية بقسم بطاقات المشاركة بالإدارة
 function _shHeader(ctx,W,title,sub,iconName){
   ctx.textAlign='center';
-  let titleY = 46, lineY = 56, subY = 76;
+  let titleY = 46, dividerY = 58, subY = 76;
   if(iconName){
     _shIconBadge(ctx, iconName, W/2, 34, 30, _SH_GOLD, 0.14);
-    titleY = 84; lineY = 94; subY = 114;
+    titleY = 84; dividerY = 96; subY = 114;
   }
   ctx.fillStyle=_SH_GOLD; ctx.font='900 24px Tajawal,Arial';
   ctx.fillText(title, W/2, titleY);
-  const tw = ctx.measureText(title).width;
-  const lineW = Math.min(tw*0.6, 160);
-  ctx.strokeStyle=_SH_GOLD; ctx.lineWidth=2.5; ctx.lineCap='round';
-  ctx.beginPath(); ctx.moveTo(W/2-lineW/2, lineY); ctx.lineTo(W/2+lineW/2, lineY); ctx.stroke();
+  if(sub){ dividerY = subY + 14; }
   if(sub){ ctx.fillStyle='#888'; ctx.font='600 13px Tajawal,Arial'; ctx.fillText(sub, W/2, subY); }
-  return iconName ? 130 : (sub ? 90 : 70); // ارتفاع الرأس الكلي — تستخدمه الدوال لحساب headerH بدقة
+
+  // فاصل مزدوج: ذهبي رفيع فوق ظل فولاذي — مطابق تماماً لأسفل شريط الهوية بقسم بطاقات المشاركة بالإدارة
+  ctx.strokeStyle = `rgba(${_shHexToRgb(_SH_GOLD)},0.35)`; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(80, dividerY+0.5); ctx.lineTo(W-80, dividerY+0.5); ctx.stroke();
+  ctx.strokeStyle = `rgba(${_shHexToRgb(_SH_STEEL)},0.4)`; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(120, dividerY+2.5); ctx.lineTo(W-120, dividerY+2.5); ctx.stroke();
+
+  return iconName ? 130 : (sub ? 90 : 70); // نفس ارتفاعات الرأس الأصلية — تستخدمها الدوال لحساب headerH بدقة
 }
+// ✅ موحّدة مع قسم "بطاقات المشاركة" بالإدارة (cards-system.js → drawBottomBar)
+// نفس ارتفاع الشريط، نفس الخط الفاصل العلوي الرفيع، ونفس أسطر الحقوق —
+// بالإضافة لاسم البطولة وسطر المتابعة (يفيد الجمهور تحديداً) قبل سطر الحقوق.
 function _shFooter(ctx,W,H){
-  ctx.textAlign='center';
-  const label = _shLeagueName() + '  ·  تابع البث المباشر والتفاصيل';
-  ctx.font='700 12px Tajawal,Arial';
-  const tw = ctx.measureText(label).width;
-  const iconSize = 15;
-  const startX = W/2 - tw/2 - iconSize - 6;
-  _shIconBadge(ctx, 'broadcast', startX, H-26, iconSize, 'rgba(201,160,43,.75)', 0);
-  ctx.fillStyle='rgba(201,160,43,.65)';
-  ctx.fillText(label, W/2 + iconSize/2, H-22);
+  const BH = 66;
+  const by = H - BH;
+
+  ctx.textAlign = 'center';
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(80, by+0.5); ctx.lineTo(W-80, by+0.5); ctx.stroke();
+
+  const followLabel = _shLeagueName() + '  ·  تابع البث المباشر والتفاصيل';
+  ctx.font = '700 15px Tajawal,Arial';
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillText(followLabel, W/2, by + 28);
+
+  ctx.font = '400 12px Tajawal,Arial';
+  ctx.fillStyle = 'rgba(255,255,255,0.24)';
+  ctx.fillText('منصة بطولات  ·  تطوير وبرمجة عبدالله السكني', W/2, by + 49);
 }
 
 // ── مشاركة ترتيب مجموعة ──

@@ -335,7 +335,7 @@ if('serviceWorker' in navigator) {
           <div class="page-title"><span class="pt-ic" data-ic="ball"></span>إدارة المباريات</div>
           <div class="page-sub">إدخال النتائج وإدارة الجدول</div>
           <div class="page-actions">
-            <button class="btn btn-gold" onclick="openModal('modal-match')">+ إضافة مباراة</button>
+            <button class="btn btn-gold" onclick="openNormalMatchModal()">+ إضافة مباراة</button>
             <button class="btn btn-outline" id="swissGenBtn" style="display:none" onclick="swissGenerateFixtures()"><span data-ic="dice" style="vertical-align:-2px;margin-inline-end:4px"></span>توليد جدول تلقائي</button>
           </div>
         </div>
@@ -698,6 +698,17 @@ if('serviceWorker' in navigator) {
                   <div style="margin-bottom:4px;display:flex;justify-content:center"><span data-ic="refresh"></span></div>ذهاب وإياب
                 </button>
               </div>
+
+              <!-- ⚔️ مباراة فاصلة بين مجموعتين — مطفأة افتراضياً؛ لا تظهر أي وسيلة لإنشائها إلا بعد تفعيلها هنا -->
+              <div style="margin-top:14px;border-top:1px solid var(--border2);padding-top:14px">
+                <div class="toggle-row" onclick="toggleSwitch(this)" data-key="allowCrossGroupPlayoff" id="crossGroupPlayoffToggle">
+                  <div class="toggle-info">
+                    <div class="toggle-name">⚔️ السماح بمباراة فاصلة بين مجموعتين</div>
+                    <div class="toggle-desc">لحالات استثنائية (مثلاً تعادل مركزَين متأهلين): تتيح إنشاء مباراة قرار واحدة بين فريقين من مجموعتين مختلفتين، تقبل التعادل وركلات الترجيح، ولا تُحتسب في جدول أي مجموعة. مطفأة افتراضياً</div>
+                  </div>
+                  <div class="toggle-switch"></div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1027,8 +1038,8 @@ if('serviceWorker' in navigator) {
       <!-- الفريقان -->
       <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px">⚽ الفريقان</div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">الفريق الأول 🏠</label><select class="form-select" id="matchHome"></select></div>
-        <div class="form-group"><label class="form-label">الفريق الثاني ✈︎️</label><select class="form-select" id="matchAway"></select></div>
+        <div class="form-group"><label class="form-label">🏠 الفريق الأول</label><select class="form-select" id="matchHome"></select></div>
+        <div class="form-group"><label class="form-label">✈︎️ الفريق الثاني</label><select class="form-select" id="matchAway"></select></div>
       </div>
       <!-- الوقت والمكان -->
       <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">📅 الوقت والمكان</div>
@@ -1038,7 +1049,7 @@ if('serviceWorker' in navigator) {
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">🏟 الملعب</label><input class="form-input" id="matchVenue" value="ملعب الحارة"/></div>
-        <div class="form-group"><label class="form-label">🎯 رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1"/></div>
+        <div class="form-group" id="matchRoundGroup"><label class="form-label">🎯 رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1"/></div>
       </div>
       <!-- طاقم المباراة -->
       <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">👔 طاقم المباراة <span style="color:var(--muted);font-weight:400">(اختياري)</span></div>

@@ -3924,6 +3924,12 @@ window.addMatch = async function() {
   const homeId = document.getElementById('matchHome')?.value;
   const awayId = document.getElementById('matchAway')?.value;
 
+  // ✅︎ مباراة فاصلة بين مجموعتين — لا تُفعَّل إلا عبر زر مخصّص في صفحة المجموعات
+  // (openCrossGroupPlayoffModal)، وفقط إن كان الإعداد مفعّلاً فعلياً — دفاع مزدوج
+  // حتى لو بقيت الحالة عالقة من فتحة سابقة أو أُطفئ الإعداد أثناء فتح النافذة.
+  const isCrossGroupPlayoff = (window._matchModalMode === 'crossGroup')
+    && !!(window.settings && window.settings.allowCrossGroupPlayoff);
+
   // ✅︎ تنبيهات واضحة ومحدّدة — كل خطأ له رسالته الخاصة
   if (!homeId && !awayId) { showToast('⚠️ اختر الفريقين أولاً', 'error'); return; }
   if (!homeId) { showToast('⚠️ اختر الفريق الأول (المضيف)', 'error'); return; }
@@ -3943,8 +3949,9 @@ window.addMatch = async function() {
 
   // ✅︎ رقم الجولة يُحسب رياضياً من عدد الفرق ونظام الذهاب/الإياب — لا يُختار بحرية.
   // فريق زوجي: جولات = n-1 · فردي: جولات = n · ذهاب وإياب: × 2 (نفس صيغة groups-gate.js)
+  // (المباراة الفاصلة بين مجموعتين مستثناة — لا تتبع جدول جولات أي مجموعة)
   if (round < 1) { showToast('⚠️ رقم الجولة يجب أن يكون 1 أو أكثر', 'error'); return; }
-  if (typeof window.gtRoundsFor === 'function') {
+  if (typeof window.gtRoundsFor === 'function' && !isCrossGroupPlayoff) {
     const legMode = (settings && settings.legMode) || 'single';
     let poolSize = null;
     if (settings?.type === 'groups') {
@@ -3967,16 +3974,26 @@ window.addMatch = async function() {
      في نظام المجموعات، فرق المجموعة A لا تلعب ضد فرق المجموعة B إطلاقاً
      في دور المجموعات — الالتقاء يكون في الإقصاء فقط. هذا خطأ بنيوي
      يفسد جدول الترتيب، فنرفضه رفضاً تاماً لا مجرد تحذير. */
-  if (settings?.type === 'groups') {
+  if (settings?.type === 'groups' && !isCrossGroupPlayoff) {
     const G = window.adminGroups || [];
     const gOf = id => G.find(g => (g.teamIds || []).includes(id));
     const gh = gOf(homeId), ga = gOf(awayId);
     if (gh && ga && gh.id !== ga.id) {
-      showToast(`❌︎ «${homeTeam?.name}» في المجموعة ${gh.name} و«${awayTeam?.name}» في المجموعة ${ga.name} — لا يلتقيان في دور المجموعات`, 'error');
+      showToast(`❌︎ «${homeTeam?.name}» في المجموعة ${gh.name} و«${awayTeam?.name}» في المجموعة ${ga.name} — لا يلتقيان في دور المجموعات (فعّل «مباراة فاصلة بين مجموعتين» إن كان هذا مقصوداً)`, 'error');
       return;
     }
     if (!gh || !ga) {
       const miss = !gh ? homeTeam?.name : awayTeam?.name;
+      showToast(`❌︎ «${miss}» غير موزّع على أي مجموعة — وزّعه أولاً من صفحة المجموعات`, 'error');
+      return;
+    }
+  }
+  // ✅︎ للمباراة الفاصلة: يكفي أن يكون كل فريق موزَّعاً على أي مجموعة (لا شرط تطابقها)
+  if (settings?.type === 'groups' && isCrossGroupPlayoff) {
+    const G = window.adminGroups || [];
+    const gOf = id => G.find(g => (g.teamIds || []).includes(id));
+    if (!gOf(homeId) || !gOf(awayId)) {
+      const miss = !gOf(homeId) ? homeTeam?.name : awayTeam?.name;
       showToast(`❌︎ «${miss}» غير موزّع على أي مجموعة — وزّعه أولاً من صفحة المجموعات`, 'error');
       return;
     }
@@ -3988,8 +4005,11 @@ window.addMatch = async function() {
      في البطولة كلها — والتكرار يفسد جدول الترتيب.
      الحد المسموح: 1 للذهاب فقط · 2 للذهاب والإياب. */
   const _legDbl = ((settings && settings.legMode) || 'single') === 'double';
-  const _maxMeet = _legDbl ? 2 : 1;
-  const _prev = matches.filter(m => !m.isKnockout &&
+  // ✅︎ المباراة الفاصلة دائماً مباراة واحدة (قرار)، بصرف النظر عن نظام ذهاب/إياب
+  // المعتمد للمجموعات — ونفحص تكرارها مقابل مباريات الإقصاء فقط (لا مباريات المجموعات)
+  const _maxMeet = isCrossGroupPlayoff ? 1 : (_legDbl ? 2 : 1);
+  const _prev = matches.filter(m =>
+    (isCrossGroupPlayoff ? !!m.isKnockout : !m.isKnockout) &&
     ((m.homeId === homeId && m.awayId === awayId) || (m.homeId === awayId && m.awayId === homeId)));
 
   // ✅︎ dup: علم يسجّل إذا كانت هذه مباراة مكررة أصلاً (حتى لا نكرّر
@@ -3998,19 +4018,22 @@ window.addMatch = async function() {
   const dup = _prev.length >= _maxMeet;
   if (dup) {
     const rs = _prev.map(m => 'الجولة ' + (m.round || 1)).join(' و');
+    const message = isCrossGroupPlayoff
+      ? `«${homeTeam?.name}» و«${awayTeam?.name}» بينهما بالفعل مباراة فاصلة سابقة.\n\nإنشاء مباراة فاصلة ثانية بينهما نفس الفريقين — متأكد؟`
+      : `«${homeTeam?.name}» و«${awayTeam?.name}» بينهما ${_prev.length} مباراة بالفعل (${rs}).\n\n` +
+        `نظام البطولة «${_legDbl ? 'ذهاب وإياب' : 'ذهاب فقط'}» يسمح بـ ${_maxMeet} ` +
+        `${_maxMeet === 1 ? 'مباراة واحدة' : 'مباراتين'} بينهما.\n\n` +
+        `إنشاء مباراة إضافية سيُفسد جدول الترتيب. متأكد؟`;
     const ok = await window.confirmDialog({
-      title: 'مباراة مكررة',
-      message: `«${homeTeam?.name}» و«${awayTeam?.name}» بينهما ${_prev.length} مباراة بالفعل (${rs}).\n\n` +
-               `نظام البطولة «${_legDbl ? 'ذهاب وإياب' : 'ذهاب فقط'}» يسمح بـ ${_maxMeet} ` +
-               `${_maxMeet === 1 ? 'مباراة واحدة' : 'مباراتين'} بينهما.\n\n` +
-               `إنشاء مباراة إضافية سيُفسد جدول الترتيب. متأكد؟`,
-      confirmText: 'أنشئها رغم ذلك', danger: true
+      title: isCrossGroupPlayoff ? 'مباراة فاصلة مكررة' : 'مباراة مكررة',
+      message, confirmText: 'أنشئها رغم ذلك', danger: true
     });
     if (!ok) return;
   }
 
   // ✅︎ تنبيه لو الفريق يلعب مباراتين في نفس الجولة
-  const busy = matches.find(m => !m.isKnockout && (m.round || 1) === round &&
+  // (لا معنى لهذا الفحص للمباراة الفاصلة — "رقم الجولة" فيها مجرد قيمة ثابتة مخفية، وليس جولة حقيقية)
+  const busy = !isCrossGroupPlayoff && matches.find(m => !m.isKnockout && (m.round || 1) === round &&
     [m.homeId, m.awayId].some(id => id === homeId || id === awayId));
   if (busy && !dup) {
     const clash = [homeId, awayId].find(id => id === busy.homeId || id === busy.awayId);
@@ -4035,9 +4058,22 @@ window.addMatch = async function() {
   const notes = document.getElementById('matchNotes')?.value.trim() || '';
   // ✅︎ اربط المباراة بمعرّف المجموعة — نفس ما يفعله التوليد التلقائي،
   // وإلا فحذف/إعادة توليد مباريات مجموعة معيّنة لا يراها لأنها بلا groupId
-  const _groupId = (settings?.type === 'groups')
+  // (المباراة الفاصلة بين مجموعتين تبقى بلا groupId عمداً — isKnockout:true
+  //  يكفي لعزلها عن كل جداول وحسابات المجموعات، وهي أصلاً بين مجموعتين فلا معنى لربطها بواحدة)
+  const _groupId = (settings?.type === 'groups' && !isCrossGroupPlayoff)
     ? ((window.adminGroups || []).find(g => (g.teamIds || []).includes(homeId))?.id || null)
     : null;
+
+  // ✅︎ تسمية واضحة تظهر تلقائياً للجمهور (badge على بطاقة المباراة + تفاصيلها)
+  // لأن viewer.js يعرض knockoutRoundName مباشرة — تتضمّن اسمَي المجموعتين
+  // حتى يعرف الجمهور أنها مباراة قرار استثنائية وليست خطأ بالجدول
+  let _cgLabel = 'مباراة فاصلة بين مجموعتين';
+  if (isCrossGroupPlayoff) {
+    const G = window.adminGroups || [];
+    const gOf = id => G.find(g => (g.teamIds || []).includes(id));
+    const ghn = gOf(homeId)?.name, gan = gOf(awayId)?.name;
+    if (ghn && gan) _cgLabel = `⚔️ فاصلة: ${ghn} × ${gan}`;
+  }
 
   try {
     await addDoc(collection(db, 'leagues', LEAGUE_ID, 'matches'), _lightMatch({
@@ -4047,6 +4083,10 @@ window.addMatch = async function() {
       homeScore: null, awayScore: null,
       date, time, venue, round,
       ...(_groupId ? { groupId: _groupId } : {}),
+      ...(isCrossGroupPlayoff ? {
+        isKnockout: true,
+        knockoutRoundName: _cgLabel,
+      } : {}),
       referee, commentator, linesman1, linesman2,
       sponsor, photographer, announcer, attendance, notes,
       status: 'upcoming', createdAt: serverTimestamp()
@@ -4056,7 +4096,9 @@ window.addMatch = async function() {
     ['matchReferee','matchCommentator','matchLinesman1','matchLinesman2','matchSponsor','matchPhotographer','matchAnnouncer','matchAttendance','matchNotes'].forEach(id => {
       const el = document.getElementById(id); if(el) el.value = '';
     });
-    showToast('تمت إضافة المباراة ✓', 'success');
+    document.getElementById('crossGroupBanner')?.remove();
+    window._matchModalMode = 'normal';
+    showToast(isCrossGroupPlayoff ? 'تمت إضافة المباراة الفاصلة ⚔️' : 'تمت إضافة المباراة ✓', 'success');
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
@@ -5000,7 +5042,17 @@ window.toggleSwitch = function(row) {
   if (!key || !LEAGUE_ID) return;
   const val = sw.classList.contains('on');
   setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'), { [key]: val, updatedAt: serverTimestamp() }, { merge: true })
-    .then(() => showToast((val ? '✅︎ ' : '🔕 ') + (row.querySelector('.toggle-name')?.textContent?.trim() || key), 'success'))
+    .then(() => {
+      showToast((val ? '✅︎ ' : '🔕 ') + (row.querySelector('.toggle-name')?.textContent?.trim() || key), 'success');
+      // ✅︎ زر "مباراة فاصلة بين مجموعتين" في صفحة المجموعات يُبنى مرة واحدة من settings عند التحميل،
+      // فنعيد رسم الصفحة فوراً بدل ما ينتظر المنظّم يعمل تحديث للصفحة ليظهر/يختفي الزر
+      if (key === 'allowCrossGroupPlayoff') {
+        if (window.settings) window.settings.allowCrossGroupPlayoff = val;
+        document.getElementById('page-groups')?.remove();
+        if (typeof injectGroupsAndKnockoutPages === 'function') injectGroupsAndKnockoutPages();
+        if (typeof renderGroupsAdmin === 'function') renderGroupsAdmin();
+      }
+    })
     .catch(() => { showToast('خطأ في الحفظ', 'error'); sw.classList.toggle('on'); });
 };
 window.openModal = function(id) {
@@ -5010,9 +5062,64 @@ window.openModal = function(id) {
   if (id === 'modal-match') {
     const venueEl = document.getElementById('matchVenue');
     if (venueEl) venueEl.value = (window.settings && window.settings.defaultVenue) || 'ملعب الحارة';
+    // ✅︎ وضع "مباراة فاصلة بين مجموعتين" — يُفعَّل فقط عبر openCrossGroupPlayoffModal()،
+    // ويُعرَّف بوضوح داخل النافذة نفسها (عنوان + شريط توضيحي) حتى لا يلتبس بالإضافة العادية
+    const isCG = window._matchModalMode === 'crossGroup';
+    const titleEl = el.querySelector('.modal-title');
+    if (titleEl) titleEl.textContent = isCG ? '⚔️ مباراة فاصلة بين مجموعتين' : '➕︎ إضافة مباراة';
+    // ✅︎ "رقم الجولة" مفهوم لا معنى له لمباراة قرار استثنائية بين مجموعتين — نخفيه ونثبّته
+    const roundGroup = document.getElementById('matchRoundGroup');
+    const roundInput = document.getElementById('matchRound');
+    if (roundGroup) roundGroup.style.display = isCG ? 'none' : '';
+    if (roundInput && isCG) roundInput.value = '1';
+    // ✅︎ في وضع الفاصلة: نُظهر اسم مجموعة كل فريق أمام اسمه في القائمة —
+    // يمنع اختيار فريقين بالغلط من نفس المجموعة أو فريق غير موزّع
+    if (isCG) {
+      const G = window.adminGroups || [];
+      ['matchHome', 'matchAway'].forEach(selId => {
+        const sel = document.getElementById(selId);
+        if (!sel) return;
+        const prev = sel.value;
+        sel.innerHTML = (window.teams || []).map(t => {
+          const g = G.find(gr => (gr.teamIds || []).includes(t.id));
+          const logoText = (t.logo && !t.logo.startsWith('data:') && !t.logo.startsWith('http')) ? t.logo : '';
+          return `<option value="${t.id}">${logoText ? logoText + ' ' : ''}${t.name}${g ? ' — ' + g.name : ' — (بلا مجموعة)'}</option>`;
+        }).join('');
+        if (prev) sel.value = prev;
+      });
+    } else if (typeof populateMatchSelects === 'function') {
+      populateMatchSelects(); // يعيد القائمة لشكلها العادي إن كانت آخر مرة بوضع الفاصلة
+    }
+    let banner = document.getElementById('crossGroupBanner');
+    if (isCG) {
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'crossGroupBanner';
+        banner.style.cssText = 'background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.3);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11.5px;color:var(--gold);line-height:1.8';
+        banner.textContent = '⚔️ مباراة قرار استثنائية بين فريقين من مجموعتين مختلفتين — تقبل التعادل وركلات الترجيح تلقائياً، ولا تُحتسب في جدول ترتيب أي مجموعة.';
+        el.querySelector('.modal-body')?.prepend(banner);
+      }
+    } else {
+      banner?.remove();
+    }
   }
   el.classList.add('open');
   document.body.style.overflow = 'hidden';
+};
+// فتح نافذة الإضافة العادية — يضمن دائماً العودة للوضع الافتراضي (وليس وضع المباراة الفاصلة)
+window.openNormalMatchModal = function() {
+  window._matchModalMode = 'normal';
+  openModal('modal-match');
+};
+// فتح نافذة "مباراة فاصلة بين مجموعتين" — لا تظهر إلا من الزر المخصّص في صفحة المجموعات،
+// وتتأكد من أن الإعداد مفعّل فعلاً قبل السماح (دفاع مزدوج مع الفحص في addMatch)
+window.openCrossGroupPlayoffModal = function() {
+  if (!(window.settings && window.settings.allowCrossGroupPlayoff)) {
+    showToast('⚠️ فعّل «السماح بمباراة فاصلة بين مجموعتين» من الإعدادات أولاً', 'error');
+    return;
+  }
+  window._matchModalMode = 'crossGroup';
+  openModal('modal-match');
 };
 /* ✅︎ إغلاق موحّد: يدعم نوعَي النوافذ في المنصة
    - نوافذ .modal-overlay الثابتة → إزالة كلاس open
@@ -5021,6 +5128,7 @@ window.openModal = function(id) {
 window.closeModal = function(id) {
   const el = document.getElementById(id);
   if (!el) return;
+  if (id === 'modal-match') window._matchModalMode = 'normal';
   if (el.classList && el.classList.contains('modal-overlay')) {
     el.classList.remove('open');
   } else {
@@ -8642,8 +8750,13 @@ function injectGroupsAndKnockoutPages() {
         <div class="page-actions">
           <button class="btn btn-gold" onclick="adminAddGroup()">+ إضافة مجموعة</button>
           <button class="btn btn-outline" onclick="adminAutoCreateGroups()">⚙︎️ إعادة الإعداد</button>
+          ${(settings && settings.allowCrossGroupPlayoff) ? `<button class="btn btn-outline" id="btnCrossGroupPlayoff" onclick="openCrossGroupPlayoffModal()" style="border-color:rgba(201,160,43,.4);color:var(--gold)">⚔️ مباراة فاصلة بين مجموعتين</button>` : ''}
         </div>
       </div>
+      ${(settings && settings.allowCrossGroupPlayoff) ? `<div style="background:rgba(201,160,43,.06);border:1px solid rgba(201,160,43,.15);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:11px;color:var(--muted2);line-height:1.7">
+        ⚔️ <strong style="color:var(--gold)">مباراة فاصلة بين مجموعتين مُفعّلة:</strong>
+        استخدم زر «مباراة فاصلة بين مجموعتين» أعلاه لإنشاء مباراة قرار استثنائية بين فريقين من مجموعتين مختلفتين (مثلاً عند تعادل مركزَين متأهلين). تقبل التعادل وركلات الترجيح، ولا تُحتسب في جدول أي مجموعة.
+      </div>` : ''}
       <div style="background:rgba(201,160,43,.06);border:1px solid rgba(201,160,43,.15);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:11px;color:var(--muted2);line-height:1.7">
         💡 <strong style="color:var(--gold)">كيفية الاستخدام:</strong>
         اختر كل مجموعة ← أضف الفرق المشاركة ← حدد عدد المتأهلين ← ثم أنشئ أدوار الإقصاء

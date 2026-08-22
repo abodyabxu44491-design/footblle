@@ -1530,14 +1530,14 @@ function _shBg(ctx,W,H,accentHex){
   const rgb = _shHexToRgb(ac);
   const st  = _shHexToRgb(_SH_STEEL);
 
-  // تدرّج عمودي غنيّ — عمق رياضي
+  // ✅ تدرّج أغمق بكثير — الأولوية لوضوح الأسماء والشعارات فوق الخلفية، لا لزخرفتها
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0,   '#14161c');
-  bg.addColorStop(0.45,'#0d0f13');
-  bg.addColorStop(1,   '#070809');
+  bg.addColorStop(0,   '#0d0e12');
+  bg.addColorStop(0.45,'#08090c');
+  bg.addColorStop(1,   '#040405');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
 
-  // أشرطة قطرية ديناميكية (إحساس الحركة كخلفيات الأندية)
+  // أشرطة قطرية خافتة جداً (بالكاد محسوسة) — لمسة حركة بلا إزعاج بصري
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (let i = -2; i < 8; i++) {
@@ -1548,21 +1548,21 @@ function _shBg(ctx,W,H,accentHex){
     ctx.lineTo(x + W * 0.28 - H * 0.5, H);
     ctx.lineTo(x - H * 0.5, H);
     ctx.closePath();
-    ctx.fillStyle = i % 2 === 0 ? `rgba(${rgb},0.020)` : `rgba(${st},0.020)`;
+    ctx.fillStyle = i % 2 === 0 ? `rgba(${rgb},0.010)` : `rgba(${st},0.010)`;
     ctx.fill();
   }
   ctx.restore();
 
-  // توهّج قطري علوي من الزاوية (طاقة)
+  // توهّج قطري علوي خافت جداً من الزاوية (طاقة بسيطة بلا تأثير على وضوح المحتوى)
   const cg = ctx.createRadialGradient(W*0.82, H*0.08, 0, W*0.82, H*0.08, W*0.85);
-  cg.addColorStop(0, `rgba(${rgb},0.18)`);
-  cg.addColorStop(0.5, `rgba(${rgb},0.04)`);
+  cg.addColorStop(0, `rgba(${rgb},0.09)`);
+  cg.addColorStop(0.5, `rgba(${rgb},0.02)`);
   cg.addColorStop(1, 'transparent');
   ctx.fillStyle = cg; ctx.fillRect(0, 0, W, H);
 
-  // إضاءة سفلية خافتة (توازن)
+  // إضاءة سفلية خافتة جداً (توازن بسيط فقط)
   const bgl = ctx.createRadialGradient(W*0.2, H*0.95, 0, W*0.2, H*0.95, W*0.7);
-  bgl.addColorStop(0, `rgba(${st},0.10)`);
+  bgl.addColorStop(0, `rgba(${st},0.05)`);
   bgl.addColorStop(1, 'transparent');
   ctx.fillStyle = bgl; ctx.fillRect(0, 0, W, H);
 
@@ -1580,11 +1580,14 @@ function _shBg(ctx,W,H,accentHex){
   _shRoundRect(ctx, pad, pad, W - pad*2, H - pad*2, 22);
   ctx.stroke();
 
-  // watermark رياضي خفيف: دائرة تكتيكية كبيرة أسفل-وسط (كلوحة المدرّب)
+  // watermark رياضي خفيف جداً: دائرة تكتيكية (كلوحة المدرّب) — داكنة وخافتة
+  // كي تبقى واضحة كلمسة تصميم فقط دون التأثير على وضوح النقاط والتفاصيل فوقها،
+  // ومحسوبة بحجم يعتمد على أصغر بُعد (W أو H) حتى لا تتضخم في البطاقات الطويلة (كالمجموعات)
   ctx.save();
-  ctx.strokeStyle = `rgba(${rgb},0.05)`;
+  ctx.strokeStyle = `rgba(${rgb},0.022)`;
   ctx.lineWidth = 2;
-  const wmY = H * 0.72, wmR = W * 0.34;
+  const wmBase = Math.min(W, H);
+  const wmY = H * 0.55, wmR = wmBase * 0.30;
   ctx.beginPath(); ctx.arc(W/2, wmY, wmR, 0, Math.PI*2); ctx.stroke();
   ctx.beginPath(); ctx.arc(W/2, wmY, wmR*0.6, 0, Math.PI*2); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(W/2-wmR, wmY); ctx.lineTo(W/2+wmR, wmY); ctx.stroke();
@@ -2738,6 +2741,21 @@ function renderKnockoutBracket() {
       const allMs    = merged.length ? merged : legacyMs;
       // slot: نعتمد m.knockoutSlot إن وُجد، وإلا ترتيب الظهور في matchIds
       const withSlot = allMs.map((m, idx) => ({ m, slot: (m.knockoutSlot != null ? m.knockoutSlot : idx) }));
+      // ✅︎ خانات "نصف مكتملة": فريق واحد تأهّل لهذه الخانة رسمياً وينتظر الفريق الثاني —
+      //    يظهر للجمهور فوراً كفريق واحد مقابل TBD، بدون أي مباراة فعلية بعد.
+      const takenSlots = new Set(withSlot.map(x => x.slot));
+      Object.entries(r.slotPicks || {}).forEach(([slotIdx, pick]) => {
+        const s = parseInt(slotIdx, 10);
+        if (!pick || takenSlots.has(s)) return;
+        withSlot.push({
+          m: {
+            id: null, isKnockout: true, knockoutRoundId: r.id, knockoutSlot: s,
+            homeId: pick.teamId, homeName: pick.teamName, homeLogo: pick.teamLogo,
+            awayId: null, awayName: null, status: 'pending',
+          },
+          slot: s
+        });
+      });
       return { name: roundNames[i] || r.name || ('الدور '+(i+1)), slots: r.slots, matchesWithSlot: withSlot };
     });
 
@@ -2865,23 +2883,37 @@ async function _shGenBracketCanvas(rounds, thirdRound){
 }
 
 // ── صندوق مباراة واحد داخل شجرة البطولة (يطابق تصميم btMatchBox في صفحة الجمهور) ──
-function _btBoxCanvas(ctx, m, x, y, w, h, isFinal){
+// ── صندوق مباراة داخل شجرة البطولة — مطابق تماماً لتصميم .bt-match الحقيقي
+//    بصفحة الجمهور: خلفية صلبة #1E2226، حدود #363C43، شعار دائري لكل فريق،
+//    تمييز الفائز بخلفية ذهبية خفيفة + اسم ذهبي عريض + سهم ▸، وتعتيم الخاسر
+//    مع شطب اسمه وتحويل شعاره للتدرج الرمادي — بالضبط كما تظهر في البث.
+async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal){
   const hasHome = m && (m.homeId || m.homeName);
   const hasAway = m && (m.awayId || m.awayName);
-  ctx.fillStyle = isFinal ? 'rgba(201,160,43,.08)' : 'rgba(255,255,255,.03)';
-  _shRoundRect(ctx,x,y,w,h,10); ctx.fill();
-  ctx.strokeStyle = isFinal ? 'rgba(201,160,43,.5)' : 'rgba(255,255,255,.08)';
-  ctx.lineWidth = isFinal?2:1;
-  _shRoundRect(ctx,x,y,w,h,10); ctx.stroke();
+
+  // ✅ خلفية أغمق بكثير من الكرت — تبرز اسم الفريق والشعار بوضوح فوقها
+  ctx.fillStyle = isFinal ? 'rgba(201,160,43,.09)' : '#101317';
+  _shRoundRect(ctx,x,y,w,h,14); ctx.fill();
+  const isLiveBox = m && m.status === 'live';
+  const isDoneBox = m && m.status === 'finished';
+  ctx.strokeStyle = isFinal ? _SH_GOLD
+    : isLiveBox ? '#D64541'
+    : isDoneBox ? 'rgba(201,160,43,.4)'
+    : '#454C55';
+  ctx.lineWidth = isFinal ? 2.5 : 1.5;
+  _shRoundRect(ctx,x,y,w,h,14); ctx.stroke();
+
   const rowH2 = h/2;
+
   if(!hasHome && !hasAway){
-    ctx.textAlign='center'; ctx.fillStyle='#555'; ctx.font=`700 ${isFinal?17:13}px Tajawal,Arial`;
+    ctx.textAlign='center'; ctx.fillStyle='#6B7480'; ctx.font=`700 ${isFinal?17:13}px Tajawal,Arial`;
     ctx.fillText('TBD', x+w/2, y+rowH2/2+5);
     ctx.fillText('TBD', x+w/2, y+rowH2+rowH2/2+5);
-    ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=1;
+    ctx.strokeStyle='#262B30'; ctx.lineWidth=1;
     ctx.beginPath(); ctx.moveTo(x+10,y+rowH2); ctx.lineTo(x+w-10,y+rowH2); ctx.stroke();
     return;
   }
+
   const teamsArr = window.teams || [];
   const ht = m.homeId ? (teamsArr.find(t=>t.id===m.homeId)||{name:m.homeName||'TBD',logo:''}) : {name:m.homeName||'TBD',logo:''};
   const at = m.awayId ? (teamsArr.find(t=>t.id===m.awayId)||{name:m.awayName||'TBD',logo:''}) : {name:m.awayName||'TBD',logo:''};
@@ -2890,23 +2922,70 @@ function _btBoxCanvas(ctx, m, x, y, w, h, isFinal){
   const hw = isFin && (_ps ? _ps.h > _ps.a : (m.homeScore??0) > (m.awayScore??0));
   const aw = isFin && (_ps ? _ps.a > _ps.h : (m.awayScore??0) > (m.homeScore??0));
   const rows = [
-    {team:ht, win:hw, score: isFin||isLive ? (m.homeScore??0) : null, pen: isFin&&_ps ? _ps.h : null},
-    {team:at, win:aw, score: isFin||isLive ? (m.awayScore??0) : null, pen: isFin&&_ps ? _ps.a : null},
+    {team:ht, win:hw, lose: isFin && !hw && aw, score: isFin||isLive ? (m.homeScore??0) : null, pen: isFin&&_ps ? _ps.h : null},
+    {team:at, win:aw, lose: isFin && !aw && hw, score: isFin||isLive ? (m.awayScore??0) : null, pen: isFin&&_ps ? _ps.a : null},
   ];
-  const nameFS = isFinal?17:13, scoreFS = isFinal?19:14;
+  // ✅ خط وشعار أكبر وأوضح بكثير من قبل
+  const nameFS = isFinal?19:15, scoreFS = isFinal?20:16;
+  const logoR = isFinal ? 21 : 17;
+  const logoCX = x + w - 15 - logoR;
+
   for(let ri=0; ri<2; ri++){
     const rw = rows[ri];
     const cy = y + rowH2*ri + rowH2/2;
-    ctx.textAlign='right'; ctx.font = (rw.win?'800 ':'600 ')+nameFS+'px Tajawal,Arial';
-    ctx.fillStyle = rw.win ? '#fff' : '#999';
-    ctx.fillText(_shTrim(rw.team.name||'TBD', isFinal?16:12), x+w-14, cy+5);
+
+    // خلفية الصف الفائز — تينت ذهبي خفيف يغطي الصف كاملاً
+    if (rw.win) {
+      ctx.fillStyle = 'rgba(201,160,43,.12)';
+      ctx.fillRect(x+1.5, y+rowH2*ri+1.5, w-3, rowH2-(ri===1?3:1.5));
+    }
+
+    // شعار الفريق — دائري كبير وواضح، خلفية داكنة صلبة خلفه، رمادي للخاسر فقط
+    const logoImg = await _shLoadImg(rw.team.logo);
+    ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2);
+    ctx.fillStyle = '#0a0b0d'; ctx.fill();
+    ctx.save();
+    if (rw.lose) ctx.filter = 'grayscale(1) opacity(.6)';
+    ctx.beginPath(); ctx.arc(logoCX, cy, logoR-2, 0, Math.PI*2); ctx.clip();
+    if (logoImg) { _shDrawImgCover(ctx, logoImg, logoCX-(logoR-2), cy-(logoR-2), (logoR-2)*2); }
+    ctx.restore();
+    ctx.strokeStyle = rw.lose ? '#333A40' : rw.win ? _SH_GOLD : '#5A6470'; ctx.lineWidth = rw.win?1.8:1.3;
+    ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2); ctx.stroke();
+
+    // اسم الفريق — يمين، عريض وواضح جداً (أبيض نقي)، ذهبي للفائز، خافت ومشطوب للخاسر
+    ctx.textAlign='right';
+    ctx.font = (rw.win?'900 ':'800 ')+nameFS+'px Tajawal,Arial';
+    ctx.fillStyle = rw.win ? _SH_GOLD : rw.lose ? '#6B7480' : '#FFFFFF';
+    const nameMaxW = w - (logoR*2+24) - 62;
+    let dispName = rw.team.name||'TBD';
+    if (ctx.measureText(dispName).width > nameMaxW) {
+      while (dispName.length>1 && ctx.measureText(dispName+'…').width > nameMaxW) dispName = dispName.slice(0,-1);
+      dispName += '…';
+    }
+    const nameRightX = logoCX - logoR - 11;
+    ctx.fillText(dispName, nameRightX, cy+5);
+    // شطب اسم الخاسر
+    if (rw.lose) {
+      const nw = ctx.measureText(dispName).width;
+      ctx.strokeStyle = 'rgba(214,69,65,.6)'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(nameRightX-nw, cy+1); ctx.lineTo(nameRightX, cy+1); ctx.stroke();
+    }
+    // سهم صغير قبل اسم الفائز (▸ في التصميم الحقيقي)
+    if (rw.win) {
+      const nw = ctx.measureText(dispName).width;
+      ctx.fillStyle = _SH_GOLD; ctx.font = '900 13px Tajawal,Arial';
+      ctx.fillText('◂', nameRightX-nw-6, cy+5);
+    }
+
+    // النتيجة — يسار
     ctx.textAlign='left'; ctx.font='900 '+scoreFS+'px Tajawal,Arial';
-    ctx.fillStyle = rw.win ? _SH_GOLD : '#777';
+    ctx.fillStyle = rw.win ? _SH_GOLD : rw.lose ? '#6B7480' : '#C7CCD1';
     ctx.fillText(rw.score!=null ? String(rw.score)+(rw.pen!=null?' ('+rw.pen+')':'') : (isLive?'—':''), x+14, cy+5);
   }
-  ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1;
+
+  ctx.strokeStyle='#262B30'; ctx.lineWidth=1;
   ctx.beginPath(); ctx.moveTo(x+10,y+rowH2); ctx.lineTo(x+w-10,y+rowH2); ctx.stroke();
-  if(isLive){ ctx.fillStyle='#e5533d'; ctx.beginPath(); ctx.arc(x+16,y+14,5,0,Math.PI*2); ctx.fill(); }
+  if(isLive){ ctx.fillStyle='#D64541'; ctx.beginPath(); ctx.arc(x+16,y+14,5,0,Math.PI*2); ctx.fill(); }
 }
 
 // ── شجرة البطولة العمودية بنفس بنية buildVerticalBracketHTML بالضبط: كل دور تمهيدي
@@ -2948,23 +3027,25 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
 
   let y = headerH;
   const leftX = sideMargin, rightX = W-sideMargin-colW;
-  pre.forEach((r, ridx)=>{
+  for (let ridx = 0; ridx < pre.length; ridx++) {
+    const r = pre[ridx];
     const rm = roundMeta[ridx];
-    ctx.textAlign='center'; ctx.fillStyle='#ccc'; ctx.font='900 16px Tajawal,Arial';
+    // ✅ لون اسم الدور ذهبي مطابق لـ .btv-round-label الحقيقي (كان رمادياً باهتاً)
+    ctx.textAlign='center'; ctx.fillStyle=_SH_GOLD; ctx.font='900 16px Tajawal,Arial';
     ctx.fillText(r.name||'', W/2, y+22);
     y += roundLabelH;
-    rm.leftSlots.forEach((m,i)=> _btBoxCanvas(ctx, m, leftX, y+i*(matchH+matchGap), colW, matchH, false));
-    rm.rightSlots.forEach((m,i)=> _btBoxCanvas(ctx, m, rightX, y+i*(matchH+matchGap), colW, matchH, false));
+    for (let i=0;i<rm.leftSlots.length;i++)  await _btBoxCanvas(ctx, rm.leftSlots[i],  leftX,  y+i*(matchH+matchGap), colW, matchH, false);
+    for (let i=0;i<rm.rightSlots.length;i++) await _btBoxCanvas(ctx, rm.rightSlots[i], rightX, y+i*(matchH+matchGap), colW, matchH, false);
     _shIconBadge(ctx, 'swords', W/2, y+rm.colH/2, 22, 'rgba(201,160,43,.75)', 0.1);
     y += rm.colH;
     _shIconBadge(ctx, 'arrowDown', W/2, y+arrowH*0.5, 24, 'rgba(201,160,43,.8)', 0);
     y += arrowH;
-  });
+  }
 
   ctx.textAlign='center'; ctx.fillStyle=_SH_GOLD; ctx.font='900 18px Tajawal,Arial';
   ctx.fillText(finalRound.name||'', W/2, y+22);
   y += roundLabelH;
-  _btBoxCanvas(ctx, finalMatch, W/2-finalBoxW/2, y, finalBoxW, finalBoxH, true);
+  await _btBoxCanvas(ctx, finalMatch, W/2-finalBoxW/2, y, finalBoxW, finalBoxH, true);
   y += finalBoxH + 30;
 
   if(isFinDone){
@@ -2992,7 +3073,7 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
     _shIconBadge(ctx, 'medal', W/2 - _tw3/2 - 16, y+14, 18, '#cc8888', 0);
     ctx.fillText(thirdRound.name||'', W/2+9, y+20);
     y += 30;
-    _btBoxCanvas(ctx, m3, W/2-260, y, 520, 96, false);
+    await _btBoxCanvas(ctx, m3, W/2-260, y, 520, 96, false);
     y += 96 + 20;
   }
 
@@ -3139,7 +3220,7 @@ function btMatchBox(m, isFinal) {
   const _ps = _penScore(m);
   const hw = isFin && (_ps ? _ps.h > _ps.a : (m.homeScore ?? 0) > (m.awayScore ?? 0));
   const aw = isFin && (_ps ? _ps.a > _ps.h : (m.awayScore ?? 0) > (m.homeScore ?? 0));
-  const clickFn = m.id ? `openMatchDetail('${m.id}')` : `openBracketMatch('','${encodeURIComponent(String(m.id||''))}')`;
+  const clickFn = m.id ? `openMatchDetail('${m.id}')` : (hasAway ? `openBracketMatch('','${encodeURIComponent(String(m.id||''))}')` : '');
   // ✅︎ المباراة المنتهية تبقى ظاهرة ببطاقتها كاملة (الفائز + الخاسر) — لا تُفرَّغ أبداً
   const penH = (isFin && _ps) ? `<span class="bt-pen">رك ${_ps.h}</span>` : '';
   const penA = (isFin && _ps) ? `<span class="bt-pen">رك ${_ps.a}</span>` : '';
@@ -3241,7 +3322,7 @@ function renderBracketMatchLinear(m, roundName) {
   const _ps = _penScore(m);
   const hw = isFin && (_ps ? _ps.h > _ps.a : (m.homeScore ?? 0) > (m.awayScore ?? 0));
   const aw = isFin && (_ps ? _ps.a > _ps.h : (m.awayScore ?? 0) > (m.homeScore ?? 0));
-  const clickFn = m.id ? `openMatchDetail('${m.id}')` : `openBracketMatch('','${encodeURIComponent(String(m.id||''))}')`;
+  const clickFn = m.id ? `openMatchDetail('${m.id}')` : (hasAway ? `openBracketMatch('','${encodeURIComponent(String(m.id||''))}')` : '');
   // شارة المجموع الكلي (تظهر على مباراة الإياب عند اكتمال المواجهة)
   const _agg = (m.legNo === 2) ? _aggForMatch(m) : null;
   const aggBadge = _agg ? `<div style="text-align:center;font-size:9px;font-weight:800;color:var(--gold);background:rgba(201,160,43,.1);border-top:1px solid var(--b1);padding:3px">المجموع: ${_agg.aggA} - ${_agg.aggB}</div>` : '';

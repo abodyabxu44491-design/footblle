@@ -9334,6 +9334,10 @@ function _getPlacedKnockoutTeamIds() {
     if (m.homeId) set.add(m.homeId);
     if (m.awayId) set.add(m.awayId);
   });
+  // ✅︎ فرق تأهّلت لخانة نصف مكتملة (فريق واحد فقط بانتظار الثاني) تُعتبر موضوعة أيضاً
+  (adminKnockoutRounds || []).forEach(r => {
+    Object.values(r.slotPicks || {}).forEach(p => { if (p && p.teamId) set.add(p.teamId); });
+  });
   return set;
 }
 
@@ -9458,15 +9462,15 @@ function renderKnockoutAdmin() {
 
     let bodyHtml;
     if (slots <= 1) {
-      bodyHtml = `<div class="ab-final-row">${_adminBracketBox(slotArr[0], round.id, 0, isFirstRound)}</div>`;
+      bodyHtml = `<div class="ab-final-row">${_adminBracketBox(slotArr[0], round.id, 0, isFirstRound, round)}</div>`;
     } else {
       const half = slots / 2;
       const leftSlots  = slotArr.slice(0, half);
       const rightSlots = slotArr.slice(half);
       bodyHtml = `<div class="ab-pair-row">
-        <div class="ab-side">${leftSlots.map((m,i) => _adminBracketBox(m, round.id, i, isFirstRound)).join('')}</div>
+        <div class="ab-side">${leftSlots.map((m,i) => _adminBracketBox(m, round.id, i, isFirstRound, round)).join('')}</div>
         <div class="ab-side-sep">${isFinal ? '' : '↓ ↓'}</div>
-        <div class="ab-side">${rightSlots.map((m,i) => _adminBracketBox(m, round.id, i+half, isFirstRound)).join('')}</div>
+        <div class="ab-side">${rightSlots.map((m,i) => _adminBracketBox(m, round.id, i+half, isFirstRound, round)).join('')}</div>
       </div>`;
     }
 
@@ -9486,8 +9490,10 @@ function renderKnockoutAdmin() {
 }
 
 // ── صندوق مباراة واحد في الشجرة التفاعلية ──
-function _adminBracketBox(m, roundId, slotIdx, isFirstRound) {
-  if (!m) {
+function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round) {
+  // ✅︎ خانة نصف مكتملة: فريق واحد اختير فعلاً وظهر للجمهور، بانتظار الفريق الثاني
+  const pick = !m && round && round.slotPicks && round.slotPicks[slotIdx];
+  if (!m && !pick) {
     if (isFirstRound) {
       return `<div class="ab-box ab-empty" onclick="adminOpenBracketSlot('${roundId}',${slotIdx})">
         <div class="ab-team ab-tbd">➕︎ اضغط لاختيار فريق</div>
@@ -9497,23 +9503,30 @@ function _adminBracketBox(m, roundId, slotIdx, isFirstRound) {
       <div class="ab-team ab-tbd">⏳ ينتظر الفائز</div>
     </div>`;
   }
-  const ht = teams.find(t => t.id === m.homeId) || { name: m.homeName || 'TBD', logo: '' };
-  const at = teams.find(t => t.id === m.awayId) || { name: m.awayName || 'TBD', logo: '' };
-  const fin  = m.status === 'finished';
-  const live = m.status === 'live';
-  const pend = m.status === 'pending';
+
+  const virtual = !m; // نصف مكتملة — لا توجد مباراة فعلية بعد
+  const ht = virtual
+    ? { name: pick.teamName || 'TBD', logo: pick.teamLogo || '' }
+    : (teams.find(t => t.id === m.homeId) || { name: m.homeName || 'TBD', logo: '' });
+  const at = virtual
+    ? { name: 'TBD', logo: '' }
+    : (teams.find(t => t.id === m.awayId) || { name: m.awayName || 'TBD', logo: '' });
+  const fin  = !virtual && m.status === 'finished';
+  const live = !virtual && m.status === 'live';
+  const pend = !virtual && m.status === 'pending';
   const hw = fin && (m.penaltyScoreHome != null ? m.penaltyScoreHome > m.penaltyScoreAway : (m.homeScore ?? 0) > (m.awayScore ?? 0));
   const aw = fin && (m.penaltyScoreAway != null ? m.penaltyScoreAway > m.penaltyScoreHome : (m.awayScore ?? 0) > (m.homeScore ?? 0));
-  return `<div class="ab-box ${pend ? 'ab-pending' : ''} ${live ? 'ab-live' : ''}" onclick="mcv2OpenInfo('${m.id}')">
-    ${pend ? '<div class="ab-pending-tag">⚪ غير مفعّلة</div>' : live ? '<div class="ab-live-tag">🔴 مباشر</div>' : ''}
+  const clickAttr = virtual ? `adminOpenBracketSlot('${roundId}',${slotIdx})` : `mcv2OpenInfo('${m.id}')`;
+  return `<div class="ab-box ${pend ? 'ab-pending' : ''} ${live ? 'ab-live' : ''} ${virtual ? 'ab-pending' : ''}" onclick="${clickAttr}">
+    ${pend ? '<div class="ab-pending-tag">⚪ غير مفعّلة</div>' : live ? '<div class="ab-live-tag">🔴 مباشر</div>' : virtual ? '<div class="ab-pending-tag" style="background:rgba(39,174,96,.12);border-color:rgba(39,174,96,.35);color:var(--green)">🌍 تأهّل — بانتظار الفريق الثاني</div>' : ''}
     <div class="ab-team ${hw ? 'ab-winner' : ''}${fin && !hw && aw ? ' ab-loser' : ''}">
       <span class="ab-logo">${logoHtml(ht.logo, 16, 4)}</span>
       <span class="ab-name">${ht.name}</span>
       <span class="ab-score">${fin || live ? (m.homeScore ?? 0) : ''}</span>
     </div>
     <div class="ab-team ${aw ? 'ab-winner' : ''}${fin && !aw && hw ? ' ab-loser' : ''}">
-      <span class="ab-logo">${logoHtml(at.logo, 16, 4)}</span>
-      <span class="ab-name">${at.name}</span>
+      <span class="ab-logo">${virtual ? '⚪' : logoHtml(at.logo, 16, 4)}</span>
+      <span class="ab-name" style="${virtual ? 'color:var(--muted,#777);font-style:italic' : ''}">${at.name}</span>
       <span class="ab-score">${fin || live ? (m.awayScore ?? 0) : ''}</span>
     </div>
   </div>`;
@@ -9527,6 +9540,16 @@ window.adminOpenBracketSlot = function(roundId, slotIdx) {
   if (existing) { window.mcv2OpenInfo(existing.id); return; }
 
   const placed = _getPlacedKnockoutTeamIds();
+  const pick = (round.slotPicks || {})[slotIdx];
+
+  // ✅︎ الخانة نصف مكتملة (فريق واحد تأهّل بالفعل) — افتح المنتقي لاختيار الفريق الثاني مباشرة
+  if (pick) {
+    window._bracketSlotPick = { roundId, slotIdx, homeId: pick.teamId, homeName: pick.teamName, homeLogo: pick.teamLogo };
+    const pool = _getQualifiedPool().filter(t => !placed.has(t.id));
+    _openBracketTeamPicker(pool, roundId, slotIdx);
+    return;
+  }
+
   const pool = _getQualifiedPool().filter(t => !placed.has(t.id));
   window._bracketSlotPick = null;
   _openBracketTeamPicker(pool, roundId, slotIdx);
@@ -9568,12 +9591,18 @@ window._adminPickBracketTeam = async function(roundId, slotIdx, teamId) {
   const t = teams.find(x => x.id === teamId);
   if (!t) return;
 
-  // أول فريق — خزّنه مؤقتاً وأعد فتح المنتقي لاختيار الفريق الثاني
+  // ✅︎ أول فريق — يُثبَّت فوراً في خانة الشجرة (يظهر للجمهور من الآن)
+  //    بدل انتظار الفريق الثاني قبل أي حفظ. المنظّم يقدر يترك الخانة هكذا
+  //    ويرجع لاحقاً يختار الفريق الثاني، حينها تُنشأ المباراة فعلياً.
   if (!window._bracketSlotPick) {
-    window._bracketSlotPick = { roundId, slotIdx, homeId: t.id, homeName: t.name, homeLogo: t.logo };
-    const placed = _getPlacedKnockoutTeamIds(); placed.add(t.id);
-    const pool = _getQualifiedPool().filter(x => !placed.has(x.id));
-    _openBracketTeamPicker(pool, roundId, slotIdx);
+    document.getElementById('bracketPickSheet')?.remove();
+    try {
+      await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'knockoutRounds', roundId), {
+        [`slotPicks.${slotIdx}`]: { teamId: t.id, teamName: t.name, teamLogo: t.logo || '⚽' },
+        updatedAt: serverTimestamp()
+      });
+      showToast(`✅︎ تأهّل ${t.name} لهذه الخانة ويظهر للجمهور الآن — اضغط الخانة لاحقاً لاختيار الفريق الثاني`, 'success');
+    } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
     return;
   }
 
@@ -9616,8 +9645,14 @@ window._adminPickBracketTeam = async function(roundId, slotIdx, teamId) {
       newIds.push(ref2.id);
     }
 
+    // ✅︎ نظّف الاختيار المؤقت (slotPicks) لهذه الخانة الآن بعد اكتمال المباراة فعلياً
+    const cleanedSlotPicks = { ...(round?.slotPicks || {}) };
+    delete cleanedSlotPicks[slotIdx];
+
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'knockoutRounds', roundId), {
-      matchIds: [...(round?.matchIds || []), ...newIds], updatedAt: serverTimestamp()
+      matchIds: [...(round?.matchIds || []), ...newIds],
+      slotPicks: cleanedSlotPicks,
+      updatedAt: serverTimestamp()
     });
     showToast(twoLegs ? '✅︎ أُنشئت مباراتا الذهاب والإياب' : '✅︎ أُنشئت المباراة وتظهر للجمهور الآن', 'success');
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }

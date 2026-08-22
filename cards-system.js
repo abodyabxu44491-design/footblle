@@ -592,14 +592,14 @@
     const rgb = hexToRgb(ac);
     const st  = hexToRgb(STEEL);
 
-    // تدرّج عمودي غنيّ — عمق رياضي
+    // ✅ تدرّج أغمق بكثير — الأولوية لوضوح أسماء الفرق والشعارات فوق الخلفية
     const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0,   '#14161c');
-    bg.addColorStop(0.45,'#0d0f13');
-    bg.addColorStop(1,   '#070809');
+    bg.addColorStop(0,   '#0d0e12');
+    bg.addColorStop(0.45,'#08090c');
+    bg.addColorStop(1,   '#040405');
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
 
-    // ── أشرطة قطرية ديناميكية (إحساس الحركة كخلفيات الأندية) ──
+    // ── أشرطة قطرية خافتة جداً (لمسة حركة بلا إزعاج بصري) ──
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (let i = -2; i < 8; i++) {
@@ -610,21 +610,21 @@
       ctx.lineTo(x + W * 0.28 - H * 0.5, H);
       ctx.lineTo(x - H * 0.5, H);
       ctx.closePath();
-      ctx.fillStyle = i % 2 === 0 ? `rgba(${rgb},0.020)` : `rgba(${st},0.020)`;
+      ctx.fillStyle = i % 2 === 0 ? `rgba(${rgb},0.010)` : `rgba(${st},0.010)`;
       ctx.fill();
     }
     ctx.restore();
 
-    // توهّج قطري علوي من الزاوية (طاقة)
+    // توهّج قطري علوي خافت جداً من الزاوية
     const cg = ctx.createRadialGradient(W*0.82, H*0.08, 0, W*0.82, H*0.08, W*0.85);
-    cg.addColorStop(0, `rgba(${rgb},0.18)`);
-    cg.addColorStop(0.5, `rgba(${rgb},0.04)`);
+    cg.addColorStop(0, `rgba(${rgb},0.09)`);
+    cg.addColorStop(0.5, `rgba(${rgb},0.02)`);
     cg.addColorStop(1, 'transparent');
     ctx.fillStyle = cg; ctx.fillRect(0, 0, W, H);
 
-    // إضاءة سفلية خافتة (توازن)
+    // إضاءة سفلية خافتة جداً (توازن بسيط)
     const bgl = ctx.createRadialGradient(W*0.2, H*0.95, 0, W*0.2, H*0.95, W*0.7);
-    bgl.addColorStop(0, `rgba(${st},0.10)`);
+    bgl.addColorStop(0, `rgba(${st},0.05)`);
     bgl.addColorStop(1, 'transparent');
     ctx.fillStyle = bgl; ctx.fillRect(0, 0, W, H);
 
@@ -642,12 +642,13 @@
     roundRect(ctx, pad, pad, W - pad*2, H - pad*2, 22);
     ctx.stroke();
 
-    // ── watermark رياضي خفيف: دائرة تكتيكية كبيرة أسفل-وسط (كلوحة المدرّب) ──
+    // ── watermark رياضي خفيف جداً: دائرة تكتيكية داكنة (كلوحة المدرّب) — لمسة تصميم فقط ──
     ctx.save();
     ctx.globalAlpha = 1;
-    ctx.strokeStyle = `rgba(${rgb},0.05)`;
+    ctx.strokeStyle = `rgba(${rgb},0.022)`;
     ctx.lineWidth = 2;
-    const wmY = H * 0.72, wmR = W * 0.34;
+    const wmBase = Math.min(W, H);
+    const wmY = H * 0.55, wmR = wmBase * 0.30;
     ctx.beginPath(); ctx.arc(W/2, wmY, wmR, 0, Math.PI*2); ctx.stroke();
     ctx.beginPath(); ctx.arc(W/2, wmY, wmR*0.6, 0, Math.PI*2); ctx.stroke();
     // خط أفقي عبر المركز
@@ -661,73 +662,96 @@
   // يرسم شريطاً أعلى البطاقة يحتوي: شعار البطولة + اسمها
   // الارتفاع: 72px
   async function drawTopIdentityBar(ctx, W, topY, lgImg) {
-    const name   = getLeagueName();
-    const accent = _state.accentColor || GOLD;
-    const rgb    = hexToRgb(accent);
-    const BH     = 96;               // ✅ شريط أطول يعطي الشعار والاسم مساحة تنفّس
-    const SIDE_PAD = 56;              // هامش آمن من حواف البطاقة
+    const name    = getLeagueName();
+    const accent  = _state.accentColor || GOLD;
+    const rgb     = hexToRgb(accent);
+    const goldRgb = hexToRgb(GOLD2);
+    const st      = hexToRgb(STEEL);
+    const cx      = W / 2;
+
+    // ✅ تصميم "وسام رسمي" جديد: ميدالية مركزية للشعار أعلى، واسم البطولة
+    //    تحتها داخل إطار مزخرف (نجمتان + خطوط ذهبية) — شكل بطاقة عالمية فاخرة
+    const R        = 52;                 // نصف قطر الميدالية
+    const medalCY  = topY + 90;          // مركز الميدالية رأسياً
+    const SIDE_PAD = 80;
     const maxTextAreaW = W - SIDE_PAD * 2;
 
-    // خلفية الشريط
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
-    ctx.fillRect(0, topY, W, BH);
+    // خلفية الشريط (يُحسب ارتفاعها لاحقاً بعد معرفة حجم اسم البطولة)
+    // ── هالة توهج خلف الميدالية ──
+    const glow = ctx.createRadialGradient(cx, medalCY, 0, cx, medalCY, R*2.4);
+    glow.addColorStop(0,   `rgba(${rgb},0.30)`);
+    glow.addColorStop(0.5, `rgba(${rgb},0.08)`);
+    glow.addColorStop(1,   'transparent');
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx-R*2.4, medalCY-R*2.4, R*4.8, R*4.8);
 
-    // خط سفلي فاصل — ذهبي رفيع فوق ظل فولاذي
-    ctx.strokeStyle = `rgba(${hexToRgb(_state.accentColor||GOLD)},0.35)`;
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(80, topY+BH+0.5); ctx.lineTo(W-80, topY+BH+0.5); ctx.stroke();
-    ctx.strokeStyle = `rgba(${hexToRgb(STEEL)},0.4)`;
-    ctx.beginPath(); ctx.moveTo(120, topY+BH+2.5); ctx.lineTo(W-120, topY+BH+2.5); ctx.stroke();
+    // ── إشعاعات "وسام" حول الحلقة (إحساس ميدالية رسمية معتمدة) ──
+    const ticks = 14;
+    for (let i = 0; i < ticks; i++) {
+      const a  = (i / ticks) * Math.PI * 2;
+      const r1 = R + 9, r2 = R + (i % 2 === 0 ? 17 : 13);
+      ctx.strokeStyle = i % 2 === 0 ? `rgba(${rgb},0.55)` : `rgba(${st},0.4)`;
+      ctx.lineWidth   = i % 2 === 0 ? 2 : 1.2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a)*r1, medalCY + Math.sin(a)*r1);
+      ctx.lineTo(cx + Math.cos(a)*r2, medalCY + Math.sin(a)*r2);
+      ctx.stroke();
+    }
 
-    const cy = topY + BH / 2;
-    const logoSz = 68;                // ✅ شعار أكبر وأوضح (كان 48)
-    const gap    = 18;
+    // ── حلقة مزدوجة فاخرة: خارجية بلون الهوية بارزة + داخلية ذهبية فاتحة ──
+    ctx.beginPath(); ctx.arc(cx, medalCY, R+6, 0, Math.PI*2);
+    ctx.strokeStyle = accent; ctx.lineWidth = 3; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, medalCY, R+1, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(${goldRgb},0.65)`; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // خلفية داكنة خلف الشعار (تحسّن التباين لو الشعار شفاف أو بلا خلفية)
+    ctx.beginPath(); ctx.arc(cx, medalCY, R, 0, Math.PI*2);
+    ctx.fillStyle = '#0c0c0d'; ctx.fill();
 
     if (lgImg) {
-      // نحسب أقصى عرض متاح لاسم البطولة بعد طرح الشعار والمسافة والهوامش
-      const nameMaxW = maxTextAreaW - logoSz - gap;
-      const fontSize = fitFontSize(ctx, name, nameMaxW, s => `bold ${s}px Tajawal,Arial`, 30, 18, 2);
-      const fittedName = truncateToWidth(ctx, name, nameMaxW);
-      const tw = ctx.measureText(fittedName).width;
-      const total = logoSz + gap + tw;
-      const startX = (W - total) / 2;
-
-      // هالة الشعار
-      ctx.fillStyle = `rgba(${rgb},0.15)`;
-      ctx.beginPath(); ctx.arc(startX+logoSz/2, cy, logoSz/2+9, 0, Math.PI*2); ctx.fill();
-
-      // الشعار دائري
-      ctx.save(); ctx.beginPath();
-      ctx.arc(startX+logoSz/2, cy, logoSz/2, 0, Math.PI*2); ctx.clip();
-      _drawImgCover(ctx, lgImg, startX, cy-logoSz/2, logoSz); ctx.restore();
-
-      // حلقة رفيعة هادئة بلون الهوية
-      ctx.strokeStyle = `rgba(${rgb},0.45)`; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(startX+logoSz/2, cy, logoSz/2+2, 0, Math.PI*2); ctx.stroke();
-
-      // اسم البطولة — محاذاة رأسية دقيقة بمنتصف الشعار
-      ctx.font = `bold ${fontSize}px Tajawal,Arial`;
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffffff';
-      ctx.fillText(fittedName, startX+logoSz+gap, cy+1);
-      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, medalCY, R-4, 0, Math.PI*2); ctx.clip();
+      _drawImgCover(ctx, lgImg, cx-(R-4), medalCY-(R-4), (R-4)*2); ctx.restore();
     } else {
-      // بدون شعار — أيقونة كأس + الاسم، بمحاذاة مركزية موحدة ومساحة كافية
-      ctx.font = 'bold 30px Tajawal,Arial';
-      const nameMaxW = maxTextAreaW - 70;
-      const fontSize = fitFontSize(ctx, name, nameMaxW, s => `bold ${s}px Tajawal,Arial`, 30, 18, 2);
-      const fittedName = truncateToWidth(ctx, name, nameMaxW);
-      const tw = ctx.measureText(fittedName).width;
-      const iconSz = 38, gap2 = 16;
-      const total = iconSz + gap2 + tw;
-      const startX = (W - total) / 2;
-
-      drawIcon(ctx, 'trophy', startX+iconSz/2, cy, iconSz, accent);
-      ctx.font = `bold ${fontSize}px Tajawal,Arial`; ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillText(fittedName, startX+iconSz+gap2, cy+1);
-      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      drawIcon(ctx, 'trophy', cx, medalCY, R*1.05, accent);
     }
+
+    // ── اسم البطولة أسفل الميدالية، داخل إطار وسام (نجمتان + خطوط ذهبية) ──
+    const nameY = medalCY + R + 46;
+    const starSz = 14, starGap = 16;
+    const nameMaxW = maxTextAreaW - (starSz*2 + starGap*2 + 40);
+    const fontSize = fitFontSize(ctx, name, nameMaxW, s => `bold ${s}px Tajawal,Arial`, 28, 16, 2);
+    const fittedName = truncateToWidth(ctx, name, nameMaxW);
+    ctx.font = `bold ${fontSize}px Tajawal,Arial`;
+    const tw = ctx.measureText(fittedName).width;
+
+    // تدرّج ذهبي على نص الاسم — لمسة "وسام فاخر" بدل اللون الأبيض المسطّح
+    const grad = ctx.createLinearGradient(cx-tw/2, 0, cx+tw/2, 0);
+    grad.addColorStop(0, GOLD2); grad.addColorStop(0.5, '#fff6de'); grad.addColorStop(1, GOLD2);
+    ctx.textAlign = 'center'; ctx.fillStyle = grad;
+    ctx.fillText(fittedName, cx, nameY);
+
+    // نجمتان صغيرتان + خطوط ذهبية ممتدة للحواف — إطار الوسام
+    const halfW  = tw/2;
+    const lineY  = nameY - fontSize*0.32;
+    drawIcon(ctx, 'star', cx - halfW - starGap - starSz/2, lineY, starSz, accent);
+    drawIcon(ctx, 'star', cx + halfW + starGap + starSz/2, lineY, starSz, accent);
+    ctx.strokeStyle = `rgba(${rgb},0.5)`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(SIDE_PAD, lineY); ctx.lineTo(cx-halfW-starGap-starSz-8, lineY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+halfW+starGap+starSz+8, lineY); ctx.lineTo(W-SIDE_PAD, lineY); ctx.stroke();
+
+    // ── ارتفاع الشريط الكلي + خلفية شفافة خفيفة خلف كل المحتوى أعلاه ──
+    const BH = (nameY - topY) + 30;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    ctx.fillRect(0, topY, W, BH);
+    ctx.restore();
+
+    // خط سفلي فاصل — ذهبي رفيع فوق ظل فولاذي
+    ctx.strokeStyle = `rgba(${rgb},0.35)`; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(80, topY+BH+0.5); ctx.lineTo(W-80, topY+BH+0.5); ctx.stroke();
+    ctx.strokeStyle = `rgba(${st},0.4)`;
+    ctx.beginPath(); ctx.moveTo(120, topY+BH+2.5); ctx.lineTo(W-120, topY+BH+2.5); ctx.stroke();
 
     return BH;
   }

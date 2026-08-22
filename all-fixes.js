@@ -169,6 +169,7 @@
             });
 
             const manualQ = new Set(g.qualifiedTeamIds || []);
+            const manualE = new Set(g.eliminatedTeamIds || []);
             const hasManualQ = manualQ.size > 0;
             // ✅ رجّعنا خطوة الاعتماد المنفصلة: تحديد المتأهلين لا يُظهرهم
             // للجمهور وحده — لازم اعتماد صريح عبر adminPublishQualification.
@@ -202,6 +203,7 @@
                         const s = statsMap[t.id] || {};
                         const gd = (s.gf||0)-(s.ga||0);
                         const isManualQ = manualQ.has(t.id);
+                        const isManualE = manualE.has(t.id);
                         const isQ = hasManualQ ? isManualQ : i < qualifyCount;
                         const qColor = isQ ? 'var(--green)' : 'var(--muted)';
                         return `
@@ -214,10 +216,14 @@
                             <span style="text-align:center;font-size:11px;color:var(--red)">${s.l||0}</span>
                             <span style="text-align:center;font-size:11px;color:${gd>0?'var(--green)':gd<0?'var(--red)':'#888'}">${gd>0?'+'+gd:gd}</span>
                             <span style="text-align:center;font-size:13px;font-weight:900;color:var(--gold);font-family:Tajawal,sans-serif">${s.pts||0}</span>
-                            <span style="text-align:center">
-                              <button onclick="adminToggleQualified('${g.id}','${t.id}')"
+                            <span style="text-align:center;display:flex;gap:4px;justify-content:center">
+                              <button onclick="adminSetQualifyStatus('${g.id}','${t.id}','qualify')"
                                 style="font-size:9px;padding:2px 7px;border-radius:5px;border:1px solid ${isManualQ?'var(--green)':'var(--border2)'};background:${isManualQ?'rgba(39,174,96,.15)':'transparent'};color:${isManualQ?'var(--green)':'var(--muted)'};cursor:pointer;white-space:nowrap">
                                 ${isManualQ ? '✅ متأهل' : '+ تأهيل'}
+                              </button>
+                              <button onclick="adminSetQualifyStatus('${g.id}','${t.id}','eliminate')"
+                                style="font-size:9px;padding:2px 7px;border-radius:5px;border:1px solid ${isManualE?'var(--red)':'var(--border2)'};background:${isManualE?'rgba(214,69,65,.15)':'transparent'};color:${isManualE?'var(--red)':'var(--muted)'};cursor:pointer;white-space:nowrap">
+                                ${isManualE ? '❌ خارج' : '+ إخراج'}
                               </button>
                             </span>
                           </div>`;

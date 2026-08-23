@@ -171,6 +171,18 @@
     while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
     return t + '…';
   }
+  // ── تصغير الخط تلقائياً حتى يدخل النص ضمن أقصى عرض متاح (مطابقة لـ cards-system.js) ──
+  function fitFontSize(ctx, text, maxWidth, fontTemplate, baseSize, minSize, step) {
+    step = step || 2; minSize = minSize || 14;
+    var size = baseSize;
+    while (size > minSize) {
+      ctx.font = fontTemplate(size);
+      if (ctx.measureText(text).width <= maxWidth) break;
+      size -= step;
+    }
+    ctx.font = fontTemplate(size);
+    return size;
+  }
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); }
@@ -231,14 +243,14 @@
     }
   }
 
-  // ── خلفية البطاقة الموحّدة ──────────────────────────────────────
+  // ── خلفية البطاقة الموحّدة (✅ أغمق بكثير — نفس آخر تحديث بقسم بطاقات المشاركة بالإدارة) ──
   function drawBackground(ctx, W, H, accent) {
     var ac = accent || GOLD;
     var rgb = hexToRgb(ac);
     var st = hexToRgb(STEEL);
 
     var bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, '#14161c'); bg.addColorStop(0.45, '#0d0f13'); bg.addColorStop(1, '#070809');
+    bg.addColorStop(0, '#0d0e12'); bg.addColorStop(0.45, '#08090c'); bg.addColorStop(1, '#040405');
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
 
     ctx.save();
@@ -249,17 +261,17 @@
       ctx.moveTo(x, 0); ctx.lineTo(x + W * 0.28, 0);
       ctx.lineTo(x + W * 0.28 - H * 0.5, H); ctx.lineTo(x - H * 0.5, H);
       ctx.closePath();
-      ctx.fillStyle = i % 2 === 0 ? 'rgba(' + rgb + ',0.020)' : 'rgba(' + st + ',0.020)';
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(' + rgb + ',0.010)' : 'rgba(' + st + ',0.010)';
       ctx.fill();
     }
     ctx.restore();
 
     var cg = ctx.createRadialGradient(W * 0.82, H * 0.08, 0, W * 0.82, H * 0.08, W * 0.85);
-    cg.addColorStop(0, 'rgba(' + rgb + ',0.18)'); cg.addColorStop(0.5, 'rgba(' + rgb + ',0.04)'); cg.addColorStop(1, 'transparent');
+    cg.addColorStop(0, 'rgba(' + rgb + ',0.09)'); cg.addColorStop(0.5, 'rgba(' + rgb + ',0.02)'); cg.addColorStop(1, 'transparent');
     ctx.fillStyle = cg; ctx.fillRect(0, 0, W, H);
 
     var bgl = ctx.createRadialGradient(W * 0.2, H * 0.95, 0, W * 0.2, H * 0.95, W * 0.7);
-    bgl.addColorStop(0, 'rgba(' + st + ',0.10)'); bgl.addColorStop(1, 'transparent');
+    bgl.addColorStop(0, 'rgba(' + st + ',0.05)'); bgl.addColorStop(1, 'transparent');
     ctx.fillStyle = bgl; ctx.fillRect(0, 0, W, H);
 
     ctx.fillStyle = ac; ctx.fillRect(0, 0, W, 8);
@@ -274,60 +286,97 @@
     ctx.stroke();
 
     ctx.save();
-    ctx.strokeStyle = 'rgba(' + rgb + ',0.05)';
+    ctx.strokeStyle = 'rgba(' + rgb + ',0.022)';
     ctx.lineWidth = 2;
-    var wmY = H * 0.72, wmR = W * 0.34;
+    var wmBase = Math.min(W, H);
+    var wmY = H * 0.55, wmR = wmBase * 0.30;
     ctx.beginPath(); ctx.arc(W / 2, wmY, wmR, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.arc(W / 2, wmY, wmR * 0.6, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(W / 2 - wmR, wmY); ctx.lineTo(W / 2 + wmR, wmY); ctx.stroke();
     ctx.restore();
   }
 
-  // ── شريط هوية البطولة العلوي ──────────────────────────────────────
+  // ── شريط هوية البطولة العلوي: ميدالية "وسام رسمي" — مطابقة تماماً لآخر تصميم
+  //    بقسم بطاقات المشاركة بالإدارة (شعار دائري + توهج + إشعاعات + حلقة مزدوجة +
+  //    اسم بتدرّج ذهبي محاط بنجمتين وخطوط) بدل الشريط الأفقي البسيط القديم ──
   async function drawTopIdentityBar(ctx, W, topY, lgImg, accent) {
+    var ac = accent || GOLD;
+    var rgb = hexToRgb(ac);
+    var goldRgb = hexToRgb(GOLD2);
+    var st = hexToRgb(STEEL);
+    var cx = W / 2;
     var name = getLeagueName();
-    var rgb = hexToRgb(accent || GOLD);
-    var BH = 72;
 
+    var R = 52;
+    var medalCY = topY + 90;
+    var SIDE_PAD = 80;
+    var maxTextAreaW = W - SIDE_PAD * 2;
+
+    var glow = ctx.createRadialGradient(cx, medalCY, 0, cx, medalCY, R * 2.4);
+    glow.addColorStop(0, 'rgba(' + rgb + ',0.30)');
+    glow.addColorStop(0.5, 'rgba(' + rgb + ',0.08)');
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx - R * 2.4, medalCY - R * 2.4, R * 4.8, R * 4.8);
+
+    var ticks = 14;
+    for (var i = 0; i < ticks; i++) {
+      var a = (i / ticks) * Math.PI * 2;
+      var r1 = R + 9, r2 = R + (i % 2 === 0 ? 17 : 13);
+      ctx.strokeStyle = i % 2 === 0 ? 'rgba(' + rgb + ',0.55)' : 'rgba(' + st + ',0.4)';
+      ctx.lineWidth = i % 2 === 0 ? 2 : 1.2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * r1, medalCY + Math.sin(a) * r1);
+      ctx.lineTo(cx + Math.cos(a) * r2, medalCY + Math.sin(a) * r2);
+      ctx.stroke();
+    }
+
+    ctx.beginPath(); ctx.arc(cx, medalCY, R + 6, 0, Math.PI * 2);
+    ctx.strokeStyle = ac; ctx.lineWidth = 3; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, medalCY, R + 1, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(' + goldRgb + ',0.65)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.beginPath(); ctx.arc(cx, medalCY, R, 0, Math.PI * 2); ctx.fillStyle = '#0c0c0d'; ctx.fill();
+
+    if (lgImg) {
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, medalCY, R - 4, 0, Math.PI * 2); ctx.clip();
+      _drawImgCover(ctx, lgImg, cx - (R - 4), medalCY - (R - 4), (R - 4) * 2); ctx.restore();
+    } else {
+      drawIcon(ctx, 'trophy', cx, medalCY, R * 1.05, ac);
+    }
+
+    var nameY = medalCY + R + 46;
+    var starSz = 14, starGap = 16;
+    var nameMaxW = maxTextAreaW - (starSz * 2 + starGap * 2 + 40);
+    var fontSize = fitFontSize(ctx, name, nameMaxW, function (s) { return 'bold ' + s + 'px Tajawal,Arial'; }, 28, 16, 2);
+    var fittedName = fitName(ctx, name, nameMaxW);
+    ctx.font = 'bold ' + fontSize + 'px Tajawal,Arial';
+    var tw = ctx.measureText(fittedName).width;
+
+    var grad = ctx.createLinearGradient(cx - tw / 2, 0, cx + tw / 2, 0);
+    grad.addColorStop(0, GOLD2); grad.addColorStop(0.5, '#fff6de'); grad.addColorStop(1, GOLD2);
+    ctx.textAlign = 'center'; ctx.fillStyle = grad;
+    ctx.fillText(fittedName, cx, nameY);
+
+    var halfW = tw / 2, lineY = nameY - fontSize * 0.32;
+    drawIcon(ctx, 'star', cx - halfW - starGap - starSz / 2, lineY, starSz, ac);
+    drawIcon(ctx, 'star', cx + halfW + starGap + starSz / 2, lineY, starSz, ac);
+    ctx.strokeStyle = 'rgba(' + rgb + ',0.5)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(SIDE_PAD, lineY); ctx.lineTo(cx - halfW - starGap - starSz - 8, lineY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + halfW + starGap + starSz + 8, lineY); ctx.lineTo(W - SIDE_PAD, lineY); ctx.stroke();
+
+    var BH = (nameY - topY) + 30;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
     ctx.fillStyle = 'rgba(255,255,255,0.03)';
     ctx.fillRect(0, topY, W, BH);
+    ctx.restore();
 
     ctx.strokeStyle = 'rgba(' + rgb + ',0.35)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(80, topY + BH + 0.5); ctx.lineTo(W - 80, topY + BH + 0.5); ctx.stroke();
-    ctx.strokeStyle = 'rgba(' + hexToRgb(STEEL) + ',0.4)';
+    ctx.strokeStyle = 'rgba(' + st + ',0.4)';
     ctx.beginPath(); ctx.moveTo(120, topY + BH + 2.5); ctx.lineTo(W - 120, topY + BH + 2.5); ctx.stroke();
 
-    var cy = topY + BH / 2;
-    var logoSz = 48;
-
-    if (lgImg) {
-      ctx.font = 'bold 28px Tajawal,Arial';
-      var tw = ctx.measureText(name).width;
-      var gap = 14;
-      var total = logoSz + gap + tw;
-      var startX = (W - total) / 2;
-
-      ctx.fillStyle = 'rgba(' + rgb + ',0.15)';
-      ctx.beginPath(); ctx.arc(startX + logoSz / 2, cy, logoSz / 2 + 7, 0, Math.PI * 2); ctx.fill();
-
-      ctx.save(); ctx.beginPath();
-      ctx.arc(startX + logoSz / 2, cy, logoSz / 2, 0, Math.PI * 2); ctx.clip();
-      _drawImgCover(ctx, lgImg, startX, cy - logoSz / 2, logoSz); ctx.restore();
-
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(startX + logoSz / 2, cy, logoSz / 2 + 1.5, 0, Math.PI * 2); ctx.stroke();
-
-      ctx.font = 'bold 28px Tajawal,Arial';
-      ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff';
-      ctx.fillText(name, startX + logoSz + gap, cy + 10);
-      ctx.textAlign = 'center';
-    } else {
-      drawIcon(ctx, 'trophy', W / 2 - 100, cy + 2, 34, accent || GOLD);
-      ctx.font = 'bold 28px Tajawal,Arial'; ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'left';
-      ctx.fillText(name, W / 2 + 20, cy + 11);
-      ctx.textAlign = 'center';
-    }
     return BH;
   }
 
@@ -446,7 +495,8 @@
     }
     ctx.restore();
 
-    var NY = topY + LS + 40;
+    // ✅ فراغ أوسع وآمن (54 بدل 40) يضمن عدم ملامسة حلقة الشعار الخارجية (R+14) لصندوق الاسم إطلاقاً
+    var NY = topY + LS + 54;
     function drawName(name, cx) {
       ctx.font = 'bold 27px Tajawal,Arial';
       var tw = ctx.measureText(name).width;

@@ -2081,17 +2081,19 @@ async function _shGenMatchStatsCanvas(statsData, ht, at, m){
   if(!rows.length) return null;
 
   const W = 1080;
-  const headerH = 250, rowH = 82, padBot = 70;
+  const MEDH = 144; // ✅ ارتفاع ميدالية شعار البطولة الثابت (نفس _shLeagueMedallion دائماً)
+  const headerH = 250+MEDH, rowH = 82, padBot = 70;
   const H = headerH + rows.length*rowH + padBot;
 
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
   _shBg(ctx, W, H);
+  await _shLeagueMedallion(ctx, W, 26); // ✅ نفس شعار واسم البطولة الظاهر بكل بطاقات الإدارة والجمهور
 
   // ── رأس البطاقة: شعار كل فريق + اسمه + النتيجة إن وُجدت ──
   const [hLogo, aLogo] = await Promise.all([_shLoadImg(ht&&ht.logo), _shLoadImg(at&&at.logo)]);
-  const cyLogo = 96, rLogo = 42;
+  const cyLogo = 96+MEDH, rLogo = 42;
   const hx = W*0.76, ax = W*0.24; // المضيف يمين (كما في الصفحة RTL)، الضيف يسار
   [[hx,hLogo,_SH_GOLD],[ax,aLogo,'#C0392B']].forEach(([cx,img,ring])=>{
     if(img){
@@ -2969,11 +2971,25 @@ async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, mirror){
   _shRoundRect(ctx,x,y,w,h,14); ctx.stroke();
 
   const rowH2 = h/2;
+  const logoR = isFinal ? 32 : 28; // ✅ شعارات أكبر بكثير — وضوح واحترافية أعلى (طلب صريح)
+  const logoCX = mirror ? (x + 18 + logoR) : (x + w - 18 - logoR);
+  const nameFS = isFinal?22:18;
 
+  // ✅ صندوق "بانتظار الفريقين" يُبنى بنفس هيكل الصندوق الحقيقي تماماً (دوائر شعار فارغة
+  //    بخط متقطع + نص TBD بجانبها بنفس محاذاة الاسم الحقيقي) — بدل نص فارغ يبان صغير/ناقص
   if(!hasHome && !hasAway){
-    ctx.textAlign='center'; ctx.fillStyle='#6B7480'; ctx.font=`700 ${isFinal?17:13}px Tajawal,Arial`;
-    ctx.fillText('TBD', x+w/2, y+rowH2/2+5);
-    ctx.fillText('TBD', x+w/2, y+rowH2+rowH2/2+5);
+    for (let ri=0; ri<2; ri++){
+      const cy = y + rowH2*ri + rowH2/2;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2);
+      ctx.fillStyle='#14171b'; ctx.fill();
+      ctx.strokeStyle='#3A4149'; ctx.lineWidth=1.4; ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.textAlign = mirror ? 'left' : 'right';
+      ctx.font = `700 ${nameFS}px Tajawal,Arial`; ctx.fillStyle='#5A6470';
+      const nameAnchorX = mirror ? (logoCX + logoR + 17) : (logoCX - logoR - 17);
+      ctx.fillText('TBD', nameAnchorX, cy+5);
+    }
     ctx.strokeStyle='#262B30'; ctx.lineWidth=1;
     ctx.beginPath(); ctx.moveTo(x+10,y+rowH2); ctx.lineTo(x+w-10,y+rowH2); ctx.stroke();
     return;
@@ -2990,11 +3006,7 @@ async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, mirror){
     {team:ht, win:hw, lose: isFin && !hw && aw, score: isFin||isLive ? (m.homeScore??0) : null, pen: isFin&&_ps ? _ps.h : null},
     {team:at, win:aw, lose: isFin && !aw && hw, score: isFin||isLive ? (m.awayScore??0) : null, pen: isFin&&_ps ? _ps.a : null},
   ];
-  // ✅ خط وشعار أكبر وأوضح بكثير من قبل
-  const nameFS = isFinal?19:15, scoreFS = isFinal?20:16;
-  const logoR = isFinal ? 21 : 17;
-  // ── مرآة العمود الأيسر: الشعار للحافة الخارجية (يسار) بدل اليمين، والنتيجة تنتقل لليمين (الداخل) ──
-  const logoCX = mirror ? (x + 15 + logoR) : (x + w - 15 - logoR);
+  const scoreFS = isFinal?24:20;
 
   for(let ri=0; ri<2; ri++){
     const rw = rows[ri];
@@ -3018,17 +3030,19 @@ async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, mirror){
     ctx.strokeStyle = rw.lose ? '#333A40' : rw.win ? _SH_GOLD : '#5A6470'; ctx.lineWidth = rw.win?1.8:1.3;
     ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2); ctx.stroke();
 
-    // اسم الفريق — بجانب الشعار مباشرة، عريض وواضح جداً (أبيض نقي)، ذهبي للفائز، خافت ومشطوب للخاسر
+    // ✅ اسم الفريق — مسافة أوسع وآمنة عن الشعار (14px بدل 11) لمنع أي تلامس بصري،
+    //    ومساحة أكبر محجوزة للسهم الآن مرسوم كشكل متجه بدل رمز نصي (لا يتأثر بخط النظام)
     ctx.textAlign = mirror ? 'left' : 'right';
     ctx.font = (rw.win?'900 ':'800 ')+nameFS+'px Tajawal,Arial';
     ctx.fillStyle = rw.win ? _SH_GOLD : rw.lose ? '#6B7480' : '#FFFFFF';
-    const nameMaxW = w - (logoR*2+24) - 62;
+    const arrowSpace = rw.win ? 20 : 0;
+    const nameMaxW = w - (logoR*2+34) - 74 - arrowSpace;
     let dispName = rw.team.name||'TBD';
     if (ctx.measureText(dispName).width > nameMaxW) {
       while (dispName.length>1 && ctx.measureText(dispName+'…').width > nameMaxW) dispName = dispName.slice(0,-1);
       dispName += '…';
     }
-    const nameAnchorX = mirror ? (logoCX + logoR + 11) : (logoCX - logoR - 11);
+    const nameAnchorX = mirror ? (logoCX + logoR + 17 + arrowSpace) : (logoCX - logoR - 17 - arrowSpace);
     ctx.fillText(dispName, nameAnchorX, cy+5);
     // شطب اسم الخاسر
     if (rw.lose) {
@@ -3037,12 +3051,15 @@ async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, mirror){
       if (mirror) { ctx.beginPath(); ctx.moveTo(nameAnchorX, cy+1); ctx.lineTo(nameAnchorX+nw, cy+1); ctx.stroke(); }
       else { ctx.beginPath(); ctx.moveTo(nameAnchorX-nw, cy+1); ctx.lineTo(nameAnchorX, cy+1); ctx.stroke(); }
     }
-    // سهم صغير بجانب اسم الفائز — يشير دوماً نحو المنتصف (اتجاه التأهّل)
+    // ✅ سهم الفائز كشكل متجه (مثلث) بدل حرف نصي — يضمن مسافة ثابتة دقيقة بلا التصاق
+    //    بالاسم مهما اختلف الخط أو المتصفح، ويشير دوماً نحو منتصف الصندوق (اتجاه التأهّل)
     if (rw.win) {
-      const nw = ctx.measureText(dispName).width;
-      ctx.fillStyle = _SH_GOLD; ctx.font = '900 13px Tajawal,Arial';
-      if (mirror) ctx.fillText('▸', nameAnchorX+nw+6, cy+5);
-      else ctx.fillText('◂', nameAnchorX-nw-6, cy+5);
+      const ax = mirror ? (logoCX + logoR + 10) : (logoCX - logoR - 10);
+      ctx.fillStyle = _SH_GOLD;
+      ctx.beginPath();
+      if (mirror) { ctx.moveTo(ax, cy-6); ctx.lineTo(ax+8, cy); ctx.lineTo(ax, cy+6); }
+      else { ctx.moveTo(ax, cy-6); ctx.lineTo(ax-8, cy); ctx.lineTo(ax, cy+6); }
+      ctx.closePath(); ctx.fill();
     }
 
     // النتيجة — على الحافة الداخلية (يمين للعمود الأيسر المعكوس، يسار للعادي)
@@ -3065,8 +3082,8 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
   const W = 1080;
   const finalRound = rounds[rounds.length-1];
   const pre = rounds.slice(0,-1);
-  const headerH = 280, roundLabelH = 46, matchH = 96, matchGap = 16, arrowH = 40;
-  const colGap = 40, sideMargin = 40, vsGap = 70;
+  const headerH = 280, roundLabelH = 46, matchH = 122, matchGap = 18, arrowH = 40;
+  const colGap = 40, sideMargin = 26, vsGap = 46;
   const colW = (W - sideMargin*2 - vsGap) / 2;
 
   const roundMeta = pre.map(r=>{
@@ -3080,7 +3097,7 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
 
   const finalMatch = (finalRound.matchesWithSlot[0] || {}).m || null;
   const isFinDone = finalMatch && finalMatch.status === 'finished';
-  const finalBoxW = 560, finalBoxH = 130;
+  const finalBoxW = 620, finalBoxH = 150;
 
   let H = headerH;
   roundMeta.forEach(rm => { H += roundLabelH + rm.colH + arrowH; });

@@ -884,7 +884,8 @@
     ctx.restore();
 
     // أسماء الفرق — بلا تمييز فائز (كلاهما بنفس النمط)
-    const NY = LTY + LS + 40;
+    // ✅ فراغ أوسع وآمن (54 بدل 40) يضمن عدم ملامسة حلقة الشعار الخارجية (R+14) لصندوق الاسم إطلاقاً
+    const NY = LTY + LS + 54;
     const drawName = (name, cx) => {
       ctx.font = 'bold 27px Tajawal,Arial';
       const tw = ctx.measureText(name).width;

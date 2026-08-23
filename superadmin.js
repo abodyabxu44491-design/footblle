@@ -28,6 +28,7 @@ window.openLeagueViewer = (id) => window.open(SITE_URL + 'league-viewer.html?id=
 window.openLeagueAdmin  = (id) => window.open(SITE_URL + 'league-admin.html?id='  + id, '_blank');
 let allLeagues = [];
 let allSubs = [];
+let allAdmins = [];
 let currentFilter = 'all';
 
 // ══ SUBSCRIPTION DURATION (خطة واحدة فقط — تُحدَّد بالمدة لا بالنوع) ══
@@ -191,6 +192,7 @@ async function loadData() {
   // Real-time listener for users
   onSnapshot(collection(db, 'leagueAdmins'), (snap) => {
     const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    allAdmins = users; // ✅︎ نُبقيها عامة ليقدر _hoData يجيب منها كلمة المرور المحفوظة
     renderUsers(users);
     document.getElementById('usersBadge').textContent = users.length;
     document.getElementById('statUsers').textContent = users.length;
@@ -339,6 +341,16 @@ window.leagueActions = function(id) {
       <button class="btn btn-outline" style="width:100%;justify-content:center;gap:7px" onclick="copyStr(SITE_URL + 'broadcaster.html?league=${l.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>نسخ رابط البثّ للمنظّم</button>
       <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="hoOpen('${l.id}')">صفحة التسليم — عرض / طباعة</button>
       <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="hoWA('${l.id}')">إرسال الروابط واتساب</button>
+      ${(() => {
+        const adminRec = allAdmins.find(a => a.id === l.ownerUid);
+        const hasPass = !!(adminRec && adminRec.initialPassword);
+        return hasPass ? '' : `
+      <div style="background:rgba(243,156,18,.08);border:1px solid rgba(243,156,18,.25);border-radius:10px;padding:10px 12px;font-size:10.5px;color:#e0a733;line-height:1.8">
+        ⚠️ كلمة المرور الأصلية لهذه البطولة غير محفوظة (بطولة قديمة قبل هذه الميزة) — Firebase لا يسمح باسترجاعها. استخدم أحد الخيارين تحت لاستعادة الوصول.
+      </div>
+      <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="sendOwnerPasswordReset('${l.id}')">🔑 إرسال رابط تعيين كلمة مرور جديدة للمنظّم</button>
+      <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="updateStoredPassword('${l.id}')">✏️ تسجيل كلمة المرور يدوياً (بعد ما يخبرك بها المنظّم)</button>`;
+      })()}
       <hr style="border-color:var(--border);margin:4px 0"/>
       ${l.locked
         ? `<button class="btn btn-green" style="width:100%;justify-content:center" onclick="lockLeague('${l.id}',false)">🔓 فتح قفل البطولة</button>`
@@ -347,6 +359,52 @@ window.leagueActions = function(id) {
       <button class="btn btn-red" style="width:100%;justify-content:center" onclick="deleteLeague('${l.id}')">🗑 حذف البطولة نهائياً</button>
     </div>`;
   openModal('modal-league-actions');
+};
+
+// ══ استعادة كلمة مرور المنظّم (بطولات قديمة بلا كلمة مرور محفوظة) ══
+// ✅︎ Firebase Auth لا يخزّن كلمات المرور بشكل قابل للاسترجاع لأي أحد —
+//    حتى السوبر أدمن. الخياران الوحيدان الممكنان فعلياً بدون خادم خاص:
+//    1) إرسال رابط رسمي من Firebase للمنظّم ليضع كلمة مرور جديدة بنفسه.
+//    2) لو أخبرك المنظّم بكلمة مرور جديدة اختارها، سجّلها هنا يدوياً
+//       فقط لغرض العرض/الطباعة لاحقاً في صفحة التسليم (هذا لا يغيّر
+//       كلمة الدخول الفعلية — فقط يسجّلها للمرجع).
+window.sendOwnerPasswordReset = async function(id) {
+  const l = allLeagues.find(x => x.id === id);
+  if (!l || !l.ownerEmail) { showToast('لا يوجد بريد إلكتروني مسجَّل لهذه البطولة', 'error'); return; }
+  if (!confirm('سيصل بريد رسمي من Firebase إلى «' + l.ownerEmail + '» يتيح للمنظّم اختيار كلمة مرور جديدة بنفسه.\n\nمتابعة؟')) return;
+  try {
+    const { initializeApp: _initApp, deleteApp: _deleteApp } = await import(
+      'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'
+    );
+    const { getAuth: _getAuth, sendPasswordResetEmail: _sendReset } = await import(
+      'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js'
+    );
+    // ✅︎ نفس أسلوب app ثانوي معزول المستخدم عند إنشاء البطولات —
+    //    يمنع أي تأثير على جلسة السوبر أدمن الحالية.
+    const secondaryApp = _initApp(firebaseConfig, 'secondary-reset-' + Date.now());
+    const secondaryAuth = _getAuth(secondaryApp);
+    try {
+      await _sendReset(secondaryAuth, l.ownerEmail);
+    } finally {
+      await _deleteApp(secondaryApp);
+    }
+    showToast('✅︎ أُرسل رابط تعيين كلمة المرور إلى ' + l.ownerEmail, 'success');
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
+window.updateStoredPassword = async function(id) {
+  const l = allLeagues.find(x => x.id === id);
+  if (!l || !l.ownerUid) { showToast('تعذّر تحديد حساب المنظّم لهذه البطولة', 'error'); return; }
+  const newPass = prompt(
+    'اكتب كلمة المرور التي أخبرك بها المنظّم (بعد أن غيّرها بنفسه عبر رابط الاستعادة).\n\n' +
+    'تنبيه: هذا الحقل للتسجيل والعرض في صفحة التسليم فقط — لا يغيّر كلمة الدخول الفعلية.'
+  );
+  if (!newPass) return;
+  if (newPass.length < 6) { showToast('كلمة المرور المسجَّلة يجب أن تكون 6 أحرف على الأقل', 'error'); return; }
+  try {
+    await setDoc(doc(db, 'leagueAdmins', l.ownerUid), { initialPassword: newPass }, { merge: true });
+    showToast('✅︎ تم تسجيل كلمة المرور — ستظهر الآن في صفحة التسليم', 'success');
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
 window.deleteLeague = async function(id) {
@@ -775,6 +833,10 @@ window.createLeague = async function() {
     await setDoc(doc(db, 'leagues', slug), leagueData);
 
     // 3) Save league admin profile
+    // ✅︎ نحفظ كلمة المرور هنا (مرة واحدة عند الإنشاء) لأن Firebase Auth لا
+    //    يخزّنها بشكل قابل للاسترجاع لاحقاً — بدون هذا الحفظ ستختفي كلمة
+    //    المرور للأبد بعد إغلاق هذه النافذة، ولن يقدر أحد رؤيتها مرة أخرى
+    //    (حتى صفحة التسليم نفسها)، وهذا بالضبط سبب اختفائها في البطولات القديمة.
     await setDoc(doc(db, 'leagueAdmins', uid), {
       ownerName,
       email: ownerEmail,
@@ -782,6 +844,7 @@ window.createLeague = async function() {
       leagueId: slug,
       leagueName: name,
       active: true,
+      initialPassword: ownerPass,
       createdAt: serverTimestamp(),
     });
 
@@ -920,10 +983,16 @@ window.sendViaWA = function() {
 /* ✅︎ جسر التسليم — يمرّر بيانات البطولة الحقيقية من leagues[] */
 function _hoData(id) {
   const l = allLeagues.find(x => x.id === id) || {};
+  // ✅︎ نجيب كلمة المرور المحفوظة وقت إنشاء البطولة (leagueAdmins/{uid}.initialPassword).
+  //    للبطولات القديمة التي أُنشئت قبل هذا الحقل، ستبقى فارغة لأن Firebase Auth
+  //    لا يخزّن كلمات المرور بشكل قابل للاسترجاع — لا توجد طريقة لاستعادتها،
+  //    والحل الوحيد لها هو تعيين كلمة مرور جديدة (زر «تعيين كلمة مرور جديدة»).
+  const adminRec = allAdmins.find(a => a.id === l.ownerUid) || {};
   return {
     id: id, name: l.name || 'البطولة', owner: l.ownerName || '',
     phone: l.ownerPhone || '', email: l.ownerEmail || '',
-    season: l.season || '2025', type: l.type || 'league', logo: l.logo || '', pass: ''
+    season: l.season || '2025', type: l.type || 'league', logo: l.logo || '',
+    pass: adminRec.initialPassword || ''
   };
 }
 window.hoOpen = (id) => window.openHandover(_hoData(id));

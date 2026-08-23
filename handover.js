@@ -42,10 +42,7 @@
     key: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M10.5 12.5L20 3M17 6l3 3M14 9l2.5 2.5"/></svg>'
   };
 
-  function maskPass(p) {
-    var n = Math.max(String(p || '').length, 6);
-    return Array(Math.min(n, 14) + 1).join('•');
-  }
+  /* ── (لم تعد كلمة المرور تُخفى، لذا لا حاجة لدالة إخفاء) ── */
 
   /* ── بناء صفحة التسليم ── */
   function buildPage(d) {
@@ -57,26 +54,15 @@
       if (!value) return '';
       var id = 'f' + Math.random().toString(36).slice(2, 9);
       var isPass = !!opts.pass;
-      var displayVal = isPass ? maskPass(value) : value;
       var btns = '';
-      if (isPass) {
-        btns += '<button class="ic-btn eye-btn" data-real="' + esc(value).replace(/"/g, '&quot;') + '" data-masked="' + esc(displayVal) + '" onclick="togglePass(this,\'' + id + '\')" aria-label="إظهار كلمة المرور">' + ICON.eye + '</button>';
-      }
       if (opts.copyable) {
         btns += '<button class="ic-btn cp" onclick="cp(this,\'' + esc(value).replace(/'/g, "\\'") + '\')" aria-label="نسخ">' + ICON.copy + '</button>';
       }
-      /* ✅ إصلاح: عند الطباعة/حفظ PDF كانت الصفحة تلتقط نفس حالة
-         الإخفاء المعروضة على الشاشة — فإذا لم يضغط المرسِل زر «العين»
-         قبل الطباعة، يخرج الملف بنقاط (••••••) بدل كلمة المرور الحقيقية
-         ويصبح عديم الفائدة. الحل: عنصر إضافي مخفي على الشاشة يحمل
-         القيمة الحقيقية دوماً، ويُظهره الطباعة فقط عبر media print —
-         بغض النظر عن حالة الزر إطلاقاً. */
-      var valueHtml = isPass
-        ? '<span class="pass-scr">' + esc(displayVal) + '</span><span class="pass-prn">' + esc(value) + '</span>'
-        : esc(displayVal);
+      // ✅ كلمة المرور تظهر نصاً صريحاً دائماً — على الشاشة وفي الطباعة/PDF
+      //    على حدٍّ سواء، بلا إخفاء أو زر "عين" يحتاج ضغطاً قبل الطباعة.
       return '<div class="row' + (isPass ? ' row-pass' : '') + '">' +
         '<div class="row-l">' + esc(label) + '</div>' +
-        '<div class="row-v"' + (opts.dir ? ' dir="ltr"' : '') + ' id="' + id + '">' + valueHtml + '</div>' +
+        '<div class="row-v"' + (opts.dir ? ' dir="ltr"' : '') + ' id="' + id + '">' + esc(value) + '</div>' +
         (btns ? '<div class="row-b">' + btns + '</div>' : '') +
       '</div>';
     };
@@ -111,12 +97,10 @@
     '.row-pass{border-color:#3a3320;background:#1c1a12}' +
     '.row-l{font-size:11px;color:#8b90a0;min-width:74px;flex-shrink:0;font-weight:500}' +
     '.row-v{flex:1;font-size:13.5px;font-weight:700;word-break:break-all;min-width:0;color:#f3f4f6;letter-spacing:.2px}' +
-    '.pass-prn{display:none}' +
     '.row-b{display:flex;gap:6px;flex-shrink:0}' +
     '.ic-btn{background:rgba(201,160,43,.12);border:1px solid rgba(201,160,43,.3);color:#C9A02B;border-radius:8px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}' +
     '.ic-btn:active{transform:scale(.92)}' +
     '.ic-btn.done{background:rgba(46,204,113,.16);border-color:rgba(46,204,113,.4);color:#2ecc71}' +
-    '.ic-btn.eye-btn.open{background:rgba(240,155,143,.12);border-color:rgba(240,155,143,.3);color:#ff9b8f}' +
     '.btn{display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;text-decoration:none;border-radius:13px;padding:14px;font-size:14px;font-weight:900;margin-bottom:9px;font-family:Tajawal,sans-serif;border:none;cursor:pointer;width:100%}' +
     '.b1{background:linear-gradient(135deg,#F0C84A,#C9A02B);color:#14110a;box-shadow:0 10px 26px rgba(201,160,43,.28)}' +
     '.b2{background:rgba(255,255,255,.05);border:1px solid #2c313d;color:#eee}' +
@@ -130,11 +114,43 @@
     '.ft{text-align:center;padding:18px;font-size:10.5px;color:#5a5f6b;border-top:1px solid #262a34;line-height:1.8}' +
     '.ft b{color:#8b90a0}' +
     '.pbtn{margin-top:14px}' +
-    '@media print{body{background:#fff;color:#000;padding:0}.card{border:1px solid #ddd;box-shadow:none}' +
-    '.hd{background:#f7f7f7}h1{color:#8a6d1d}.row{background:#fafafa;border-color:#e5e5e5}.row-pass{background:#fdf9ee}' +
-    '.row-v{color:#000}.sec{color:#8a6d1d;border-color:#8a6d1d}.row-b,.noprint{display:none!important}' +
-    '.pass-scr{display:none!important}.pass-prn{display:inline!important}' +
-    '.steps li{color:#333;border-color:#eee}.warn{background:#fff5f4;color:#8a2018}}' +
+    '@media print{' +
+      /* ✅ PDF/طباعة احترافية: إعادة تصميم كاملة بألوان صلبة فاتحة —
+         لا نعتمد على "طباعة الخلفيات" (خيار متصفح قد يكون مطفأ افتراضياً
+         خصوصاً عند الحفظ كـ PDF من واتساب/الجوال) فتبقى النتيجة كاملة
+         ومقروءة سواء فعّل المستخدم هذا الخيار أو لا. print-color-adjust
+         تجبر الألوان المهمة (الشارة الخضراء، الخلفية الذهبية) على
+         الظهور دائماً في كل المتصفحات الحديثة. */
+      '*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}' +
+      'body{background:#ffffff!important;color:#1a1a1a!important;padding:0!important}' +
+      '.wrap{max-width:100%!important}' +
+      '.card{background:#fff!important;border:1px solid #d8d8d8!important;box-shadow:none!important;border-radius:14px!important}' +
+      '.hd{background:#fdf6e3!important;border-bottom:2px solid #C9A02B!important;padding:26px 22px 22px!important}' +
+      '.hd::before,.hd::after{display:none!important}' +
+      '.badge-top{background:#e8f8ee!important;border:1px solid #2ecc71!important;color:#1a7a42!important}' +
+      '.badge-top i{background:#2ecc71!important;box-shadow:none!important}' +
+      '.lg{background:#fff!important;border:2px solid #C9A02B!important;box-shadow:none!important}' +
+      '.lg svg{color:#a9791a!important}' +
+      'h1{color:#8a6d1d!important}' +
+      '.sub{color:#5a5442!important}' +
+      '.trust{border-top:1px solid #e6d8ab!important;padding-top:14px!important;margin-top:16px!important}' +
+      '.trust div{color:#4a4438!important;font-weight:700!important}' +
+      '.trust svg{color:#a9791a!important}' +
+      '.sec{color:#8a6d1d!important;border-right-color:#C9A02B!important}' +
+      '.row{background:#fafafa!important;border:1px solid #e2e2e2!important}' +
+      '.row-pass{background:#fdf6e3!important;border:1.5px solid #C9A02B!important}' +
+      '.row-l{color:#6b6558!important}' +
+      '.row-v{color:#111!important;font-weight:800!important}' +
+      '.row-b,.noprint{display:none!important}' +
+      '.steps li{color:#2a2a2a!important;border-color:#e8e8e8!important}' +
+      '.steps li::before{background:#fdf6e3!important;border:1px solid #C9A02B!important;color:#8a6d1d!important}' +
+      '.warn{background:#fff2f1!important;border:1px solid #e78a80!important;color:#7a241a!important}' +
+      '.warn svg{color:#c0392b!important}' +
+      '.warn b{color:#7a241a!important}' +
+      '.ft{color:#6b6558!important;border-top:1px solid #e2e2e2!important}' +
+      '.ft b{color:#3a352c!important}' +
+      '.card,.hd,.bd,.row,.sec{page-break-inside:avoid}' +
+    '}' +
     '</style></head><body><div class="wrap"><div class="card">' +
 
     '<div class="hd">' +
@@ -187,13 +203,6 @@
     'function cp(b,t){navigator.clipboard.writeText(t).then(function(){' +
     'var o=b.innerHTML;b.innerHTML=' + JSON.stringify(ICON.check) + ';b.classList.add("done");' +
     'setTimeout(function(){b.innerHTML=o;b.classList.remove("done")},1400)})}' +
-    'function togglePass(b,id){' +
-    'var wrap=document.getElementById(id);var el=wrap.querySelector(".pass-scr");' +
-    'var real=b.getAttribute("data-real");var masked=b.getAttribute("data-masked");' +
-    'var open=b.classList.toggle("open");' +
-    'el.textContent=open?real:masked;' +
-    'b.innerHTML=open?' + JSON.stringify(ICON.eyeOff) + ':' + JSON.stringify(ICON.eye) + ';' +
-    '}' +
     '<\/script>' +
     '</body></html>';
   }
@@ -328,7 +337,7 @@
     window.open(url, '_blank');
   }
 
-  /* ── رسالة واتساب مرتّبة (بلا كلمة مرور) ── */
+  /* ── رسالة واتساب مرتّبة (تتضمّن كلمة المرور مباشرة) ── */
   window.sendHandoverWA = function (over) {
     var d = collect(over);
     var L = [];
@@ -348,7 +357,7 @@
     if (d.email) {
       L.push('');
       L.push('بريد الدخول: ' + d.email);
-      L.push('_كلمة المرور تُرسل منفصلة لأمانك_');
+      if (d.pass) L.push('كلمة المرور: ' + d.pass);
     }
     L.push('');
     L.push('للبدء: افتح لوحة الإدارة ← أكمل المعالج ← أضف الفرق.');

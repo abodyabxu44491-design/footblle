@@ -400,7 +400,12 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
    كل دور صف كامل مقسوم يسار/يمين، والنهائي في المنتصف بالأسفل
 ═══════════════════════════════════════════════════════ */
 .btv-wrap{padding:16px 12px 24px;display:flex;flex-direction:column}
-.btv-round-label{font-size:11px;font-weight:800;color:var(--gold);text-align:center;margin-bottom:10px;letter-spacing:.5px}
+.btv-round-label{position:relative;z-index:1;display:inline-block;margin:0 auto 10px;padding:7px 20px;font-size:11px;font-weight:900;color:var(--gold);text-align:center;letter-spacing:.5px;background:#0a0b0d;border:1px solid rgba(201,160,43,.4);border-radius:20px}
+.btv-round{display:flex;flex-direction:column;align-items:center}
+.btv-final-round .btv-round-label{font-size:13px;padding:9px 26px;border:1.5px solid var(--gold);box-shadow:0 0 18px rgba(201,160,43,.15)}
+.btv-final-round .btv-round-label::before,.btv-final-round .btv-round-label::after{content:'◆';color:var(--gold);font-size:9px;position:absolute;top:50%;transform:translateY(-50%)}
+.btv-final-round .btv-round-label::before{right:-18px}
+.btv-final-round .btv-round-label::after{left:-18px}
 .btv-pair-row{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start}
 .btv-side{display:flex;flex-direction:column;gap:10px;min-width:0}
 .btv-vs{font-size:13px;color:var(--t3);align-self:center;opacity:.5}
@@ -438,7 +443,7 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .bt-side-left .bt-conn::after{content:'';position:absolute;top:50%;right:-15px;width:15px;height:1px;background:var(--b2)}
 .bt-side-right .bt-conn::after{content:'';position:absolute;top:50%;left:-15px;width:15px;height:1px;background:var(--b2)}
 
-.bt-match{width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s;position:relative}
+.bt-match{width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s;position:relative;z-index:1}
 .bt-match:active{transform:scale(.98)}
 .bt-match.bt-live{border-color:var(--live)}
 .bt-match.bt-done{border-color:rgba(201,160,43,.22)}
@@ -459,6 +464,7 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .bt-pen{font-size:8.5px;color:var(--gold);display:block;line-height:1}
 .bt-sep{height:1px;background:var(--b1)}
 .bt-live-dot{position:absolute;top:4px;left:4px;font-size:7px;animation:btpulse 1.2s infinite;z-index:2}
+.bt-match.bt-mirror .bt-team{flex-direction:row-reverse}
 @keyframes btpulse{0%,100%{opacity:1}50%{opacity:.25}}
 
 .bt-champion{margin-top:14px;text-align:center}

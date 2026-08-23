@@ -9462,15 +9462,15 @@ function renderKnockoutAdmin() {
 
     let bodyHtml;
     if (slots <= 1) {
-      bodyHtml = `<div class="ab-final-row">${_adminBracketBox(slotArr[0], round.id, 0, isFirstRound, round)}</div>`;
+      bodyHtml = `<div class="ab-final-row">${_adminBracketBox(slotArr[0], round.id, 0, isFirstRound, round, false, `r${idx}-s0`)}</div>`;
     } else {
       const half = slots / 2;
       const leftSlots  = slotArr.slice(0, half);
       const rightSlots = slotArr.slice(half);
       bodyHtml = `<div class="ab-pair-row">
-        <div class="ab-side">${leftSlots.map((m,i) => _adminBracketBox(m, round.id, i, isFirstRound, round)).join('')}</div>
+        <div class="ab-side">${leftSlots.map((m,i) => _adminBracketBox(m, round.id, i, isFirstRound, round, false, `r${idx}-s${i}`)).join('')}</div>
         <div class="ab-side-sep">${isFinal ? '' : '↓ ↓'}</div>
-        <div class="ab-side">${rightSlots.map((m,i) => _adminBracketBox(m, round.id, i+half, isFirstRound, round)).join('')}</div>
+        <div class="ab-side">${rightSlots.map((m,i) => _adminBracketBox(m, round.id, i+half, isFirstRound, round, true, `r${idx}-s${i+half}`)).join('')}</div>
       </div>`;
     }
 
@@ -9487,19 +9487,22 @@ function renderKnockoutAdmin() {
   }).join('');
 
   el.innerHTML = publishBar + thirdPlaceBar + poolBar + `<div class="ab-tree">${treeHtml}</div>`;
+  _drawBracketConnectors(el.querySelector('.ab-tree'), roundsSorted.length - 1);
 }
 
 // ── صندوق مباراة واحد في الشجرة التفاعلية ──
-function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round) {
+function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round, mirror, brkAttr) {
+  const brk = brkAttr ? ` data-brk="${brkAttr}"` : '';
+  const mirrorCls = mirror ? ' ab-mirror' : '';
   // ✅︎ خانة نصف مكتملة: فريق واحد اختير فعلاً وظهر للجمهور، بانتظار الفريق الثاني
   const pick = !m && round && round.slotPicks && round.slotPicks[slotIdx];
   if (!m && !pick) {
     if (isFirstRound) {
-      return `<div class="ab-box ab-empty" onclick="adminOpenBracketSlot('${roundId}',${slotIdx})">
+      return `<div class="ab-box ab-empty${mirrorCls}"${brk} onclick="adminOpenBracketSlot('${roundId}',${slotIdx})">
         <div class="ab-team ab-tbd">➕︎ اضغط لاختيار فريق</div>
       </div>`;
     }
-    return `<div class="ab-box ab-empty ab-waiting">
+    return `<div class="ab-box ab-empty ab-waiting${mirrorCls}"${brk}>
       <div class="ab-team ab-tbd">⏳ ينتظر الفائز</div>
     </div>`;
   }
@@ -9517,7 +9520,7 @@ function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round) {
   const hw = fin && (m.penaltyScoreHome != null ? m.penaltyScoreHome > m.penaltyScoreAway : (m.homeScore ?? 0) > (m.awayScore ?? 0));
   const aw = fin && (m.penaltyScoreAway != null ? m.penaltyScoreAway > m.penaltyScoreHome : (m.awayScore ?? 0) > (m.homeScore ?? 0));
   const clickAttr = virtual ? `adminOpenBracketSlot('${roundId}',${slotIdx})` : `mcv2OpenInfo('${m.id}')`;
-  return `<div class="ab-box ${pend ? 'ab-pending' : ''} ${live ? 'ab-live' : ''} ${virtual ? 'ab-pending' : ''}" onclick="${clickAttr}">
+  return `<div class="ab-box ${pend ? 'ab-pending' : ''} ${live ? 'ab-live' : ''} ${virtual ? 'ab-pending' : ''}${mirrorCls}"${brk} onclick="${clickAttr}">
     ${pend ? '<div class="ab-pending-tag">⚪ غير مفعّلة</div>' : live ? '<div class="ab-live-tag">🔴 مباشر</div>' : virtual ? '<div class="ab-pending-tag" style="background:rgba(39,174,96,.12);border-color:rgba(39,174,96,.35);color:var(--green)">🌍 تأهّل — بانتظار الفريق الثاني</div>' : ''}
     <div class="ab-team ${hw ? 'ab-winner' : ''}${fin && !hw && aw ? ' ab-loser' : ''}">
       <span class="ab-logo">${logoHtml(ht.logo, 16, 4)}</span>
@@ -9530,6 +9533,59 @@ function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round) {
       <span class="ab-score">${fin || live ? (m.awayScore ?? 0) : ''}</span>
     </div>
   </div>`;
+}
+
+// ── يرسم خطوط SVG تصل كل مباراة بمكان تأهّل الفائز منها في الدور التالي ──
+// يعتمد على سمة data-brk="r{roundIdx}-s{slotIdx}" الموسومة على كل صندوق مباراة،
+// وقاعدة التقدّم الثابتة بالتطبيق: خانة i تتأهل لخانة floor(i/2) بالدور التالي.
+function _drawBracketConnectors(treeEl, preRoundsCount) {
+  if (!treeEl || preRoundsCount < 1) return;
+  const old = treeEl.querySelector(':scope > svg.bk-lines');
+  if (old) old.remove();
+  treeEl.style.position = 'relative';
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', 'bk-lines');
+  svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0';
+
+  const contRect = treeEl.getBoundingClientRect();
+  const segs = [];
+  for (let r = 0; r < preRoundsCount; r++) {
+    const boxes = treeEl.querySelectorAll(`[data-brk^="r${r}-s"]`);
+    boxes.forEach(box => {
+      const s = parseInt(box.getAttribute('data-brk').split('-s')[1], 10);
+      const target = treeEl.querySelector(`[data-brk="r${r+1}-s${Math.floor(s/2)}"]`);
+      if (!target) return;
+      const bR = box.getBoundingClientRect();
+      const tR = target.getBoundingClientRect();
+      const x1 = bR.left + bR.width/2 - contRect.left;
+      const y1 = bR.bottom - contRect.top;
+      const x2 = tR.left + tR.width/2 - contRect.left;
+      const y2 = tR.top - contRect.top;
+      if (y2 <= y1) return; // احتياط: لا نرسم لو الترتيب غير منطقي
+      const midY = y1 + (y2 - y1) * 0.55;
+      segs.push(`M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`);
+    });
+  }
+  svg.innerHTML = segs.map(d =>
+    `<path d="${d}" fill="none" stroke="rgba(201,160,43,.35)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
+  ).join('');
+  treeEl.appendChild(svg);
+
+  // إعادة رسم عند تغيير حجم الشاشة/تدوير الجهاز (مُهدّأ)
+  if (!window._abConnResizeBound) {
+    window._abConnResizeBound = true;
+    let t;
+    window.addEventListener('resize', () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        const live = document.querySelector('#knockoutAdminList .ab-tree');
+        if (live) _drawBracketConnectors(live, live.dataset.preRounds ? +live.dataset.preRounds : preRoundsCount);
+      }, 200);
+    });
+  }
+  treeEl.dataset.preRounds = String(preRoundsCount);
 }
 
 // ── فتح خانة فارغة في الشجرة: يفتح مباراة موجودة، أو منتقي المتأهلين لو الدور الأول وفارغة ──
@@ -10372,7 +10428,8 @@ function injectAdminCSS() {
     .ab-round { margin-bottom:6px; }
     .ab-round-hd {
       display:flex; align-items:center; justify-content:space-between;
-      padding:6px 4px; margin-bottom:8px;
+      padding:6px 14px; margin:0 auto 10px; position:relative; z-index:1;
+      background:#0a0b0d; border:1px solid rgba(201,160,43,.35); border-radius:16px; width:fit-content; gap:10px;
     }
     .ab-round-name { font-size:12px; font-weight:900; color:var(--gold,#C9A02B); }
     .ab-round-cnt { font-size:10px; color:var(--muted,#888); }
@@ -10384,7 +10441,7 @@ function injectAdminCSS() {
     .ab-arrow { text-align:center; font-size:16px; color:var(--muted2,#444); margin:2px 0 10px; }
     .ab-box {
       background:var(--card2,#141414); border:1px solid var(--border2,#2a2a2a); border-radius:10px;
-      overflow:hidden; cursor:pointer; position:relative; transition:border-color .15s;
+      overflow:hidden; cursor:pointer; position:relative; z-index:1; transition:border-color .15s;
     }
     .ab-box:active { border-color:var(--gold,#C9A02B); }
     .ab-box.ab-empty { display:flex; align-items:center; justify-content:center; min-height:52px; border-style:dashed; }
@@ -10404,6 +10461,10 @@ function injectAdminCSS() {
     .ab-name { flex:1; font-size:11px; font-weight:700; color:var(--text,#eee); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .ab-score { font-size:12.5px; font-weight:900; color:var(--text,#eee); min-width:16px; text-align:center; font-family:Tajawal,sans-serif; }
     .ab-team.ab-winner .ab-score { color:var(--gold,#C9A02B); }
+    /* ── مرآة العمود الأيسر: الشعار للخارج (يسار)، النتيجة للداخل (يمين) — عكس العمود الأيمن تماماً ── */
+    .ab-box.ab-mirror .ab-team { flex-direction:row-reverse; }
+    .ab-box.ab-mirror .ab-pending-tag,
+    .ab-box.ab-mirror .ab-live-tag { right:auto; left:8px; }
     .ab-pending-tag {
       position:absolute; top:-9px; right:8px; font-size:8px; font-weight:700;
       background:var(--dark,#0c0c0c); color:var(--gold,#C9A02B); padding:1px 6px; border-radius:8px;

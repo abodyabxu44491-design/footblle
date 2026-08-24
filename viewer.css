@@ -396,23 +396,65 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .bm-score{font-size:16px;font-weight:900;font-family:'Tajawal',sans-serif;color:var(--gold);min-width:20px;text-align:center}
 
 /* ═══════════════════════════════════════════════════════
-   BRACKET TREE (VERTICAL) — شجرة عمودية تدعم الجوال طولياً، بدون تمرير أفقي
-   كل دور صف كامل مقسوم يسار/يمين، والنهائي في المنتصف بالأسفل
+   BRACKET TREE (COLUMNS) — شجرة إقصاء بأعمدة أفقية RTL
+   دور لكل عمود · الدور الأول يميناً والنهائي يساراً
+   كل البطاقات بمقاس واحد ثابت مهما كان الدور أو حالة التأهل
 ═══════════════════════════════════════════════════════ */
-.btv-wrap{padding:16px 12px 24px;display:flex;flex-direction:column}
-.btv-round-label{position:relative;z-index:1;display:inline-block;margin:0 auto 10px;padding:7px 20px;font-size:11px;font-weight:900;color:var(--gold);text-align:center;letter-spacing:.5px;background:#0a0b0d;border:1px solid rgba(201,160,43,.4);border-radius:20px}
-.btv-round{display:flex;flex-direction:column;align-items:center}
-.btv-final-round .btv-round-label{font-size:13px;padding:9px 26px;border:1.5px solid var(--gold);box-shadow:0 0 18px rgba(201,160,43,.15)}
-.btv-final-round .btv-round-label::before,.btv-final-round .btv-round-label::after{content:'◆';color:var(--gold);font-size:9px;position:absolute;top:50%;transform:translateY(-50%)}
-.btv-final-round .btv-round-label::before{right:-18px}
-.btv-final-round .btv-round-label::after{left:-18px}
-.btv-pair-row{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start}
-.btv-side{display:flex;flex-direction:column;gap:10px;min-width:0}
-.btv-vs{font-size:13px;color:var(--t3);align-self:center;opacity:.5}
-.btv-arrow{text-align:center;font-size:15px;color:var(--t3);opacity:.4;margin:8px 0}
-.btv-final-round{margin-top:2px}
-.btv-final-box{max-width:300px;margin:0 auto}
-.btv-final-box .bt-match{border-width:1.5px}
+:root{
+  --btk-w:200px;          /* عرض بطاقة المباراة — موحّد لكل الأدوار */
+  --btk-h:74px;           /* ارتفاع بطاقة المباراة — موحّد لكل الأدوار */
+  --btk-gap:56px;         /* المسافة بين الأدوار (مساحة الخطوط) */
+}
+.btk-shell{padding:4px 0 22px}
+.btk-hint{
+  display:flex;align-items:center;gap:6px;
+  padding:0 14px 10px;font-size:10.5px;font-weight:700;color:var(--t3);
+}
+.btk-hint-ic{display:inline-flex;opacity:.6}
+.btk-fit-btn{
+  margin-inline-start:auto;padding:5px 12px;border-radius:20px;cursor:pointer;
+  background:rgba(201,160,43,.09);border:1px solid rgba(201,160,43,.34);
+  color:var(--gold);font-family:'Tajawal',sans-serif;font-size:10.5px;font-weight:800;
+}
+.btk-fit-btn:active{transform:scale(.97)}
+.btk-scroll{
+  overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;padding:0 14px 8px;
+}
+.btk-scroll::-webkit-scrollbar{height:5px}
+.btk-scroll::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
+.btk-wrap{
+  display:flex;direction:rtl;min-width:max-content;position:relative;
+  gap:var(--btk-gap);transition:transform .25s ease;
+}
+.btk-col{display:flex;flex-direction:column;flex:0 0 auto;position:relative;z-index:1}
+.btk-col-body{
+  display:flex;flex-direction:column;justify-content:space-around;
+  flex:1 0 auto;  /* space-around هو ما يضع كل مباراة في منتصف مغذّيتيها تلقائياً */
+}
+.btk-slot{display:flex;align-items:center;height:var(--btk-h);flex:0 0 auto}
+.btk-round-label{
+  position:relative;z-index:2;align-self:center;margin-bottom:14px;
+  padding:7px 18px;border-radius:20px;white-space:nowrap;
+  font-size:10.5px;font-weight:900;letter-spacing:.4px;color:var(--gold);
+  background:#0a0b0d;border:1px solid rgba(201,160,43,.4);
+}
+.btk-col-final .btk-round-label{
+  font-size:12px;padding:8px 24px;border-width:1.5px;border-color:var(--gold);
+  box-shadow:0 0 18px rgba(201,160,43,.16);
+}
+.btk-col-final .btk-round-label::before,
+.btk-col-final .btk-round-label::after{
+  content:'◆';color:var(--gold);font-size:8px;position:absolute;top:50%;transform:translateY(-50%)
+}
+.btk-col-final .btk-round-label::before{right:-16px}
+.btk-col-final .btk-round-label::after{left:-16px}
+.btk-wrap.btk-fitted{transition:none}
+
+/* شاشات صغيرة: بطاقة أضيق قليلاً لتظهر ثلاثة أدوار دفعة واحدة */
+@media (max-width:400px){
+  :root{--btk-w:178px;--btk-gap:46px}
+}
 
 /* ═══════════════════════════════════════════════════════
    BRACKET TREE — شجرة إقصاء مرايا احترافية (مسار ↔ مسار، النهائي بالنص)
@@ -426,8 +468,8 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .bt-side-right{flex-direction:row-reverse}
 .bt-col{width:158px;flex:0 0 158px;position:relative;margin:0 15px}
 .bt-col-final{width:164px;flex:0 0 164px;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 8px;position:relative}
-.bt-thirdplace{margin-top:16px;text-align:center}
-.bt-thirdplace-label{font-size:8.5px;font-weight:800;letter-spacing:1px;color:var(--t3);margin-bottom:6px}
+.bt-thirdplace{margin:16px 14px 0;text-align:center}
+.bt-thirdplace-label{font-size:10px;font-weight:900;letter-spacing:1px;color:var(--t3);margin-bottom:8px}
 
 .bt-round-label{position:absolute;top:-26px;left:0;right:0;text-align:center;font-size:9px;font-weight:900;letter-spacing:.8px;color:var(--gold);opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bt-col-final .bt-round-label{position:static;margin-bottom:10px;font-size:10px}
@@ -443,34 +485,87 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .bt-side-left .bt-conn::after{content:'';position:absolute;top:50%;right:-15px;width:15px;height:1px;background:var(--b2)}
 .bt-side-right .bt-conn::after{content:'';position:absolute;top:50%;left:-15px;width:15px;height:1px;background:var(--b2)}
 
-.bt-match{width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s;position:relative;z-index:1}
+/* ── بطاقة المباراة داخل الشجرة — مقاس واحد ثابت لكل الحالات ── */
+.bt-match{
+  width:var(--btk-w);height:var(--btk-h);box-sizing:border-box;
+  display:flex;flex-direction:column;
+  background:linear-gradient(180deg,var(--s2),var(--s1));
+  border:1px solid var(--b2);border-radius:12px;overflow:hidden;cursor:pointer;
+  transition:border-color .15s,transform .15s,box-shadow .15s;
+  position:relative;z-index:1;box-shadow:0 3px 12px rgba(0,0,0,.28);
+}
 .bt-match:active{transform:scale(.98)}
-.bt-match.bt-live{border-color:var(--live)}
-.bt-match.bt-done{border-color:rgba(201,160,43,.22)}
-.bt-match.bt-empty{opacity:.4;border-style:dashed;cursor:default}
-.bt-match.bt-final{border-color:var(--gold);}
-.bt-team{display:flex;align-items:center;gap:7px;padding:8px 9px;position:relative}
-.bt-team.bt-winner{background:rgba(201,160,43,.10);}
+.bt-match.bt-live{border-color:var(--live);box-shadow:0 0 0 1px rgba(220,50,50,.25),0 4px 16px rgba(0,0,0,.4)}
+.bt-match.bt-done{border-color:rgba(201,160,43,.26)}
+/* خانة لم يتأهل لها أحد: نفس المقاس والحدود تماماً — تهدئة اللون فقط */
+.bt-match.bt-empty{
+  cursor:default;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);
+  border-color:var(--b1);box-shadow:none;
+}
+.bt-match.bt-final{
+  border-color:var(--gold);
+  box-shadow:0 0 0 1px rgba(201,160,43,.22),0 6px 22px rgba(201,160,43,.14);
+}
+/* الصفّان يقتسمان ارتفاع البطاقة بالتساوي → ارتفاع موحّد دائماً */
+.bt-team{
+  display:flex;align-items:center;gap:9px;padding:0 10px;position:relative;
+  flex:1 1 0;min-height:0;
+}
+.bt-team.bt-winner{background:rgba(201,160,43,.10)}
 .bt-team.bt-winner .bt-name{color:var(--gold);font-weight:900}
-/* ✅ الخاسر يبقى ظاهراً لكن مميّز بوضوح — زي التطبيقات الرسمية */
-.bt-team.bt-loser{opacity:.45}
-.bt-team.bt-loser .bt-name{color:var(--t3,#777);font-weight:600;text-decoration:line-through;text-decoration-color:rgba(220,50,50,.5)}
+.bt-team.bt-loser{opacity:.5}
+.bt-team.bt-loser .bt-name{color:var(--t3,#777);font-weight:600}
 .bt-team.bt-loser .bt-logo{filter:grayscale(1)}
-.bt-team.bt-winner::after{content:'▸';color:var(--gold);font-weight:900;font-size:11px;margin-right:2px}
-.bt-logo{width:18px;height:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px}
-.bt-name{flex:1;font-size:11px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bt-name.bt-tbd{color:var(--t3);font-weight:600}
-.bt-score{font-size:12.5px;font-weight:900;font-family:'Tajawal',sans-serif;color:var(--t1);min-width:16px;text-align:center}
-.bt-pen{font-size:8.5px;color:var(--gold);display:block;line-height:1}
-.bt-sep{height:1px;background:var(--b1)}
-.bt-live-dot{position:absolute;top:4px;left:4px;font-size:7px;animation:btpulse 1.2s infinite;z-index:2}
+.bt-team.bt-winner::after{
+  content:'';position:absolute;inset-inline-start:0;top:14%;bottom:14%;
+  width:3px;border-radius:0 3px 3px 0;background:var(--gold);
+}
+/* شعار الفريق — أكبر وأوضح (26px) مع درع افتراضي بنفس المساحة */
+.bt-logo{
+  width:26px;height:26px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:15px;line-height:1;
+}
+.bt-logo img{width:26px;height:26px;object-fit:cover;border-radius:7px}
+.bt-crest-tbd{
+  width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+  border-radius:7px;background:rgba(255,255,255,.04);
+  border:1px dashed var(--b2);color:var(--t3);opacity:.65;
+}
+.bt-name{
+  flex:1;min-width:0;font-size:12px;font-weight:800;color:var(--t1);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.bt-name.bt-tbd{color:var(--t3);font-weight:600;font-size:11px}
+.bt-score{
+  font-size:14px;font-weight:900;font-family:'Tajawal',sans-serif;color:var(--t1);
+  min-width:18px;text-align:center;flex:0 0 auto;line-height:1.05;
+}
+.bt-pen{font-size:8.5px;color:var(--gold);display:block;line-height:1;font-weight:800}
+.bt-sep{height:1px;background:var(--b1);flex:0 0 1px}
+.bt-live-dot{
+  /* جهة النتيجة (يسار في RTL) لا جهة الشعار، ومرفوعة كي لا تلامس الرقم */
+  position:absolute;top:4px;inset-inline-end:5px;width:6px;height:6px;border-radius:50%;
+  background:var(--live);animation:btpulse 1.2s infinite;z-index:2;
+  box-shadow:0 0 0 3px rgba(220,50,50,.18);
+}
 .bt-match.bt-mirror .bt-team{flex-direction:row-reverse}
 @keyframes btpulse{0%,100%{opacity:1}50%{opacity:.25}}
 
-.bt-champion{margin-top:14px;text-align:center}
-.bt-champion-crown{font-size:28px;margin-bottom:4px}
-.bt-champion-name{font-size:13px;font-weight:900;color:var(--gold);max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 auto}
-.bt-champion-tag{font-size:8.5px;color:var(--t3);letter-spacing:1.5px;margin-top:3px}
+/* ── لوحة البطل — تُعرض أسفل الشجرة بعرض كامل (فخامة بلا زحمة) ── */
+.bt-champion{
+  margin:18px 14px 0;padding:20px 16px;text-align:center;border-radius:16px;
+  background:linear-gradient(180deg,rgba(201,160,43,.13),rgba(201,160,43,.03));
+  border:1px solid rgba(201,160,43,.34);
+  box-shadow:0 8px 30px rgba(0,0,0,.32);
+}
+.bt-champion-crown{font-size:32px;margin-bottom:6px;line-height:1}
+.bt-champion-name{
+  font-size:19px;font-weight:900;color:var(--gold);margin:0 auto;
+  max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.bt-champion-tag{font-size:9.5px;color:var(--t3);letter-spacing:2.5px;margin-top:5px;font-weight:800}
+/* ── مباراة تحديد المركز الثالث — بطاقة مستقلة بنفس مقاس بطاقات الشجرة ── */
+.bt-thirdplace .bt-match{margin:0 auto}
 
 /* CHARTS */
 .chart-wrap{padding:0 14px 14px}
@@ -2675,6 +2770,16 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .vt-goal{ display:flex; align-items:baseline; gap:6px; direction:rtl }
 .vt-goal-name{ font-size:12px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
 .vt-goal-min{ font-size:11px; font-weight:700; color:var(--t3); flex:0 0 auto }
+/* ── غلاف الهدف: اسم الهدّاف + سطر الصانع تحته (أسلوب التطبيقات الرسمية) ── */
+.vt-goalw{ display:flex; flex-direction:column; gap:2px; min-width:0 }
+.vt-row-left  .vt-goalw{ align-items:flex-end }
+.vt-row-right .vt-goalw{ align-items:flex-start }
+.vt-goal-assist{
+  display:inline-flex; align-items:center; gap:4px; direction:rtl;
+  font-size:10px; font-weight:700; color:#2ecc71; opacity:.95;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+}
+.vt-goal-assist svg{ flex:0 0 auto; opacity:.9 }
 /* ── ركلات الترجيح داخل الخط الزمني (نفس تنسيق الأهداف) ── */
 .vt-dot-penin, .vt-dot-penout{
   width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
@@ -2727,6 +2832,9 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
   border-radius:6px; background:#C9A02B; color:#000; font-size:8px; font-weight:900;
   display:flex; align-items:center; justify-content:center; font-family:Tajawal,sans-serif }
 .pl-badge-yellow, .pl-badge-red{ width:9px; height:12px; border-radius:2px; box-shadow:0 1px 3px rgba(0,0,0,.7) }
+/* شارة صناعة الهدف — حذاء أخضر بنفس بنية شارة الهدف */
+.pl-badge-assist{ font-size:11px; color:#2ecc71; filter:drop-shadow(0 1px 2px rgba(0,0,0,.8)); position:relative }
+.pl-badge-acount{ background:#2ecc71 !important; color:#062a15 !important }
 .pl-badge-yellow{ background:#f1c40f } .pl-badge-red{ background:#e74c3c }
 .pl-badge-subout,.pl-badge-subin{ font-size:9px; font-weight:900; line-height:1; text-shadow:0 1px 2px rgba(0,0,0,.8) }
 .pl-badge-subout{ color:#e5533d } .pl-badge-subin{ color:#27ae60 }

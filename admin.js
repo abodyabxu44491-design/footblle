@@ -3215,17 +3215,20 @@ function _adminStatRow(s, i, unit, color) {
   const medalBg = i===0?'linear-gradient(135deg,var(--gold2),var(--gold3))':i===1?'#333':i===2?'#2a1a0a':'var(--card2)';
   const medalCol= i===0?'#000':i===1?'#ccc':i===2?'#b87333':'#555';
   const safeName=(s.name||'').replace(/'/g,"\\'");
-  // صورة اللاعب من rosterCache: بالهوية إن وُجدت، وإلا بالاسم (للأحداث القديمة)
+  // صورة اللاعب من rosterCache — نفس قواعد صفحة الجمهور الصارمة:
+  // الهوية تحسم وحدها، ثم الاسم+الرقم، ثم الاسم إن كان فريداً في الكشف فقط.
+  // (المطابقة بالاسم وحده عند التكرار كانت تعطي صورة زميل يحمل نفس الاسم)
   let photo = '';
   const _rc = rosterCache[s.teamId] || [];
-  if (s.playerId) {
-    const rp = _rc.find(x => x && x.id === s.playerId);
-    if (rp && rp.photo) photo = rp.photo;
-  }
-  if (!photo && s.name) {
-    const _n = v => String(v||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
-    const rp = _rc.find(x => x && _n(x.name) === _n(s.name) && x.photo);
-    if (rp) photo = rp.photo;
+  const _n = v => String(v||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+  const _sid = (s.playerId != null && s.playerId !== '') ? String(s.playerId) : '';
+  const _byId = _sid ? _rc.find(x => x && String(x.id) === _sid) : null;
+  if (_byId) {
+    photo = _byId.photo || '';           // الهوية موجودة → قرارها نهائي
+  } else if (s.name) {
+    const _same = _rc.filter(x => x && _n(x.name) === _n(s.name));
+    if (_same.length === 1) photo = _same[0].photo || '';
+    // اسم مكرّر داخل الفريق بلا ما يفصل → لا نخمّن ولا نعرض صورة غيره
   }
   const avatar = photo
     ? `<div style="position:relative;width:38px;height:38px;flex-shrink:0">
@@ -11506,6 +11509,9 @@ window.openRosterModal = async function(teamId) {
           <div style="font-size:16px;font-weight:800">${team.name}</div>
           <div style="font-size:11px;color:var(--muted,#888)" id="rosterCount">جاري التحميل...</div>
         </div>
+        <button onclick="openPhotoTrash()" title="سلّة الصور — ملفات تعذّر حذفها فوراً"
+          style="background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.3);color:var(--gold,#C9A02B);
+                 font-size:14px;cursor:pointer;padding:6px 9px;border-radius:8px">🧹</button>
         <button onclick="closeRosterModal()"
           style="background:none;border:none;color:var(--muted,#888);font-size:22px;cursor:pointer;padding:4px">✕</button>
       </div>
@@ -11729,6 +11735,10 @@ function renderRosterPlayerRow(p, teamId) {
         <button onclick="document.getElementById('pphoto-file-${p.id}').click()" title="${p.photo ? 'تغيير الصورة' : 'إضافة صورة'}"
           style="padding:5px 8px;background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.3);
                  border-radius:6px;font-size:12px;cursor:pointer">📷</button>
+        ${p.photo ? `<!-- حذف الصورة نهائياً — يظهر فقط لمن له صورة -->
+        <button onclick="removeRosterPhoto('${teamId}','${p.id}')" title="حذف صورة اللاعب"
+          style="padding:5px 8px;background:rgba(192,57,43,.10);border:1px solid rgba(192,57,43,.32);
+                 border-radius:6px;font-size:11px;cursor:pointer">🚫</button>` : ''}
         <!-- تغيير الحالة -->
         <select onchange="updateRosterStatus('${teamId}','${p.id}',this.value)"
           style="padding:5px;background:var(--dark,#111);border:1px solid var(--border,#333);
@@ -11750,14 +11760,87 @@ function renderRosterPlayerRow(p, teamId) {
   `;
 }
 
-// ── 📷 رفع/تغيير صورة لاعب (Storage) ──
-// آمن: يرفع الصورة لـ Storage ويحفظ رابطها فقط في مستند اللاعب.
-// لا يمسّ أي حقل آخر. عند الفشل يظهر خطأ واضح دون تعطيل أي شيء.
+/* ════════════════════════════════════════════════════════════════════
+ *  📷 نظام صور اللاعبين — رفع / تغيير / حذف حقيقي
+ *  ──────────────────────────────────────────────────────────────────
+ *  الأعطال التي عالجها هذا النظام (وسببها الجذري):
+ *
+ *  ① «أغيّر الصورة فلا تتغير»
+ *     كان public_id ثابتاً (player_<team>_<player>). ورفع Cloudinary
+ *     غير الموقّع (unsigned) **لا يسمح بالاستبدال** — الخيار overwrite
+ *     ممنوع فيه ويبقى false دائماً. فعند رفع صورة جديدة بنفس المعرّف
+ *     كان Cloudinary يُرجع الأصل القديم كما هو بنفس الرابط، فيُحفظ نفس
+ *     الرابط ولا يتغيّر شيء عند الجمهور.
+ *     الحل: معرّف فريد لكل رفعة (…_<طابع زمني>) → أصل جديد ورابط جديد
+ *     دائماً، فالتغيير مضمون 100% بلا اعتماد على كاش المتصفح.
+ *
+ *  ② «أحذف الصورة فلا تُحذف ولا تُفرَّغ المساحة»
+ *     الحذف القديم كان يمسح الرابط من Firestore فقط، والملف يبقى في
+ *     Cloudinary للأبد يستهلك الحصة. وزر الحذف أصلاً **لم يكن موجوداً
+ *     في الواجهة** — الدالة removeRosterPhoto كانت معرّفة ولا يستدعيها
+ *     أحد، فكان حذف الصورة مستحيلاً من لوحة التحكم.
+ *     الحل: نحفظ delete_token مع كل رفعة، ونحذف الأصل فعلياً من
+ *     Cloudinary عبر delete_by_token عند الحذف أو الاستبدال. وما يتعذّر
+ *     حذفه فوراً (التوكن صالح ~10 دقائق) يُسجَّل في photoTrash ليُنظَّف
+ *     لاحقاً بزرّ واحد، فلا يضيع أي ملف بلا حساب.
+ *
+ *  ⚙️ إعداد مطلوب مرّة واحدة في Cloudinary (بدونه يعمل كل شيء لكن
+ *     الحذف الفوري يتحول إلى تسجيل في سلّة المهملات فقط):
+ *     Settings → Upload → preset «wvebrqwq» → فعّل «Return delete token».
+ * ════════════════════════════════════════════════════════════════════ */
+
+// مرجع مستند اللاعب — يُستخدم في كل عمليات الصورة
+function _rosterDocRef(teamId, playerId) {
+  return doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId);
+}
+
+/* ── حذف أصل من Cloudinary بالتوكن (الطريقة الوحيدة المتاحة بلا مفتاح سرّي) ──
+   يرجع true عند نجاح حذف فعلي، و false لو انتهت صلاحية التوكن أو غاب. */
+window._cloudinaryDeleteByToken = async function(token) {
+  if (!token) return false;
+  try {
+    const form = new FormData();
+    form.append('token', token);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/delete_by_token`, {
+      method: 'POST', body: form
+    });
+    const data = await res.json().catch(() => ({}));
+    return !!(res.ok && data && data.result === 'ok');
+  } catch (e) { return false; }
+};
+
+/* ── سلّة مهملات الصور: كل أصل تعذّر حذفه فوراً يُسجَّل هنا بمعرّفه ──
+   هكذا لا يبقى ملف «يتيم» في Cloudinary بلا أثر يدلّ عليه. */
+window._queuePhotoForDeletion = async function(publicId, meta) {
+  if (!publicId) return;
+  try {
+    await addDoc(collection(db, 'leagues', LEAGUE_ID, 'photoTrash'), {
+      publicId,
+      teamId:   (meta && meta.teamId)   || null,
+      playerId: (meta && meta.playerId) || null,
+      playerName: (meta && meta.playerName) || '',
+      reason:   (meta && meta.reason)   || 'replaced',
+      createdAt: serverTimestamp()
+    });
+  } catch (e) { /* التسجيل مساعد فقط — لا يُفشل العملية الأساسية */ }
+};
+
+/* ── التخلّص من الأصل القديم: حذف فوري إن أمكن، وإلا تسجيل في السلّة ── */
+async function _disposeOldPhoto(player, meta) {
+  const oldId = player && player.photoPublicId;
+  if (!oldId) return { deleted: false, queued: false };
+  const ok = await window._cloudinaryDeleteByToken(player.photoDeleteToken);
+  if (ok) return { deleted: true, queued: false };
+  await window._queuePhotoForDeletion(oldId, meta);
+  return { deleted: false, queued: true };
+}
+
+// ── 📷 رفع/تغيير صورة لاعب ──
 window.uploadRosterPhoto = async function(teamId, playerId, input) {
   const file = input && input.files && input.files[0];
   if (!file) return;
   if (!/^image\//.test(file.type)) { showToast('اختر ملف صورة', 'error'); input.value=''; return; }
-  // لا نرفض حسب الحجم الأصلي — الضغط يتكفّل بأي حجم.
+  const player = (rosterCache[teamId] || []).find(p => p && p.id === playerId) || {};
   try {
     // 1) ضغط قبل الرفع — مع إظهار الحجم قبل/بعد
     const _origKB = Math.max(1, Math.round(file.size / 1024));
@@ -11766,28 +11849,49 @@ window.uploadRosterPhoto = async function(teamId, playerId, input) {
     const _outKB = Math.max(1, Math.round((dataUrl.length * 0.75) / 1024));
     const _saved = Math.max(0, Math.round((1 - _outKB / _origKB) * 100));
     showToast(`⏳ جارِ الرفع... الحجم بعد الضغط ${_outKB}KB (وفّرنا ${_saved}%)`, 'success');
-    // 2) رفع الصورة المضغوطة إلى Cloudinary (unsigned) وأخذ الرابط
-    const url = await window._uploadToCloudinary(dataUrl, `player_${teamId}_${playerId}`);
-    // 3) حفظ الرابط فقط في مستند اللاعب (نص قصير — لا يُثقل المساحة)
-    await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId),
-      { photo: url, updatedAt: serverTimestamp() });
-    showToast(`✅︎ تم حفظ الصورة (${_outKB}KB بعد الضغط)`, 'success');
+
+    // 2) رفع بمعرّف فريد — يضمن أن الصورة الجديدة تظهر فعلاً (انظر ① أعلاه)
+    const publicId = `player_${teamId}_${playerId}_${Date.now()}`;
+    const up = await window._uploadToCloudinary(dataUrl, publicId);
+
+    // 3) حفظ الرابط + بيانات الحذف (رابط نصّي قصير، لا يُثقل Firestore)
+    await updateDoc(_rosterDocRef(teamId, playerId), {
+      photo: up.url,
+      photoPublicId: up.publicId || publicId,
+      photoDeleteToken: up.deleteToken || null,
+      photoAt: Date.now(),
+      updatedAt: serverTimestamp()
+    });
+
+    // 4) التخلّص من الصورة السابقة كي لا تتراكم في الحصة
+    const disp = await _disposeOldPhoto(player, {
+      teamId, playerId, playerName: player.name || '', reason: 'replaced'
+    });
+
+    showToast(
+      disp.deleted ? `✅︎ تم تغيير الصورة وحذف القديمة نهائياً (${_outKB}KB)`
+      : disp.queued ? `✅︎ تم تغيير الصورة (${_outKB}KB) — القديمة بانتظار التنظيف`
+      : `✅︎ تم حفظ الصورة (${_outKB}KB بعد الضغط)`, 'success');
   } catch (e) {
-    const code = (e && (e.message || e.code) || '') + '';
-    let msg;
-    if (/preset|unsigned|400/i.test(code))
-      msg = 'إعداد الرفع غير صحيح — تأكّد أن preset في Cloudinary من نوع Unsigned.';
-    else if (/network|failed to fetch|timeout/i.test(code))
-      msg = 'تعذّر الاتصال — تحقّق من الإنترنت وأعد المحاولة.';
-    else
-      msg = 'تعذّر رفع الصورة: ' + code;
-    showToast(msg, 'error');
+    showToast(_photoErrMsg(e), 'error');
   } finally {
     if (input) input.value = '';
   }
 };
 
-// ── رفع صورة (data URL) إلى Cloudinary عبر preset غير موقّع، وإرجاع الرابط ──
+// رسالة خطأ مفهومة بدل نص Cloudinary الخام
+function _photoErrMsg(e) {
+  const code = (e && (e.message || e.code) || '') + '';
+  if (/preset|unsigned|400/i.test(code))
+    return 'إعداد الرفع غير صحيح — تأكّد أن preset في Cloudinary من نوع Unsigned.';
+  if (/network|failed to fetch|timeout/i.test(code))
+    return 'تعذّر الاتصال — تحقّق من الإنترنت وأعد المحاولة.';
+  return 'تعذّر رفع الصورة: ' + code;
+}
+
+/* ── رفع صورة (data URL) إلى Cloudinary عبر preset غير موقّع ──
+   يرجع الآن كائناً {url, publicId, deleteToken} بدل الرابط وحده،
+   لأن معرّف الأصل وتوكن حذفه ضروريان للحذف الحقيقي لاحقاً. */
 window._uploadToCloudinary = async function(dataUrl, publicId) {
   const form = new FormData();
   form.append('file', dataUrl);                    // يقبل Cloudinary data URL مباشرة
@@ -11800,16 +11904,84 @@ window._uploadToCloudinary = async function(dataUrl, publicId) {
   if (!res.ok || !data.secure_url) {
     throw new Error((data && data.error && data.error.message) || `فشل الرفع (${res.status})`);
   }
-  return data.secure_url;   // الرابط الآمن للصورة
+  return {
+    url: data.secure_url,
+    publicId: data.public_id || publicId || '',
+    deleteToken: data.delete_token || null   // يظهر متى فُعّل «Return delete token»
+  };
 };
 
-// ── حذف صورة لاعب (يمسح الرابط من اللاعب) ──
+// ── 🗑 حذف صورة لاعب نهائياً (من Cloudinary ومن مستند اللاعب) ──
 window.removeRosterPhoto = async function(teamId, playerId) {
+  const player = (rosterCache[teamId] || []).find(p => p && p.id === playerId) || {};
+  if (!player.photo) { showToast('لا توجد صورة لحذفها', 'error'); return; }
+  const nm = player.name || 'اللاعب';
+  if (!confirm(`حذف صورة «${nm}» نهائياً؟`)) return;
   try {
-    await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId),
-      { photo: '', updatedAt: serverTimestamp() });
-    showToast('تم حذف الصورة', 'success');
-  } catch (e) { showToast('تعذّر الحذف: ' + (window._trErr ? window._trErr(e) : e.message), 'error'); }
+    showToast('⏳ جارِ حذف الصورة...', 'success');
+    const disp = await _disposeOldPhoto(player, {
+      teamId, playerId, playerName: nm, reason: 'deleted'
+    });
+    // نمسح كل حقول الصورة — لا يبقى أي أثر على مستند اللاعب
+    await updateDoc(_rosterDocRef(teamId, playerId), {
+      photo: '', photoPublicId: '', photoDeleteToken: null, photoAt: null,
+      updatedAt: serverTimestamp()
+    });
+    showToast(
+      disp.deleted ? '✅︎ حُذفت الصورة نهائياً وأُفرغت مساحتها'
+      : disp.queued ? '✅︎ حُذفت الصورة من البطولة — الملف بانتظار التنظيف'
+      : '✅︎ تم حذف الصورة', 'success');
+  } catch (e) {
+    showToast('تعذّر الحذف: ' + (window._trErr ? window._trErr(e) : e.message), 'error');
+  }
+};
+
+/* ── 🧹 تنظيف سلّة الصور: يعرض ما تعذّر حذفه فوراً ويحاول حذفه مجدداً ──
+   الأصول التي انتهى توكنها لا يمكن حذفها من المتصفح (يتطلب مفتاحاً سرّياً
+   لا يجوز وضعه في كود عام)، فنعرض معرّفاتها لتُحذف دفعة واحدة من لوحة
+   Cloudinary — بدل أن تضيع مجهولة داخل الحصة. */
+window.openPhotoTrash = async function() {
+  try {
+    const snap = await getDocs(collection(db, 'leagues', LEAGUE_ID, 'photoTrash'));
+    const items = [];
+    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+    const ov = document.createElement('div');
+    ov.id = 'photoTrashOv';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:18px';
+    const list = items.length
+      ? items.map(it => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border2,#2a2a2a)">
+           <span style="flex:1;font-size:10.5px;color:var(--muted,#888);direction:ltr;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.publicId||''}</span>
+           <span style="font-size:10px;color:var(--text,#ddd)">${it.playerName||''}</span>
+         </div>`).join('')
+      : '<div style="text-align:center;padding:22px;color:var(--muted,#888);font-size:12px">السلّة فارغة — كل الصور المحذوفة أُزيلت نهائياً ✅︎</div>';
+    ov.innerHTML = `
+      <div style="width:100%;max-width:380px;max-height:80vh;overflow:auto;background:var(--card,#111);border:1px solid var(--border2,#2a2a2a);border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
+        <div style="font-size:15px;font-weight:900;color:var(--gold,#C9A02B);text-align:center;margin-bottom:4px">🧹 سلّة الصور</div>
+        <div style="font-size:10.5px;color:var(--muted,#888);text-align:center;line-height:1.8;margin-bottom:12px">
+          ملفات تعذّر حذفها فوراً (انتهت صلاحية توكن الحذف).<br>
+          احذفها دفعة واحدة من لوحة Cloudinary بالبحث عن معرّفاتها.
+        </div>
+        ${list}
+        <div style="display:grid;grid-template-columns:${items.length?'1fr 1fr':'1fr'};gap:8px;margin-top:14px">
+          ${items.length ? `<button onclick="clearPhotoTrash()"
+            style="padding:11px;border-radius:9px;border:1px solid rgba(220,50,50,.35);background:rgba(220,50,50,.1);color:#C0392B;font-family:Tajawal,sans-serif;font-weight:800;font-size:12px;cursor:pointer">مسح السجل (${items.length})</button>` : ''}
+          <button onclick="document.getElementById('photoTrashOv').remove()"
+            style="padding:11px;border-radius:9px;border:none;background:var(--gold,#C9A02B);color:#000;font-family:Tajawal,sans-serif;font-weight:900;font-size:12px;cursor:pointer">إغلاق</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    window.bindModalDismiss && window.bindModalDismiss(ov);
+  } catch (e) { showToast('تعذّر فتح السلّة: ' + (window._trErr ? window._trErr(e) : e.message), 'error'); }
+};
+
+window.clearPhotoTrash = async function() {
+  if (!confirm('مسح سجل السلّة؟ (احذف الملفات من Cloudinary أولاً وإلا ضاعت معرّفاتها)')) return;
+  try {
+    const snap = await getDocs(collection(db, 'leagues', LEAGUE_ID, 'photoTrash'));
+    await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+    document.getElementById('photoTrashOv')?.remove();
+    showToast('✅︎ تم مسح السجل', 'success');
+  } catch (e) { showToast('تعذّر المسح: ' + (window._trErr ? window._trErr(e) : e.message), 'error'); }
 };
 
 // ── إضافة لاعب ──
@@ -12023,6 +12195,16 @@ function _parseCsvRows(text) {
 window.deleteRosterPlayer = async function(teamId, playerId, playerName) {
   if (!(await window.confirmDialog({ title: '⚠️ تأكيد', message: `حذف اللاعب "${playerName}"؟`, confirmText: '🗑 نعم، احذف', danger: true }))) return;
   try {
+    /* ✅︎ صورة اللاعب تُحذف معه — وإلا بقي ملفها في Cloudinary يستهلك الحصة
+       بلا أي مستند يشير إليه، فيصبح ملفاً يتيماً يستحيل تتبّعه لاحقاً. */
+    const _p = (rosterCache[teamId] || []).find(x => x && x.id === playerId);
+    if (_p && _p.photoPublicId) {
+      try {
+        await _disposeOldPhoto(_p, {
+          teamId, playerId, playerName: playerName || _p.name || '', reason: 'player-deleted'
+        });
+      } catch (e) { /* لا نمنع حذف اللاعب لو تعثّر حذف صورته */ }
+    }
     await deleteDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId));
     showToast('تم حذف اللاعب', 'error');
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
@@ -12491,11 +12673,15 @@ window.importRosterToLineup = function(teamId) {
       const label = isOwn
         ? `<span style="color:#e5533d;font-weight:800;font-style:italic">هدف عكسي</span><span style="color:#777;font-weight:400"> · ${e.teamName || ''}</span>`
         : `${e.player || '؟'}<span style="color:#777;font-weight:400"> · ${e.teamName || ''}</span>`;
+      /* ✅︎ سطر الصانع تحت اسم الهدّاف — تأكيد بصري للمنظّم أن الصناعة سُجّلت */
+      const _asLine = (!isOwn && e.assist)
+        ? `<span style="display:block;font-size:9.5px;font-weight:700;color:#27ae60;margin-top:2px">👟 صناعة: ${e.assist}</span>`
+        : '';
       return `<div style="display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid #1a1a1a">
         <span style="min-width:34px;font-size:11px;font-weight:900;color:#C9A02B">${e.minute || 0}'</span>
         <span style="font-size:13px">⚽</span>
         <span style="flex:1;font-size:11px;font-weight:700;color:#ddd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-          ${label}
+          ${label}${_asLine}
         </span>
         <button onclick="qrDeleteGoal('${m.id}',${realIdx})" title="حذف"
           style="width:24px;height:24px;border-radius:6px;border:1px solid rgba(220,50,50,.3);background:rgba(220,50,50,.08);color:#C0392B;font-size:11px;cursor:pointer">🗑</button>
@@ -12539,6 +12725,9 @@ window.importRosterToLineup = function(teamId) {
       ? _getT(m.homeId, m.homeName, m.homeLogo)
       : _getT(m.awayId, m.awayName, m.awayLogo);
     const teamId = side === 'home' ? m.homeId : m.awayId;
+    /* ✅︎ خانة صانع الهدف — تظهر هنا تماماً كما في صفحة البث المباشر،
+       بشرط تفعيل «اختيار الصانع مع الهدف» من إعدادات البطولة. */
+    const _qrShowAssist = !!(window.settings && window.settings.showAssistPicker);
 
     document.getElementById('qrGoalOv')?.remove();
     const ov = document.createElement('div');
@@ -12554,6 +12743,19 @@ window.importRosterToLineup = function(teamId) {
         <div id="qrGoalRosterBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
           <span style="font-size:11px;color:#888">جارِ تحميل قائمة لاعبي ${t.name}...</span>
         </div>
+        ${_qrShowAssist ? `
+        <div id="qrAssistWrap" style="margin-top:12px;padding-top:12px;border-top:1px dashed #2a2a2a">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <span style="font-size:14px">👟</span>
+            <span style="font-size:11px;font-weight:800;color:#27ae60">من صنع الهدف؟</span>
+            <span style="font-size:9px;color:#888">(اختياري)</span>
+          </div>
+          <input id="qrGoalAssist" placeholder="اكتب أو اختر الصانع من القائمة بالأسفل"
+            style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
+          <div id="qrGoalAssistBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+            <span style="font-size:11px;color:#888">جارِ تحميل قائمة اللاعبين...</span>
+          </div>
+        </div>` : ''}
         <button onclick="qrCommitOwnGoal('${matchId}','${side}','${String(t.name).replace(/'/g,"\\'")}')"
           style="width:100%;margin-top:10px;padding:11px;border-radius:9px;border:1px solid rgba(229,83,61,.45);background:rgba(229,83,61,.12);color:#e5533d;font-family:Tajawal,sans-serif;font-weight:800;font-size:12px;cursor:pointer">⚽ هدف عكسي (بدون نسبة للاعب)</button>
         <div style="font-size:10px;color:#888;margin:10px 0 5px">الدقيقة</div>
@@ -12576,30 +12778,48 @@ window.importRosterToLineup = function(teamId) {
     const excludeNames = window._redCardedNames(m.events, side);
     const box = document.getElementById('qrGoalRosterBox');
     if (box) box.innerHTML = window._renderRosterPickButtons(roster, 'qrGoalPlayer', excludeNames);
+    /* ✅︎ قائمة الصانع — نفس الكشف بلا استبعاد المطرودين (الصانع قد يكون أي لاعب من الفريق) */
+    const aBox = document.getElementById('qrGoalAssistBox');
+    if (aBox) aBox.innerHTML = window._renderRosterPickButtons(roster, 'qrGoalAssist', null);
   };
 
   window.qrCommitGoal = function(matchId, side, teamName) {
     const m = _getM(matchId); if (!m) return;
     const player = (document.getElementById('qrGoalPlayer')?.value || '').trim() || '؟';
     const minute = parseInt(document.getElementById('qrGoalMinute')?.value) || 1;
+    /* ✅︎ الصانع — يُقرأ قبل إزالة النافذة، ولا يُحتسب لو كان نفس المسجّل */
+    const _asRaw = (document.getElementById('qrGoalAssist')?.value || '').trim();
     document.getElementById('qrGoalOv')?.remove();
     // ✅ FIX: نفس ثغرة الإدخال السريع — اربط الهدف بهوية اللاعب وإلا
     //    يظهر عند الجمهور كلاعب منفصل عن باقي أهدافه (انظر _spConfirm).
     const _qrTeamId = side === 'home' ? m.homeId : m.awayId;
     const _qrId = window._resolvePlayerId
       ? window._resolvePlayerId(_qrTeamId, player, matchId, side) : {};
+    /* ✅︎ الصانع بالهوية — نفس منطق البث المباشر تماماً، كي يدخل جدول الصنّاع
+       ويظهر في الخط الزمني والتشكيلة بلا أي فرق بين طريقتَي الإدخال. */
+    const _asExtra = {};
+    if (_asRaw && _asRaw !== player && window.settings && window.settings.showAssistPicker) {
+      const _asId = window._resolvePlayerId
+        ? (window._resolvePlayerId(_qrTeamId, _asRaw, matchId, side) || {}) : {};
+      _asExtra.assist = _asRaw;
+      _asExtra.assistPlayerId = _asId.playerId || null;
+      _asExtra.assistNumber = _asId.number != null ? _asId.number : null;
+    }
     const evs = Array.isArray(m.events) ? [...m.events] : [];
     evs.push({
       minute, icon: '⚽', player, teamName, type: 'goal', side,
       teamId: _qrTeamId || null,
       playerId: _qrId.playerId || null,
-      playerNumber: _qrId.number != null ? _qrId.number : null
+      playerNumber: _qrId.number != null ? _qrId.number : null,
+      ..._asExtra
     });
     evs.sort((a, b) => (a.minute || 0) - (b.minute || 0));
     m.events = evs;
     _qrSync(m);
     window._qrRefresh(matchId);
-    window.showToast && window.showToast(`⚽ ${player} · ${teamName}`, 'success');
+    window.showToast && window.showToast(
+      _asExtra.assist ? `⚽ ${player} (صناعة ${_asExtra.assist}) · ${teamName}`
+                      : `⚽ ${player} · ${teamName}`, 'success');
   };
 
   // ⚽ هدف عكسي — يُحسب للفريق بلا نسبة للاعب ولا يدخل جدول الهدّافين

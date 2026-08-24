@@ -161,6 +161,23 @@ function _liveEventPlayerName(ev, teamId) {
   return _pName(teamId, ev.playerId, ev.player || '');
 }
 
+/* ✅︎ اسم صانع الهدف — بالهوية أولاً (يتبع تعديل الاسم فوراً كبقية الأسماء)،
+   ويرجع لنص الحدث المخزّن للبيانات القديمة بلا هوية. */
+function _liveAssistName(ev, teamId) {
+  if (!ev || !ev.assist) return '';
+  return _pName(teamId, ev.assistPlayerId, ev.assist || '');
+}
+window._liveAssistName = _liveAssistName;
+
+/* هل تُعرض الصناعات للجمهور؟ يكفي تفعيل أحد المفتاحين من إعدادات البطولة:
+   «صنّاع الأهداف» (قسم الإحصائيات) أو «اختيار الصانع مع الهدف» (الإدخال).
+   المنطق: من يسجّل الصانع يريده ظاهراً — ومن أطفأ الاثنين لا يريده إطلاقاً. */
+function _assistsPublic() {
+  const s = window.settings || {};
+  return !!(s.showAssists || s.showAssistPicker);
+}
+window._assistsPublic = _assistsPublic;
+
 // اسم أحد طرفَي التبديل. which = 'in' (الداخل) أو 'out' (الخارج).
 function _liveSubName(ev, teamId, which) {
   if (!ev) return '';
@@ -933,30 +950,58 @@ function _subMap(subs) {
 // صورة لاعب التشكيلة حسب هويته من أي كشف محمّل
 // صورة لاعب التشكيلة: التشكيلة قد تُحفظ بلا id (بالاسم/الرقم فقط)،
 // فنبحث بالهوية إن وُجدت، وإلا بالاسم (والرقم إن توفّر) في كشوف الفرق.
+/* ════════════════════════════════════════════════════════════════════
+ *  صورة اللاعب — مطابقة صارمة تمنع خلط الصور بين المتشابهين في الاسم
+ *  ──────────────────────────────────────────────────────────────────
+ *  الخلل السابق (خطير): عند فشل العثور على صورة داخل فريق اللاعب، كانت
+ *  الدالة تمسح **كل فرق البطولة** وترجع صورة أي لاعب يحمل نفس الاسم.
+ *  فـ«محمد» في فريق أ كان يظهر بصورة «محمد» في فريق ب. وداخل الفريق
+ *  الواحد، المطابقة بالاسم وحده كانت تعطي صورة زميله المتشابه في الاسم.
+ *
+ *  القواعد الجديدة (بالترتيب، وأول قاعدة تحسم تُنهي البحث):
+ *   ① الهوية (id) هي المرجع المطلق: إن وُجد سجلّ بها في كشف الفريق فهو
+ *     اللاعب — نرجع صورته أو لا شيء. ولا ننتقل للاسم إطلاقاً، لأن وجود
+ *     الهوية يعني أن اللاعب معروف تماماً وغياب صورته حقيقة لا نقص بحث.
+ *   ② الاسم + رقم القميص: مطابقة دقيقة تفصل بين المتشابهين داخل الفريق.
+ *   ③ الاسم وحده: **فقط** إن كان الاسم فريداً في الكشف. لو تكرّر ولم
+ *     نملك رقماً يفصل بينهم، نرجع فراغاً — لأن عرض ظلّ اللاعب أصدق
+ *     من عرض صورة شخص آخر.
+ *   ④ لا مسح عابر للفرق مطلقاً: بلا teamId لا صورة.
+ * ════════════════════════════════════════════════════════════════════ */
 function _lineupPhoto(playerOrId, teamId) {
   if (!window._teamRosters) return '';
-  const p = (typeof playerOrId === 'object') ? playerOrId : { id: playerOrId };
+  const p = (typeof playerOrId === 'object' && playerOrId) ? playerOrId : { id: playerOrId };
+  const roster = teamId ? window._teamRosters[teamId] : null;
+  if (!roster || !roster.length) return '';
+
   const _norm = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
-  const scan = (roster) => {
-    if (!roster || !roster.length) return '';
-    // 1) بالهوية
-    if (p.id) { const h = roster.find(x => x && x.id === p.id); if (h && h.photo) return h.photo; }
-    // 2) بالاسم + الرقم (أدق)
-    if (p.name != null) {
-      const n = _norm(p.name);
-      let h = roster.find(x => x && _norm(x.name) === n && (p.number==null || String(x.number)===String(p.number)) && x.photo);
-      if (h) return h.photo;
-      // 3) بالاسم فقط
-      h = roster.find(x => x && _norm(x.name) === n && x.photo);
-      if (h) return h.photo;
-    }
-    return '';
-  };
-  // ابحث في فريق محدّد أولاً إن مُرّر، وإلا كل الفرق
-  if (teamId && window._teamRosters[teamId]) { const r = scan(window._teamRosters[teamId]); if (r) return r; }
-  for (const tid in window._teamRosters) { const r = scan(window._teamRosters[tid]); if (r) return r; }
+
+  // ① الهوية تحسم وحدها — لا رجوع للاسم بعدها
+  const pid = (p.id != null && p.id !== '') ? String(p.id) : '';
+  if (pid) {
+    const hit = roster.find(x => x && String(x.id) === pid);
+    if (hit) return hit.photo || '';
+    // هوية غير موجودة في الكشف (لاعب حُذف مثلاً) → نُكمل بالاسم بحذر
+  }
+
+  const n = _norm(p.name);
+  if (!n) return '';
+  const sameName = roster.filter(x => x && _norm(x.name) === n);
+  if (!sameName.length) return '';
+
+  // ② الاسم + الرقم
+  if (p.number != null && p.number !== '') {
+    const byNum = sameName.find(x => String(x.number) === String(p.number));
+    return byNum ? (byNum.photo || '') : '';
+  }
+
+  // ③ الاسم وحده — بشرط ألا يكون مكرّراً داخل الفريق
+  if (sameName.length === 1) return sameName[0].photo || '';
+
+  // ④ اسم مكرّر بلا رقم يفصل → لا نخمّن
   return '';
 }
+window._lineupPhoto = _lineupPhoto;
 
 // ظلّ لاعب (silhouette) SVG أنيق — يُعرض بدل الصورة عند غيابها (كالتطبيقات الرسمية)
 window._playerSilhouetteSVG = function() {
@@ -1098,17 +1143,11 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
   });
 
   const team = teams.find(t => t.id === player.teamId) || {logo: player.teamLogo};
-  // صورة اللاعب إن وُجدت (بالهوية أو بالاسم) وإلا شعار الفريق
-  let _pPhoto = '';
-  if (window._teamRosters && window._teamRosters[player.teamId]) {
-    const _roster = window._teamRosters[player.teamId];
-    let _rp = player.playerId ? _roster.find(x => x && x.id === player.playerId) : null;
-    if (!_rp || !_rp.photo) {
-      const _nn = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
-      _rp = _roster.find(x => x && _nn(x.name) === _nn(player.name) && x.photo) || _rp;
-    }
-    if (_rp && _rp.photo) _pPhoto = _rp.photo;
-  }
+  /* صورة اللاعب — عبر المصدر الموحّد نفسه (_lineupPhoto) بقواعده الصارمة،
+     فلا تظهر صورة لاعب آخر يحمل نفس الاسم لا من فريقه ولا من فريق آخر. */
+  const _pPhoto = (typeof _lineupPhoto === 'function')
+    ? _lineupPhoto({ id: player.playerId || null, name: player.name || '' }, player.teamId)
+    : '';
   document.getElementById('pmLogo').innerHTML = _pPhoto
     ? `<img src="${_pPhoto}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
     : logoHtml(team.logo || player.teamLogo, 36, 10);
@@ -2954,50 +2993,74 @@ async function _shGenBracketCanvas(rounds, thirdRound){
 //    بصفحة الجمهور: خلفية صلبة #1E2226، حدود #363C43، شعار دائري لكل فريق،
 //    تمييز الفائز بخلفية ذهبية خفيفة + اسم ذهبي عريض + سهم ▸، وتعتيم الخاسر
 //    مع شطب اسمه وتحويل شعاره للتدرج الرمادي — بالضبط كما تظهر في البث.
-async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, mirror){
+/* ════════════════════════════════════════════════════════════════════
+ *  بطاقة مشاركة الشجرة (canvas) — موحّدة بصرياً مع شجرة صفحة الجمهور
+ *  ──────────────────────────────────────────────────────────────────
+ *  نفس القواعد بالضبط: دور لكل عمود، الدور الأول يميناً والنهائي يساراً،
+ *  كل البطاقات بمقاس واحد (حتى غير المحسومة)، شعارات كبيرة، وخطوط
+ *  بمرفق قائم تخرج من حواف البطاقات فلا تمرّ فوق أيٍّ منها.
+ * ════════════════════════════════════════════════════════════════════ */
+
+// بطاقة مباراة واحدة داخل الشجرة — الشعار يميناً، الاسم وسطاً، النتيجة يساراً (RTL)
+async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal){
   const hasHome = m && (m.homeId || m.homeName);
   const hasAway = m && (m.awayId || m.awayName);
+  const R = 14;
+  const rowH2 = h/2;
+  const logoR  = isFinal ? 25 : 22;
+  const logoCX = x + w - 20 - logoR;          // الشعار على الحافة اليمنى دائماً
+  const nameFS = isFinal ? 21 : 19;
+  const _TBD   = 'بانتظار المتأهل';
 
-  // ✅ خلفية أغمق بكثير من الكرت — تبرز اسم الفريق والشعار بوضوح فوقها
-  ctx.fillStyle = isFinal ? 'rgba(201,160,43,.09)' : '#101317';
-  _shRoundRect(ctx,x,y,w,h,14); ctx.fill();
   const isLiveBox = m && m.status === 'live';
   const isDoneBox = m && m.status === 'finished';
+  const isEmpty   = !hasHome && !hasAway;
+
+  // خلفية البطاقة — متدرّجة كنسخة الـ CSS
+  const bg = ctx.createLinearGradient(0, y, 0, y+h);
+  if (isFinal)      { bg.addColorStop(0,'rgba(201,160,43,.13)'); bg.addColorStop(1,'rgba(201,160,43,.04)'); }
+  else if (isEmpty) { bg.addColorStop(0,'#0e1013');              bg.addColorStop(1,'#0b0d0f'); }
+  else              { bg.addColorStop(0,'#141820');              bg.addColorStop(1,'#0f1216'); }
+  ctx.fillStyle = bg;
+  _shRoundRect(ctx,x,y,w,h,R); ctx.fill();
+
   ctx.strokeStyle = isFinal ? _SH_GOLD
     : isLiveBox ? '#D64541'
-    : isDoneBox ? 'rgba(201,160,43,.4)'
-    : '#454C55';
-  ctx.lineWidth = isFinal ? 2.5 : 1.5;
-  _shRoundRect(ctx,x,y,w,h,14); ctx.stroke();
+    : isDoneBox ? 'rgba(201,160,43,.30)'
+    : isEmpty   ? '#242A31'
+    : '#39414A';
+  ctx.lineWidth = isFinal ? 2.4 : 1.4;
+  _shRoundRect(ctx,x,y,w,h,R); ctx.stroke();
 
-  const rowH2 = h/2;
-  const logoR = isFinal ? 32 : 28; // ✅ شعارات أكبر بكثير — وضوح واحترافية أعلى (طلب صريح)
-  const logoCX = mirror ? (x + 18 + logoR) : (x + w - 18 - logoR);
-  const nameFS = isFinal?22:18;
+  // درع افتراضي لأي طرف بلا شعار — يحفظ نفس المساحة فيتساوى ارتفاع الصفوف
+  const _crestPlaceholder = (cy, muted) => {
+    ctx.save();
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2);
+    ctx.fillStyle = '#12161b'; ctx.fill();
+    ctx.strokeStyle = muted ? '#2C333B' : '#3A424B'; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.restore();
+    _shIconBadge && _shIconBadge(ctx, 'shield', logoCX, cy, logoR*0.86, '#4A535D', 0);
+  };
 
-  // ✅ صندوق "بانتظار الفريقين" يُبنى بنفس هيكل الصندوق الحقيقي تماماً (دوائر شعار فارغة
-  //    بخط متقطع + نص TBD بجانبها بنفس محاذاة الاسم الحقيقي) — بدل نص فارغ يبان صغير/ناقص
-  if(!hasHome && !hasAway){
+  // ── خانة لم يتأهل لها أحد بعد: نفس المقاس والبنية تماماً، لون هادئ فقط ──
+  if (isEmpty){
     for (let ri=0; ri<2; ri++){
       const cy = y + rowH2*ri + rowH2/2;
-      ctx.setLineDash([3,3]);
-      ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2);
-      ctx.fillStyle='#14171b'; ctx.fill();
-      ctx.strokeStyle='#3A4149'; ctx.lineWidth=1.4; ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.textAlign = mirror ? 'left' : 'right';
-      ctx.font = `700 ${nameFS}px Tajawal,Arial`; ctx.fillStyle='#5A6470';
-      const nameAnchorX = mirror ? (logoCX + logoR + 17) : (logoCX - logoR - 17);
-      ctx.fillText('TBD', nameAnchorX, cy+5);
+      _crestPlaceholder(cy, true);
+      ctx.textAlign='right';
+      ctx.font = `700 ${nameFS-2}px Tajawal,Arial`;
+      ctx.fillStyle = '#5A6470';
+      ctx.fillText(_TBD, logoCX - logoR - 16, cy+6);
     }
-    ctx.strokeStyle='#262B30'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(x+10,y+rowH2); ctx.lineTo(x+w-10,y+rowH2); ctx.stroke();
+    ctx.strokeStyle='#1E242A'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x+12,y+rowH2); ctx.lineTo(x+w-12,y+rowH2); ctx.stroke();
     return;
   }
 
   const teamsArr = window.teams || [];
-  const ht = m.homeId ? (teamsArr.find(t=>t.id===m.homeId)||{name:m.homeName||'TBD',logo:''}) : {name:m.homeName||'TBD',logo:''};
-  const at = m.awayId ? (teamsArr.find(t=>t.id===m.awayId)||{name:m.awayName||'TBD',logo:''}) : {name:m.awayName||'TBD',logo:''};
+  const ht = m.homeId ? (teamsArr.find(t=>t.id===m.homeId)||{name:m.homeName||_TBD,logo:''}) : {name:m.homeName||_TBD,logo:''};
+  const at = m.awayId ? (teamsArr.find(t=>t.id===m.awayId)||{name:m.awayName||_TBD,logo:''}) : {name:m.awayName||_TBD,logo:''};
   const isFin = m.status === 'finished', isLive = m.status === 'live';
   const _ps = _penScore(m);
   const hw = isFin && (_ps ? _ps.h > _ps.a : (m.homeScore??0) > (m.awayScore??0));
@@ -3006,104 +3069,100 @@ async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, mirror){
     {team:ht, win:hw, lose: isFin && !hw && aw, score: isFin||isLive ? (m.homeScore??0) : null, pen: isFin&&_ps ? _ps.h : null},
     {team:at, win:aw, lose: isFin && !aw && hw, score: isFin||isLive ? (m.awayScore??0) : null, pen: isFin&&_ps ? _ps.a : null},
   ];
-  const scoreFS = isFinal?24:20;
+  const scoreFS = isFinal?23:21;
 
   for(let ri=0; ri<2; ri++){
     const rw = rows[ri];
     const cy = y + rowH2*ri + rowH2/2;
+    const rowTop = y + rowH2*ri;
 
-    // خلفية الصف الفائز — تينت ذهبي خفيف يغطي الصف كاملاً
+    // تينت الفائز + الشريط الذهبي على الحافة اليمنى (مطابق لـ .bt-winner في CSS)
     if (rw.win) {
-      ctx.fillStyle = 'rgba(201,160,43,.12)';
-      ctx.fillRect(x+1.5, y+rowH2*ri+1.5, w-3, rowH2-(ri===1?3:1.5));
+      ctx.save();
+      _shRoundRect(ctx,x,y,w,h,R); ctx.clip();
+      ctx.fillStyle = 'rgba(201,160,43,.11)';
+      ctx.fillRect(x, rowTop, w, rowH2);
+      ctx.fillStyle = _SH_GOLD;
+      _shRoundRect(ctx, x+w-4, rowTop+rowH2*0.16, 4, rowH2*0.68, 2); ctx.fill();
+      ctx.restore();
     }
 
-    // شعار الفريق — دائري كبير وواضح، خلفية داكنة صلبة خلفه، رمادي للخاسر فقط
-    const logoImg = await _shLoadImg(rw.team.logo);
-    ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2);
-    ctx.fillStyle = '#0a0b0d'; ctx.fill();
-    ctx.save();
-    if (rw.lose) ctx.filter = 'grayscale(1) opacity(.6)';
-    ctx.beginPath(); ctx.arc(logoCX, cy, logoR-2, 0, Math.PI*2); ctx.clip();
-    if (logoImg) { _shDrawImgCover(ctx, logoImg, logoCX-(logoR-2), cy-(logoR-2), (logoR-2)*2); }
-    ctx.restore();
-    ctx.strokeStyle = rw.lose ? '#333A40' : rw.win ? _SH_GOLD : '#5A6470'; ctx.lineWidth = rw.win?1.8:1.3;
-    ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2); ctx.stroke();
+    // شعار الفريق — دائري كبير، أو الدرع الافتراضي عند غيابه
+    const logoImg = rw.team.logo ? await _shLoadImg(rw.team.logo) : null;
+    if (!logoImg) {
+      _crestPlaceholder(cy, false);
+    } else {
+      ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2);
+      ctx.fillStyle = '#0a0b0d'; ctx.fill();
+      ctx.save();
+      if (rw.lose) ctx.filter = 'grayscale(1) opacity(.55)';
+      ctx.beginPath(); ctx.arc(logoCX, cy, logoR-2, 0, Math.PI*2); ctx.clip();
+      _shDrawImgCover(ctx, logoImg, logoCX-(logoR-2), cy-(logoR-2), (logoR-2)*2);
+      ctx.restore();
+      ctx.strokeStyle = rw.lose ? '#333A40' : rw.win ? _SH_GOLD : '#5A6470';
+      ctx.lineWidth = rw.win ? 1.8 : 1.3;
+      ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2); ctx.stroke();
+    }
 
-    // ✅ اسم الفريق — مسافة أوسع وآمنة عن الشعار (14px بدل 11) لمنع أي تلامس بصري،
-    //    ومساحة أكبر محجوزة للسهم الآن مرسوم كشكل متجه بدل رمز نصي (لا يتأثر بخط النظام)
-    ctx.textAlign = mirror ? 'left' : 'right';
+    // اسم الفريق — يمين، مقصوص بأمان قبل خانة النتيجة
+    ctx.textAlign = 'right';
     ctx.font = (rw.win?'900 ':'800 ')+nameFS+'px Tajawal,Arial';
     ctx.fillStyle = rw.win ? _SH_GOLD : rw.lose ? '#6B7480' : '#FFFFFF';
-    const arrowSpace = rw.win ? 20 : 0;
-    const nameMaxW = w - (logoR*2+34) - 74 - arrowSpace;
-    let dispName = rw.team.name||'TBD';
+    const nameAnchorX = logoCX - logoR - 16;
+    const nameMaxW = nameAnchorX - (x + 58);
+    let dispName = rw.team.name || _TBD;
     if (ctx.measureText(dispName).width > nameMaxW) {
       while (dispName.length>1 && ctx.measureText(dispName+'…').width > nameMaxW) dispName = dispName.slice(0,-1);
       dispName += '…';
     }
-    const nameAnchorX = mirror ? (logoCX + logoR + 17 + arrowSpace) : (logoCX - logoR - 17 - arrowSpace);
-    ctx.fillText(dispName, nameAnchorX, cy+5);
-    // شطب اسم الخاسر
-    if (rw.lose) {
-      const nw = ctx.measureText(dispName).width;
-      ctx.strokeStyle = 'rgba(214,69,65,.6)'; ctx.lineWidth = 1.4;
-      if (mirror) { ctx.beginPath(); ctx.moveTo(nameAnchorX, cy+1); ctx.lineTo(nameAnchorX+nw, cy+1); ctx.stroke(); }
-      else { ctx.beginPath(); ctx.moveTo(nameAnchorX-nw, cy+1); ctx.lineTo(nameAnchorX, cy+1); ctx.stroke(); }
-    }
-    // ✅ سهم الفائز كشكل متجه (مثلث) بدل حرف نصي — يضمن مسافة ثابتة دقيقة بلا التصاق
-    //    بالاسم مهما اختلف الخط أو المتصفح، ويشير دوماً نحو منتصف الصندوق (اتجاه التأهّل)
-    if (rw.win) {
-      const ax = mirror ? (logoCX + logoR + 10) : (logoCX - logoR - 10);
-      ctx.fillStyle = _SH_GOLD;
-      ctx.beginPath();
-      if (mirror) { ctx.moveTo(ax, cy-6); ctx.lineTo(ax+8, cy); ctx.lineTo(ax, cy+6); }
-      else { ctx.moveTo(ax, cy-6); ctx.lineTo(ax-8, cy); ctx.lineTo(ax, cy+6); }
-      ctx.closePath(); ctx.fill();
-    }
+    ctx.fillText(dispName, nameAnchorX, cy+6);
 
-    // النتيجة — على الحافة الداخلية (يمين للعمود الأيسر المعكوس، يسار للعادي)
-    ctx.textAlign = mirror ? 'right' : 'left';
+    // النتيجة — الحافة اليسرى
+    ctx.textAlign = 'left';
     ctx.font='900 '+scoreFS+'px Tajawal,Arial';
     ctx.fillStyle = rw.win ? _SH_GOLD : rw.lose ? '#6B7480' : '#C7CCD1';
-    const scoreX = mirror ? (x+w-14) : (x+14);
-    ctx.fillText(rw.score!=null ? String(rw.score)+(rw.pen!=null?' ('+rw.pen+')':'') : (isLive?'—':''), scoreX, cy+5);
+    ctx.fillText(rw.score!=null ? String(rw.score) : (isLive?'—':''), x+16, cy+6);
+    if (rw.pen != null) {
+      ctx.font='800 11px Tajawal,Arial'; ctx.fillStyle=_SH_GOLD;
+      ctx.fillText('رك '+rw.pen, x+16, cy+21);
+    }
   }
 
-  ctx.strokeStyle='#262B30'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(x+10,y+rowH2); ctx.lineTo(x+w-10,y+rowH2); ctx.stroke();
-  if(isLive){ ctx.fillStyle='#D64541'; ctx.beginPath(); ctx.arc(x+16,y+14,5,0,Math.PI*2); ctx.fill(); }
+  ctx.strokeStyle='#1E242A'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(x+12,y+rowH2); ctx.lineTo(x+w-12,y+rowH2); ctx.stroke();
+  if(isLive){
+    /* مؤشر البث أعلى يسار البطاقة — مرفوع قليلاً كي لا يلامس رقم النتيجة
+       (خطّ النتيجة 21px يبدأ عند y+17 تقريباً، والهالة تنتهي عند y+16). */
+    ctx.fillStyle='rgba(214,69,65,.22)';
+    ctx.beginPath(); ctx.arc(x+15,y+10,6,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#D64541';
+    ctx.beginPath(); ctx.arc(x+15,y+10,3.2,0,Math.PI*2); ctx.fill();
+  }
 }
 
-// ── شجرة البطولة العمودية بنفس بنية buildVerticalBracketHTML بالضبط: كل دور تمهيدي
-//    ينقسم لمسارين (يمين/يسار) يتلاقيان بسهم لأسفل، وينتهيان بصندوق النهائي +
-//    تتويج البطل (لو انتهت) + مباراة تحديد المركز الثالث (لو موجودة) ──
+// ── شجرة البطولة على canvas — نفس بنية buildVerticalBracketHTML الجديدة:
+//    أعمدة أفقية RTL، بطاقات موحّدة المقاس، خطوط مرفقية بين الحواف،
+//    ثم تتويج البطل (لو انتهى النهائي) ومباراة تحديد المركز الثالث. ──
 async function _shGenBracketTreeCanvas(rounds, thirdRound){
-  const W = 1080;
-  const finalRound = rounds[rounds.length-1];
-  const pre = rounds.slice(0,-1);
-  const headerH = 280, roundLabelH = 46, matchH = 122, matchGap = 18, arrowH = 40;
-  const colGap = 40, sideMargin = 26, vsGap = 46;
-  const colW = (W - sideMargin*2 - vsGap) / 2;
+  const BOX_W = 300, BOX_H = 104;
+  const COL_GAP = 108, SIDE = 40, LABEL_H = 62, HEADER_H = 280;
+  const cols = rounds.length;
 
-  const roundMeta = pre.map(r=>{
-    const arr = buildSlotArr(r);
-    const half = r.slots/2;
-    const leftSlots = arr.slice(0,half), rightSlots = arr.slice(half);
-    const n = Math.max(leftSlots.length, rightSlots.length, 1);
-    const colH = n*matchH + (n-1)*matchGap;
-    return { leftSlots, rightSlots, n, colH };
-  });
+  const slots0 = rounds[0] ? rounds[0].slots : 1;
+  const UNIT   = BOX_H + 42;
+  const treeH  = Math.max(slots0, 2) * UNIT;
 
+  const contentW = cols*BOX_W + (cols-1)*COL_GAP;
+  const W = Math.max(1080, contentW + SIDE*2);
+  const originX = Math.round((W - contentW) / 2);   // توسيط الشجرة أفقياً
+
+  const finalRound = rounds[cols-1];
   const finalMatch = (finalRound.matchesWithSlot[0] || {}).m || null;
-  const isFinDone = finalMatch && finalMatch.status === 'finished';
-  const finalBoxW = 620, finalBoxH = 150;
+  const isFinDone  = finalMatch && finalMatch.status === 'finished';
 
-  let H = headerH;
-  roundMeta.forEach(rm => { H += roundLabelH + rm.colH + arrowH; });
-  H += roundLabelH + finalBoxH + 30;
-  if(isFinDone) H += 130;
-  if(thirdRound) H += 150;
+  let H = HEADER_H + LABEL_H + treeH + 40;
+  if(isFinDone)  H += 190;
+  if(thirdRound) H += 60 + BOX_H + 30;
   H += 90;
 
   const canvas = document.createElement('canvas');
@@ -3112,107 +3171,97 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
   _shBg(ctx, W, H);
   await _shHeader(ctx, W, 'شجرة البطولة', _shLeagueName(), 'trophy');
 
-  // ✅ ترتيب رسم احترافي بثلاث طبقات — يمنع نهائياً ظهور أي خط فوق بطاقة مباراة أو نص:
-  //   1) طبقة الخطوط (في الخلف تماماً)   2) شارات عناوين الأدوار (خلفية صلبة تغطي أي خط تحتها)
-  //   3) بطاقات المباريات (خلفية صلبة تغطي أي خط يلامس حوافها) + نقاط الوصل الزخرفية فوق الكل
-  // مرحلة أولى: نحسب مواقع كل شيء بدون رسم فعلي
-  let y = headerH;
-  const leftX = sideMargin, rightX = W-sideMargin-colW;
-  const roundLabels = []; // {text, y, isFinal}
-  const boxLayout = [];   // كل عناصر الشجرة (مباراة + إحداثياتها) بالترتيب
-  const boxCenters = [];  // لحساب مسارات الخطوط بين الأدوار
+  const topY = HEADER_H + LABEL_H;
 
-  for (let ridx = 0; ridx < pre.length; ridx++) {
-    const r = pre[ridx];
-    const rm = roundMeta[ridx];
-    roundLabels.push({ text:r.name||'', y, isFinal:false });
-    y += roundLabelH;
-    const centers = new Array(rm.leftSlots.length + rm.rightSlots.length);
-    for (let i=0;i<rm.leftSlots.length;i++){
-      const by = y+i*(matchH+matchGap);
-      boxLayout.push({ m:rm.leftSlots[i], x:leftX, y:by, w:colW, h:matchH, isFinal:false, mirror:true });
-      centers[i] = { xCenter: leftX+colW/2, yTop: by, yBottom: by+matchH };
-    }
-    for (let i=0;i<rm.rightSlots.length;i++){
-      const by = y+i*(matchH+matchGap);
-      boxLayout.push({ m:rm.rightSlots[i], x:rightX, y:by, w:colW, h:matchH, isFinal:false, mirror:false });
-      centers[rm.leftSlots.length+i] = { xCenter: rightX+colW/2, yTop: by, yBottom: by+matchH };
-    }
-    boxCenters.push(centers);
-    y += rm.colH;
-    y += arrowH;
+  /* مرحلة الحساب: موضع كل بطاقة قبل أي رسم — الدور الأول يمين، النهائي يسار.
+     مركز الخانة i = (i+0.5) × (ارتفاع الشجرة ÷ عدد خانات الدور) — وهو نفس ما
+     يفعله justify-content:space-around في نسخة HTML، فتقع كل مباراة تلقائياً
+     في منتصف مباراتَيها المغذّيتَين مهما كان حجم الشجرة. */
+  const layout = [];   // [round][slot] = {x,y,cx,cy,m}
+  for (let r = 0; r < cols; r++){
+    const arr = buildSlotArr(rounds[r]);
+    const n = Math.max(arr.length, 1);
+    const x = originX + contentW - BOX_W - r*(BOX_W + COL_GAP);
+    const col = arr.map((m, i) => {
+      const cy = topY + (i + 0.5) * (treeH / n);
+      return { m, x, y: cy - BOX_H/2, cx: x + BOX_W/2, cy };
+    });
+    layout.push(col);
   }
 
-  roundLabels.push({ text: finalRound.name||'', y, isFinal:true });
-  y += roundLabelH;
-  const finalBoxY = y;
-  boxLayout.push({ m:finalMatch, x:W/2-finalBoxW/2, y:finalBoxY, w:finalBoxW, h:finalBoxH, isFinal:true, mirror:false });
-  boxCenters.push([{ xCenter: W/2, yTop: finalBoxY, yBottom: finalBoxY+finalBoxH }]);
-  y += finalBoxH + 30;
-
-  // ── طبقة 1: خطوط الاتصال (في الخلفية تماماً — تُرسم أولاً فتغطيها العناصر التالية) ──
-  // خانة i بالدور r تتأهل دائماً لخانة floor(i/2) بالدور r+1، بخط ناعم بنقاط وصل ذهبية على الأطراف
+  // ① الخطوط أولاً (الطبقة الخلفية) — من الحافة اليسرى للبطاقة إلى الحافة اليمنى لهدفها
   ctx.save();
-  ctx.strokeStyle = 'rgba(201,160,43,.32)'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  const nodeSpots = [];
-  for (let r = 0; r < boxCenters.length - 1; r++) {
-    const cur = boxCenters[r], next = boxCenters[r+1];
-    cur.forEach((c, i) => {
-      const t = next[Math.floor(i/2)] || next[0];
+  ctx.strokeStyle = 'rgba(201,160,43,.34)';
+  ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const joints = [];
+  for (let r = 0; r < cols - 1; r++){
+    layout[r].forEach((b, i) => {
+      const t = layout[r+1][Math.floor(i/2)];
       if (!t) return;
-      const midY = c.yBottom + (t.yTop - c.yBottom) * 0.5;
+      const x1 = b.x,               y1 = b.cy;      // خروج من يسار البطاقة
+      const x2 = t.x + BOX_W,       y2 = t.cy;      // دخول من يمين الهدف
+      const midX = x1 + (x2 - x1) / 2;
+      const rad  = Math.min(12, Math.abs(y2 - y1) / 2);
       ctx.beginPath();
-      ctx.moveTo(c.xCenter, c.yBottom);
-      ctx.lineTo(c.xCenter, midY);
-      ctx.lineTo(t.xCenter, midY);
-      ctx.lineTo(t.xCenter, t.yTop);
+      if (Math.abs(y2 - y1) < 1.5) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
+      else {
+        const dir = y2 > y1 ? 1 : -1;
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(midX + rad, y1);
+        ctx.quadraticCurveTo(midX, y1, midX, y1 + dir*rad);
+        ctx.lineTo(midX, y2 - dir*rad);
+        ctx.quadraticCurveTo(midX, y2, midX - rad, y2);
+        ctx.lineTo(x2, y2);
+      }
       ctx.stroke();
-      nodeSpots.push({x:c.xCenter, y:c.yBottom}, {x:t.xCenter, y:t.yTop});
+      joints.push({x:x1,y:y1},{x:x2,y:y2});
     });
   }
   ctx.restore();
 
-  // ── طبقة 2: شارات عناوين الأدوار — خلفية صلبة مزخرفة تغطي أي خط تحتها تماماً ──
-  roundLabels.forEach(rl => {
-    ctx.font = `900 ${rl.isFinal?18:16}px Tajawal,Arial`;
-    const tw = ctx.measureText(rl.text).width;
-    const padX = rl.isFinal ? 34 : 22, pillH = rl.isFinal ? 40 : 34;
-    const pillW = tw + padX*2;
-    const pillY = rl.y + (rl.isFinal?2:0);
-    // خلفية صلبة (نفس عمق الخلفية العامة) — تحجب أي خط يمر خلفها بالكامل
+  // ② شارات عناوين الأدوار — خلفية صلبة تحجب أي خط يمرّ خلفها
+  for (let r = 0; r < cols; r++){
+    const isFinalCol = r === cols - 1;
+    const cx = layout[r][0] ? layout[r][0].cx : originX;
+    const text = rounds[r].name || '';
+    ctx.font = `900 ${isFinalCol?20:17}px Tajawal,Arial`;
+    const tw = ctx.measureText(text).width;
+    const padX = isFinalCol ? 30 : 22, pillH = isFinalCol ? 44 : 38;
+    const pillW = tw + padX*2, pillY = topY - LABEL_H + 6;
     ctx.fillStyle = '#0a0b0d';
-    _shRoundRect(ctx, W/2-pillW/2, pillY, pillW, pillH, pillH/2); ctx.fill();
-    ctx.strokeStyle = rl.isFinal ? _SH_GOLD : 'rgba(201,160,43,.4)';
-    ctx.lineWidth = rl.isFinal ? 1.8 : 1.2;
-    _shRoundRect(ctx, W/2-pillW/2, pillY, pillW, pillH, pillH/2); ctx.stroke();
+    _shRoundRect(ctx, cx-pillW/2, pillY, pillW, pillH, pillH/2); ctx.fill();
+    ctx.strokeStyle = isFinalCol ? _SH_GOLD : 'rgba(201,160,43,.4)';
+    ctx.lineWidth = isFinalCol ? 1.8 : 1.2;
+    _shRoundRect(ctx, cx-pillW/2, pillY, pillW, pillH, pillH/2); ctx.stroke();
     ctx.textAlign='center'; ctx.fillStyle=_SH_GOLD;
-    ctx.fillText(rl.text, W/2, pillY+pillH/2+ (rl.isFinal?6:5));
-    // زخرفة إضافية لعنوان "النهائي": معينان صغيران يحيطان الشارة + إشعاع خافت
-    if (rl.isFinal) {
-      const gl = ctx.createRadialGradient(W/2, pillY+pillH/2, 0, W/2, pillY+pillH/2, pillW*0.9);
-      gl.addColorStop(0, 'rgba(201,160,43,.16)'); gl.addColorStop(1, 'transparent');
-      ctx.save(); ctx.globalCompositeOperation='destination-over'; ctx.fillStyle=gl;
-      ctx.fillRect(0, pillY-30, W, pillH+60); ctx.restore();
-      ctx.save(); ctx.translate(W/2-pillW/2-16, pillY+pillH/2); ctx.rotate(Math.PI/4);
-      ctx.fillStyle=_SH_GOLD; ctx.fillRect(-4,-4,8,8); ctx.restore();
-      ctx.save(); ctx.translate(W/2+pillW/2+16, pillY+pillH/2); ctx.rotate(Math.PI/4);
-      ctx.fillStyle=_SH_GOLD; ctx.fillRect(-4,-4,8,8); ctx.restore();
+    ctx.fillText(text, cx, pillY + pillH/2 + (isFinalCol?7:6));
+    if (isFinalCol){
+      [-1,1].forEach(sgn => {
+        ctx.save(); ctx.translate(cx + sgn*(pillW/2+16), pillY+pillH/2); ctx.rotate(Math.PI/4);
+        ctx.fillStyle=_SH_GOLD; ctx.fillRect(-4,-4,8,8); ctx.restore();
+      });
     }
-  });
-
-  // ── طبقة 3: بطاقات المباريات فوق كل شيء (خلفيتها الصلبة تحجب أي خط يلامس حوافها) ──
-  for (const b of boxLayout) {
-    await _btBoxCanvas(ctx, b.m, b.x, b.y, b.w, b.h, b.isFinal, b.mirror);
   }
 
-  // ── نقاط وصل ذهبية صغيرة عند كل طرف خط (لمسة "شجرة رسمية" نظيفة) — آخر طبقة فوق الكل ──
-  nodeSpots.forEach(p => {
+  // ③ البطاقات فوق الخطوط (خلفيتها الصلبة تحجب أي خط يلامس حوافها)
+  for (let r = 0; r < cols; r++){
+    const isFinalCol = r === cols - 1;
+    for (const b of layout[r]) {
+      await _btBoxCanvas(ctx, b.m, b.x, b.y, BOX_W, BOX_H, isFinalCol);
+    }
+  }
+
+  // ④ نقاط الوصل الذهبية — آخر طبقة فوق الكل
+  joints.forEach(p => {
     ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
     ctx.fillStyle = _SH_GOLD; ctx.fill();
     ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
     ctx.strokeStyle = '#0a0b0d'; ctx.lineWidth = 1.5; ctx.stroke();
   });
 
+  let y = topY + treeH + 30;
+
+  // ── لوحة البطل (مطابقة لـ .bt-champion في CSS: لوح عريض بإطار ذهبي) ──
   if(isFinDone){
     const _ps = _penScore(finalMatch);
     const hw = _ps ? _ps.h>_ps.a : (finalMatch.homeScore??0) > (finalMatch.awayScore??0);
@@ -3221,30 +3270,38 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
       ? (finalMatch.homeName || (teamsArr.find(t=>t.id===finalMatch.homeId)||{}).name)
       : (finalMatch.awayName || (teamsArr.find(t=>t.id===finalMatch.awayId)||{}).name);
     if(champ){
+      const pw = Math.min(700, W-160), px = (W-pw)/2, ph = 150;
+      const g = ctx.createLinearGradient(0, y, 0, y+ph);
+      g.addColorStop(0,'rgba(201,160,43,.15)'); g.addColorStop(1,'rgba(201,160,43,.03)');
+      ctx.fillStyle=g; _shRoundRect(ctx, px, y, pw, ph, 20); ctx.fill();
+      ctx.strokeStyle='rgba(201,160,43,.38)'; ctx.lineWidth=1.6;
+      _shRoundRect(ctx, px, y, pw, ph, 20); ctx.stroke();
       ctx.textAlign='center';
-      _shIconBadge(ctx, 'trophy', W/2, y+20, 40, _SH_GOLD, 0.12);
-      ctx.font='900 26px Tajawal,Arial'; ctx.fillStyle=_SH_GOLD;
-      ctx.fillText(champ, W/2, y+78);
-      ctx.font='700 14px Tajawal,Arial'; ctx.fillStyle='#999';
-      ctx.fillText('بطل البطولة', W/2, y+104);
-      y += 130;
+      _shIconBadge(ctx, 'trophy', W/2, y+42, 40, _SH_GOLD, 0.12);
+      ctx.font='900 30px Tajawal,Arial'; ctx.fillStyle=_SH_GOLD;
+      ctx.fillText(champ, W/2, y+104);
+      ctx.font='800 13px Tajawal,Arial'; ctx.fillStyle='#8B939C';
+      ctx.fillText('بطل البطولة', W/2, y+130);
+      y += ph + 40;
     }
   }
 
+  // ── مباراة تحديد المركز الثالث — بطاقة مستقلة بنفس مقاس بطاقات الشجرة ──
   if(thirdRound){
     const m3 = (thirdRound.matchesWithSlot[0] || {}).m || null;
-    ctx.textAlign='center'; ctx.fillStyle='#cc8888'; ctx.font='800 15px Tajawal,Arial';
+    ctx.textAlign='center'; ctx.fillStyle='#cc8888'; ctx.font='800 16px Tajawal,Arial';
     const _tw3 = ctx.measureText(thirdRound.name||'').width;
-    _shIconBadge(ctx, 'medal', W/2 - _tw3/2 - 16, y+14, 18, '#cc8888', 0);
-    ctx.fillText(thirdRound.name||'', W/2+9, y+20);
-    y += 30;
-    await _btBoxCanvas(ctx, m3, W/2-260, y, 520, 96, false);
-    y += 96 + 20;
+    _shIconBadge(ctx, 'medal', W/2 - _tw3/2 - 18, y+14, 20, '#cc8888', 0);
+    ctx.fillText(thirdRound.name||'', W/2+10, y+20);
+    y += 42;
+    await _btBoxCanvas(ctx, m3, W/2-BOX_W/2, y, BOX_W, BOX_H, false);
+    y += BOX_H + 20;
   }
 
   _shFooter(ctx, W, H);
   return canvas;
 }
+
 
 // ── هل بنية الأدوار "شجرة نظيفة" (كل عدد slots = نصف الدور السابق، وتنتهي بمباراة نهائي واحدة)؟ ──
 function isCleanBracket(rounds) {
@@ -3265,50 +3322,119 @@ function isCleanBracket(rounds) {
 //  شجرة عمودية احترافية — تدعم الجوال طولياً (بدون تمرير أفقي)
 //  كل دور يُعرض كصف كامل، ينقسم لمسارين (يسار/يمين) يتقابلان في النهائي بالمنتصف
 // ════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════════
+ *  شجرة الإقصاء — أعمدة أفقية (دور لكل عمود) بأسلوب التطبيقات الرسمية
+ *  ──────────────────────────────────────────────────────────────────
+ *  لماذا تغيّر التصميم القديم (صف لكل دور):
+ *    كانت خانات الدور مرصوصة في عمود واحد، فخط الاتصال من الخانة الأولى
+ *    ينزل عمودياً **مخترقاً الخانات تحته** ليصل هدفه — والبطاقات تحجبه
+ *    بخلفيتها الصلبة. النتيجة: خطوط مقطّعة تظهر وتختفي = «خبص».
+ *
+ *  التصميم الحالي:
+ *    • كل دور عمود. الاتجاه RTL: الدور الأول يميناً والنهائي يساراً.
+ *    • كل عمود justify-content:space-around → المباراة في الدور التالي
+ *      تقع تلقائياً في منتصف مباراتَيها المغذّيتَين مهما كان حجم الشجرة.
+ *      لذا تعمل بنفس الانضباط من النهائي حتى دور الـ32.
+ *    • كل البطاقات بمقاس واحد ثابت (عرض وارتفاع) — بما فيها خانات TBD
+ *      التي لم يتأهل لها أحد بعد: لا تصغير ولا شفافية تُنقص هيبتها.
+ *    • خطوط الاتصال SVG بمرفق قائم (elbow) بين حافتَي البطاقتين، فلا
+ *      يمرّ أي خط فوق أي بطاقة إطلاقاً.
+ * ════════════════════════════════════════════════════════════════════ */
 function buildVerticalBracketHTML(rounds, thirdRound) {
   const finalRound = rounds[rounds.length - 1];
-  const pre = rounds.slice(0, -1);
   const finalMatch = (finalRound.matchesWithSlot[0] || {}).m || null;
 
-  const roundsHtml = pre.map((r, idx) => {
+  // ارتفاع الشجرة = عدد خانات الدور الأول × وحدة الصف (يضمن تنفّس البطاقات)
+  const firstSlots = rounds[0] ? rounds[0].slots : 1;
+  const UNIT = firstSlots >= 16 ? 92 : firstSlots >= 8 ? 100 : 112;
+  const treeH = Math.max(firstSlots, 2) * UNIT;
+
+  // الأعمدة تُبنى من الدور الأول إلى النهائي؛ CSS (direction:rtl) يضعها يمين→يسار
+  const colsHtml = rounds.map((r, idx) => {
     const arr = buildSlotArr(r);
-    const half = r.slots / 2;
-    const leftSlots  = arr.slice(0, half);
-    const rightSlots = arr.slice(half);
+    const isFinalCol = idx === rounds.length - 1;
+    const boxes = arr.map((m, i) =>
+      `<div class="btk-slot">${btMatchBox(m, isFinalCol, false, `r${idx}-s${i}`)}</div>`
+    ).join('');
     return `
-      <div class="btv-round">
-        <div class="btv-round-label">${r.name}</div>
-        <div class="btv-pair-row">
-          <div class="btv-side">${leftSlots.map((m,i) => btMatchBox(m, false, false, `r${idx}-s${i}`)).join('')}</div>
-          <div class="btv-vs">⚔</div>
-          <div class="btv-side">${rightSlots.map((m,i) => btMatchBox(m, false, true, `r${idx}-s${i+half}`)).join('')}</div>
-        </div>
-      </div>
-      <div class="btv-arrow">⬇︎</div>`;
+      <div class="btk-col${isFinalCol ? ' btk-col-final' : ''}">
+        <div class="btk-round-label">${r.name}</div>
+        <div class="btk-col-body" style="height:${treeH}px">${boxes}</div>
+      </div>`;
   }).join('');
 
+  const champHtml = btChampionHTML(finalMatch);
+  const thirdHtml = thirdRound ? btThirdPlaceHTML(thirdRound) : '';
+
   return `
-    <div class="btv-wrap">
-      ${roundsHtml}
-      <div class="btv-round btv-final-round">
-        <div class="btv-round-label">${finalRound.name}</div>
-        <div class="btv-final-box">${btMatchBox(finalMatch, true, false, `r${pre.length}-s0`)}</div>
-        ${btChampionHTML(finalMatch)}
-        ${thirdRound ? btThirdPlaceHTML(thirdRound) : ''}
+    <div class="btk-shell">
+      <div class="btk-hint">
+        <span class="btk-hint-ic">${window.Icon ? window.Icon('chevronR', 12) : '↔'}</span>
+        اسحب أفقياً لتصفّح الأدوار
+        <button type="button" class="btk-fit-btn" onclick="window._btkToggleFit&&_btkToggleFit(this)">عرض الشجرة كاملة</button>
       </div>
+      <div class="btk-scroll" id="btkScroll">
+        <div class="btk-wrap" id="btkWrap">${colsHtml}</div>
+      </div>
+      ${champHtml}
+      ${thirdHtml}
     </div>`;
 }
 
+/* ── تصغير الشجرة لتظهر كاملة داخل الشاشة (تبديل) ── */
+window._btkToggleFit = function (btn) {
+  const scroll = document.getElementById('btkScroll');
+  const wrap   = document.getElementById('btkWrap');
+  if (!scroll || !wrap) return;
+  const on = !wrap.classList.contains('btk-fitted');
+  if (on) {
+    /* العرض المتاح فعلياً = عرض الحاوية ناقص حشوتها الجانبية،
+       وإلا خرج آخر عمود (النهائي) خارج الشاشة بمقدار الحشوة. */
+    const cs = getComputedStyle(scroll);
+    const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    const avail = Math.max(scroll.clientWidth - pad, 1);
+    const full  = wrap.scrollWidth;
+    const k = Math.min(1, avail / Math.max(full, 1));
+    wrap.style.transform = `scale(${k})`;
+    wrap.style.transformOrigin = 'top right';
+    wrap.style.width = (100 / k) + '%';
+    wrap.classList.add('btk-fitted');
+    scroll.style.overflowX = 'hidden';
+    /* transform لا يغيّر ارتفاع التخطيط — نضبط ارتفاع الحاوية يدوياً،
+       وإلا بقي فراغ ضخم أسفل الشجرة يفصلها عن لوحة البطل. */
+    scroll.style.height = Math.ceil(wrap.offsetHeight * k) + 'px';
+    if (btn) btn.textContent = 'عرض بالحجم الطبيعي';
+  } else {
+    wrap.style.transform = '';
+    wrap.style.width = '';
+    wrap.classList.remove('btk-fitted');
+    scroll.style.overflowX = 'auto';
+    scroll.style.height = '';
+    if (btn) btn.textContent = 'عرض الشجرة كاملة';
+  }
+  // الخطوط تُرسم من مواضع فعلية — أعِد رسمها بعد تغيّر المقياس
+  setTimeout(() => {
+    const w = document.getElementById('btkWrap');
+    if (w) _drawBracketConnectorsGeneric(w, +(w.dataset.preRounds || 0));
+  }, 60);
+};
+
 // يُستدعى بعد إدراج شجرة الجمهور في الصفحة لرسم خطوط الاتصال بين الأدوار
 function _viewerDrawBracketLines(container) {
-  const wrap = container && container.querySelector('.btv-wrap');
+  const wrap = container && container.querySelector('.btk-wrap');
   if (!wrap) return;
-  const preRoundsCount = wrap.querySelectorAll('.btv-round:not(.btv-final-round)').length;
+  // كل الأدوار عدا النهائي لها خطوط خارجة نحو الدور التالي
+  const preRoundsCount = wrap.querySelectorAll('.btk-col').length - 1;
   _drawBracketConnectorsGeneric(wrap, preRoundsCount);
+  // ابدأ العرض عند الدور الأول (أقصى اليمين) — نقطة البداية الطبيعية للقارئ العربي
+  const sc = container.querySelector('.btk-scroll');
+  if (sc) sc.scrollLeft = sc.scrollWidth;
 }
 
-// ── نسخة عامة من رسّام خطوط الشجرة (مشتركة بين لوحة الإدارة وصفحة الجمهور) ──
-// خانة i في الدور r تتأهل دائماً لخانة floor(i/2) في الدور r+1 — نفس قاعدة التقدّم في التطبيق.
+/* ── رسّام خطوط الشجرة (أفقي: من حافة بطاقة الدور إلى حافة بطاقة الدور التالي) ──
+   خانة i في الدور r تتأهل دائماً لخانة floor(i/2) في الدور r+1.
+   المسار: خروج أفقي قصير → عمود مشترك بين المباراتين → دخول أفقي للهدف.
+   لأن الخروج/الدخول من الحواف فقط، لا يمرّ أي خط فوق بطاقة أبداً. */
 function _drawBracketConnectorsGeneric(containerEl, preRoundsCount) {
   if (!containerEl || preRoundsCount < 1) return;
   const old = containerEl.querySelector(':scope > svg.bk-lines');
@@ -3321,27 +3447,49 @@ function _drawBracketConnectorsGeneric(containerEl, preRoundsCount) {
   svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0';
 
   const contRect = containerEl.getBoundingClientRect();
-  const segs = [];
+  // مقياس التحويل (عند وضع «عرض الشجرة كاملة») — نُعيد الإحداثيات للنظام غير المُقاس
+  const k = contRect.width ? (containerEl.offsetWidth / contRect.width) : 1;
+  const px = (v) => v * k;
+
+  const segs = [], joints = [];
   for (let r = 0; r < preRoundsCount; r++) {
     const boxes = containerEl.querySelectorAll(`[data-brk^="r${r}-s"]`);
     boxes.forEach(box => {
       const s = parseInt(box.getAttribute('data-brk').split('-s')[1], 10);
-      const target = containerEl.querySelector(`[data-brk="r${r+1}-s${Math.floor(s/2)}"]`);
+      const target = containerEl.querySelector(`[data-brk="r${r + 1}-s${Math.floor(s / 2)}"]`);
       if (!target) return;
       const bR = box.getBoundingClientRect();
       const tR = target.getBoundingClientRect();
-      const x1 = bR.left + bR.width/2 - contRect.left;
-      const y1 = bR.bottom - contRect.top;
-      const x2 = tR.left + tR.width/2 - contRect.left;
-      const y2 = tR.top - contRect.top;
-      if (y2 <= y1) return;
-      const midY = y1 + (y2 - y1) * 0.55;
-      segs.push(`M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`);
+      // RTL: الدور التالي يقع يسار الحالي → نخرج من الحافة اليسرى وندخل من اليمنى
+      const x1 = px(bR.left - contRect.left);
+      const y1 = px(bR.top + bR.height / 2 - contRect.top);
+      const x2 = px(tR.right - contRect.left);
+      const y2 = px(tR.top + tR.height / 2 - contRect.top);
+      if (x2 >= x1) return;                       // ترتيب غير متوقّع — لا نرسم عشوائياً
+      const midX = x1 + (x2 - x1) * 0.5;
+      const rad = Math.min(10, Math.abs(y2 - y1) / 2);   // انحناء لطيف عند المرفقين
+      let d;
+      if (Math.abs(y2 - y1) < 1.5) {
+        d = `M ${x1} ${y1} L ${x2} ${y2}`;               // على نفس الارتفاع = خط مستقيم
+      } else {
+        const dir = y2 > y1 ? 1 : -1;
+        d = `M ${x1} ${y1} L ${midX + rad} ${y1}` +
+            ` Q ${midX} ${y1} ${midX} ${y1 + dir * rad}` +
+            ` L ${midX} ${y2 - dir * rad}` +
+            ` Q ${midX} ${y2} ${midX - rad} ${y2}` +
+            ` L ${x2} ${y2}`;
+      }
+      segs.push(d);
+      joints.push({ x: x1, y: y1 }, { x: x2, y: y2 });
     });
   }
-  svg.innerHTML = segs.map(d =>
-    `<path d="${d}" fill="none" stroke="rgba(201,160,43,.35)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
-  ).join('');
+  svg.innerHTML =
+    segs.map(d =>
+      `<path d="${d}" fill="none" stroke="rgba(201,160,43,.34)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`
+    ).join('') +
+    joints.map(p =>
+      `<circle cx="${p.x}" cy="${p.y}" r="2.6" fill="rgba(201,160,43,.75)"/>`
+    ).join('');
   containerEl.appendChild(svg);
 
   if (!window._brkResizeBound) {
@@ -3350,7 +3498,7 @@ function _drawBracketConnectorsGeneric(containerEl, preRoundsCount) {
     window.addEventListener('resize', () => {
       clearTimeout(t);
       t = setTimeout(() => {
-        const live = document.querySelector('.btv-wrap[data-pre-rounds]');
+        const live = document.querySelector('.btk-wrap[data-pre-rounds], .btv-wrap[data-pre-rounds]');
         if (live) _drawBracketConnectorsGeneric(live, +live.dataset.preRounds);
       }, 200);
     });
@@ -3358,6 +3506,9 @@ function _drawBracketConnectorsGeneric(containerEl, preRoundsCount) {
   containerEl.dataset.preRounds = String(preRoundsCount);
 }
 
+/* ⚠️ غير مستخدَم — لا يُستدعى من أي مكان (بقايا التصميم المرايا القديم).
+   لا تُحيِه قبل تحديث CSS: البطاقات الآن بمقاس ثابت (--btk-w) وستفيض
+   من أعمدة .bt-col ذات العرض 158px. الشجرة الفعلية = buildVerticalBracketHTML. */
 function buildMirroredBracketHTML(rounds, thirdRound) {
   const finalRound = rounds[rounds.length - 1];
   const pre = rounds.slice(0, -1);
@@ -3432,15 +3583,32 @@ function btMatchBox(m, isFinal, mirror, brkAttr) {
   const mirrorCls = mirror ? ' bt-mirror' : '';
   const hasHome = m && (m.homeId || m.homeName);
   const hasAway = m && (m.awayId || m.awayName);
+
+  /* ✅︎ درع افتراضي بدل الدائرة الصغيرة — يحفظ نفس المساحة البصرية للشعار
+     فتبقى البطاقة الفارغة بنفس مقاس البطاقة المكتملة تماماً. */
+  const _emptyCrest = `<span class="bt-crest-tbd">${window.Icon ? window.Icon('shield', 17) : ''}</span>`;
+
+  // ── خانة لم يتأهل لها أحد بعد: نفس المقاس، نفس الحدود، لون هادئ فقط ──
   if (!hasHome && !hasAway) {
-    return `<div class="bt-match bt-empty${isFinal?' bt-final':''}${mirrorCls}"${brk}>
-      <div class="bt-team"><span class="bt-logo">⚪</span><span class="bt-name bt-tbd">TBD</span></div>
+    return `<div class="bt-match bt-empty${isFinal ? ' bt-final' : ''}${mirrorCls}"${brk}>
+      <div class="bt-team">
+        <span class="bt-logo">${_emptyCrest}</span>
+        <span class="bt-name bt-tbd">بانتظار المتأهل</span>
+        <span class="bt-score"></span>
+      </div>
       <div class="bt-sep"></div>
-      <div class="bt-team"><span class="bt-logo">⚪</span><span class="bt-name bt-tbd">TBD</span></div>
+      <div class="bt-team">
+        <span class="bt-logo">${_emptyCrest}</span>
+        <span class="bt-name bt-tbd">بانتظار المتأهل</span>
+        <span class="bt-score"></span>
+      </div>
     </div>`;
   }
-  const ht = m.homeId ? (teams.find(t=>t.id===m.homeId)||{name:m.homeName||'TBD',logo:''}) : {name:m.homeName||'TBD',logo:''};
-  const at = m.awayId ? (teams.find(t=>t.id===m.awayId)||{name:m.awayName||'TBD',logo:''}) : {name:m.awayName||'TBD',logo:''};
+
+  /* نص موحّد للطرف غير المحسوم — بدل «TBD» الإنجليزية في واجهة عربية بالكامل */
+  const _TBD = 'بانتظار المتأهل';
+  const ht = m.homeId ? (teams.find(t=>t.id===m.homeId)||{name:m.homeName||_TBD,logo:''}) : {name:m.homeName||_TBD,logo:''};
+  const at = m.awayId ? (teams.find(t=>t.id===m.awayId)||{name:m.awayName||_TBD,logo:''}) : {name:m.awayName||_TBD,logo:''};
   const isFin  = m.status === 'finished';
   const isLive = m.status === 'live';
   const _ps = _penScore(m);
@@ -3450,16 +3618,19 @@ function btMatchBox(m, isFinal, mirror, brkAttr) {
   // ✅︎ المباراة المنتهية تبقى ظاهرة ببطاقتها كاملة (الفائز + الخاسر) — لا تُفرَّغ أبداً
   const penH = (isFin && _ps) ? `<span class="bt-pen">رك ${_ps.h}</span>` : '';
   const penA = (isFin && _ps) ? `<span class="bt-pen">رك ${_ps.a}</span>` : '';
+  // شعار الفريق بحجم أكبر (26px) — والدرع الافتراضي عند غيابه ليتساوى الارتفاع
+  const _crest = (logo) => logo ? logoHtml(logo, 26, 7) : _emptyCrest;
+
   return `<div class="bt-match ${isLive?'bt-live':isFin?'bt-done':''}${isFinal?' bt-final':''}${mirrorCls}"${brk} onclick="${clickFn}">
-    ${isLive ? '<span class="bt-live-dot">🔴</span>' : ''}
+    ${isLive ? '<span class="bt-live-dot"></span>' : ''}
     <div class="bt-team ${hw?'bt-winner':''}${isFin&&!hw&&aw?' bt-loser':''}">
-      <span class="bt-logo">${logoHtml(ht.logo,18,5)}</span>
+      <span class="bt-logo">${_crest(ht.logo)}</span>
       <span class="bt-name ${!hasHome?'bt-tbd':''}">${ht.name}</span>
       <span class="bt-score">${isFin||isLive ? m.homeScore??0 : ''}${penH}</span>
     </div>
     <div class="bt-sep"></div>
     <div class="bt-team ${aw?'bt-winner':''}${isFin&&!aw&&hw?' bt-loser':''}">
-      <span class="bt-logo">${logoHtml(at.logo,18,5)}</span>
+      <span class="bt-logo">${_crest(at.logo)}</span>
       <span class="bt-name ${!hasAway?'bt-tbd':''}">${at.name}</span>
       <span class="bt-score">${isFin||isLive ? m.awayScore??0 : ''}${penA}</span>
     </div>
@@ -3541,8 +3712,10 @@ function renderBracketMatchLinear(m, roundName) {
       <div class="bm-team"><span class="bm-name" style="color:var(--t3)">TBD</span></div>
     </div>`;
 
-  const ht = m.homeId ? (teams.find(t=>t.id===m.homeId)||{name:m.homeName||'TBD',logo:''}) : {name:m.homeName||'TBD',logo:''};
-  const at = m.awayId ? (teams.find(t=>t.id===m.awayId)||{name:m.awayName||'TBD',logo:''}) : {name:m.awayName||'TBD',logo:''};
+  /* نص موحّد للطرف غير المحسوم — بدل «TBD» الإنجليزية في واجهة عربية بالكامل */
+  const _TBD = 'بانتظار المتأهل';
+  const ht = m.homeId ? (teams.find(t=>t.id===m.homeId)||{name:m.homeName||_TBD,logo:''}) : {name:m.homeName||_TBD,logo:''};
+  const at = m.awayId ? (teams.find(t=>t.id===m.awayId)||{name:m.awayName||_TBD,logo:''}) : {name:m.awayName||_TBD,logo:''};
   const isFin  = m.status==='finished';
   const isLive = m.status==='live';
   const _ps = _penScore(m);
@@ -4780,21 +4953,12 @@ function _displayOpts() {
 }
 
 // صفّ لاعب موحّد داخل الإحصائيات (يُستعمل لكل الأقسام الأربعة)
-// صورة اللاعب من الكشف الحيّ: بالهوية إن وُجدت، وإلا بالاسم (للأحداث القديمة)
+/* صورة اللاعب من الكشف الحيّ — تمرّ عبر _lineupPhoto نفسها كي تُطبَّق
+   القواعد الصارمة ذاتها في كل مكان: الهوية تحسم، ثم الاسم+الرقم، ثم
+   الاسم إن كان فريداً فقط، وبلا أي مسح عابر للفرق. توحيد المصدر يمنع
+   عودة الخلط من باب خلفي عند تعديل أحد النسخ دون الأخرى. */
 function _playerPhoto(teamId, playerId, name) {
-  if (!window._teamRosters || !window._teamRosters[teamId]) return '';
-  const roster = window._teamRosters[teamId];
-  if (playerId) {
-    const p = roster.find(x => x && x.id === playerId);
-    if (p && p.photo) return p.photo;
-  }
-  if (name) {
-    const _norm = s => String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
-    const n = _norm(name);
-    const p = roster.find(x => x && _norm(x.name) === n && x.photo);
-    if (p) return p.photo;
-  }
-  return '';
+  return _lineupPhoto({ id: playerId || null, name: name || '' }, teamId);
 }
 
 function _statRow(p, i, valField, valColor, unitLabel) {
@@ -5662,7 +5826,7 @@ function _playerMatchBadges(events, side, playerName, number, playerId) {
     return an === nmNorm || (an.length>=3 && nmNorm.length>=3 && (an.indexOf(nmNorm)===0 || nmNorm.indexOf(an)===0));
   };
 
-  let goals = 0, yellow = 0, red = false, subOut = null, subIn = null;
+  let goals = 0, yellow = 0, red = false, subOut = null, subIn = null, assists = 0;
   const hasNum = number != null && number !== '';
   // مطابقة اللاعب — الأولوية القصوى للهوية (playerId):
   //   ① لو الحدث يحمل هوية ولدينا هوية اللاعب → المطابقة بالهوية وحدها (أدقّ ما يكون،
@@ -5685,6 +5849,10 @@ function _playerMatchBadges(events, side, playerName, number, playerId) {
       if (matchesPlayer(e, 'playerIn', 'playerInNumber', 'playerInId')) subIn = mn;
       return;
     }
+    /* ✅︎ الصناعة تُفحص قبل مطابقة صاحب الحدث: صانع الهدف ليس مسجّله،
+       فلو تركناها بعد الـ return لما ظهرت شارة صناعة أبداً. */
+    if (e.type === 'goal' && e.assist &&
+        matchesPlayer(e, 'assist', 'assistNumber', 'assistPlayerId')) assists++;
     if (!matchesPlayer(e, 'player', 'playerNumber', 'playerId')) return;
     if (e.type === 'goal') goals++;
     else if (e.type === 'yellow') yellow++;
@@ -5703,6 +5871,13 @@ function _playerMatchBadges(events, side, playerName, number, playerId) {
     const cnt = goals > 1 ? `<span class="pl-badge-goalcount">${goals}</span>` : '';
     const ball = (window.Icon ? window.Icon('ball', 11) : '⚽');
     badges.push('<span class="pl-badge pl-badge-goal">' + ball + cnt + '</span>');
+  }
+  /* ✅︎ شارة صناعة الأهداف (حذاء أخضر) — تظهر على اللاعب في الملعب وفي الدكة،
+     وتحترم إعدادات البطولة تماماً كسطر الصناعة في الخط الزمني. */
+  if (assists > 0 && (typeof _assistsPublic !== 'function' || _assistsPublic())) {
+    const acnt = assists > 1 ? `<span class="pl-badge-goalcount pl-badge-acount">${assists}</span>` : '';
+    const boot = (window.Icon ? window.Icon('boots', 11) : '👟');
+    badges.push('<span class="pl-badge pl-badge-assist" title="صناعة هدف">' + boot + acnt + '</span>');
   }
   // سهم التبديل
   if (subOut != null) badges.push(`<span class="pl-badge pl-badge-subout" title="خرج ${subOut}'">${window.Icon?window.Icon('download',9):'▼'}</span>`);
@@ -7072,9 +7247,17 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
             const isOwn = ev.type === 'own';
             const _goalTeamId = _evSide(ev) === 'away' ? at.id : ht.id;
             const goalName = isOwn ? 'هدف عكسي' : (_liveEventPlayerName(ev, _goalTeamId) || '—');
-            const content = `<div class="vt-goal">
-              <span class="vt-goal-name"${isOwn?' style="color:var(--t3);font-style:italic"':''}>${goalName}</span>
-              <span class="vt-goal-min">${minLabel(ev)}</span>
+            /* ✅︎ صانع الهدف — سطر ثانوي تحت اسم الهدّاف تماماً كالتطبيقات الرسمية */
+            const _asNm = (!isOwn && _assistsPublic()) ? _liveAssistName(ev, _goalTeamId) : '';
+            const _asHtml = _asNm
+              ? `<span class="vt-goal-assist">${window.Icon ? window.Icon('boots', 10) : '👟'}<span>صناعة: ${_asNm}</span></span>`
+              : '';
+            const content = `<div class="vt-goalw">
+              <div class="vt-goal">
+                <span class="vt-goal-name"${isOwn?' style="color:var(--t3);font-style:italic"':''}>${goalName}</span>
+                <span class="vt-goal-min">${minLabel(ev)}</span>
+              </div>
+              ${_asHtml}
             </div>`;
             return `<div class="vt-row vt-row-${side}">
               <div class="vt-side vt-side-left">${side === 'left' ? content : ''}</div>

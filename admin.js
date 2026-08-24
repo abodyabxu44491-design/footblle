@@ -1593,6 +1593,17 @@ window._redCardedNames = function(events, sideOrTeam) {
 // excludeNames: أسماء تُستبعد كلياً من القائمة (مثل المطرودين ببطاقة حمراء في هذه المباراة).
 // اللاعب المصاب/الموقوف (حالته في القائمة الدائمة) لا يُستبعد بل يبقى ظاهراً بشكل باهت مع أيقونة تنبيه،
 // حتى تنتبه له الإدارة قبل الاختيار دون ما تفقد القدرة على اختياره لو كانت الحالة غير دقيقة.
+/* ════════════════════════════════════════════════════════════════════
+ *  قائمة اختيار اللاعب (هدف / بطاقة / صناعة)
+ *  ──────────────────────────────────────────────────────────────────
+ *  العطل: كانت الأزرار تُرصّ بلا حدّ لارتفاع القائمة. مع كشف من 20-30
+ *  لاعباً تمتدّ النافذة لأسفل الشاشة و**يخرج زر «هدف!» خارج المعروض**،
+ *  فيتعذّر الحفظ أصلاً — لا سبيل للوصول إليه.
+ *
+ *  الحل: القائمة نفسها تُمرَّر طولياً بارتفاع محدود (الأزرار تبقى ثابتة
+ *  ومرئية دائماً)، مع بحث لحظي يفلتر الأسماء أثناء الكتابة وعدّاد يوضّح
+ *  عدد المطابقات. الكتابة اليدوية تظلّ ممكنة كما كانت.
+ * ════════════════════════════════════════════════════════════════════ */
 window._renderRosterPickButtons = function(players, inputId, excludeNames) {
   // يقبل Set أو Array أو null — تحويل آمن لتفادي [].has is not a function
   const excl = excludeNames instanceof Set ? excludeNames
@@ -1605,7 +1616,8 @@ window._renderRosterPickButtons = function(players, inputId, excludeNames) {
       : 'لا يوجد لاعبون مسجلون في قائمة هذا الفريق — يمكنك كتابة الاسم يدوياً';
     return `<div style="font-size:11px;color:var(--muted,#888);padding:2px">${msg}</div>`;
   }
-  return visible.map(p => {
+
+  const btns = visible.map(p => {
     const nm = (p.name || '').replace(/'/g, "\\'");
     const posLabel = window._rosterPosLabel(p.position);
     const numTag = (p.number !== undefined && p.number !== null && p.number !== '') ? ('#' + p.number + ' · ') : '';
@@ -1614,12 +1626,81 @@ window._renderRosterPickButtons = function(players, inputId, excludeNames) {
     try { if (typeof ROSTER_STATUS !== 'undefined') stMeta = ROSTER_STATUS[p.status] || null; } catch (e) {}
     const warnIcon = flagged ? ` <span title="${stMeta?.label || ''}">${stMeta?.icon || '⚠️'}</span>` : '';
     const dimStyle = flagged ? 'opacity:.55;border-style:dashed;' : '';
-    return `<button type="button" onclick="document.getElementById('${inputId}').value='${nm}'"
+    // مفتاح البحث: الاسم + الرقم معاً — فيمكن الفلترة برقم القميص أيضاً
+    const key = window._rpickNorm((p.name || '') + ' ' + (p.number ?? ''));
+    return `<button type="button" data-rpick-key="${key}"
+      onclick="window._rpickChoose('${inputId}','${nm}')"
       style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 10px;background:var(--card3,#1a1a1a);border:1px solid var(--border2,#2a2a2a);border-radius:9px;color:var(--text,#eee);font-family:Tajawal,sans-serif;cursor:pointer;text-align:right;${dimStyle}">
       <span style="font-size:12px;font-weight:800">${numTag}${p.name || ''}${warnIcon}</span>
       ${posLabel ? `<span style="font-size:9px;color:var(--muted,#888)">${posLabel}${flagged && stMeta ? ' · ' + stMeta.label : ''}</span>` : (flagged && stMeta ? `<span style="font-size:9px;color:var(--muted,#888)">${stMeta.label}</span>` : '')}
     </button>`;
   }).join('');
+
+  // نربط البحث بعد دخول العناصر للصفحة
+  setTimeout(() => window._rpickWire(inputId), 0);
+
+  return `
+    <div style="width:100%">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <span style="font-size:9.5px;color:var(--muted,#888)">اضغط اسماً أو اكتبه للبحث</span>
+        <span id="rpick-count-${inputId}" style="margin-inline-start:auto;font-size:9.5px;font-weight:800;color:var(--gold,#C9A02B)">${visible.length} لاعب</span>
+      </div>
+      <div id="rpick-box-${inputId}" data-rpick-for="${inputId}"
+        style="display:flex;flex-wrap:wrap;gap:6px;max-height:34vh;overflow-y:auto;
+               -webkit-overflow-scrolling:touch;padding:2px;
+               border:1px solid var(--border2,#2a2a2a);border-radius:10px;
+               background:rgba(255,255,255,.015)">${btns}</div>
+      <div id="rpick-none-${inputId}" style="display:none;font-size:11px;color:var(--muted,#888);padding:8px 2px">
+        لا يوجد لاعب بهذا الاسم — يمكنك كتابته يدوياً وسيُحفظ كما هو.
+      </div>
+    </div>`;
+};
+
+// تطبيع عربي للبحث: يزيل التشكيل ويوحّد الألف والهاء/التاء المربوطة والياء
+window._rpickNorm = function(v) {
+  return String(v || '')
+    .replace(/[\u064B-\u0652\u0640]/g, '')
+    .replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
+    .replace(/\s+/g, ' ').trim().toLowerCase();
+};
+
+// اختيار لاعب من القائمة — يملأ الحقل ويُبقي القائمة كاملة كي يسهل التبديل
+window._rpickChoose = function(inputId, name) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  inp.value = name;
+  inp._rpickSkip = true;          // لا نفلتر بعد الاختيار
+  window._rpickApply(inputId, '');
+};
+
+// ربط البحث اللحظي بحقل الإدخال (مرة واحدة لكل حقل)
+window._rpickWire = function(inputId) {
+  const inp = document.getElementById(inputId);
+  if (!inp || inp._rpickWired) return;
+  inp._rpickWired = true;
+  inp.addEventListener('input', () => {
+    if (inp._rpickSkip) { inp._rpickSkip = false; return; }
+    window._rpickApply(inputId, inp.value);
+  });
+};
+
+// تطبيق الفلترة وتحديث العدّاد
+window._rpickApply = function(inputId, query) {
+  const box = document.getElementById('rpick-box-' + inputId);
+  if (!box) return;
+  const q = window._rpickNorm(query);
+  let shown = 0;
+  box.querySelectorAll('[data-rpick-key]').forEach(b => {
+    const hit = !q || b.getAttribute('data-rpick-key').indexOf(q) !== -1;
+    b.style.display = hit ? '' : 'none';
+    if (hit) shown++;
+  });
+  const cnt = document.getElementById('rpick-count-' + inputId);
+  if (cnt) cnt.textContent = shown + ' لاعب';
+  const none = document.getElementById('rpick-none-' + inputId);
+  if (none) none.style.display = shown ? 'none' : 'block';
+  box.style.display = shown ? 'flex' : 'none';
+  if (shown) box.scrollTop = 0;
 };
 
 // ══ BOTTOM SHEET للتأكيد — بديل confirm() في الجوال ══
@@ -2007,7 +2088,7 @@ window._openScorerPicker = function(matchId, side, teamName, required) {
   overlay.id = 'scorerPickerOverlay';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center';
   overlay.innerHTML = `
-    <div style="background:var(--card);border:1px solid var(--gold3);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 20px 36px;animation:slideUp .25s ease">
+    <div style="background:var(--card);border:1px solid var(--gold3);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;padding:20px 20px 36px;animation:slideUp .25s ease">
       <div style="text-align:center;margin-bottom:16px">
         <div style="font-size:28px;margin-bottom:4px">⚽</div>
         <div style="font-size:15px;font-weight:900;color:var(--gold);font-family:Tajawal,sans-serif">من سجل الهدف؟</div>
@@ -5908,7 +5989,7 @@ async function _lpOpenScorerPicker(matchId, side, teamName, teamId) {
   overlay.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center';
 
   overlay.innerHTML = `
-    <div style="background:var(--card);border:1px solid var(--gold3);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 20px 36px;animation:slideUp .25s ease">
+    <div style="background:var(--card);border:1px solid var(--gold3);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;padding:20px 20px 36px;animation:slideUp .25s ease">
       <div style="text-align:center;margin-bottom:14px">
         <div style="font-size:26px">⚽</div>
         <div style="font-size:15px;font-weight:900;color:var(--gold);font-family:Tajawal,sans-serif">من سجل الهدف؟</div>
@@ -9438,13 +9519,15 @@ function renderKnockoutAdmin() {
       }
     </div>`;
 
-  // ── الشجرة نفسها: أدوار مكدّسة عمودياً (فوق لتحت) — كل دور غير النهائي ينقسم يسار/يمين (مرآة) ──
+  /* ── الشجرة: نفس تصميم المرايا العمودي المستخدم في صفحة الجمهور تماماً ──
+     المسار الأول فوق ← النهائي في القلب ← المسار الثاني تحت (مرآة).
+     تمرير طولي فقط، وكل البطاقات بمقاس واحد. توحيد التصميم بين الإدارة
+     والجمهور وبطاقة المشاركة يعني أن ما يراه المنظّم هو ما يراه الجمهور. */
   const roundsSorted = [...adminKnockoutRounds].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const firstOrder = roundsSorted.length ? (roundsSorted[0].order ?? 0) : 0;
 
-  const treeHtml = roundsSorted.map((round, idx) => {
-    const isFirstRound = (round.order ?? idx) === firstOrder;
-    const isFinal = idx === roundsSorted.length - 1;
+  // ① جهّز بيانات كل دور مرة واحدة (خاناته ومبارياته وعدّاد المنتهية)
+  const roundData = roundsSorted.map((round, idx) => {
     const slots = round.slots || 1;
     const slotArr = new Array(slots).fill(null);
     // ✅︎ لا تُسقط أي مباراة بصمت — لو الخانة مأخوذة/الرقم خارج المدى ضعها في أول فراغ
@@ -9460,135 +9543,115 @@ function renderKnockoutAdmin() {
       const free = slotArr.indexOf(null);
       if (free !== -1) slotArr[free] = m;
     });
+    return {
+      round, idx, slots, slotArr,
+      isFirstRound: (round.order ?? idx) === firstOrder,
+      doneCount: slotArr.filter(m => m && m.status === 'finished').length
+    };
+  });
 
-    const doneCount = slotArr.filter(m => m && m.status === 'finished').length;
-
-    let bodyHtml;
-    if (slots <= 1) {
-      bodyHtml = `<div class="ab-final-row">${_adminBracketBox(slotArr[0], round.id, 0, isFirstRound, round, false, `r${idx}-s0`)}</div>`;
-    } else {
-      const half = slots / 2;
-      const leftSlots  = slotArr.slice(0, half);
-      const rightSlots = slotArr.slice(half);
-      bodyHtml = `<div class="ab-pair-row">
-        <div class="ab-side">${leftSlots.map((m,i) => _adminBracketBox(m, round.id, i, isFirstRound, round, false, `r${idx}-s${i}`)).join('')}</div>
-        <div class="ab-side-sep">${isFinal ? '' : '↓ ↓'}</div>
-        <div class="ab-side">${rightSlots.map((m,i) => _adminBracketBox(m, round.id, i+half, isFirstRound, round, true, `r${idx}-s${i+half}`)).join('')}</div>
-      </div>`;
-    }
-
+  // ② قسم دور واحد (نصفه العلوي أو السفلي)
+  const abSection = (rd, half) => {
+    const { round, idx, slots, slotArr, isFirstRound, doneCount } = rd;
+    const mid = Math.ceil(slotArr.length / 2);
+    const part = half === 'top' ? slotArr.slice(0, mid) : slotArr.slice(mid);
+    if (!part.length) return '';
+    const offset = half === 'top' ? 0 : mid;
+    const cards = part.map((m, i) =>
+      _adminBracketBox(m, round.id, i + offset, isFirstRound, round, false, `r${idx}-s${i + offset}`)
+    ).join('');
     return `
-      <div class="ab-round">
-        <div class="ab-round-hd">
-          <span class="ab-round-name">${round.name}</span>
-          <span class="ab-round-cnt">${doneCount}/${slots} منتهية</span>
+      <div class="abm-round">
+        <div class="abm-label">
+          <span class="abm-label-name">${round.name}</span>
+          <span class="abm-label-cnt">${doneCount}/${slots}</span>
         </div>
-        ${bodyHtml}
+        <div class="abm-grid">${cards}</div>
+      </div>`;
+  };
+
+  const AB_DOWN = '<div class="abm-flow abm-flow-down"><span class="abm-chev"></span></div>';
+  const AB_UP   = '<div class="abm-flow abm-flow-up"><span class="abm-chev"></span></div>';
+
+  const abFinal = roundData[roundData.length - 1];
+  const abPre   = roundData.slice(0, -1);
+
+  const abTop = abPre.map(rd => abSection(rd, 'top')).filter(Boolean).join(AB_DOWN);
+  // المرآة: من نصف النهائي مباشرة تحت النهائي، اتّساعاً حتى الدور الأول
+  const abBot = abPre.slice().reverse().map(rd => abSection(rd, 'bottom')).filter(Boolean).join(AB_UP);
+
+  const abFinalHtml = abFinal ? `
+    <div class="abm-round abm-final-round">
+      <div class="abm-label abm-label-final">
+        <span class="abm-label-name">${abFinal.round.name}</span>
+        <span class="abm-label-cnt">${abFinal.doneCount}/${abFinal.slots}</span>
       </div>
-      ${idx < roundsSorted.length - 1 ? `<div class="ab-arrow">⬇︎</div>` : ''}
-    `;
-  }).join('');
+      <div class="abm-grid">
+        ${_adminBracketBox(abFinal.slotArr[0], abFinal.round.id, 0, abFinal.isFirstRound, abFinal.round, false, `r${abFinal.idx}-s0`)}
+      </div>
+    </div>` : '';
+
+  const treeHtml = abTop + (abTop ? AB_DOWN : '') + abFinalHtml + (abBot ? AB_UP : '') + abBot;
 
   el.innerHTML = publishBar + thirdPlaceBar + poolBar + `<div class="ab-tree">${treeHtml}</div>`;
-  _drawBracketConnectors(el.querySelector('.ab-tree'), roundsSorted.length - 1);
 }
 
 // ── صندوق مباراة واحد في الشجرة التفاعلية ──
 function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round, mirror, brkAttr) {
   const brk = brkAttr ? ` data-brk="${brkAttr}"` : '';
-  const mirrorCls = mirror ? ' ab-mirror' : '';
   // ✅︎ خانة نصف مكتملة: فريق واحد اختير فعلاً وظهر للجمهور، بانتظار الفريق الثاني
   const pick = !m && round && round.slotPicks && round.slotPicks[slotIdx];
+
+  // درع افتراضي — يحفظ نفس مساحة الشعار فيتساوى ارتفاع كل الصفوف
+  const crestTbd = `<span class="ab-crest-tbd">${window.Icon ? window.Icon('shield', 15) : ''}</span>`;
+  const crest = (logo) => logo ? logoHtml(logo, 24, 6) : crestTbd;
+
+  /* ── خانة فارغة: نفس مقاس البطاقة المكتملة تماماً (صفّان)، لا تصغير ──
+     في الدور الأول تكون قابلة للضغط لاختيار فريق، وبعده تنتظر الفائز. */
   if (!m && !pick) {
-    if (isFirstRound) {
-      return `<div class="ab-box ab-empty${mirrorCls}"${brk} onclick="adminOpenBracketSlot('${roundId}',${slotIdx})">
-        <div class="ab-team ab-tbd">➕︎ اضغط لاختيار فريق</div>
+    const label = isFirstRound ? '➕︎ اضغط لاختيار فريق' : 'ينتظر الفائز';
+    const cls   = isFirstRound ? 'ab-empty' : 'ab-empty ab-waiting';
+    const click = isFirstRound ? ` onclick="adminOpenBracketSlot('${roundId}',${slotIdx})"` : '';
+    const row = `<div class="ab-team">
+        <span class="ab-logo">${crestTbd}</span>
+        <span class="ab-name ab-tbd">${label}</span>
       </div>`;
-    }
-    return `<div class="ab-box ab-empty ab-waiting${mirrorCls}"${brk}>
-      <div class="ab-team ab-tbd">⏳ ينتظر الفائز</div>
-    </div>`;
+    return `<div class="ab-box ${cls}"${brk}${click}>${row}${row}</div>`;
   }
 
   const virtual = !m; // نصف مكتملة — لا توجد مباراة فعلية بعد
+  const _TBD = 'بانتظار المتأهل';
   const ht = virtual
-    ? { name: pick.teamName || 'TBD', logo: pick.teamLogo || '' }
-    : (teams.find(t => t.id === m.homeId) || { name: m.homeName || 'TBD', logo: '' });
+    ? { name: pick.teamName || _TBD, logo: pick.teamLogo || '' }
+    : (teams.find(t => t.id === m.homeId) || { name: m.homeName || _TBD, logo: '' });
   const at = virtual
-    ? { name: 'TBD', logo: '' }
-    : (teams.find(t => t.id === m.awayId) || { name: m.awayName || 'TBD', logo: '' });
+    ? { name: _TBD, logo: '' }
+    : (teams.find(t => t.id === m.awayId) || { name: m.awayName || _TBD, logo: '' });
   const fin  = !virtual && m.status === 'finished';
   const live = !virtual && m.status === 'live';
   const pend = !virtual && m.status === 'pending';
   const hw = fin && (m.penaltyScoreHome != null ? m.penaltyScoreHome > m.penaltyScoreAway : (m.homeScore ?? 0) > (m.awayScore ?? 0));
   const aw = fin && (m.penaltyScoreAway != null ? m.penaltyScoreAway > m.penaltyScoreHome : (m.awayScore ?? 0) > (m.homeScore ?? 0));
+  const penH = fin && m.penaltyScoreHome != null ? `<span class="ab-pen">رك ${m.penaltyScoreHome}</span>` : '';
+  const penA = fin && m.penaltyScoreAway != null ? `<span class="ab-pen">رك ${m.penaltyScoreAway}</span>` : '';
   const clickAttr = virtual ? `adminOpenBracketSlot('${roundId}',${slotIdx})` : `mcv2OpenInfo('${m.id}')`;
-  return `<div class="ab-box ${pend ? 'ab-pending' : ''} ${live ? 'ab-live' : ''} ${virtual ? 'ab-pending' : ''}${mirrorCls}"${brk} onclick="${clickAttr}">
-    ${pend ? '<div class="ab-pending-tag">⚪ غير مفعّلة</div>' : live ? '<div class="ab-live-tag">🔴 مباشر</div>' : virtual ? '<div class="ab-pending-tag" style="background:rgba(39,174,96,.12);border-color:rgba(39,174,96,.35);color:var(--green)">🌍 تأهّل — بانتظار الفريق الثاني</div>' : ''}
+
+  return `<div class="ab-box ${pend || virtual ? 'ab-pending' : ''} ${live ? 'ab-live' : ''} ${fin ? 'ab-done' : ''}"${brk} onclick="${clickAttr}">
+    ${pend ? '<div class="ab-tag ab-tag-pend">غير مفعّلة</div>'
+      : live ? '<div class="ab-tag ab-tag-live">مباشر</div>'
+      : virtual ? '<div class="ab-tag ab-tag-ok">تأهّل — بانتظار الثاني</div>' : ''}
     <div class="ab-team ${hw ? 'ab-winner' : ''}${fin && !hw && aw ? ' ab-loser' : ''}">
-      <span class="ab-logo">${logoHtml(ht.logo, 16, 4)}</span>
+      <span class="ab-logo">${crest(ht.logo)}</span>
       <span class="ab-name">${ht.name}</span>
-      <span class="ab-score">${fin || live ? (m.homeScore ?? 0) : ''}</span>
+      <span class="ab-score">${fin || live ? (m.homeScore ?? 0) : ''}${penH}</span>
     </div>
+    <div class="ab-sep"></div>
     <div class="ab-team ${aw ? 'ab-winner' : ''}${fin && !aw && hw ? ' ab-loser' : ''}">
-      <span class="ab-logo">${virtual ? '⚪' : logoHtml(at.logo, 16, 4)}</span>
-      <span class="ab-name" style="${virtual ? 'color:var(--muted,#777);font-style:italic' : ''}">${at.name}</span>
-      <span class="ab-score">${fin || live ? (m.awayScore ?? 0) : ''}</span>
+      <span class="ab-logo">${virtual ? crestTbd : crest(at.logo)}</span>
+      <span class="ab-name${virtual ? ' ab-tbd' : ''}">${at.name}</span>
+      <span class="ab-score">${fin || live ? (m.awayScore ?? 0) : ''}${penA}</span>
     </div>
   </div>`;
-}
-
-// ── يرسم خطوط SVG تصل كل مباراة بمكان تأهّل الفائز منها في الدور التالي ──
-// يعتمد على سمة data-brk="r{roundIdx}-s{slotIdx}" الموسومة على كل صندوق مباراة،
-// وقاعدة التقدّم الثابتة بالتطبيق: خانة i تتأهل لخانة floor(i/2) بالدور التالي.
-function _drawBracketConnectors(treeEl, preRoundsCount) {
-  if (!treeEl || preRoundsCount < 1) return;
-  const old = treeEl.querySelector(':scope > svg.bk-lines');
-  if (old) old.remove();
-  treeEl.style.position = 'relative';
-
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('class', 'bk-lines');
-  svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0';
-
-  const contRect = treeEl.getBoundingClientRect();
-  const segs = [];
-  for (let r = 0; r < preRoundsCount; r++) {
-    const boxes = treeEl.querySelectorAll(`[data-brk^="r${r}-s"]`);
-    boxes.forEach(box => {
-      const s = parseInt(box.getAttribute('data-brk').split('-s')[1], 10);
-      const target = treeEl.querySelector(`[data-brk="r${r+1}-s${Math.floor(s/2)}"]`);
-      if (!target) return;
-      const bR = box.getBoundingClientRect();
-      const tR = target.getBoundingClientRect();
-      const x1 = bR.left + bR.width/2 - contRect.left;
-      const y1 = bR.bottom - contRect.top;
-      const x2 = tR.left + tR.width/2 - contRect.left;
-      const y2 = tR.top - contRect.top;
-      if (y2 <= y1) return; // احتياط: لا نرسم لو الترتيب غير منطقي
-      const midY = y1 + (y2 - y1) * 0.55;
-      segs.push(`M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`);
-    });
-  }
-  svg.innerHTML = segs.map(d =>
-    `<path d="${d}" fill="none" stroke="rgba(201,160,43,.35)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
-  ).join('');
-  treeEl.appendChild(svg);
-
-  // إعادة رسم عند تغيير حجم الشاشة/تدوير الجهاز (مُهدّأ)
-  if (!window._abConnResizeBound) {
-    window._abConnResizeBound = true;
-    let t;
-    window.addEventListener('resize', () => {
-      clearTimeout(t);
-      t = setTimeout(() => {
-        const live = document.querySelector('#knockoutAdminList .ab-tree');
-        if (live) _drawBracketConnectors(live, live.dataset.preRounds ? +live.dataset.preRounds : preRoundsCount);
-      }, 200);
-    });
-  }
-  treeEl.dataset.preRounds = String(preRoundsCount);
 }
 
 // ── فتح خانة فارغة في الشجرة: يفتح مباراة موجودة، أو منتقي المتأهلين لو الدور الأول وفارغة ──
@@ -10426,61 +10489,116 @@ window.adminAutoCreateKnockout = async function () {
 function injectAdminCSS() {
   const style = document.createElement('style');
   style.textContent = `
-    /* ── شجرة الإقصاء العمودية التفاعلية (تدعم الجوال طولياً، بدون تمرير أفقي) ── */
-    .ab-tree { display:flex; flex-direction:column; gap:0; }
-    .ab-round { margin-bottom:6px; }
-    .ab-round-hd {
-      display:flex; align-items:center; justify-content:space-between;
-      padding:6px 14px; margin:0 auto 10px; position:relative; z-index:1;
-      background:#0a0b0d; border:1px solid rgba(201,160,43,.35); border-radius:16px; width:fit-content; gap:10px;
+    /* ══ شجرة الإقصاء — نفس تصميم المرايا العمودي في صفحة الجمهور ══
+       المسار الأول فوق · النهائي في القلب · المسار الثاني تحت
+       تمرير طولي فقط · كل البطاقات بمقاس واحد ثابت */
+    .ab-tree { display:flex; flex-direction:column; gap:0;
+      --abm-w:170px; --abm-h:74px; }
+    @media (min-width:430px){ .ab-tree { --abm-w:186px } }
+    @media (min-width:760px){ .ab-tree { --abm-w:200px } }
+
+    .abm-round { margin:0; }
+    .abm-label {
+      position:relative; display:flex; align-items:center; gap:8px; width:fit-content;
+      margin:0 auto 12px; padding:7px 18px; border-radius:20px; white-space:nowrap;
+      background:#0b0c0e; border:1px solid rgba(201,160,43,.4);
     }
-    .ab-round-name { font-size:12px; font-weight:900; color:var(--gold,#C9A02B); }
-    .ab-round-cnt { font-size:10px; color:var(--muted,#888); }
-    .ab-pair-row { display:grid; grid-template-columns:1fr auto 1fr; gap:6px; align-items:center; }
-    .ab-side { display:flex; flex-direction:column; gap:8px; }
-    .ab-side-sep { font-size:11px; color:var(--muted2,#555); text-align:center; writing-mode:vertical-rl; }
-    .ab-final-row { display:flex; justify-content:center; }
-    .ab-final-row .ab-box { max-width:280px; width:100%; border-color:var(--gold,#C9A02B) !important; }
-    .ab-arrow { text-align:center; font-size:16px; color:var(--muted2,#444); margin:2px 0 10px; }
+    .abm-label::before, .abm-label::after {
+      content:''; position:absolute; top:50%; width:24px; height:1px;
+      background:linear-gradient(90deg,rgba(201,160,43,.42),transparent);
+    }
+    .abm-label::before { right:100%; margin-right:10px; }
+    .abm-label::after  { left:100%; margin-left:10px;
+      background:linear-gradient(270deg,rgba(201,160,43,.42),transparent); }
+    .abm-label-name { font-size:11px; font-weight:900; color:var(--gold,#C9A02B); letter-spacing:.3px; }
+    .abm-label-cnt  { font-size:9.5px; font-weight:700; color:var(--muted,#888); }
+
+    .abm-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,var(--abm-w));
+      justify-content:center; gap:18px 10px;
+    }
+    .abm-final-round {
+      margin:4px auto; padding:16px 12px; border-radius:18px;
+      background:linear-gradient(180deg,rgba(201,160,43,.10),rgba(201,160,43,.02));
+      border:1px solid rgba(201,160,43,.30);
+    }
+    .abm-final-round .abm-label { border-width:1.5px; border-color:var(--gold,#C9A02B);
+      box-shadow:0 0 20px rgba(201,160,43,.18); padding:8px 24px; }
+    .abm-final-round .abm-label-name { font-size:13px; }
+    .abm-final-round .ab-box { border-color:var(--gold,#C9A02B) !important;
+      box-shadow:0 0 0 1px rgba(201,160,43,.22),0 6px 22px rgba(201,160,43,.14); }
+
+    /* سهم التدفّق — يتّجه دائماً نحو النهائي في المنتصف */
+    .abm-flow { display:flex; align-items:center; justify-content:center; height:26px; }
+    .abm-flow::before, .abm-flow::after {
+      content:''; flex:0 0 42px; height:1px;
+      background:linear-gradient(90deg,transparent,rgba(201,160,43,.26),transparent);
+    }
+    .abm-chev { width:9px; height:9px; margin:0 8px; flex:0 0 auto;
+      border-right:1.8px solid rgba(201,160,43,.62);
+      border-bottom:1.8px solid rgba(201,160,43,.62); }
+    .abm-flow-down .abm-chev { transform:rotate(45deg) translate(-1px,-1px); }
+    .abm-flow-up   .abm-chev { transform:rotate(-135deg) translate(-1px,-1px); }
+
+    /* ── بطاقة المباراة: مقاس واحد لكل الحالات (مطابقة لبطاقة الجمهور) ── */
     .ab-box {
-      background:var(--card2,#141414); border:1px solid var(--border2,#2a2a2a); border-radius:10px;
-      overflow:hidden; cursor:pointer; position:relative; z-index:1; transition:border-color .15s;
+      width:100%; height:var(--abm-h); box-sizing:border-box;
+      display:flex; flex-direction:column;
+      background:linear-gradient(180deg,var(--card2,#141820),var(--card,#0f1216));
+      border:1px solid var(--border2,#2a2a2a); border-radius:12px;
+      /* overflow مرئي عمداً: شارة الحالة تطفو أعلى البطاقة، و overflow:hidden
+         كان يقصّها تماماً فتختفي «غير مفعّلة» و«مباشر» عن المنظّم.
+         التدوير مضمون بدلاً منه عبر تدوير أول صف وآخر صف. */
+      overflow:visible; cursor:pointer; position:relative; z-index:1;
+      transition:border-color .15s, transform .15s;
+      box-shadow:0 3px 12px rgba(0,0,0,.28);
     }
-    .ab-box:active { border-color:var(--gold,#C9A02B); }
-    .ab-box.ab-empty { display:flex; align-items:center; justify-content:center; min-height:52px; border-style:dashed; }
-    .ab-box.ab-waiting { opacity:.55; cursor:default; }
+    .ab-box > .ab-team:first-of-type { border-radius:11px 11px 0 0; }
+    .ab-box > .ab-team:last-of-type  { border-radius:0 0 11px 11px; }
+    .ab-box:active { transform:scale(.98); border-color:var(--gold,#C9A02B); }
+    .ab-box.ab-done { border-color:rgba(201,160,43,.26); }
     .ab-box.ab-pending { border-style:dashed; border-color:rgba(201,160,43,.4); }
-    .ab-box.ab-live { border-color:rgba(192,57,43,.5); box-shadow:0 0 14px rgba(192,57,43,.12); }
-    .ab-team { display:flex; align-items:center; gap:7px; padding:8px 9px; }
-    .ab-team.ab-winner { background:linear-gradient(90deg,rgba(201,160,43,.10),transparent); }
+    .ab-box.ab-live { border-color:rgba(192,57,43,.55); box-shadow:0 0 0 1px rgba(220,50,50,.2),0 4px 16px rgba(0,0,0,.4); }
+    .ab-box.ab-empty { background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);
+      border-color:var(--border,#1f1f1f); box-shadow:none; }
+    .ab-box.ab-waiting { cursor:default; }
+
+    .ab-team { display:flex; align-items:center; gap:8px; padding:0 10px;
+      flex:1 1 0; min-height:0; position:relative; }
+    .ab-sep { height:1px; background:var(--border,#1f1f1f); flex:0 0 1px; }
+    .ab-box.ab-empty .ab-team + .ab-team { border-top:1px solid var(--border,#1f1f1f); }
+    .ab-team.ab-winner { background:rgba(201,160,43,.10); }
     .ab-team.ab-winner .ab-name { color:var(--gold,#C9A02B); font-weight:900; }
-    /* ✅︎ الخاسر يبقى ظاهراً لكن مميّز — زي التطبيقات الرسمية */
-    .ab-team.ab-loser { opacity:.45; }
-    .ab-team.ab-loser .ab-name { color:#777; font-weight:600; text-decoration:line-through; text-decoration-color:rgba(220,50,50,.5); }
-    .ab-team.ab-loser .ab-logo { filter:grayscale(1); }
-    .ab-team.ab-tbd { color:var(--muted,#777); font-weight:600; justify-content:center; width:100%; font-size:11px; padding:14px 9px; }
-    .ab-team + .ab-team { border-top:1px solid var(--border,#1f1f1f); }
-    .ab-logo { flex-shrink:0; display:flex; }
-    .ab-name { flex:1; font-size:11px; font-weight:700; color:var(--text,#eee); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .ab-score { font-size:12.5px; font-weight:900; color:var(--text,#eee); min-width:16px; text-align:center; font-family:Tajawal,sans-serif; }
     .ab-team.ab-winner .ab-score { color:var(--gold,#C9A02B); }
-    /* ── مرآة العمود الأيسر: الشعار للخارج (يسار)، النتيجة للداخل (يمين) — عكس العمود الأيمن تماماً ── */
-    .ab-box.ab-mirror .ab-team { flex-direction:row-reverse; }
-    .ab-box.ab-mirror .ab-pending-tag,
-    .ab-box.ab-mirror .ab-live-tag { right:auto; left:8px; }
-    .ab-pending-tag {
-      position:absolute; top:-9px; right:8px; font-size:8px; font-weight:700;
-      background:var(--dark,#0c0c0c); color:var(--gold,#C9A02B); padding:1px 6px; border-radius:8px;
-      border:1px solid rgba(201,160,43,.3);
+    .ab-team.ab-winner::after {
+      content:''; position:absolute; inset-inline-start:0; top:14%; bottom:14%;
+      width:3px; border-radius:0 3px 3px 0; background:var(--gold,#C9A02B);
     }
-    .ab-live-tag {
-      position:absolute; top:-9px; right:8px; font-size:8px; font-weight:700;
-      background:var(--dark,#0c0c0c); color:#C0392B; padding:1px 6px; border-radius:8px;
-      border:1px solid rgba(192,57,43,.4);
-    }
-    @media (min-width:640px) {
-      .ab-pair-row { grid-template-columns:1fr 40px 1fr; }
-    }
+    /* ✅︎ الخاسر يبقى ظاهراً لكن مميّز — زي التطبيقات الرسمية */
+    .ab-team.ab-loser { opacity:.5; }
+    .ab-team.ab-loser .ab-name { color:#777; font-weight:600; }
+    .ab-team.ab-loser .ab-logo { filter:grayscale(1); }
+
+    .ab-logo { width:24px; height:24px; flex-shrink:0; display:flex;
+      align-items:center; justify-content:center; }
+    .ab-logo img { width:24px; height:24px; object-fit:cover; border-radius:6px; }
+    .ab-crest-tbd { width:24px; height:24px; display:flex; align-items:center; justify-content:center;
+      border-radius:6px; background:rgba(255,255,255,.04); border:1px dashed var(--border2,#2a2a2a);
+      color:var(--muted,#888); opacity:.6; }
+    .ab-name { flex:1; min-width:0; font-size:11.5px; font-weight:800; color:var(--text,#eee);
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ab-name.ab-tbd { color:var(--muted,#777); font-weight:600; font-size:10px; }
+    .ab-score { font-size:13px; font-weight:900; color:var(--text,#eee); min-width:16px;
+      text-align:center; flex:0 0 auto; font-family:Tajawal,sans-serif; line-height:1.05; }
+    .ab-pen { display:block; font-size:8px; font-weight:800; color:var(--gold,#C9A02B); line-height:1; }
+
+    /* شارة حالة المباراة أعلى البطاقة */
+    .ab-tag { position:absolute; top:-8px; inset-inline-end:8px; z-index:2;
+      font-size:8px; font-weight:800; padding:1px 7px; border-radius:8px;
+      background:var(--dark,#0c0c0c); white-space:nowrap; }
+    .ab-tag-pend { color:var(--gold,#C9A02B); border:1px solid rgba(201,160,43,.3); }
+    .ab-tag-live { color:#C0392B; border:1px solid rgba(192,57,43,.45); }
+    .ab-tag-ok   { color:var(--green,#27ae60); border:1px solid rgba(39,174,96,.35); }
 
     /* ── Match Stats Toggle ── */
     .me-stats-toggle summary::-webkit-details-marker { display:none; }
@@ -11727,34 +11845,28 @@ function renderRosterPlayerRow(p, teamId) {
         ${st.icon} ${st.label}
       </div>
 
-      <!-- أزرار الإجراءات -->
-      <div style="display:flex;gap:4px;flex-shrink:0">
-        <!-- صورة اللاعب: رفع/تغيير -->
+      <!-- أزرار الإجراءات: ثلاثة فقط — صورة · تعديل · حذف -->
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        <!-- اختصار الصورة: رفع/تغيير مباشر بلا فتح النافذة -->
         <input type="file" accept="image/*" id="pphoto-file-${p.id}" style="display:none"
           onchange="uploadRosterPhoto('${teamId}','${p.id}', this)">
         <button onclick="document.getElementById('pphoto-file-${p.id}').click()" title="${p.photo ? 'تغيير الصورة' : 'إضافة صورة'}"
-          style="padding:5px 8px;background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.3);
-                 border-radius:6px;font-size:12px;cursor:pointer">📷</button>
-        ${p.photo ? `<!-- حذف الصورة نهائياً — يظهر فقط لمن له صورة -->
-        <button onclick="removeRosterPhoto('${teamId}','${p.id}')" title="حذف صورة اللاعب"
-          style="padding:5px 8px;background:rgba(192,57,43,.10);border:1px solid rgba(192,57,43,.32);
-                 border-radius:6px;font-size:11px;cursor:pointer">🚫</button>` : ''}
-        <!-- تغيير الحالة -->
-        <select onchange="updateRosterStatus('${teamId}','${p.id}',this.value)"
-          style="padding:5px;background:var(--dark,#111);border:1px solid var(--border,#333);
-                 border-radius:6px;color:var(--muted,#888);font-family:Tajawal,sans-serif;font-size:10px">
-          ${Object.entries(ROSTER_STATUS).map(([k,v]) =>
-            `<option value="${k}" ${(p.status||'active')===k?'selected':''}>${v.icon}</option>`
-          ).join('')}
-        </select>
-        <!-- تعديل -->
-        <button onclick="editRosterPlayer('${teamId}','${p.id}')"
-          style="padding:5px 8px;background:var(--card3,#2a2a2a);border:1px solid var(--border,#333);
-                 border-radius:6px;font-size:12px;cursor:pointer">✏︎️</button>
-        <!-- حذف -->
-        <button onclick="deleteRosterPlayer('${teamId}','${p.id}','${(p.name||'').replace(/'/g,"\\'")}' )"
-          style="padding:5px 8px;background:#C0392B22;border:1px solid #C0392B44;
-                 border-radius:6px;font-size:12px;cursor:pointer">🗑</button>
+          style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+                 background:rgba(201,160,43,.10);border:1px solid rgba(201,160,43,.30);
+                 color:var(--gold,#C9A02B);border-radius:8px;cursor:pointer;padding:0">
+          ${window.Icon ? window.Icon('camera', 15) : '📷'}</button>
+        <!-- تعديل: يفتح ملف اللاعب الكامل (كل الحقول + الحالة + الصورة) -->
+        <button onclick="editRosterPlayer('${teamId}','${p.id}')" title="تعديل بيانات اللاعب"
+          style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+                 background:var(--card3,#2a2a2a);border:1px solid var(--border,#333);
+                 color:var(--text,#ddd);border-radius:8px;cursor:pointer;padding:0">
+          ${window.Icon ? window.Icon('edit', 15) : '✏️'}</button>
+        <!-- حذف اللاعب -->
+        <button onclick="deleteRosterPlayer('${teamId}','${p.id}','${(p.name||'').replace(/'/g,"\\'")}' )" title="حذف اللاعب"
+          style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+                 background:rgba(192,57,43,.10);border:1px solid rgba(192,57,43,.32);
+                 color:#C0392B;border-radius:8px;cursor:pointer;padding:0">
+          ${window.Icon ? window.Icon('trash', 15) : '🗑'}</button>
       </div>
     </div>
   `;
@@ -12258,92 +12370,254 @@ window.scorerEditPlayer = async function(teamId, playerId, playerName) {
   }, 100);
 };
 
+/* ════════════════════════════════════════════════════════════════════
+ *  👤 ملف اللاعب — نافذة كاملة أنيقة بدل التعديل المزدحم داخل الصف
+ *  ──────────────────────────────────────────────────────────────────
+ *  السابق: كل الحقول كانت تُحشر داخل صفّ اللاعب نفسه، والتفاصيل
+ *  (العمر/الجنسية/الطول/القدم) مخفية خلف زر «تفاصيل اختيارية»،
+ *  وصورة اللاعب لا علاقة لها بالتعديل إطلاقاً — زر منفصل في الصف.
+ *
+ *  الآن: نافذة واحدة تجمع كل شيء — الصورة (رفع/تغيير/حذف) + الهوية
+ *  + المركز والحالة + المواصفات البدنية — مقسّمة أقساماً بعناوين
+ *  وأيقونات SVG (لا إيموجي نظام يختلف شكله بين الأجهزة).
+ * ════════════════════════════════════════════════════════════════════ */
+
+// أيقونة SVG من مكتبة اللوحة مع تمرير آمن لو لم تُحمَّل بعد
+function _pfIc(name, size, color) {
+  return (window.Icon ? window.Icon(name, size || 15, color) : '');
+}
+
+// عنوان قسم داخل النافذة
+function _pfSection(icon, title, color) {
+  const c = color || 'var(--gold,#C9A02B)';
+  return `<div style="display:flex;align-items:center;gap:7px;margin:16px 0 9px">
+    <span style="display:flex;color:${c}">${_pfIc(icon, 15)}</span>
+    <span style="font-size:11px;font-weight:900;color:${c};letter-spacing:.4px">${title}</span>
+    <span style="flex:1;height:1px;background:linear-gradient(90deg,var(--border2,#2a2a2a),transparent)"></span>
+  </div>`;
+}
+
+// حقل مُعنون بأيقونة — الأساس البصري لكل مدخلات النافذة
+function _pfField(icon, label, inputHtml) {
+  return `<div>
+    <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+      <span style="display:flex;color:var(--muted,#888);opacity:.9">${_pfIc(icon, 12)}</span>
+      <span style="font-size:10px;font-weight:700;color:var(--muted,#888)">${label}</span>
+    </div>
+    ${inputHtml}
+  </div>`;
+}
+
+const _PF_INPUT = `width:100%;box-sizing:border-box;padding:10px 12px;background:var(--dark,#111);
+  border:1px solid var(--border,#333);border-radius:10px;color:var(--text,#fff);
+  font-family:Tajawal,sans-serif;font-size:13px;outline:none;transition:border-color .15s`;
+
+// ══ فتح ملف اللاعب ══
 window.editRosterPlayer = function(teamId, playerId) {
-  const row = document.getElementById(`roster-row-${playerId}`);
-  if(!row) return;
+  const player = (rosterCache[teamId] || []).find(p => p && p.id === playerId);
+  if (!player) { showToast('لم يُعثر على اللاعب', 'error'); return; }
+  const team = (teams || []).find(t => t.id === teamId) || {};
 
-  const player = rosterCache[teamId]?.find(p => p.id === playerId);
-  if(!player) return;
+  document.getElementById('playerProfileOv')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'playerProfileOv';
+  ov.style.cssText = `position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.82);
+    display:flex;align-items:flex-end;justify-content:center;padding:0`;
 
-  row.innerHTML = `
-    <div style="display:flex;gap:6px;align-items:center;width:100%;flex-wrap:wrap">
-      <input type="number" id="edit-num-${playerId}" value="${player.number||''}" placeholder="#" min="1" max="99"
-        style="width:52px;padding:8px 4px;text-align:center;background:var(--dark,#111);
-               border:1px solid var(--gold,#C9A02B);border-radius:8px;color:var(--text,#fff);
-               font-family:Tajawal,sans-serif;font-size:13px;font-weight:700"/>
-      <input type="text" id="edit-name-${playerId}" value="${player.name||''}" placeholder="اسم اللاعب"
-        style="flex:1;min-width:130px;padding:8px 12px;background:var(--dark,#111);
-               border:1px solid var(--gold,#C9A02B);border-radius:8px;color:var(--text,#fff);
-               font-family:Tajawal,sans-serif;font-size:13px"/>
-      <select id="edit-pos-${playerId}"
-        style="padding:8px;background:var(--dark,#111);border:1px solid var(--border,#333);
-               border-radius:8px;color:var(--muted,#aaa);font-family:Tajawal,sans-serif;font-size:11px">
-        <option value="">مركز</option>
-        ${ROSTER_POSITIONS.map(p => `<option value="${p.key}" ${player.position===p.key?'selected':''}>${p.label}</option>`).join('')}
-      </select>
-      <button onclick="saveRosterEdit('${teamId}','${playerId}')"
-        style="padding:8px 14px;background:var(--gold,#C9A02B);color:#000;border:none;
-               border-radius:8px;font-family:Tajawal,sans-serif;font-size:12px;font-weight:700;cursor:pointer">
-        حفظ
-      </button>
-      <button onclick="cancelRosterEdit('${teamId}','${playerId}')"
-        style="padding:8px 10px;background:var(--card3,#2a2a2a);border:1px solid var(--border,#333);
-               border-radius:8px;color:var(--muted,#888);font-size:12px;cursor:pointer">
-        إلغاء
-      </button>
-    </div>
-    <!-- تفاصيل اختيارية (تظهر عند الضغط) -->
-    <div style="width:100%;margin-top:8px">
-      <button type="button" onclick="const d=document.getElementById('edit-more-${playerId}');d.style.display=d.style.display==='none'?'grid':'none'"
-        style="background:none;border:none;color:var(--gold,#C9A02B);font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer;padding:2px 0">
-        ⚙️ تفاصيل اختيارية (عمر، جنسية، طول، القدم...)
-      </button>
-      <div id="edit-more-${playerId}" style="display:none;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
-        <input type="number" id="edit-age-${playerId}" value="${player.age||''}" placeholder="العمر" min="5" max="60"
-          style="padding:8px;background:var(--dark,#111);border:1px solid var(--border,#333);border-radius:8px;color:var(--text,#fff);font-family:Tajawal,sans-serif;font-size:12px"/>
-        <input type="text" id="edit-nat-${playerId}" value="${player.nationality||''}" placeholder="الجنسية"
-          style="padding:8px;background:var(--dark,#111);border:1px solid var(--border,#333);border-radius:8px;color:var(--text,#fff);font-family:Tajawal,sans-serif;font-size:12px"/>
-        <input type="number" id="edit-hgt-${playerId}" value="${player.height||''}" placeholder="الطول (سم)" min="100" max="230"
-          style="padding:8px;background:var(--dark,#111);border:1px solid var(--border,#333);border-radius:8px;color:var(--text,#fff);font-family:Tajawal,sans-serif;font-size:12px"/>
-        <select id="edit-foot-${playerId}"
-          style="padding:8px;background:var(--dark,#111);border:1px solid var(--border,#333);border-radius:8px;color:var(--muted,#aaa);font-family:Tajawal,sans-serif;font-size:12px">
-          <option value="">القدم المفضّلة</option>
-          <option value="يمنى" ${player.foot==='يمنى'?'selected':''}>يمنى</option>
-          <option value="يسرى" ${player.foot==='يسرى'?'selected':''}>يسرى</option>
-          <option value="كلتاهما" ${player.foot==='كلتاهما'?'selected':''}>كلتاهما</option>
-        </select>
+  const st = ROSTER_STATUS[player.status || 'active'] || ROSTER_STATUS.active;
+  const posLabel = (ROSTER_POSITIONS.find(p => p.key === player.position) || {}).label || '';
+
+  // مجموعات المراكز — تسهّل الاختيار بدل قائمة مسطّحة من 15 خياراً
+  const posGroups = { GK:'حراسة', DEF:'دفاع', MID:'وسط', FWD:'هجوم' };
+  const posOptions = Object.keys(posGroups).map(g => {
+    const items = ROSTER_POSITIONS.filter(p => p.group === g);
+    return `<optgroup label="${posGroups[g]}">${items.map(p =>
+      `<option value="${p.key}" ${player.position === p.key ? 'selected' : ''}>${p.label}</option>`
+    ).join('')}</optgroup>`;
+  }).join('');
+
+  const avatarInner = player.photo
+    ? `<img id="pfPhotoImg" src="${player.photo}" alt="" style="width:100%;height:100%;object-fit:cover">`
+    : `<span id="pfPhotoImg" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;
+         color:var(--gold,#C9A02B);opacity:.55">${_pfIc('user', 34)}</span>`;
+
+  ov.innerHTML = `
+    <div style="width:100%;max-width:520px;max-height:94vh;display:flex;flex-direction:column;
+      background:var(--card,#161616);border:1px solid var(--border2,#2a2a2a);
+      border-radius:20px 20px 0 0;overflow:hidden;font-family:Tajawal,sans-serif">
+
+      <!-- ترويسة: الصورة + الاسم + الفريق -->
+      <div style="position:relative;flex-shrink:0;padding:18px 18px 14px;
+        background:linear-gradient(180deg,rgba(201,160,43,.10),transparent);
+        border-bottom:1px solid var(--border,#2a2a2a)">
+        <button onclick="closePlayerProfile()" title="إغلاق"
+          style="position:absolute;top:12px;left:14px;background:none;border:none;
+                 color:var(--muted,#888);cursor:pointer;padding:4px;display:flex">${_pfIc('close', 20)}</button>
+
+        <div style="display:flex;align-items:center;gap:14px">
+          <!-- الصورة + أزرارها -->
+          <div style="position:relative;flex-shrink:0">
+            <div id="pfAvatar" style="width:76px;height:76px;border-radius:50%;overflow:hidden;
+              background:var(--card2,#1e1e1e);border:2px solid var(--gold,#C9A02B);
+              box-shadow:0 4px 14px rgba(0,0,0,.45)">${avatarInner}</div>
+            <input type="file" accept="image/*" id="pfPhotoFile" style="display:none"
+              onchange="pfUploadPhoto('${teamId}','${playerId}', this)">
+            <button onclick="document.getElementById('pfPhotoFile').click()" title="${player.photo ? 'تغيير الصورة' : 'إضافة صورة'}"
+              style="position:absolute;bottom:-2px;right:-2px;width:28px;height:28px;border-radius:50%;
+                     background:var(--gold,#C9A02B);border:2px solid var(--card,#161616);color:#000;
+                     display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0">
+              ${_pfIc('camera', 14)}</button>
+            <button id="pfDelPhoto" onclick="pfRemovePhoto('${teamId}','${playerId}')" title="حذف الصورة"
+              style="position:absolute;bottom:-2px;left:-2px;width:26px;height:26px;border-radius:50%;
+                     background:#C0392B;border:2px solid var(--card,#161616);color:#fff;
+                     display:${player.photo ? 'flex' : 'none'};align-items:center;justify-content:center;
+                     cursor:pointer;padding:0">${_pfIc('trash', 12)}</button>
+          </div>
+
+          <div style="flex:1;min-width:0">
+            <div id="pfTitleName" style="font-size:17px;font-weight:900;color:var(--text,#fff);
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${player.name || '—'}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:var(--muted,#888)">
+                ${_pfIc('shield', 12)}${team.name || ''}</span>
+              ${player.number ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;
+                color:var(--gold,#C9A02B);font-weight:800">${_pfIc('shirt', 12)}${player.number}</span>` : ''}
+              ${posLabel ? `<span style="font-size:10px;color:var(--muted,#888)">· ${posLabel}</span>` : ''}
+              <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 8px;
+                border-radius:20px;background:${st.color}1f;color:${st.color};border:1px solid ${st.color}44">
+                ${st.label}</span>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  `;
-  document.getElementById(`edit-name-${playerId}`)?.focus();
+
+      <!-- جسم النافذة -->
+      <div style="flex:1;overflow-y:auto;padding:4px 18px 18px">
+
+        ${_pfSection('user', 'الهوية')}
+        <div style="display:grid;grid-template-columns:82px 1fr;gap:10px">
+          ${_pfField('shirt', 'الرقم', `<input type="number" id="pf-num" value="${player.number ?? ''}" min="1" max="99"
+             placeholder="—" style="${_PF_INPUT};text-align:center;font-weight:800">`)}
+          ${_pfField('user', 'اسم اللاعب', `<input type="text" id="pf-name" value="${(player.name||'').replace(/"/g,'&quot;')}"
+             placeholder="الاسم الكامل" style="${_PF_INPUT}">`)}
+        </div>
+
+        ${_pfSection('field', 'المركز والحالة')}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          ${_pfField('target', 'المركز', `<select id="pf-pos" style="${_PF_INPUT}">
+             <option value="">— غير محدّد —</option>${posOptions}</select>`)}
+          ${_pfField('info', 'الحالة', `<select id="pf-status" style="${_PF_INPUT}">
+             ${Object.entries(ROSTER_STATUS).map(([k,v]) =>
+               `<option value="${k}" ${(player.status||'active')===k?'selected':''}>${v.label}</option>`).join('')}
+             </select>`)}
+        </div>
+
+        ${_pfSection('ruler', 'المواصفات')}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          ${_pfField('cake', 'العمر', `<input type="number" id="pf-age" value="${player.age ?? ''}" min="5" max="60"
+             placeholder="بالسنوات" style="${_PF_INPUT}">`)}
+          ${_pfField('ruler', 'الطول (سم)', `<input type="number" id="pf-height" value="${player.height ?? ''}" min="100" max="230"
+             placeholder="مثال: 178" style="${_PF_INPUT}">`)}
+          ${_pfField('boots', 'القدم المفضّلة', `<select id="pf-foot" style="${_PF_INPUT}">
+             <option value="">— غير محدّد —</option>
+             <option value="يمنى"    ${player.foot==='يمنى'?'selected':''}>يمنى</option>
+             <option value="يسرى"    ${player.foot==='يسرى'?'selected':''}>يسرى</option>
+             <option value="كلتاهما" ${player.foot==='كلتاهما'?'selected':''}>كلتاهما</option>
+             </select>`)}
+          ${_pfField('globe', 'الجنسية', `<input type="text" id="pf-nat" value="${(player.nationality||'').replace(/"/g,'&quot;')}"
+             placeholder="مثال: سعودي" style="${_PF_INPUT}">`)}
+        </div>
+      </div>
+
+      <!-- أزرار الحفظ -->
+      <div style="flex-shrink:0;display:grid;grid-template-columns:1fr 2fr;gap:9px;
+        padding:13px 18px;border-top:1px solid var(--border,#2a2a2a);background:var(--card2,#1a1a1a)">
+        <button onclick="closePlayerProfile()"
+          style="padding:12px;border-radius:11px;border:1px solid var(--border,#333);background:transparent;
+                 color:var(--muted,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12.5px;cursor:pointer">
+          إلغاء</button>
+        <button onclick="savePlayerProfile('${teamId}','${playerId}')"
+          style="display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;border-radius:11px;
+                 border:none;background:var(--gold,#C9A02B);color:#000;font-family:Tajawal,sans-serif;
+                 font-weight:900;font-size:12.5px;cursor:pointer">
+          ${_pfIc('save', 15)} حفظ التعديلات</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(ov);
+  window.bindModalDismiss && window.bindModalDismiss(ov);
+  setTimeout(() => document.getElementById('pf-name')?.focus(), 80);
 };
 
-window.saveRosterEdit = async function(teamId, playerId) {
-  const num  = parseInt(document.getElementById(`edit-num-${playerId}`)?.value) || null;
-  const name = document.getElementById(`edit-name-${playerId}`)?.value.trim();
-  const pos  = document.getElementById(`edit-pos-${playerId}`)?.value || '';
+window.closePlayerProfile = function() {
+  document.getElementById('playerProfileOv')?.remove();
+};
 
-  if(!name) { showToast('أدخل اسم اللاعب', 'error'); return; }
+/* ── رفع صورة من داخل النافذة — يحدّث المعاينة فوراً بلا إغلاقها ──
+   نمرّر عنصر إدخال مؤقّتاً لدالة الرفع الأصلية كي لا نكرّر منطق
+   الضغط/الرفع/حذف القديمة (مصدر واحد للحقيقة). */
+window.pfUploadPhoto = async function(teamId, playerId, input) {
+  await window.uploadRosterPhoto(teamId, playerId, input);
+  setTimeout(() => _pfSyncPhoto(teamId, playerId), 400);
+};
 
-  // تفاصيل اختيارية (تُحفظ فقط إن مُلئت — وإلا تبقى فارغة)
-  const _age  = parseInt(document.getElementById(`edit-age-${playerId}`)?.value) || null;
-  const _nat  = document.getElementById(`edit-nat-${playerId}`)?.value.trim() || '';
-  const _hgt  = parseInt(document.getElementById(`edit-hgt-${playerId}`)?.value) || null;
-  const _foot = document.getElementById(`edit-foot-${playerId}`)?.value || '';
+window.pfRemovePhoto = async function(teamId, playerId) {
+  await window.removeRosterPhoto(teamId, playerId);
+  setTimeout(() => _pfSyncPhoto(teamId, playerId), 400);
+};
 
-  // الاسم القديم (قبل التعديل) — لنربط الأحداث القديمة بهوية اللاعب
-  const _oldPlayer = (rosterCache[teamId] || []).find(p => p && p.id === playerId);
-  const _oldName = _oldPlayer ? _oldPlayer.name : '';
+// يزامن معاينة الصورة داخل النافذة مع الكشف بعد أي تغيير
+function _pfSyncPhoto(teamId, playerId) {
+  const av = document.getElementById('pfAvatar');
+  if (!av) return;                                  // النافذة أُغلقت
+  const p = (rosterCache[teamId] || []).find(x => x && x.id === playerId) || {};
+  av.innerHTML = p.photo
+    ? `<img src="${p.photo}" alt="" style="width:100%;height:100%;object-fit:cover">`
+    : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;
+         color:var(--gold,#C9A02B);opacity:.55">${_pfIc('user', 34)}</span>`;
+  const del = document.getElementById('pfDelPhoto');
+  if (del) del.style.display = p.photo ? 'flex' : 'none';
+}
+
+// ══ حفظ ملف اللاعب ══
+window.savePlayerProfile = async function(teamId, playerId) {
+  const _v  = id => (document.getElementById(id)?.value || '').trim();
+  const _n  = id => { const v = parseInt(document.getElementById(id)?.value); return isNaN(v) ? null : v; };
+  const name = _v('pf-name');
+  if (!name) { showToast('أدخل اسم اللاعب', 'error'); document.getElementById('pf-name')?.focus(); return; }
+
+  const height = _n('pf-height');
+  if (height != null && (height < 100 || height > 230)) { showToast('الطول يجب أن يكون بين 100 و 230 سم', 'error'); return; }
+  const age = _n('pf-age');
+  if (age != null && (age < 5 || age > 60)) { showToast('العمر يجب أن يكون بين 5 و 60 سنة', 'error'); return; }
+
+  // الاسم القديم (قبل التعديل) — لربط الأحداث القديمة بهوية اللاعب
+  const _old = (rosterCache[teamId] || []).find(p => p && p.id === playerId);
+  const _oldName = _old ? _old.name : '';
 
   try {
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster', playerId), {
-      number: num, name, position: pos,
-      age: _age, nationality: _nat, height: _hgt, foot: _foot,
+      number: _n('pf-num'),
+      name,
+      position: _v('pf-pos'),
+      status: _v('pf-status') || 'active',
+      age,
+      nationality: _v('pf-nat'),
+      height,
+      foot: _v('pf-foot'),
       updatedAt: serverTimestamp()
     });
+    window.closePlayerProfile();
     showToast('✅︎ تم تحديث بيانات اللاعب', 'success');
-    try { await _relinkPlayerEvents(teamId, playerId, _oldName, name); } catch(e) {}
-  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+    try { await _relinkPlayerEvents(teamId, playerId, _oldName, name); } catch (e) {}
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
+/* ── توافق خلفي: أي كود قديم ينادي saveRosterEdit/cancelRosterEdit ──
+   (زر الحفظ داخل الصف لم يعد موجوداً، لكن نُبقي الدالتين كي لا ينكسر
+   أي مسار قديم يستدعيهما — أهمّها scorerEditPlayer من جدول الهدّافين) */
+window.saveRosterEdit = function(teamId, playerId) {
+  return window.savePlayerProfile(teamId, playerId);
 };
 
 // يربط أحداث المباريات القديمة (أهداف/بطاقات/تبديلات) التي تطابق الاسم
@@ -12734,7 +13008,7 @@ window.importRosterToLineup = function(teamId) {
     ov.id = 'qrGoalOv';
     ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:18px';
     ov.innerHTML = `
-      <div style="width:100%;max-width:330px;background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
+      <div style="width:100%;max-width:330px;max-height:88vh;overflow-y:auto;background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
         <div style="font-size:15px;font-weight:900;color:#C9A02B;text-align:center">⚽ تسجيل هدف</div>
         <div style="font-size:11px;color:#888;text-align:center;margin-bottom:12px">${t.name}</div>
         <div style="font-size:10px;color:#888;margin-bottom:5px">اسم اللاعب</div>
@@ -12897,7 +13171,7 @@ window.importRosterToLineup = function(teamId) {
     ov.id = 'qrCardOv';
     ov.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:18px';
     ov.innerHTML = `
-      <div style="width:100%;max-width:330px;background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
+      <div style="width:100%;max-width:330px;max-height:88vh;overflow-y:auto;background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
         <div style="font-size:15px;font-weight:900;color:${color};text-align:center">${icon} ${label}</div>
         <div style="font-size:11px;color:#888;text-align:center;margin-bottom:12px">${t.name}</div>
         <div style="font-size:10px;color:#888;margin-bottom:5px">اسم اللاعب</div>

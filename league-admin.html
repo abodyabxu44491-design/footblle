@@ -291,6 +291,8 @@ if('serviceWorker' in navigator) {
           <div class="page-title"><span class="pt-ic" data-ic="chart"></span>لوحة التحكم</div>
           <div class="page-sub">نظرة عامة على الدوري</div>
         </div>
+        <!-- شريط صحة البطولة — يكشف الأخطاء قبل أن تفسد الترتيب -->
+        <div id="hcBar" style="display:none"></div>
         <div class="viewer-link-bar">
           <div><div class="vlb-label">🌐 رابط الجمهور</div><div class="vlb-url" id="viewerLinkDisplay">league-viewer.html?id=...</div></div>
           <div class="vlb-actions">
@@ -367,6 +369,8 @@ if('serviceWorker' in navigator) {
             <button class="btn btn-gold" onclick="shareStandings()">📤 مشاركة</button>
           </div>
         </div>
+        <!-- لوحة تحديد متأهلي الإقصاء — تظهر في «الدوري الموحّد» فقط -->
+        <div id="swissQualifyPanel" style="display:none"></div>
         <div class="card"><div id="fullStandings"><div class="spin"></div></div></div>
         <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center" id="zoneLegend"></div>
       </div>

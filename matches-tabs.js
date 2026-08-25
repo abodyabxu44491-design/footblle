@@ -30,6 +30,28 @@
     return (window.matches || []);
   }
 
+  /* ── دور المواجهة (ذهاب/إياب) ──
+     نقرأ عبر _legOf الموحّد لأن المنصة كتبت الحقل باسمين: `leg` في
+     الدوري/المجموعات و`legNo` في الإقصاء. */
+  function legOf(m) {
+    if (typeof window._legOf === 'function') return window._legOf(m);
+    var v = (m && m.legNo != null) ? m.legNo : (m && m.leg);
+    var n = parseInt(v, 10);
+    return (n === 1 || n === 2) ? n : 0;
+  }
+  /* هل تحتوي هذه القائمة على ذهاب **وإياب** معاً؟ عندها فقط يظهر
+     المبدّل — لا معنى لزرّي تنقل والبطولة ذهاب فقط. */
+  function hasBothLegs(list) {
+    var a = false, b = false;
+    for (var i = 0; i < list.length; i++) {
+      var L = legOf(list[i]);
+      if (L === 1) a = true; else if (L === 2) b = true;
+      if (a && b) return true;
+    }
+    return false;
+  }
+  var LEG_KEY = '_mtLeg';        // 0 = الكل · 1 = ذهاب · 2 = إياب
+
   /* ── التبويبات المتاحة فعلياً حسب البيانات ── */
   function availableTabs() {
     var list = pub();
@@ -60,6 +82,11 @@
     render();
   };
 
+  window.mtSwitchLeg = function (leg) {
+    window[LEG_KEY] = leg;
+    render();
+  };
+
   /* ── رسم شريط التبويبات + القائمة ── */
   function render() {
     var host = document.getElementById('matchesList');
@@ -86,6 +113,22 @@
 
     var list = filterFor(active);
 
+    /* ── مبدّل الذهاب/الإياب ──
+       يظهر فقط إذا كان التبويب الحالي يحوي الدورين معاً. الفلترة تُطبَّق
+       بعد تحديد التبويب مباشرة كي يبقى العدّ في العناوين صحيحاً. */
+    var legBar = '';
+    if (hasBothLegs(list)) {
+      var curLeg = window[LEG_KEY] || 0;
+      var LEGS = [{ v: 0, t: 'الكل' }, { v: 1, t: 'الذهاب' }, { v: 2, t: 'الإياب' }];
+      legBar = '<div class="mt-legs">' + LEGS.map(function (L) {
+        return '<button class="mt-leg' + (L.v === curLeg ? ' on' : '') +
+               '" onclick="mtSwitchLeg(' + L.v + ')">' + L.t + '</button>';
+      }).join('') + '</div>';
+      if (curLeg) list = list.filter(function (m) { return legOf(m) === curLeg; });
+    } else if (window[LEG_KEY]) {
+      window[LEG_KEY] = 0;      // لا دورين هنا — صفّر الاختيار كي لا يفرغ التبويب
+    }
+
     // بحث حي (لو كان مفعّلاً في viewer)
     var q = window.searchQuery || '';
     if (q) {
@@ -109,7 +152,7 @@
       body = groupAndRender(list, active);
     }
 
-    host.innerHTML = bar + '<div class="mt-body">' + body + '</div>';
+    host.innerHTML = bar + legBar + '<div class="mt-body">' + body + '</div>';
 
     // شغّل عدّادات المباريات المباشرة
     list.filter(function (m) { return m.status === 'live'; })
@@ -146,7 +189,11 @@
         key = DG.label(m.date);
         sk  = DG.sortKey(m.date);
       } else {
-        key = (m.round || 0) > 0 ? 'الجولة ' + m.round : 'مباريات';
+        /* عند عرض الدورين معاً نُلحق «ذهاب/إياب» بعنوان الجولة، وإلا
+           ظهرت «الجولة ٣» مرتين بلا ما يميّزهما. */
+        var _lg = legOf(m);
+        var _lgTxt = (!window[LEG_KEY] && _lg) ? ' · ' + (_lg === 1 ? 'ذهاب' : 'إياب') : '';
+        key = (m.round || 0) > 0 ? 'الجولة ' + m.round + _lgTxt : 'مباريات';
         sk  = m.round || 0;
       }
       if (!buckets[key]) { buckets[key] = []; meta[key] = { sk: sk, d: m.date }; }

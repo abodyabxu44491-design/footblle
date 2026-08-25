@@ -455,7 +455,10 @@
 
         function _hideStandingsElements() {
           const type = window.tournamentType || window.settings?.type || 'league';
-          if (type === 'league') return; // لا تخفي في الدوري العادي
+          /* 🔴 كان الشرط `type === 'league'` فقط — فيسقط **الدوري الموحّد
+             (swiss)** في فخّ الإخفاء رغم أن جوهره جدول ترتيب واحد.
+             الترتيب يخصّ نظامَي «الدوري» و«الدوري الموحّد» معاً. */
+          if (type === 'league' || type === 'swiss') return;
 
           // إخفاء tab-standings الكامل
           const tabStandings = document.getElementById('tab-standings');
@@ -498,9 +501,11 @@
         if (typeof _origRenderStandings === 'function') {
           window.renderStandings = function() {
             const type = window.tournamentType || window.settings?.type || 'league';
-            if (type !== 'league') {
+            /* 🔴 كان `type !== 'league'` يمنع كتابة الجدول في الدوري الموحّد
+               أيضاً — وهو السبب المباشر لاختفاء الترتيب عند الجمهور. */
+            if (type !== 'league' && type !== 'swiss') {
               _hideStandingsElements();
-              return; // لا تكتب جدول الترتيب
+              return; // لا تكتب جدول الترتيب (مجموعات/إقصاء فقط)
             }
             return _origRenderStandings();
           };
@@ -541,6 +546,7 @@
         if (typeof _origRenderStandings === 'function') {
           window.renderStandings = function() {
             const type = window.settings?.type || 'league';
+            // (الدوري الموحّد ليس ضمنها — له جدول ترتيب كامل)
             if (type === 'groups' || type === 'knockout') {
               // ✅ القسم محذوف خارج نظام الدوري — لا تنبيه ولا ملخص مكانه
               const d1 = document.getElementById('dashStandings');

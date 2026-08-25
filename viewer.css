@@ -217,27 +217,95 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .tp-tab{flex:1;padding:13px 6px;background:none;border:none;border-bottom:2px solid transparent;color:var(--t3);font-size:12.5px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:color .15s,border-color .15s}
 .tp-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
 .tp-tab:active{opacity:.7}
-.std-wrap{background:var(--s1);border-radius:16px;overflow:hidden;border:1px solid var(--b1)}
-.std-head{display:flex;align-items:center;padding:11px 14px;font-size:10px;font-weight:800;color:var(--t3);border-bottom:1px solid var(--b1);background:rgba(255,255,255,.02);letter-spacing:.3px}
-.std-h-pos{flex:0 0 42px;text-align:center}
-.std-h-team{flex:1;text-align:right;padding-inline-start:10px}
-.std-h-num{flex:0 0 28px;text-align:center}
-.std-h-pts{flex:0 0 44px;text-align:center;color:var(--gold)}
+/* ═══════════════════════════════════════════════════════
+   جدول الترتيب — شبكة واحدة للرأس والصفوف
+   ───────────────────────────────────────────────────────
+   الرأس والصفوف كانا flex مستقلَّين بعروض مكتوبة يدوياً في
+   موضعين، فأي تعديل في أحدهما يكسر محاذاة الآخر. الآن كلاهما
+   يرث **نفس grid-template-columns** من الحاوية — فيستحيل
+   اختلال المحاذاة مهما تغيّرت الأعمدة أو عرض الشاشة.
+   الترتيب في RTL من اليمين: المركز · الشعار · الفريق · الأرقام · النقاط
+═══════════════════════════════════════════════════════ */
+.std-wrap{
+  --std-cols: 34px 30px minmax(0,1fr) 26px 26px 26px 26px 34px 42px;
+  background:var(--s1); border-radius:16px; overflow:hidden; border:1px solid var(--b1);
+}
+.std-head, .std-row{
+  display:grid; grid-template-columns:var(--std-cols);
+  align-items:center; gap:6px; padding:0 12px 0 10px;
+}
+.std-head{
+  height:38px; font-size:10px; font-weight:800; color:var(--t3);
+  border-bottom:1px solid var(--b1); background:rgba(255,255,255,.025); letter-spacing:.2px;
+}
 .std-body{display:flex;flex-direction:column}
-.std-row{display:flex;align-items:center;padding:11px 14px;border-bottom:1px solid var(--b1);cursor:pointer;transition:background .15s}
+.std-row{
+  position:relative; height:52px; border-bottom:1px solid var(--b1);
+  cursor:pointer; transition:background .15s;
+}
 .std-row:last-child{border-bottom:0}
-.std-row:hover{background:rgba(255,255,255,.02)}
-.std-row:active{background:rgba(255,255,255,.04)}
-.std-pos{flex:0 0 42px;display:flex;align-items:center;gap:8px}
-.std-zone-bar{width:3px;height:30px;border-radius:3px;flex:0 0 auto}
-.std-pos-num{flex:1;text-align:center;font-size:13px;font-weight:800;color:var(--t2);font-variant-numeric:tabular-nums}
-.std-team{flex:1;display:flex;align-items:center;gap:11px;min-width:0;padding-inline-start:8px}
-.std-logo{flex:0 0 auto;display:flex;width:28px;height:28px;align-items:center;justify-content:center;background:var(--s3);border-radius:8px;overflow:hidden}
-.std-name{font-size:13.5px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.std-num{flex:0 0 28px;text-align:center;font-size:13px;color:var(--t2);font-variant-numeric:tabular-nums}
-.std-pts{flex:0 0 44px;text-align:center;font-size:17px;font-weight:900;color:var(--gold);font-family:'Tajawal',sans-serif;font-variant-numeric:tabular-nums}
-.std-row.std-first{background:linear-gradient(90deg,rgba(201,160,43,.06),transparent 60%)}
+.std-row:active{background:rgba(255,255,255,.045)}
+
+/* المركز + شريط المنطقة ──
+   الشريط كان span مطلقاً داخل خليّة المركز، وهي تنكمش لارتفاع نصّها
+   فيصير `top/bottom` سالباً و**ارتفاع الشريط صفراً** فلا يظهر إطلاقاً.
+   صار ::before على الصف نفسه، ولونه يصل عبر متغيّر --zc. */
+.std-h-pos, .std-pos{ text-align:center }
+.std-pos{ font-size:13.5px; font-weight:800; color:var(--t2);
+  font-variant-numeric:tabular-nums; display:flex; align-items:center; justify-content:center }
+.std-row::before{
+  /* inset-inline-**start** = الحافة اليمنى في RTL — بجانب رقم المركز
+     تماماً كالتطبيقات الرسمية، لا في الطرف المقابل. */
+  content:''; position:absolute; inset-inline-start:0; top:10px; bottom:10px;
+  width:3.5px; border-radius:0 3px 3px 0; background:var(--zc, transparent);
+}
+.std-pos-num{font-variant-numeric:tabular-nums}
+
+/* الشعار عمود مستقل — فيصطفّ رأسياً في كل الصفوف مهما طال الاسم */
+.std-logo{
+  width:30px; height:30px; display:flex; align-items:center; justify-content:center;
+  background:var(--s3); border-radius:8px; overflow:hidden;
+}
+.std-logo img{width:30px;height:30px;object-fit:cover;border-radius:8px}
+
+.std-h-team{text-align:right}
+.std-team{min-width:0; text-align:right}
+.std-name{
+  font-size:13.5px; font-weight:700; color:var(--t1);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;
+}
+
+/* أعمدة الأرقام — أرقام جدولية فتتطابق أعمدتها بصرياً */
+.std-h-num, .std-num{ text-align:center; font-variant-numeric:tabular-nums }
+.std-num{ font-size:13px; color:var(--t2) }
+.std-h-gd, .std-gd{ text-align:center; font-variant-numeric:tabular-nums }
+.std-gd{ font-size:12.5px; font-weight:700 }
+
+/* النقاط — العمود الحاسم، مميّز بخلفية وفاصل */
+.std-h-pts, .std-pts{ text-align:center }
+.std-h-pts{ color:var(--gold) }
+.std-pts{
+  font-size:17px; font-weight:900; color:var(--gold);
+  font-variant-numeric:tabular-nums; line-height:1;
+}
+.std-head > .std-h-pts, .std-row > .std-pts{
+  border-inline-start:1px solid var(--b1);
+  padding-inline-start:6px; margin-inline-start:2px;
+}
+
+/* المتصدّر */
+.std-row.std-first{background:linear-gradient(270deg,rgba(201,160,43,.07),transparent 55%)}
 .std-row.std-first .std-name{color:var(--gold2)}
+
+/* شاشات ضيقة: تُخفى ف/ت/خ ويبقى الجوهر (لعب · الفارق · النقاط) */
+@media (max-width:380px){
+  .std-wrap{ --std-cols: 30px 28px minmax(0,1fr) 24px 32px 40px }
+  .std-hide-sm{display:none}
+  .std-name{font-size:12.5px}
+  /* الشعار يتبع عرض عموده — وإلا فاض 2px وأزاح محاذاة الرأس عن الصف */
+  .std-logo, .std-logo img{width:28px;height:28px}
+}
+
 @media (max-width:380px){
   .std-hide-sm{display:none}
   .std-head,.std-row{padding-inline:11px}
@@ -423,20 +491,36 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* شبكة مباريات الدور — تلتفّ عمودياً فلا تمرير عرضي إطلاقاً */
 .btm-grid{
+  /* فجوة رأسية أوسع (26px) لتتّسع لقوس وصل الأزواج بين الصفوف */
   display:grid;grid-template-columns:repeat(auto-fit,var(--btm-w));
-  justify-content:center;gap:10px;
+  justify-content:center;gap:26px 10px;position:relative;
 }
+/* البطاقات فوق طبقة الخطوط دائماً */
+.btm-grid .bt-match{position:relative;z-index:1}
 .btm-round{margin:0}
 
 /* النهائي — القلب: إطار ذهبي وهالة تميّزه بلا تكبير مقاسه */
-.btm-final-round{
-  margin:4px auto;padding:16px 12px;border-radius:18px;
-  background:linear-gradient(180deg,rgba(201,160,43,.10),rgba(201,160,43,.02));
-  border:1px solid rgba(201,160,43,.30);
-}
+/* ── النهائي: بلا لوح خلفي ──
+   الصندوق الذهبي خلف النهائي كان يضيف كتلة لونية ثقيلة تكسر انتظام
+   الشجرة ويجعل القسم يبدو «ملصوقاً» فوق الباقي. التمييز الآن يأتي من
+   البطاقة نفسها (إطار ذهبي + هالة) لا من خلفية وراءها — أسلوب أرصن
+   وأقرب للمنصات الرسمية. */
+.btm-final-round{ margin:2px auto; padding:0; background:none; border:0 }
 .btm-label-final{
   font-size:13px;padding:8px 26px;border-width:1.5px;border-color:var(--gold);
-  box-shadow:0 0 20px rgba(201,160,43,.18);
+  letter-spacing:1px;
+}
+/* شارة النهائي بمعيّنين جانبيين — تمييز رسمي بلا كتلة لونية */
+.btm-label-final::before,.btm-label-final::after{
+  content:'';position:absolute;top:50%;width:5px;height:5px;
+  background:var(--gold);transform:translateY(-50%) rotate(45deg);
+}
+.btm-label-final::before{right:100%;margin-right:12px}
+.btm-label-final::after{left:100%;margin-left:12px}
+/* بطاقة النهائي وحدها هي ما يحمل التمييز */
+.btm-grid-final .bt-match{
+  border-color:var(--gold);border-width:1.5px;
+  box-shadow:0 0 0 3px rgba(201,160,43,.10),0 6px 20px rgba(0,0,0,.42);
 }
 
 /* سهم التدفّق بين الأدوار — يتّجه دائماً نحو النهائي في المنتصف */
@@ -2621,7 +2705,7 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 /* صف شارة التوقّع — يمتد عبر أعمدة البطاقة الثلاثة */
 .mc2-pred{grid-column:1 / -1;display:flex;justify-content:center;margin-top:2px}
 
-.mc2-round{grid-column:1/-1;text-align:center;margin-bottom:var(--sp1)}
+.mc2-round{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin-bottom:var(--sp1)}
 .mc2-rb{
   font-size:9px;font-weight:700;color:var(--t3);
   background:var(--s2);border:1px solid var(--b1);
@@ -2973,6 +3057,40 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
   background:var(--gold,#C9A02B); border-color:var(--gold,#C9A02B);
   color:#12131a; box-shadow:0 2px 10px rgba(201,160,43,.28);
 }
+/* ── مبدّل الذهاب/الإياب — شريط ثانوي أدقّ من تبويبات القسم ──
+   يظهر فقط عند وجود الدورين معاً، ويلتصق تحت شريط التبويبات. */
+.mt-legs{
+  display:flex; gap:6px; padding:8px 12px;
+  position:sticky; top:52px; z-index:19;
+  background:var(--bg); border-bottom:1px solid var(--b1);
+}
+.mt-leg{
+  flex:1 1 0; padding:7px 10px; border-radius:8px; cursor:pointer;
+  background:transparent; border:1px solid var(--b2);
+  color:var(--t3); font-family:'Tajawal',sans-serif;
+  font-size:11px; font-weight:800; white-space:nowrap;
+  transition:background .18s, color .18s, border-color .18s, transform .12s;
+}
+.mt-leg:active{transform:scale(.97)}
+.mt-leg.on{
+  background:rgba(201,160,43,.12); border-color:rgba(201,160,43,.55);
+  color:var(--gold,#C9A02B);
+}
+/* عناوين الجولات تنزل بارتفاع المبدّل كي لا تختفي خلفه */
+.mt-legs ~ .mt-body .mt-group{ top:96px }
+
+/* شارة الدور على بطاقة المباراة */
+.mc-leg{
+  display:inline-flex; align-items:center; gap:3px;
+  font-size:9px; font-weight:800; letter-spacing:.3px;
+  padding:2px 7px; border-radius:20px; white-space:nowrap;
+  background:rgba(201,160,43,.10); border:1px solid rgba(201,160,43,.28);
+  color:var(--gold,#C9A02B);
+}
+.mc-leg-2{
+  background:rgba(90,140,200,.10); border-color:rgba(90,140,200,.30); color:#7FA9DC;
+}
+
 .mt-group{
   font-size:11px; font-weight:800; color:var(--t3);
   padding:12px 14px 6px; background:var(--bg);

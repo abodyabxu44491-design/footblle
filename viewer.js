@@ -253,6 +253,36 @@ window.settings = settings;
 let matchFilter   = 'all';
 let searchQuery   = '';
 let countdownInterval = null;
+/* ════════════════════════════════════════════════════════════════════
+ *  أنظمة البطولات الأربعة ومَن يملك ماذا — مرجع واحد لكل الفروع
+ *   league   دوري نقاط        → ترتيب ✔  مجموعات ✘  شجرة ✘
+ *   groups   مجموعات + إقصاء  → ترتيب ✘  مجموعات ✔  شجرة ✔
+ *   knockout إقصاء مباشر      → ترتيب ✘  مجموعات ✘  شجرة ✔
+ *   swiss    دوري موحّد        → ترتيب ✔  مجموعات ✘  شجرة ✔
+ *  الدوري الموحّد يجمع الاثنين، ولهذا كان يسقط من الفروع المكتوبة يدوياً.
+ * ════════════════════════════════════════════════════════════════════ */
+/* ── قارئ موحّد لدور المواجهة (ذهاب/إياب) ──
+   المنصة كتبت الحقل باسمين مختلفين تاريخياً: `leg` في مباريات الدوري
+   والمجموعات، و`legNo` في مباريات الإقصاء — والجمهور كان يقرأ `legNo`
+   وحده، فمباريات ذهاب/إياب الدوري والمجموعات **لا تُوسَم إطلاقاً**.
+   هذا القارئ يقبل الاثنين فلا تضيع أي مباراة أياً كان مصدرها. */
+function _legOf(m) {
+  if (!m) return 0;
+  const v = (m.legNo != null) ? m.legNo : m.leg;
+  const n = parseInt(v, 10);
+  return (n === 1 || n === 2) ? n : 0;
+}
+window._legOf = _legOf;
+const _legLabel = n => n === 1 ? 'ذهاب' : n === 2 ? 'إياب' : '';
+window._legLabel = _legLabel;
+
+const _HAS_BRACKET   = t => t === 'knockout' || t === 'groups' || t === 'swiss';
+const _HAS_STANDINGS = t => t === 'league'   || t === 'swiss';
+const _HAS_GROUPS    = t => t === 'groups';
+window._HAS_BRACKET = _HAS_BRACKET;
+window._HAS_STANDINGS = _HAS_STANDINGS;
+window._HAS_GROUPS = _HAS_GROUPS;
+
 let tournamentType = 'league';
 
 // متتبّع الأهداف — يعمل per-match الآن
@@ -478,7 +508,10 @@ async function init() {
 
   onSnapshot(collection(db,'leagues',LEAGUE_ID,'knockoutRounds'), snap => {
     knockoutRounds = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));
-    if(tournamentType==='knockout'||tournamentType==='groups') window.renderAll();
+    /* 🔴 كان يستثني swiss — فتصل بيانات الشجرة ولا يُعاد الرسم أبداً،
+       فتبقى شجرة الدوري الموحّد فارغة أو عالقة على «جارِ التحميل».
+       الشجرة موجودة في ثلاثة أنظمة: إقصاء · مجموعات · دوري موحّد. */
+    if(tournamentType==='knockout'||tournamentType==='groups'||tournamentType==='swiss') window.renderAll();
   }, ()=>{});
 
   // ✅︎ البث الجديد: يُقرأ من matches/{matchId}.liveData — لا يحتاج onSnapshot مستقل
@@ -1264,10 +1297,15 @@ window.closePlayerModal = function() {
 // ════════════════════════════════════════
 //  GROUPS
 // ════════════════════════════════════════
-function computeGroupStats(teamIds) {
+function computeGroupStats(teamIds, groupId) {
   const stats={};
   teamIds.forEach(id=>{ stats[id]={pts:0,p:0,w:0,d:0,l:0,gf:0,ga:0}; });
-  matches.filter(m=>m.status==='finished').forEach(m=>{
+  /* 🔴 كان يحتسب أي مباراة منتهية بين فريقين من المجموعة — بما فيها
+     **مباريات الإقصاء**. فريقان من نفس المجموعة يلتقيان لاحقاً في ربع
+     النهائي فتُضاف نتيجتهما لجدول المجموعة وتفسده. نستبعد الإقصاء،
+     ونحصر بـ groupId حين يكون مسجّلاً على المباراة (أدقّ من العضوية). */
+  matches.filter(m=>m.status==='finished' && !m.isKnockout && !m.knockoutRoundId
+                    && (!groupId || !m.groupId || m.groupId===groupId)).forEach(m=>{
     if(teamIds.includes(m.homeId)&&teamIds.includes(m.awayId)) {
       const h=stats[m.homeId], a=stats[m.awayId];
       if(!h||!a) return;
@@ -2872,7 +2910,7 @@ function renderGroupsStandings() {
   if(!groups.length) { el.innerHTML='<div class="empty-state"><span class="empty-icon">👥</span><div>لا توجد مجموعات</div></div>'; return; }
   el.innerHTML=groups.map(g=>{
     const gTeams=(g.teamIds||[]).map(id=>teams.find(t=>t.id===id)).filter(Boolean);
-    const gs=computeGroupStats(g.teamIds||[]);
+    const gs=computeGroupStats(g.teamIds||[], g.id);
     const sorted=gTeams.sort((a,b)=>{const sa=gs[a.id]||{},sb=gs[b.id]||{};if((sb.pts||0)!==(sa.pts||0))return(sb.pts||0)-(sa.pts||0);const fa={...a,...sa},fb={...b,...sb};return applyTiebreak(fa,fb,matches);});
     const qCount=g.qualify||2;
     const manualQ=new Set(g.qualifiedTeamIds||[]);
@@ -2884,7 +2922,13 @@ function renderGroupsStandings() {
     window._shGroupsData = window._shGroupsData || {};
     window._shGroupsData[g.id] = { name: g.name, icon: g.icon, sorted, gs, qCount, manualQ, manualE, showBadges };
 
-    const groupMatches=matches.filter(m=>gTeams.some(t=>t.id===m.homeId)&&gTeams.some(t=>t.id===m.awayId));
+    /* 🔴 كان يطابق بعضوية الفريقين فقط — فأي مباراة إقصاء بين فريقين من
+       نفس المجموعة تُحسب ضمن «مباريات المجموعة». نستبعد الإقصاء صراحةً،
+       ونفضّل المطابقة بـ groupId حين يكون موجوداً (أدقّ من العضوية). */
+    const groupMatches=matches.filter(m=>
+      !m.isKnockout && !m.knockoutRoundId &&
+      (m.groupId ? m.groupId===g.id
+                 : (gTeams.some(t=>t.id===m.homeId)&&gTeams.some(t=>t.id===m.awayId))));
     const gmHtml=groupMatches.length?`
       <div class="group-matches-toggle" onclick="toggleGroupMatches(this,'${g.id}')">
         <span>⚽ مباريات المجموعة (${groupMatches.length})</span><span class="gmt-arrow">▼</span>
@@ -3057,6 +3101,7 @@ function renderKnockoutBracket() {
          التدرّج نحو المنتصف تُظهره الأسهم بين الأدوار، فلا شيء يُرسم فوق
          البطاقات ولا يحتاج إعادة حساب عند تغيّر المقاس أو التمرير. */
       el.innerHTML = buildVerticalBracketHTML(resolvedRounds, thirdRound);
+      _btmDrawJoiners(el);
     } else {
       el.innerHTML = buildLinearBracketHTML(resolvedRounds, thirdRound);
     }
@@ -3274,9 +3319,28 @@ async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, tbdText){
       ctx.restore();
     }
 
-    // شعار الفريق — دائري كبير، أو الدرع الافتراضي عند غيابه
-    const logoImg = rw.team.logo ? await _shLoadImg(rw.team.logo) : null;
-    if (!logoImg) {
+    /* ── شعار الفريق ──
+       الشعار قد يكون رابطاً أو **إيموجي**: صفحة الجمهور تدعم الاثنين
+       (logoHtml ترسم الإيموجي كنص)، بينما الكانفاس كان يحاول تحميله
+       كصورة فقط — فأي بطولة تستخدم شعارات إيموجي كانت تخرج في صورة
+       المشاركة بدروع فارغة بينما الموقع يعرض شعاراتها. */
+    const _lg = rw.team.logo || '';
+    const _isUrl = /^(data:|https?:|\/)/.test(_lg);
+    const logoImg = (_lg && _isUrl) ? await _shLoadImg(_lg) : null;
+    if (!logoImg && _lg && !_isUrl) {
+      // إيموجي — يُرسم نصاً داخل القرص بنفس مقاس الشعار
+      ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2);
+      ctx.fillStyle = '#0a0b0d'; ctx.fill();
+      ctx.strokeStyle = rw.lose ? '#333A40' : rw.win ? _SH_GOLD : '#5A6470';
+      ctx.lineWidth = rw.win ? 1.8 : 1.3; ctx.stroke();
+      ctx.save();
+      if (rw.lose) ctx.globalAlpha = 0.5;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font = Math.round(logoR*1.35) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",Tajawal,Arial';
+      ctx.fillText(_lg, logoCX, cy + 1);
+      ctx.restore();
+      ctx.textBaseline='alphabetic';
+    } else if (!logoImg) {
       _crestPlaceholder(cy, false);
     } else {
       ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2);
@@ -3332,7 +3396,7 @@ async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, tbdText){
 //    المباريات في شبكة عمودية بعمودين، والأسهم تتّجه نحو النهائي من الجهتين.
 async function _shGenBracketTreeCanvas(rounds, thirdRound){
   const COL = 2;                                  // عمودان — مطابق للشبكة على الجوال
-  const BOX_W = 420, BOX_H = 132, GAP_X = 26, GAP_Y = 22;
+  const BOX_W = 420, BOX_H = 132, GAP_X = 26, GAP_Y = 40;  // GAP_Y يتّسع لقوس الوصل
   const SIDE = 46, LABEL_H = 74, FLOW_H = 54, HEADER_H = 280;
   const W = SIDE*2 + COL*BOX_W + (COL-1)*GAP_X;   // 46*2 + 840 + 26 = 958 → نوسّعها لـ1080
 
@@ -3388,16 +3452,9 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
   for (let si = 0; si < sections.length; si++) {
     const sec = sections[si];
 
-    // إطار النهائي — يميّز القلب بلا تكبير مقاس بطاقته
-    if (sec.isFinal) {
-      const fh = LABEL_H + BOX_H + 210 - 16;
-      const fx = originX - 20, fw = COL*BOX_W + (COL-1)*GAP_X + 40;
-      const g = ctx.createLinearGradient(0, y-10, 0, y-10+fh);
-      g.addColorStop(0,'rgba(201,160,43,.10)'); g.addColorStop(1,'rgba(201,160,43,.02)');
-      ctx.fillStyle = g; _shRoundRect(ctx, fx, y-10, fw, fh, 24); ctx.fill();
-      ctx.strokeStyle='rgba(201,160,43,.30)'; ctx.lineWidth=1.5;
-      _shRoundRect(ctx, fx, y-10, fw, fh, 24); ctx.stroke();
-    }
+    /* لا لوح خلفي للنهائي — مطابقة لنسختَي الجمهور والإدارة.
+       الكتلة الذهبية كانت تكسر انتظام الشجرة؛ التمييز يأتي من الشارة
+       والبطاقة نفسيهما (معيّنان جانبيان + إطار ذهبي). */
 
     // ── شارة اسم الدور (موسّطة مع خطّين جانبيين) ──
     const cx = CW/2;
@@ -3412,12 +3469,21 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
     _shRoundRect(ctx, cx-pillW/2, pillY, pillW, pillH, pillH/2); ctx.stroke();
     ctx.textAlign='center'; ctx.fillStyle=_SH_GOLD;
     ctx.fillText(sec.name, cx, pillY + pillH/2 + (sec.isFinal ? 9 : 8));
-    // خطّان جانبيان
-    ctx.strokeStyle='rgba(201,160,43,.28)'; ctx.lineWidth=1.4;
-    [[-1],[1]].forEach(([sgn]) => {
-      const x0 = cx + sgn*(pillW/2 + 16), x1 = x0 + sgn*46;
-      ctx.beginPath(); ctx.moveTo(x0, pillY+pillH/2); ctx.lineTo(x1, pillY+pillH/2); ctx.stroke();
-    });
+    if (sec.isFinal) {
+      // معيّنان ذهبيان يميّزان النهائي بهدوء
+      [[-1],[1]].forEach(([sgn]) => {
+        ctx.save();
+        ctx.translate(cx + sgn*(pillW/2 + 20), pillY+pillH/2);
+        ctx.rotate(Math.PI/4); ctx.fillStyle=_SH_GOLD;
+        ctx.fillRect(-5,-5,10,10); ctx.restore();
+      });
+    } else {
+      ctx.strokeStyle='rgba(201,160,43,.28)'; ctx.lineWidth=1.4;
+      [[-1],[1]].forEach(([sgn]) => {
+        const x0 = cx + sgn*(pillW/2 + 16), x1 = x0 + sgn*46;
+        ctx.beginPath(); ctx.moveTo(x0, pillY+pillH/2); ctx.lineTo(x1, pillY+pillH/2); ctx.stroke();
+      });
+    }
     y += LABEL_H;
 
     // ── بطاقات القسم في شبكة من عمودين (RTL: العمود الأول يميناً) ──
@@ -3430,6 +3496,43 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
       const x = startX + (total - 1 - col) * (BOX_W + GAP_X);   // RTL
       const by = y + row * (BOX_H + GAP_Y);
       await _btBoxCanvas(ctx, sec.cards[i], x, by, BOX_W, BOX_H, !!sec.isFinal, sec.tbd);
+    }
+    /* ── وصلات الأزواج داخل القسم — مطابقة لنسختَي الجمهور والإدارة ──
+       كل مباراتين متجاورتين يلتقي فائزاهما في مباراة واحدة، فيُرسم قوس
+       يجمعهما في ساق واحدة بنقطة ذهبية عند الملتقى. */
+    if (!sec.isFinal && sec.cards.length > 1) {
+      const down = sec.flow === 'down';
+      ctx.save();
+      ctx.strokeStyle = 'rgba(201,160,43,.42)';
+      ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (let i = 0; i + 1 < sec.cards.length; i += 2) {
+        const rowA = Math.floor(i / COL), rowB = Math.floor((i+1) / COL);
+        if (rowA !== rowB) continue;                    // ليسا في صف واحد
+        const total = Math.min(COL, sec.cards.length - rowA*COL);
+        const rowW = total*BOX_W + (total-1)*GAP_X;
+        const sx = Math.round((CW - rowW) / 2);
+        const colA = i % COL, colB = (i+1) % COL;
+        const xa = sx + (total-1-colA)*(BOX_W+GAP_X) + BOX_W/2;
+        const xb = sx + (total-1-colB)*(BOX_W+GAP_X) + BOX_W/2;
+        const xm = (xa + xb) / 2;
+        const by = y + rowA*(BOX_H+GAP_Y);
+        const y0 = down ? by + BOX_H : by;
+        const dir = down ? 1 : -1, stem = 12, r = 8;
+        const y1 = y0 + dir*stem;
+        [[xa, xm], [xb, xm]].forEach(([x, tx]) => {
+          const sgn = tx > x ? 1 : -1;
+          ctx.beginPath();
+          ctx.moveTo(x, y0);
+          ctx.lineTo(x, y1 - dir*r);
+          ctx.quadraticCurveTo(x, y1, x + sgn*r, y1);
+          ctx.lineTo(tx, y1);
+          ctx.stroke();
+        });
+        ctx.beginPath(); ctx.moveTo(xm, y1); ctx.lineTo(xm, y1 + dir*8); ctx.stroke();
+        ctx.beginPath(); ctx.arc(xm, y1, 3.6, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(201,160,43,.85)'; ctx.fill();
+      }
+      ctx.restore();
     }
     y += sec.rows * BOX_H + (sec.rows - 1) * GAP_Y;
 
@@ -3577,8 +3680,10 @@ function buildVerticalBracketHTML(rounds, thirdRound) {
     const cards = part.map((m, i) =>
       btMatchBox(m, false, false, `r${idx}-s${i + offset}`, waitText(idx))
     ).join('');
+    /* data-half يخبر رسّام الخطوط باتّجاه التدفّق: أقسام النصف العلوي
+       يخرج منها الخطّ لأسفل، والسفلي لأعلى — كلاهما نحو النهائي. */
     return `
-      <div class="btm-round">
+      <div class="btm-round" data-half="${half}">
         <div class="btm-label">${r.name}</div>
         <div class="btm-grid">${cards}</div>
       </div>`;
@@ -3616,6 +3721,90 @@ function buildVerticalBracketHTML(rounds, thirdRound) {
       ${botHtml}
       ${thirdHtml}
     </div>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ *  خطوط الشجرة — وصلات الأزواج المتقابلة
+ *  ──────────────────────────────────────────────────────────────────
+ *  كل مباراتين متجاورتين (2k و 2k+1) يلتقي فائزاهما في مباراة واحدة
+ *  بالدور التالي. نرسم بينهما **قوساً يجمعهما في ساق واحدة** داخل فراغ
+ *  الشبكة، بنقطة ذهبية عند الملتقى — فتُقرأ الشجرة كشجرة فعلاً لا كأقسام
+ *  مرصوصة.
+ *
+ *  لماذا وصلات أزواج لا خطوط ممتدة حتى البطاقة الهدف:
+ *  في تخطيط عمودي بشبكة عمودين، البطاقة الهدف تقع في قسم لاحق تفصله
+ *  صفوف كاملة وشارة دور. أي خط يمتدّ إليها سيمرّ **فوق بطاقات أخرى** —
+ *  وهو بالضبط عيب التصميم القديم الذي تخلّصنا منه. فالوصلة المحلية هنا
+ *  صحيحة هندسياً ولا تعبر فوق أي بطاقة إطلاقاً.
+ * ════════════════════════════════════════════════════════════════════ */
+function _btmDrawJoiners(root) {
+  const wrap = root && root.querySelector('.btm-wrap');
+  if (!wrap) return;
+  wrap.querySelectorAll('svg.btm-lines').forEach(el => el.remove());
+  wrap.style.position = 'relative';
+
+  const wr = wrap.getBoundingClientRect();
+  const ns = 'http://www.w3.org/2000/svg';
+  const paths = [], dots = [];
+
+  wrap.querySelectorAll('.btm-round').forEach(sec => {
+    const half = sec.getAttribute('data-half');      // النهائي بلا اتجاه = لا وصلات
+    if (!half) return;
+    const cards = [...sec.querySelectorAll('.bt-match')];
+    if (cards.length < 2) return;
+    const down = half === 'top';
+
+    for (let i = 0; i + 1 < cards.length; i += 2) {
+      const a = cards[i].getBoundingClientRect();
+      const b = cards[i+1].getBoundingClientRect();
+      // الزوج يجب أن يكون في نفس الصف (شاشة ضيقة قد تضعه في عمود واحد)
+      if (Math.abs(a.top - b.top) > 4) continue;
+
+      const y0 = (down ? a.bottom : a.top) - wr.top;   // حافة البطاقتين
+      const dir = down ? 1 : -1;
+      const stem = 11;                                  // عمق القوس داخل الفراغ
+      const y1 = y0 + dir * stem;
+      const xa = a.left + a.width/2 - wr.left;
+      const xb = b.left + b.width/2 - wr.left;
+      const xm = (xa + xb) / 2;
+      const r  = 7;                                     // نصف قطر الانحناء
+
+      // من كل بطاقة: نزول قصير ثم انحناء نحو المنتصف
+      [[xa, xm], [xb, xm]].forEach(([x, tx]) => {
+        const sgn = tx > x ? 1 : -1;
+        paths.push(
+          `M ${x} ${y0} L ${x} ${y1 - dir*r} ` +
+          `Q ${x} ${y1} ${x + sgn*r} ${y1} L ${tx} ${y1}`
+        );
+      });
+      // ساق واحدة من الملتقى نحو الدور التالي
+      paths.push(`M ${xm} ${y1} L ${xm} ${y1 + dir*7}`);
+      dots.push({ x: xm, y: y1 });
+    }
+  });
+
+  if (!paths.length) return;
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', 'btm-lines');
+  svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0';
+  svg.innerHTML =
+    paths.map(d => `<path d="${d}" fill="none" stroke="rgba(201,160,43,.42)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`).join('') +
+    dots.map(p => `<circle cx="${p.x}" cy="${p.y}" r="2.6" fill="rgba(201,160,43,.85)"/>`).join('');
+  wrap.appendChild(svg);
+}
+window._btmDrawJoiners = _btmDrawJoiners;
+
+/* إعادة الرسم عند تغيّر المقاس — المواضع محسوبة من الصفحة الفعلية */
+if (!window._btmResizeBound) {
+  window._btmResizeBound = true;
+  let _t;
+  window.addEventListener('resize', () => {
+    clearTimeout(_t);
+    _t = setTimeout(() => {
+      const el = document.getElementById('bracketContent');
+      if (el && el.querySelector('.btm-wrap')) _btmDrawJoiners(el);
+    }, 180);
+  });
 }
 
 /* ⚠️ غير مستخدَم — لا يُستدعى من أي مكان (بقايا التصميم المرايا القديم).
@@ -3816,7 +4005,7 @@ function _aggForMatch(m) {
   const finished = legs.filter(x => x.status === 'finished');
   if (finished.length < 2) return null;
   // نحدّد الفريقين المرجعيين من الذهاب (legNo=1)
-  const leg1 = legs.slice().sort((a,b)=>(a.legNo||1)-(b.legNo||1))[0];
+  const leg1 = legs.slice().sort((a,b)=>(_legOf(a)||1)-(_legOf(b)||1))[0];
   const teamA = leg1.homeId, teamB = leg1.awayId;
   let aggA = 0, aggB = 0;
   finished.forEach(l => {
@@ -3848,12 +4037,12 @@ function renderBracketMatchLinear(m, roundName) {
   const aw = isFin && (_ps ? _ps.a > _ps.h : (m.awayScore ?? 0) > (m.homeScore ?? 0));
   const clickFn = m.id ? `openMatchDetail('${m.id}')` : (hasAway ? `openBracketMatch('','${encodeURIComponent(String(m.id||''))}')` : '');
   // شارة المجموع الكلي (تظهر على مباراة الإياب عند اكتمال المواجهة)
-  const _agg = (m.legNo === 2) ? _aggForMatch(m) : null;
+  const _agg = (_legOf(m) === 2) ? _aggForMatch(m) : null;
   const aggBadge = _agg ? `<div style="text-align:center;font-size:9px;font-weight:800;color:var(--gold);background:rgba(201,160,43,.1);border-top:1px solid var(--b1);padding:3px">المجموع: ${_agg.aggA} - ${_agg.aggB}</div>` : '';
   return `<div class="bracket-match ${isLive?'bm-live':isFin?'bm-done':''}" onclick="${clickFn}">
     <div class="bm-team ${hw?'bm-winner':''}">
       <span class="bm-logo">${logoHtml(ht.logo,20,5)}</span>
-      <span class="bm-name">${ht.name}${m.legNo?`<span style="font-size:8px;color:var(--t3);margin-inline-start:4px">${m.legNo===1?'ذهاب':'إياب'}</span>`:''}</span>
+      <span class="bm-name">${ht.name}${_legOf(m)?`<span style="font-size:8px;color:var(--t3);margin-inline-start:4px">${_legLabel(_legOf(m))}</span>`:''}</span>
       <span class="bm-score">${isFin||isLive ? m.homeScore??0 : ''}${isFin && _ps ? `<span style="font-size:9px;color:var(--gold);display:block">رك: ${_ps.h}</span>` : ''}</span>
     </div>
     <div class="bm-sep" style="height:1px;background:var(--b1)"></div>
@@ -4053,7 +4242,7 @@ function adaptUIToType() {
     if(standEl) standEl.style.display = '';
   }
   // ✅︎ للـ home-section sub-header "عرض الكل" — أخفه إذا مش دوري نقاط أو موحّد
-  if(type !== 'league' && type !== 'swiss') {
+  if(!_HAS_STANDINGS(type)) {
     document.querySelectorAll('[onclick*="switchTab(\'standings\'"]').forEach(el => {
       if(el.classList.contains('home-sub-btn')) el.style.display = 'none';
     });
@@ -5261,7 +5450,11 @@ function renderStandings() {
   teams.forEach(t => {
     statsMap[t.id] = { id: t.id, p:0, w:0, d:0, l:0, gf:0, ga:0, pts:0 };
   });
-  matches.filter(m => m.status === 'finished').forEach(m => {
+  /* 🔴 كان يحتسب **كل** المباريات المنتهية بما فيها مباريات الإقصاء.
+     في «الدوري الموحّد» (جدول ثم إقصاء) كانت نتائج الإقصاء تُضاف لجدول
+     الترتيب فتُفسده — الجدول يخصّ الدور الدوري وحده.
+     وركلات الترجيح لا تُحتسب في الجدول إطلاقاً: المباراة تعادل. */
+  matches.filter(m => m.status === 'finished' && !m.isKnockout && !m.knockoutRoundId).forEach(m => {
     const h = statsMap[m.homeId], a = statsMap[m.awayId];
     if (!h || !a) return;
     h.p++; a.p++;
@@ -5301,12 +5494,13 @@ function renderStandings() {
     <div class="std-wrap">
       <div class="std-head">
         <span class="std-h-pos">#</span>
+        <span></span>
         <span class="std-h-team">الفريق</span>
-        <span class="std-h-num">ل</span>
-        <span class="std-h-num std-hide-sm">ف</span>
-        <span class="std-h-num std-hide-sm">ت</span>
-        <span class="std-h-num std-hide-sm">خ</span>
-        <span class="std-h-num">+/-</span>
+        <span class="std-h-num" title="لعب">ل</span>
+        <span class="std-h-num std-hide-sm" title="فاز">ف</span>
+        <span class="std-h-num std-hide-sm" title="تعادل">ت</span>
+        <span class="std-h-num std-hide-sm" title="خسر">خ</span>
+        <span class="std-h-gd" title="فارق الأهداف">الفارق</span>
         <span class="std-h-pts">نقاط</span>
       </div>
       <div class="std-body">
@@ -5315,20 +5509,20 @@ function renderStandings() {
           const gd = (s.gf||0)-(s.ga||0);
           const zc = zoneColors[i] || '';
           const rank = i+1;
-          return `<div class="std-row ${i===0?'std-first':''}" onclick="openTeamProfile('${t.id}')">
+          /* ✅︎ الفارق: نغلّفه بعزل ثنائي الاتجاه — بدونه يعرض المتصفح
+             «‎-3» في سياق RTL كأنها «3-» وتُقرأ خطأً. */
+          const gdTxt = `<bdi>${gd>0?'+'+gd:gd}</bdi>`;
+          return `<div class="std-row ${i===0?'std-first':''}" style="--zc:${zc||'transparent'}" onclick="openTeamProfile('${t.id}')">
             <span class="std-pos">
-              <span class="std-zone-bar" style="background:${zc||'transparent'}"></span>
               <span class="std-pos-num" style="${zc?`color:${zc}`:''}">${rank}</span>
             </span>
-            <span class="std-team">
-              <span class="std-logo">${logoHtml(t.logo,26,6)}</span>
-              <span class="std-name">${t.name}</span>
-            </span>
+            <span class="std-logo">${logoHtml(t.logo,30,8)}</span>
+            <span class="std-team"><span class="std-name">${t.name}</span></span>
             <span class="std-num">${s.p||0}</span>
             <span class="std-num std-hide-sm" style="color:var(--green)">${s.w||0}</span>
             <span class="std-num std-hide-sm">${s.d||0}</span>
             <span class="std-num std-hide-sm" style="color:var(--red)">${s.l||0}</span>
-            <span class="std-num" style="color:${gd>0?'var(--green)':gd<0?'var(--red)':'var(--t3)'}">${gd>0?'+'+gd:gd}</span>
+            <span class="std-gd" style="color:${gd>0?'var(--green)':gd<0?'var(--red)':'var(--t3)'}">${gdTxt}</span>
             <span class="std-pts">${s.pts||0}</span>
           </div>`;
         }).join('')}
@@ -6149,9 +6343,16 @@ function _matchCard(m) {
     }
   }
 
+  /* شارة الدور (ذهاب/إياب) بجانب شارة الجولة — بلونين مختلفين ليُفرَّق
+     بينهما بلمحة. لا تظهر إطلاقاً في بطولات الذهاب فقط. */
+  const _lg = _legOf(m);
+  const legBadge = _lg
+    ? `<span class="mc-leg${_lg === 2 ? ' mc-leg-2' : ''}">${_legLabel(_lg)}</span>`
+    : '';
   const roundBadge = m.isKnockout && m.knockoutRoundName
-    ? `<div class="mc2-round"><span class="mc2-rb mc2-rb-ko">${m.knockoutRoundName}</span></div>`
-    : (m.round ? `<div class="mc2-round"><span class="mc2-rb">الجولة ${m.round}</span></div>` : '');
+    ? `<div class="mc2-round"><span class="mc2-rb mc2-rb-ko">${m.knockoutRoundName}</span>${legBadge}</div>`
+    : (m.round ? `<div class="mc2-round"><span class="mc2-rb">الجولة ${m.round}</span>${legBadge}</div>`
+               : (legBadge ? `<div class="mc2-round">${legBadge}</div>` : ''));
 
   // شارة التوقّع (مسابقة التوقّع المحلية)
   const predB = (typeof window.predBadge === 'function') ? window.predBadge(m.id) : '';
@@ -7983,11 +8184,15 @@ function renderPitchViewer(lineup, isAway) {
 
     // ── تجميع HTML ──
     // ✅︎ badge اسم المرحلة لمباريات الشجرة
-    const knockoutBadgeHtml = m.isKnockout && m.knockoutRoundName
+    const _lgD = _legOf(m);
+    const _lgBadgeD = _lgD
+      ? `<span class="mc-leg${_lgD === 2 ? ' mc-leg-2' : ''}" style="margin-inline-start:6px">${_legLabel(_lgD)}</span>`
+      : '';
+    const knockoutBadgeHtml = (m.isKnockout && m.knockoutRoundName) || _lgD
       ? `<div style="text-align:center;margin-bottom:10px">
-           <span style="font-size:11px;font-weight:800;color:#9b59b6;background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.25);border-radius:20px;padding:4px 14px">
+           ${m.isKnockout && m.knockoutRoundName ? `<span style="font-size:11px;font-weight:800;color:#9b59b6;background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.25);border-radius:20px;padding:4px 14px">
              🏆 ${m.knockoutRoundName}
-           </span>
+           </span>` : ''}${_lgBadgeD}
          </div>`
       : '';
     // ✅︎ بطاقة الراعي — راعي المباراة يتقدّم على راعي البطولة

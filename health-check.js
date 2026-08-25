@@ -168,6 +168,82 @@
       });
     }
 
+    /* ⑧ مباريات يتيمة — تشير إلى فريق محذوف
+       أخطر خلل صامت: النتيجة محفوظة والفريق غير موجود، فجدول الترتيب
+       ينقص نقاطاً بلا سبب ظاهر، وخانة الشجرة لا تُفتح. */
+    var allMs = window.matches || [];
+    var teamIds = {};
+    ts.forEach(function (t) { teamIds[t.id] = 1; });
+    var orphan = allMs.filter(function (m) {
+      return (m.homeId && !teamIds[m.homeId]) || (m.awayId && !teamIds[m.awayId]);
+    });
+    if (orphan.length) {
+      out.push({
+        lvl: 'err',
+        t: orphan.length + ' مباراة تشير إلى فريق محذوف',
+        d: 'الفريق حُذف والمباراة بقيت. النتائج تُحتسب لفريق غير موجود —\n' +
+           'الترتيب والإحصائيات ستكون خاطئة بلا سبب ظاهر.',
+        fix: 'احذف هذه المباريات من قسم المباريات'
+      });
+    }
+
+    /* ⑨ الدوري الموحّد: المتأهلون مقابل سعة الشجرة */
+    if (s.type === 'swiss') {
+      var qn = (s.swissQualifiedIds || []).length;
+      var rounds = window.adminKnockoutRounds || [];
+      var firstR = rounds.slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); })[0];
+      var cap = firstR ? (firstR.slots || 0) * 2 : 0;
+      if (!qn) {
+        out.push({
+          lvl: 'warn', t: 'لم يُحدَّد أي متأهل لدور الإقصاء',
+          d: 'شجرة الإقصاء لن تمتلئ بلا متأهلين محدَّدين.',
+          fix: 'حدّدهم من لوحة المتأهلين أعلى صفحة الترتيب'
+        });
+      } else if (cap && qn !== cap) {
+        out.push({
+          lvl: qn < cap ? 'warn' : 'info',
+          t: 'المتأهلون ' + qn + ' وسعة «' + firstR.name + '» ' + cap,
+          d: qn < cap
+            ? 'ستبقى خانات فارغة في الدور الأول.'
+            : 'العدد الزائد لن يجد خانة — سيُقصّ عند التوزيع التلقائي.',
+          fix: qn < cap ? 'حدّد ' + (cap - qn) + ' فريقاً إضافياً' : 'ألغِ تحديد ' + (qn - cap) + ' فريق'
+        });
+      }
+    }
+
+    /* ⑩ ذهاب وإياب: مواجهة ناقصة الدور */
+    if (dbl) {
+      var byPair = {};
+      ms.forEach(function (m) {
+        var k = pairKey(m);
+        (byPair[k] = byPair[k] || []).push(m);
+      });
+      var halfPairs = Object.keys(byPair).filter(function (k) { return byPair[k].length === 1; });
+      if (halfPairs.length) {
+        out.push({
+          lvl: 'warn',
+          t: halfPairs.length + ' مواجهة بلا مباراة إياب',
+          d: 'نظام البطولة «ذهاب وإياب» لكن هذه المواجهات لها مباراة واحدة فقط.\n' +
+             'كل فريق سيلعب عدداً مختلفاً من المباريات — والترتيب يصير غير عادل.',
+          fix: 'ولّد الجدول من جديد أو أضف مباريات الإياب الناقصة'
+        });
+      }
+    }
+
+    /* ⑪ نتائج مسجّلة لمباريات لم تُفعَّل بعد */
+    var pendingScored = allMs.filter(function (m) {
+      return m.status === 'pending' &&
+             (typeof m.homeScore === 'number' || typeof m.awayScore === 'number');
+    });
+    if (pendingScored.length) {
+      out.push({
+        lvl: 'warn',
+        t: pendingScored.length + ' مباراة «لم تُفعّل» لها نتيجة',
+        d: 'النتيجة مسجّلة لكن حالة المباراة معلّقة — فلا تُحتسب في الترتيب\nولا تظهر للجمهور.',
+        fix: 'افتح المباراة وغيّر حالتها إلى «منتهية»'
+      });
+    }
+
     if (!out.length) {
       out.push({ lvl: 'ok', t: 'كل شيء سليم', d: ms.length + ' مباراة · لا أخطاء' });
     }
@@ -213,6 +289,65 @@
       'onclick="document.getElementById(\'hcOverlay\').remove()">إغلاق</button>' +
     '</div>';
   };
+
+  /* ── شريط الصحة في لوحة التحكم ──
+     الفاحص كان مكتوباً بالكامل لكن **لا زر يفتحه إطلاقاً** — hcShow
+     معرّفة ولا يستدعيها أحد. فبقي مهجوراً بلا فائدة. الآن يظهر شريط
+     يلخّص الحالة ويُحدَّث تلقائياً مع كل تغيّر في البيانات. */
+  window.hcRenderBar = function () {
+    var bar = document.getElementById('hcBar');
+    if (!bar) return;
+    // لا نُزعج المنظّم قبل أن توجد بيانات أصلاً
+    if (!(window.teams || []).length) { bar.style.display = 'none'; return; }
+
+    var res = run();
+    var errs  = res.filter(function (r) { return r.lvl === 'err'; }).length;
+    var warns = res.filter(function (r) { return r.lvl === 'warn'; }).length;
+    var clean = !errs && !warns;
+
+    var col = errs ? '#e74c3c' : warns ? '#f39c12' : '#2ecc71';
+    var txt = errs
+      ? errs + ' خطأ يفسد البطولة' + (warns ? ' و' + warns + ' تحذير' : '')
+      : warns ? warns + ' تحذير يستحق المراجعة'
+              : 'البطولة سليمة';
+    var sub = errs ? 'اضغط لمعرفة السبب والحل'
+            : warns ? 'اضغط للتفاصيل'
+                    : 'لا أخطاء في البيانات';
+
+    bar.style.display = '';
+    bar.innerHTML =
+      '<div onclick="hcShow()" style="margin-bottom:12px;padding:11px 14px;cursor:pointer;' +
+        'background:' + col + '0f;border:1px solid ' + col + '3d;border-radius:12px;' +
+        'display:flex;align-items:center;gap:10px">' +
+        '<span style="width:9px;height:9px;border-radius:50%;background:' + col + ';flex-shrink:0' +
+          (clean ? '' : ';animation:hcPulse 1.6s infinite') + '"></span>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:12px;font-weight:800;color:' + col + '">' + txt + '</div>' +
+          '<div style="font-size:10px;color:var(--muted,#888);margin-top:2px">' + sub + '</div>' +
+        '</div>' +
+        '<span style="font-size:11px;color:' + col + ';flex-shrink:0">فحص ›</span>' +
+      '</div>';
+  };
+
+  // نبضة الخطر
+  if (!document.getElementById('hcPulseStyle')) {
+    var st = document.createElement('style');
+    st.id = 'hcPulseStyle';
+    st.textContent = '@keyframes hcPulse{0%,100%{opacity:1}50%{opacity:.35}}';
+    document.head.appendChild(st);
+  }
+
+  /* تحديث تلقائي: نراقب تغيّر البيانات بلا ربط بدوالّ داخلية
+     (تفادياً لفخّ الاستبدال الموثّق في OVERRIDES.md). */
+  var _lastSig = '';
+  setInterval(function () {
+    if (!document.getElementById('hcBar')) return;
+    var sig = (window.teams || []).length + '|' + (window.matches || []).length + '|' +
+              (window.adminGroups || []).length + '|' +
+              ((window.settings || {}).swissQualifiedIds || []).length + '|' +
+              (window.matches || []).filter(function (m) { return m.status === 'finished'; }).length;
+    if (sig !== _lastSig) { _lastSig = sig; try { window.hcRenderBar(); } catch (e) {} }
+  }, 1500);
 
   // console.log('[health-check] جاهز');
 })();

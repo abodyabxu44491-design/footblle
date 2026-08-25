@@ -9985,6 +9985,7 @@ function renderKnockoutAdmin() {
     /* data-half يخبر رسّام الخطوط باتّجاه التدفّق نحو النهائي */
     return `
       <div class="abm-round" data-half="${half}">
+        <div class="abm-hint">${round.name} <span>${doneCount}/${slots}</span></div>
         <div class="abm-grid">${cards}</div>
       </div>`;
   };
@@ -10001,6 +10002,7 @@ function renderKnockoutAdmin() {
 
   const abFinalHtml = abFinal ? `
     <div class="abm-round abm-final-round">
+      <div class="abm-hint abm-hint-final">${abFinal.round.name} <span>${abFinal.doneCount}/${abFinal.slots}</span></div>
       <div class="abm-grid">
         ${_adminBracketBox(abFinal.slotArr[0], abFinal.round.id, 0, abFinal.isFirstRound, abFinal.round, false, `r${abFinal.idx}-s0`, abPre.length ? abPre[abPre.length-1].round.name : '', true)}
       </div>
@@ -10019,42 +10021,53 @@ function renderKnockoutAdmin() {
    يجمعهما في ساق واحدة بنقطة ذهبية عند الملتقى. الوصلة محلية داخل فراغ
    الشبكة فلا تمرّ فوق أي بطاقة إطلاقاً. */
 window._abmDrawJoiners = function(root) {
+  /* خطوط الشجرة — عمود فقري مركزي وفروع قصيرة (مطابق لصفحة الجمهور).
+     المحاولة السابقة رسمت أقواس أزواج تنزل ساقها إلى فراغ بين الصفوف
+     فتبدو معلّقة عشوائية. الآن بنية واحدة متّصلة لا تعبر فوق أي بطاقة. */
   const tree = root && root.querySelector('.ab-tree');
   if (!tree) return;
   tree.querySelectorAll('svg.abm-lines').forEach(el => el.remove());
   tree.style.position = 'relative';
   const wr = tree.getBoundingClientRect();
-  const paths = [];
+  const paths = [], nodes = [];
 
   tree.querySelectorAll('.abm-round').forEach(sec => {
-    const half = sec.getAttribute('data-half');
-    if (!half) return;                                   // النهائي بلا وصلات
+    if (!sec.getAttribute('data-half')) return;
     const cards = [...sec.querySelectorAll('.ab-box')];
-    if (cards.length < 2) return;
-    const down = half === 'top';
-    for (let i = 0; i + 1 < cards.length; i += 2) {
-      const a = cards[i].getBoundingClientRect();
-      const b = cards[i+1].getBoundingClientRect();
-      if (Math.abs(a.top - b.top) > 4) continue;          // ليسا في صف واحد
-      // خطوط مستقيمة بزوايا قائمة — بلا انحناءات ولا نقاط زينة
-      const y0 = (down ? a.bottom : a.top) - wr.top;
-      const dir = down ? 1 : -1;
-      const y1 = y0 + dir * 10;
-      const xa = a.left + a.width/2 - wr.left;
-      const xb = b.left + b.width/2 - wr.left;
-      const xm = (xa + xb) / 2;
-      paths.push(`M ${xa} ${y0} L ${xa} ${y1} L ${xb} ${y1} L ${xb} ${y0}`);
-      paths.push(`M ${xm} ${y1} L ${xm} ${y1 + dir*10}`);
-    }
+    if (!cards.length) return;
+    const R = cards.map(c => c.getBoundingClientRect());
+    const spineX = Math.round((Math.min(...R.map(r => r.left)) +
+                               Math.max(...R.map(r => r.right))) / 2 - wr.left);
+    /* الفرع يخرج من أسفل البطاقة عند منتصف عرضها (ومن أعلاها في النصف
+       السفلي لأن التدفّق يصعد) ثم ينعطف نحو العمود — الشكل المتعارف عليه
+       في شجر البطولات. */
+    const down = sec.getAttribute('data-half') === 'top';
+    const dir  = down ? 1 : -1;
+    const junctions = [];
+    R.forEach(r => {
+      const cx  = Math.round(r.left + r.width / 2 - wr.left);
+      const off = Math.round((down ? r.bottom : r.top) - wr.top);
+      const jy  = off + dir * 11;
+      paths.push(`M ${cx} ${off} L ${cx} ${jy}` +
+                 (Math.abs(cx - spineX) > 3 ? ` L ${spineX} ${jy}` : ''));
+      nodes.push({ x: spineX, y: jy });
+      junctions.push(jy);
+    });
+    const jTop = Math.min(...junctions), jBot = Math.max(...junctions);
+    if (jBot > jTop) paths.push(`M ${spineX} ${jTop} L ${spineX} ${jBot}`);
+    const edgeOut = down
+      ? Math.round(Math.max(...R.map(r => r.bottom)) - wr.top) + 24
+      : Math.round(Math.min(...R.map(r => r.top))    - wr.top) - 24;
+    paths.push(`M ${spineX} ${down ? jBot : jTop} L ${spineX} ${edgeOut}`);
   });
 
   if (!paths.length) return;
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'abm-lines');
   svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0';
-  svg.innerHTML = paths.map(d =>
-    `<path d="${d}" fill="none" stroke="rgba(201,160,43,.30)" stroke-width="1.5" shape-rendering="crispEdges"/>`
-  ).join('');
+  svg.innerHTML =
+    paths.map(d => `<path d="${d}" fill="none" stroke="rgba(201,160,43,.34)" stroke-width="1.5" shape-rendering="crispEdges"/>`).join('') +
+    nodes.map(p => `<circle cx="${p.x}" cy="${p.y}" r="2.4" fill="rgba(201,160,43,.75)"/>`).join('');
   tree.appendChild(svg);
 };
 
@@ -11291,6 +11304,14 @@ function injectAdminCSS() {
     @media (min-width:760px){ .ab-tree { --abm-w:198px } }
 
     .abm-round { margin:0; }
+    /* تلميح اسم الدور — نصّ خافت لا شارة، مع عدّاد المنتهية للمنظّم */
+    .abm-hint {
+      text-align:center; font-size:9px; font-weight:700; letter-spacing:1.2px;
+      color:var(--muted,#888); opacity:.85; margin:0 0 7px;
+    }
+    .abm-hint span { color:var(--gold,#C9A02B); font-weight:800; letter-spacing:0; }
+    .abm-hint-final { color:var(--gold,#C9A02B); opacity:1; font-weight:800; font-size:9.5px; }
+
     .abm-grid {
       display:grid; grid-template-columns:repeat(auto-fit,var(--abm-w));
       justify-content:center; gap:22px 8px; position:relative;

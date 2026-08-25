@@ -3225,233 +3225,151 @@ async function _shGenBracketCanvas(rounds, thirdRound){
 //    تمييز الفائز بخلفية ذهبية خفيفة + اسم ذهبي عريض + سهم ▸، وتعتيم الخاسر
 //    مع شطب اسمه وتحويل شعاره للتدرج الرمادي — بالضبط كما تظهر في البث.
 /* ════════════════════════════════════════════════════════════════════
- *  بطاقة مشاركة الشجرة (canvas) — موحّدة بصرياً مع شجرة صفحة الجمهور
+ *  بطاقة الشجرة على canvas — تخطيط أفقي مطابق لصفحة الجمهور
  *  ──────────────────────────────────────────────────────────────────
- *  نفس القواعد بالضبط: دور لكل عمود، الدور الأول يميناً والنهائي يساراً،
- *  كل البطاقات بمقاس واحد (حتى غير المحسومة)، شعارات كبيرة، وخطوط
- *  بمرفق قائم تخرج من حواف البطاقات فلا تمرّ فوق أيٍّ منها.
+ *  كانت هذه الدالة ما زالت ترسم **التصميم القديم** (صفّان فوق بعضهما)
+ *  بينما تحوّلت الشجرة في الموقع إلى تخطيط أفقي — فتخرج صورة المشاركة
+ *  بشكل مختلف عمّا يراه الجمهور تماماً.
+ *
+ *  الآن نفس البنية: فريق يمين · الوسط · فريق يسار، والشعار فوق الاسم
+ *  في كل جهة، وعمود وسط ثابت العرض (نتيجة · موعد · «ضد»).
  * ════════════════════════════════════════════════════════════════════ */
-
-// بطاقة مباراة واحدة داخل الشجرة — الشعار يميناً، الاسم وسطاً، النتيجة يساراً (RTL)
 async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, tbdText){
+  const _TBD    = tbdText || 'بانتظار المتأهل';
   const hasHome = m && (m.homeId || m.homeName);
   const hasAway = m && (m.awayId || m.awayName);
-  const R = 9;
-  const rowH2 = h/2;
-  const logoR  = isFinal ? 25 : 22;
-  const logoCX = x + w - 20 - logoR;          // الشعار على الحافة اليمنى دائماً
-  const nameFS = isFinal ? 21 : 19;
-  // نص الانتظار السياقي — نفس منطق نسخة HTML حرفياً
-  const _TBD   = tbdText || 'بانتظار المتأهل';
+  const isEmpty = !hasHome && !hasAway;
+  const isFin   = m && m.status === 'finished';
+  const isLive  = m && m.status === 'live';
+  const _ps     = m ? _penScore(m) : null;
+  const R       = isFinal ? 12 : 9;
 
-  const isLiveBox = m && m.status === 'live';
-  const isDoneBox = m && m.status === 'finished';
-  const isEmpty   = !hasHome && !hasAway;
-
-  // خلفية البطاقة — متدرّجة كنسخة الـ CSS
-  // سطح مسطّح بلا تدرّج — مظهر جدول رسمي
+  // ── خلفية البطاقة وحدودها ──
   ctx.fillStyle = isFinal ? 'rgba(201,160,43,.05)' : isEmpty ? '#0d0f12' : '#131720';
-  _shRoundRect(ctx,x,y,w,h,R); ctx.fill();
-
+  _shRoundRect(ctx, x, y, w, h, R); ctx.fill();
   ctx.strokeStyle = isFinal ? _SH_GOLD
-    : isLiveBox ? '#D64541'
-    : isDoneBox ? 'rgba(201,160,43,.30)'
-    : isEmpty   ? '#242A31'
-    : '#39414A';
-  ctx.lineWidth = isFinal ? 2.4 : 1.4;
-  _shRoundRect(ctx,x,y,w,h,R); ctx.stroke();
-
-  // درع افتراضي لأي طرف بلا شعار — يحفظ نفس المساحة فيتساوى ارتفاع الصفوف
-  const _crestPlaceholder = (cy, muted) => {
-    ctx.save();
-    ctx.setLineDash([3,3]);
-    ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2);
-    ctx.fillStyle = '#12161b'; ctx.fill();
-    ctx.strokeStyle = muted ? '#2C333B' : '#3A424B'; ctx.lineWidth = 1.4; ctx.stroke();
-    ctx.restore();
-    _shIconBadge && _shIconBadge(ctx, 'shield', logoCX, cy, logoR*0.86, '#4A535D', 0);
-  };
-
-  // ── خانة لم يتأهل لها أحد بعد: نفس المقاس والبنية تماماً، لون هادئ فقط ──
-  if (isEmpty){
-    for (let ri=0; ri<2; ri++){
-      const cy = y + rowH2*ri + rowH2/2;
-      _crestPlaceholder(cy, true);
-      ctx.textAlign='right';
-      ctx.font = `700 ${nameFS-2}px Tajawal,Arial`;
-      ctx.fillStyle = '#5A6470';
-      ctx.fillText(_TBD, logoCX - logoR - 16, cy+6);
-    }
-    ctx.strokeStyle='#1E242A'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(x+12,y+rowH2); ctx.lineTo(x+w-12,y+rowH2); ctx.stroke();
-    return;
-  }
+    : isLive ? '#D64541'
+    : isFin  ? 'rgba(201,160,43,.26)'
+    : isEmpty? '#242A31' : '#39414A';
+  ctx.lineWidth = isFinal ? 2.2 : 1.3;
+  _shRoundRect(ctx, x, y, w, h, R); ctx.stroke();
 
   const teamsArr = window.teams || [];
-  const ht = m.homeId ? (teamsArr.find(t=>t.id===m.homeId)||{name:m.homeName||_TBD,logo:''}) : {name:m.homeName||_TBD,logo:''};
-  const at = m.awayId ? (teamsArr.find(t=>t.id===m.awayId)||{name:m.awayName||_TBD,logo:''}) : {name:m.awayName||_TBD,logo:''};
-  const isFin = m.status === 'finished', isLive = m.status === 'live';
-  const _ps = _penScore(m);
-  const hw = isFin && (_ps ? _ps.h > _ps.a : (m.homeScore??0) > (m.awayScore??0));
-  const aw = isFin && (_ps ? _ps.a > _ps.h : (m.awayScore??0) > (m.homeScore??0));
-  const rows = [
-    {team:ht, win:hw, lose: isFin && !hw && aw, score: isFin||isLive ? (m.homeScore??0) : null, pen: isFin&&_ps ? _ps.h : null},
-    {team:at, win:aw, lose: isFin && !aw && hw, score: isFin||isLive ? (m.awayScore??0) : null, pen: isFin&&_ps ? _ps.a : null},
-  ];
-  /* ── النهائي: تخطيط أفقي كبطاقة المباريات (مطابق للجمهور والإدارة) ── */
-  if (isFinal) {
-    const cxm = x + w/2;
-    const decided = isFin && (_ps ? _ps.h !== _ps.a : (m.homeScore??0) !== (m.awayScore??0));
-    const _hw = decided && (_ps ? _ps.h > _ps.a : (m.homeScore??0) > (m.awayScore??0));
-    const _aw = decided && !_hw;
+  const ht = (m && m.homeId) ? (teamsArr.find(t=>t.id===m.homeId) || {name:m.homeName||_TBD, logo:''})
+                             : {name:(m&&m.homeName)||_TBD, logo:''};
+  const at = (m && m.awayId) ? (teamsArr.find(t=>t.id===m.awayId) || {name:m.awayName||_TBD, logo:''})
+                             : {name:(m&&m.awayName)||_TBD, logo:''};
 
-    const drawSide = async (team, win, cx) => {
-      const lr = 30;
-      const lg = team.logo || '';
-      const isUrl = /^(data:|https?:|\/)/.test(lg);
-      const img = (lg && isUrl) ? await _shLoadImg(lg) : null;
-      const ly = y + h*0.34;
-      if (img) {
-        ctx.save();
-        ctx.beginPath(); ctx.arc(cx, ly, lr, 0, Math.PI*2); ctx.fillStyle='#0a0b0d'; ctx.fill(); ctx.clip();
-        _shDrawImgCover(ctx, img, cx-lr, ly-lr, lr*2);
-        ctx.restore();
-        ctx.strokeStyle = win ? _SH_GOLD : '#5A6470'; ctx.lineWidth = win ? 2 : 1.3;
-        ctx.beginPath(); ctx.arc(cx, ly, lr, 0, Math.PI*2); ctx.stroke();
-      } else if (lg && !isUrl) {
-        ctx.beginPath(); ctx.arc(cx, ly, lr, 0, Math.PI*2);
-        ctx.fillStyle='#0a0b0d'; ctx.fill();
-        ctx.strokeStyle = win ? _SH_GOLD : '#5A6470'; ctx.lineWidth = win ? 2 : 1.3; ctx.stroke();
-        ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.font = Math.round(lr*1.35)+'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",Tajawal,Arial';
-        ctx.fillText(lg, cx, ly+1); ctx.restore(); ctx.textBaseline='alphabetic';
-      } else {
-        ctx.save(); ctx.setLineDash([3,3]);
-        ctx.beginPath(); ctx.arc(cx, ly, lr, 0, Math.PI*2);
-        ctx.fillStyle='#12161b'; ctx.fill();
-        ctx.strokeStyle='#3A424B'; ctx.lineWidth=1.4; ctx.stroke(); ctx.restore();
-        _shIconBadge && _shIconBadge(ctx, 'shield', cx, ly, lr*0.86, '#4A535D', 0);
-      }
-      ctx.textAlign='center';
-      ctx.font = (win?'900 ':'800 ')+19+'px Tajawal,Arial';
-      ctx.fillStyle = win ? _SH_GOLD : '#EDEFF2';
-      let nm = team.name || _TBD;
-      const maxW = w/2 - 90;
-      if (ctx.measureText(nm).width > maxW) {
-        while (nm.length>1 && ctx.measureText(nm+'…').width > maxW) nm = nm.slice(0,-1);
-        nm += '…';
-      }
-      ctx.fillText(nm, cx, y + h*0.78);
-    };
+  const decided = isFin && (_ps ? _ps.h !== _ps.a : (m.homeScore??0) !== (m.awayScore??0));
+  const hw = decided && (_ps ? _ps.h > _ps.a : (m.homeScore??0) > (m.awayScore??0));
+  const aw = decided && !hw;
 
-    await drawSide(ht, _hw, x + w*0.76);   // المضيف يميناً
-    await drawSide(at, _aw, x + w*0.24);   // الضيف يساراً
+  // مقاسات تتناسب مع حجم البطاقة (النهائي أكبر)
+  const lr     = isFinal ? 30 : 24;                 // نصف قطر الشعار
+  const nameFS = isFinal ? 19 : 16;
+  const logoY  = y + h * 0.36;
+  const nameY  = y + h * 0.78;
 
-    ctx.textAlign='center';
-    if (isFin || isLive) {
-      ctx.font='900 40px Tajawal,Arial'; ctx.fillStyle='#EDEFF2';
-      ctx.fillText(`${m.homeScore??0} - ${m.awayScore??0}`, cxm, y + h*0.52);
-      if (_ps) {
-        ctx.font='800 13px Tajawal,Arial'; ctx.fillStyle=_SH_GOLD;
-        ctx.fillText(`ركلات ${_ps.h} - ${_ps.a}`, cxm, y + h*0.72);
-      }
-    } else {
-      ctx.font='800 18px Tajawal,Arial'; ctx.fillStyle='#5A6470';
-      ctx.fillText('ضد', cxm, y + h*0.55);
-    }
-    if (isLive) {
-      ctx.fillStyle='#D64541';
-      ctx.beginPath(); ctx.arc(x+15, y+12, 4, 0, Math.PI*2); ctx.fill();
-    }
-    return;
-  }
+  // ── جهة فريق واحدة: الشعار فوق الاسم ──
+  const drawSide = async (team, win, lose, tbd, cx) => {
+    const lg = team.logo || '';
+    const isUrl = /^(data:|https?:|\/)/.test(lg);
+    const img = (lg && isUrl) ? await _shLoadImg(lg) : null;
 
-  const scoreFS = isFinal?23:21;
-
-  for(let ri=0; ri<2; ri++){
-    const rw = rows[ri];
-    const cy = y + rowH2*ri + rowH2/2;
-    const rowTop = y + rowH2*ri;
-
-    // تينت الفائز + الشريط الذهبي على الحافة اليمنى (مطابق لـ .bt-winner في CSS)
-    if (rw.win) {
-      // تينت خفيف فقط — أُزيل الشريط الذهبي الجانبي (زخرفة فوق التينت ولون الاسم)
+    if (img) {
       ctx.save();
-      _shRoundRect(ctx,x,y,w,h,R); ctx.clip();
-      ctx.fillStyle = 'rgba(201,160,43,.10)';
-      ctx.fillRect(x, rowTop, w, rowH2);
+      ctx.beginPath(); ctx.arc(cx, logoY, lr, 0, Math.PI*2);
+      ctx.fillStyle = '#0a0b0d'; ctx.fill(); ctx.clip();
+      if (lose) ctx.filter = 'grayscale(1) opacity(.55)';
+      _shDrawImgCover(ctx, img, cx-lr, logoY-lr, lr*2);
       ctx.restore();
-    }
-
-    /* ── شعار الفريق ──
-       الشعار قد يكون رابطاً أو **إيموجي**: صفحة الجمهور تدعم الاثنين
-       (logoHtml ترسم الإيموجي كنص)، بينما الكانفاس كان يحاول تحميله
-       كصورة فقط — فأي بطولة تستخدم شعارات إيموجي كانت تخرج في صورة
-       المشاركة بدروع فارغة بينما الموقع يعرض شعاراتها. */
-    const _lg = rw.team.logo || '';
-    const _isUrl = /^(data:|https?:|\/)/.test(_lg);
-    const logoImg = (_lg && _isUrl) ? await _shLoadImg(_lg) : null;
-    if (!logoImg && _lg && !_isUrl) {
-      // إيموجي — يُرسم نصاً داخل القرص بنفس مقاس الشعار
-      ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2);
+      ctx.strokeStyle = win ? _SH_GOLD : lose ? '#333A40' : '#5A6470';
+      ctx.lineWidth = win ? 2 : 1.3;
+      ctx.beginPath(); ctx.arc(cx, logoY, lr, 0, Math.PI*2); ctx.stroke();
+    } else if (lg && !isUrl) {
+      /* شعار إيموجي — الموقع يدعمه، فلولا هذا الفرع لخرجت البطولات التي
+         تستعمله بدروع فارغة في الصورة بينما موقعها يعرض شعاراتها. */
+      ctx.beginPath(); ctx.arc(cx, logoY, lr, 0, Math.PI*2);
       ctx.fillStyle = '#0a0b0d'; ctx.fill();
-      ctx.strokeStyle = rw.lose ? '#333A40' : rw.win ? _SH_GOLD : '#5A6470';
-      ctx.lineWidth = rw.win ? 1.8 : 1.3; ctx.stroke();
+      ctx.strokeStyle = win ? _SH_GOLD : '#5A6470'; ctx.lineWidth = win ? 2 : 1.3; ctx.stroke();
       ctx.save();
-      if (rw.lose) ctx.globalAlpha = 0.5;
+      if (lose) ctx.globalAlpha = .5;
       ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.font = Math.round(logoR*1.35) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",Tajawal,Arial';
-      ctx.fillText(_lg, logoCX, cy + 1);
-      ctx.restore();
-      ctx.textBaseline='alphabetic';
-    } else if (!logoImg) {
-      _crestPlaceholder(cy, false);
+      ctx.font = Math.round(lr*1.3)+'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",Tajawal,Arial';
+      ctx.fillText(lg, cx, logoY+1);
+      ctx.restore(); ctx.textBaseline='alphabetic';
     } else {
-      ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2);
-      ctx.fillStyle = '#0a0b0d'; ctx.fill();
-      ctx.save();
-      if (rw.lose) ctx.filter = 'grayscale(1) opacity(.55)';
-      ctx.beginPath(); ctx.arc(logoCX, cy, logoR-2, 0, Math.PI*2); ctx.clip();
-      _shDrawImgCover(ctx, logoImg, logoCX-(logoR-2), cy-(logoR-2), (logoR-2)*2);
+      ctx.save(); ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.arc(cx, logoY, lr, 0, Math.PI*2);
+      ctx.fillStyle = '#12161b'; ctx.fill();
+      ctx.strokeStyle = '#3A424B'; ctx.lineWidth = 1.3; ctx.stroke();
       ctx.restore();
-      ctx.strokeStyle = rw.lose ? '#333A40' : rw.win ? _SH_GOLD : '#5A6470';
-      ctx.lineWidth = rw.win ? 1.8 : 1.3;
-      ctx.beginPath(); ctx.arc(logoCX, cy, logoR, 0, Math.PI*2); ctx.stroke();
+      _shIconBadge && _shIconBadge(ctx, 'shield', cx, logoY, lr*0.85, '#4A535D', 0);
     }
 
-    // اسم الفريق — يمين، مقصوص بأمان قبل خانة النتيجة
-    ctx.textAlign = 'right';
-    ctx.font = (rw.win?'900 ':'800 ')+nameFS+'px Tajawal,Arial';
-    ctx.fillStyle = rw.win ? _SH_GOLD : rw.lose ? '#6B7480' : '#FFFFFF';
-    const nameAnchorX = logoCX - logoR - 16;
-    const nameMaxW = nameAnchorX - (x + 58);
-    let dispName = rw.team.name || _TBD;
-    if (ctx.measureText(dispName).width > nameMaxW) {
-      while (dispName.length>1 && ctx.measureText(dispName+'…').width > nameMaxW) dispName = dispName.slice(0,-1);
-      dispName += '…';
+    // الاسم تحت الشعار — يُقصّ بأمان داخل نصف عرض البطاقة
+    ctx.textAlign = 'center';
+    ctx.font = (win ? '900 ' : tbd ? '600 ' : '800 ') + (tbd ? nameFS-3 : nameFS) + 'px Tajawal,Arial';
+    ctx.fillStyle = win ? _SH_GOLD : (lose || tbd) ? '#6B7480' : '#EDEFF2';
+    let nm = team.name || _TBD;
+    const maxW = w/2 - (isFinal ? 80 : 56);
+    if (ctx.measureText(nm).width > maxW) {
+      while (nm.length > 1 && ctx.measureText(nm+'…').width > maxW) nm = nm.slice(0,-1);
+      nm += '…';
     }
-    ctx.fillText(dispName, nameAnchorX, cy+6);
+    ctx.fillText(nm, cx, nameY);
+  };
 
-    // النتيجة — الحافة اليسرى
+  await drawSide(ht, hw, isFin && !hw && aw, !hasHome, x + w*0.75);   // المضيف يميناً
+  await drawSide(at, aw, isFin && !aw && hw, !hasAway, x + w*0.25);   // الضيف يساراً
+
+  // ── عمود الوسط: نتيجة · موعد · «ضد» ──
+  const cxm = x + w/2;
+  ctx.textAlign = 'center';
+  if (isFin || isLive) {
+    /* 🔴 رسم النتيجة كنصّ واحد «2 : 1» يضع نتيجة المضيف **يساراً** لأن
+       الأرقام تُرسم LTR — بينما فريق المضيف مرسوم يميناً. فتُقرأ النتيجة
+       معكوسة. نرسم كل رقم في موضعه صراحةً: المضيف يمين الفاصل والضيف يساره. */
+    const scFS = isFinal ? 40 : 30;
+    ctx.font = `900 ${scFS}px Tajawal,Arial`;
+    ctx.fillStyle = '#EDEFF2';
+    const scY = y + h*0.5, gapS = scFS * 0.42;
     ctx.textAlign = 'left';
-    ctx.font='900 '+scoreFS+'px Tajawal,Arial';
-    ctx.fillStyle = rw.win ? _SH_GOLD : rw.lose ? '#6B7480' : '#C7CCD1';
-    ctx.fillText(rw.score!=null ? String(rw.score) : (isLive?'—':''), x+16, cy+6);
-    if (rw.pen != null) {
-      ctx.font='800 11px Tajawal,Arial'; ctx.fillStyle=_SH_GOLD;
-      ctx.fillText('رك '+rw.pen, x+16, cy+21);
+    ctx.fillText(String(m.homeScore ?? 0), cxm + gapS, scY);      // المضيف يميناً
+    ctx.textAlign = 'right';
+    ctx.fillText(String(m.awayScore ?? 0), cxm - gapS, scY);      // الضيف يساراً
+    ctx.textAlign = 'center';
+    ctx.font = `700 ${Math.round(scFS*0.6)}px Tajawal,Arial`;
+    ctx.fillStyle = '#5A6470';
+    ctx.fillText(':', cxm, scY - scFS*0.06);
+    ctx.font = `900 ${scFS}px Tajawal,Arial`;
+    if (_ps) {
+      ctx.font = `800 ${isFinal ? 13 : 11}px Tajawal,Arial`;
+      ctx.fillStyle = _SH_GOLD;
+      ctx.fillText(`رك ${_ps.a}-${_ps.h}`, cxm, y + h*0.68);   // الضيف يساراً كالنتيجة
     }
+  } else if (m && (m.date || m.time)) {
+    const t = m.time ? (typeof formatTimeTo12H === 'function' ? formatTimeTo12H(m.time) : m.time) : '';
+    if (t) {
+      ctx.font = `800 ${isFinal ? 16 : 14}px Tajawal,Arial`;
+      ctx.fillStyle = _SH_GOLD;
+      ctx.fillText(t, cxm, y + h*0.46);
+    }
+    if (m.date) {
+      ctx.font = `700 ${isFinal ? 13 : 12}px Tajawal,Arial`;
+      ctx.fillStyle = '#8B939C';
+      ctx.fillText(_btShortDate(m.date), cxm, y + h*0.64);
+    }
+  } else {
+    ctx.font = `700 ${isFinal ? 18 : 14}px Tajawal,Arial`;
+    ctx.fillStyle = '#5A6470';
+    ctx.fillText('ضد', cxm, y + h*0.55);
   }
 
-  ctx.strokeStyle='#1E242A'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(x+12,y+rowH2); ctx.lineTo(x+w-12,y+rowH2); ctx.stroke();
-  if(isLive){
-    /* مؤشر البث أعلى يسار البطاقة — مرفوع قليلاً كي لا يلامس رقم النتيجة
-       (خطّ النتيجة 21px يبدأ عند y+17 تقريباً، والهالة تنتهي عند y+16). */
-    ctx.fillStyle='rgba(214,69,65,.22)';
-    ctx.beginPath(); ctx.arc(x+15,y+10,6,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#D64541';
-    ctx.beginPath(); ctx.arc(x+15,y+10,3.2,0,Math.PI*2); ctx.fill();
+  // نقطة البث المباشر
+  if (isLive) {
+    ctx.fillStyle = '#D64541';
+    ctx.beginPath(); ctx.arc(x+14, y+13, 4.5, 0, Math.PI*2); ctx.fill();
   }
 }
 
@@ -3461,7 +3379,7 @@ async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, tbdText){
 async function _shGenBracketTreeCanvas(rounds, thirdRound){
   const COL = 2;                                  // عمودان — مطابق للشبكة على الجوال
   const BOX_W = 420, BOX_H = 132, GAP_X = 26, GAP_Y = 40;  // GAP_Y يتّسع لقوس الوصل
-  const SIDE = 46, LABEL_H = 16, FLOW_H = 44, HEADER_H = 280;  // LABEL_H بلا شارات = فاصل بسيط فقط
+  const SIDE = 46, LABEL_H = 34, FLOW_H = 44, HEADER_H = 280;  // LABEL_H = مساحة تلميح اسم الدور
   const W = SIDE*2 + COL*BOX_W + (COL-1)*GAP_X;   // 46*2 + 840 + 26 = 958 → نوسّعها لـ1080
 
   const CW = Math.max(1080, W);
@@ -3523,9 +3441,52 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
        الكتلة الذهبية كانت تكسر انتظام الشجرة؛ التمييز يأتي من الشارة
        والبطاقة نفسيهما (معيّنان جانبيان + إطار ذهبي). */
 
-    /* بلا شارة اسم دور ولا معيّنات — مطابقة لنسختَي الجمهور والإدارة
-       بعد إزالة الزخارف. يُترك فاصل بسيط بين الأدوار فقط. */
+    /* تلميح اسم الدور — نصّ خافت لا شارة (مطابق للجمهور والإدارة) */
+    ctx.textAlign = 'center';
+    ctx.font = `700 ${sec.isFinal ? 19 : 17}px Tajawal,Arial`;
+    ctx.fillStyle = sec.isFinal ? 'rgba(201,160,43,.9)' : 'rgba(139,147,156,.85)';
+    ctx.fillText(sec.name, CW/2, y + 12);
+
     y += LABEL_H;
+
+    /* ── خطوط القسم: الفرع يخرج من أسفل البطاقة عند منتصف عرضها
+       (ومن أعلاها في النصف السفلي) ثم ينعطف نحو العمود الفقري ── */
+    if (!sec.isFinal && sec.cards.length) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(201,160,43,.34)';
+      ctx.lineWidth = 2;
+      const spineX = CW / 2;
+      const down = sec.flow === 'down';
+      const dir  = down ? 1 : -1;
+      const junctions = [];
+      let top = Infinity, bot = -Infinity;
+      for (let i = 0; i < sec.cards.length; i++) {
+        const row = Math.floor(i / COL), col = i % COL;
+        const total = Math.min(COL, sec.cards.length - row * COL);
+        const rowW = total * BOX_W + (total - 1) * GAP_X;
+        const sx = Math.round((CW - rowW) / 2);
+        const bx = sx + (total - 1 - col) * (BOX_W + GAP_X);
+        const by = y + row * (BOX_H + GAP_Y);
+        const cx = bx + BOX_W / 2;
+        const off = down ? by + BOX_H : by;
+        const jy  = off + dir * 14;
+        ctx.beginPath();
+        ctx.moveTo(cx, off); ctx.lineTo(cx, jy);
+        if (Math.abs(cx - spineX) > 3) ctx.lineTo(spineX, jy);
+        ctx.stroke();
+        junctions.push(jy);
+        if (by < top) top = by;
+        if (by + BOX_H > bot) bot = by + BOX_H;
+      }
+      const jTop = Math.min(...junctions), jBot = Math.max(...junctions);
+      if (jBot > jTop) { ctx.beginPath(); ctx.moveTo(spineX, jTop); ctx.lineTo(spineX, jBot); ctx.stroke(); }
+      const edgeOut = down ? bot + 30 : top - 30;
+      ctx.beginPath(); ctx.moveTo(spineX, down ? jBot : jTop); ctx.lineTo(spineX, edgeOut); ctx.stroke();
+      // عقد ذهبية عند نقاط الالتقاء
+      ctx.fillStyle = 'rgba(201,160,43,.75)';
+      junctions.forEach(jy => { ctx.beginPath(); ctx.arc(spineX, jy, 3.4, 0, Math.PI*2); ctx.fill(); });
+      ctx.restore();
+    }
 
     // ── بطاقات القسم في شبكة من عمودين (RTL: العمود الأول يميناً) ──
     for (let i = 0; i < sec.cards.length; i++) {
@@ -3541,36 +3502,6 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
       const bh = sec.isFinal ? BOX_H + 40 : BOX_H;
       const bx = sec.isFinal ? (CW - bw) / 2 : x;
       await _btBoxCanvas(ctx, sec.cards[i], bx, by, bw, bh, !!sec.isFinal, sec.tbd);
-    }
-    /* ── وصلات الأزواج داخل القسم — مطابقة لنسختَي الجمهور والإدارة ──
-       كل مباراتين متجاورتين يلتقي فائزاهما في مباراة واحدة، فيُرسم قوس
-       يجمعهما في ساق واحدة بنقطة ذهبية عند الملتقى. */
-    if (!sec.isFinal && sec.cards.length > 1) {
-      const down = sec.flow === 'down';
-      ctx.save();
-      ctx.strokeStyle = 'rgba(201,160,43,.30)';
-      ctx.lineWidth = 2;
-      for (let i = 0; i + 1 < sec.cards.length; i += 2) {
-        const rowA = Math.floor(i / COL), rowB = Math.floor((i+1) / COL);
-        if (rowA !== rowB) continue;                    // ليسا في صف واحد
-        const total = Math.min(COL, sec.cards.length - rowA*COL);
-        const rowW = total*BOX_W + (total-1)*GAP_X;
-        const sx = Math.round((CW - rowW) / 2);
-        const colA = i % COL, colB = (i+1) % COL;
-        const xa = sx + (total-1-colA)*(BOX_W+GAP_X) + BOX_W/2;
-        const xb = sx + (total-1-colB)*(BOX_W+GAP_X) + BOX_W/2;
-        const xm = (xa + xb) / 2;
-        const by = y + rowA*(BOX_H+GAP_Y);
-        const y0 = down ? by + BOX_H : by;
-        // خطوط مستقيمة بزوايا قائمة — بلا انحناءات ولا نقاط زينة
-        const dir = down ? 1 : -1;
-        const y1 = y0 + dir * 14;
-        ctx.beginPath();
-        ctx.moveTo(xa, y0); ctx.lineTo(xa, y1); ctx.lineTo(xb, y1); ctx.lineTo(xb, y0);
-        ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(xm, y1); ctx.lineTo(xm, y1 + dir*14); ctx.stroke();
-      }
-      ctx.restore();
     }
     y += sec.rows * (sec.isFinal ? BOX_H + 40 : BOX_H) + (sec.rows - 1) * GAP_Y;
 
@@ -3733,11 +3664,11 @@ function buildVerticalBracketHTML(rounds, thirdRound) {
     ).join('');
     /* data-half يخبر رسّام الخطوط باتّجاه التدفّق: أقسام النصف العلوي
        يخرج منها الخطّ لأسفل، والسفلي لأعلى — كلاهما نحو النهائي. */
-    /* بلا شارة اسم دور: اسم الدور يتكرّر أعلى وأسفل فيربك، والخانة
-       نفسها تقول ما يلزم («فائز ربع النهائي»). الشجرة الرسمية تُقرأ
-       بالتدرّج لا بالعناوين. */
+    /* تلميح اسم الدور: نصّ خافت بلا شارة ولا إطار ولا خطوط — يكفي
+       ليعرف القارئ أي دور يشاهد، بلا الزخرفة التي كانت تثقل الشجرة. */
     return `
       <div class="btm-round" data-half="${half}">
+        <div class="btm-hint">${r.name}</div>
         <div class="btm-grid">${cards}</div>
       </div>`;
   };
@@ -3770,6 +3701,7 @@ function buildVerticalBracketHTML(rounds, thirdRound) {
       ${topHtml ? ARROW_DOWN : ''}
       <!-- النهائي في القلب -->
       <div class="btm-round btm-final-round">
+        <div class="btm-hint btm-hint-final">${finalRound.name}</div>
         <div class="btm-grid btm-grid-final">
           ${_finalCardHTML(finalMatch, lastIdx)}
         </div>
@@ -3796,49 +3728,67 @@ function buildVerticalBracketHTML(rounds, thirdRound) {
  *  صحيحة هندسياً ولا تعبر فوق أي بطاقة إطلاقاً.
  * ════════════════════════════════════════════════════════════════════ */
 function _btmDrawJoiners(root) {
+  /* ════════════════════════════════════════════════════════════════
+   *  خطوط الشجرة — عمود فقري مركزي وفروع قصيرة
+   *  ────────────────────────────────────────────────────────────────
+   *  المحاولة السابقة رسمت «قوس زوج» تحت كل بطاقتين متجاورتين، وكانت
+   *  ساقه تنزل إلى **فراغ بين الصفوف** لا إلى شيء — فتبدو أقواساً
+   *  معلّقة عشوائية تُشوّش أكثر مما تُوضّح.
+   *
+   *  الآن: خطّ عمودي واحد يمرّ بمحور الشجرة، وكل بطاقة تتصل به بفرع
+   *  أفقي قصير من حافتها الداخلية. النتيجة بنية واحدة متّصلة ومنتظمة
+   *  تقود العين من الأدوار نحو النهائي — ولا يمرّ خطّ فوق أي بطاقة.
+   * ════════════════════════════════════════════════════════════════ */
   const wrap = root && root.querySelector('.btm-wrap');
   if (!wrap) return;
   wrap.querySelectorAll('svg.btm-lines').forEach(el => el.remove());
   wrap.style.position = 'relative';
 
   const wr = wrap.getBoundingClientRect();
-  const ns = 'http://www.w3.org/2000/svg';
-  const paths = [];
+  const paths = [], nodes = [];
 
   wrap.querySelectorAll('.btm-round').forEach(sec => {
-    const half = sec.getAttribute('data-half');      // النهائي بلا اتجاه = لا وصلات
-    if (!half) return;
+    if (!sec.getAttribute('data-half')) return;          // النهائي بلا فروع
     const cards = [...sec.querySelectorAll('.bt-match')];
-    if (cards.length < 2) return;
-    const down = half === 'top';
+    if (!cards.length) return;
 
-    for (let i = 0; i + 1 < cards.length; i += 2) {
-      const a = cards[i].getBoundingClientRect();
-      const b = cards[i+1].getBoundingClientRect();
-      // الزوج يجب أن يكون في نفس الصف (شاشة ضيقة قد تضعه في عمود واحد)
-      if (Math.abs(a.top - b.top) > 4) continue;
+    const R = cards.map(c => c.getBoundingClientRect());
+    const spineX = Math.round((Math.min(...R.map(r => r.left)) +
+                               Math.max(...R.map(r => r.right))) / 2 - wr.left);
 
-      /* خطوط مستقيمة بزوايا قائمة — بلا انحناءات ولا نقاط زينة،
-         تماماً كشجرة التطبيقات الرسمية. */
-      const y0 = (down ? a.bottom : a.top) - wr.top;
-      const dir = down ? 1 : -1;
-      const y1 = y0 + dir * 10;
-      const xa = a.left + a.width/2 - wr.left;
-      const xb = b.left + b.width/2 - wr.left;
-      const xm = (xa + xb) / 2;
+    /* ── الفرع يخرج من **أسفل** البطاقة عند منتصف عرضها ──
+       (وفي النصف السفلي من الشجرة يخرج من أعلاها، لأن التدفّق يصعد نحو
+       النهائي). ينزل قليلاً ثم ينعطف نحو العمود الفقري — وهو الشكل
+       المتعارف عليه في شجر البطولات، بدل خروجه من الحافة الجانبية. */
+    const down = sec.getAttribute('data-half') === 'top';
+    const dir  = down ? 1 : -1;
+    const junctions = [];
+    R.forEach(r => {
+      const cx  = Math.round(r.left + r.width / 2 - wr.left);
+      const off = Math.round((down ? r.bottom : r.top) - wr.top);   // حافة الخروج
+      const jy  = off + dir * 11;                                    // مستوى الانعطاف
+      paths.push(`M ${cx} ${off} L ${cx} ${jy}` +
+                 (Math.abs(cx - spineX) > 3 ? ` L ${spineX} ${jy}` : ''));
+      nodes.push({ x: spineX, y: jy });
+      junctions.push(jy);
+    });
 
-      paths.push(`M ${xa} ${y0} L ${xa} ${y1} L ${xb} ${y1} L ${xb} ${y0}`);
-      paths.push(`M ${xm} ${y1} L ${xm} ${y1 + dir*10}`);
-    }
+    // العمود الفقري يصل نقاط الانعطاف ببعضها ويمتدّ نحو الدور التالي
+    const jTop = Math.min(...junctions), jBot = Math.max(...junctions);
+    if (jBot > jTop) paths.push(`M ${spineX} ${jTop} L ${spineX} ${jBot}`);
+    const edgeOut = down
+      ? Math.round(Math.max(...R.map(r => r.bottom)) - wr.top) + 22
+      : Math.round(Math.min(...R.map(r => r.top))    - wr.top) - 22;
+    paths.push(`M ${spineX} ${down ? jBot : jTop} L ${spineX} ${edgeOut}`);
   });
 
   if (!paths.length) return;
-  const svg = document.createElementNS(ns, 'svg');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'btm-lines');
   svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0';
-  svg.innerHTML = paths.map(d =>
-    `<path d="${d}" fill="none" stroke="rgba(201,160,43,.30)" stroke-width="1.5" shape-rendering="crispEdges"/>`
-  ).join('');
+  svg.innerHTML =
+    paths.map(d => `<path d="${d}" fill="none" stroke="rgba(201,160,43,.34)" stroke-width="1.5" shape-rendering="crispEdges"/>`).join('') +
+    nodes.map(p => `<circle cx="${p.x}" cy="${p.y}" r="2.4" fill="rgba(201,160,43,.75)"/>`).join('');
   wrap.appendChild(svg);
 }
 window._btmDrawJoiners = _btmDrawJoiners;

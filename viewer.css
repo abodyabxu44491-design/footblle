@@ -477,6 +477,17 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 }
 .btm-wrap{padding:8px 14px 24px}
 
+/* تلميح اسم الدور — نصّ خافت لا شارة: يدلّ بلا أن يزاحم البطاقات */
+/* تلميح اسم الدور — يجلس فوق الخط بخلفية الصفحة فيقطعه بدل أن يتقاطع
+   معه، ويبدو كأن الخط يمرّ من خلفه لا عبر حروفه. */
+.btm-hint{
+  position:relative;z-index:2;width:fit-content;margin:0 auto 8px;
+  padding:2px 12px;background:var(--bg);border-radius:20px;
+  text-align:center;font-size:9px;font-weight:800;letter-spacing:1.4px;
+  color:var(--t3);
+}
+.btm-hint-final{color:var(--gold);font-size:9.5px}
+
 /* شبكة مباريات الدور — متقاربة، وتلتفّ عمودياً فلا تمرير عرضي */
 .btm-grid{
   display:grid;grid-template-columns:repeat(auto-fit,var(--btm-w));

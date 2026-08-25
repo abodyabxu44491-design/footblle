@@ -4156,6 +4156,32 @@ window.addMatch = async function() {
     }
   }
 
+  /* ✅︎ حارس «فريق يلعب مرتين في جولة واحدة» ──
+     من أكثر الأخطاء التي تفسد الجدول بصمت: الجولة تعني أن كل فريق يلعب
+     مباراة واحدة. لو لعب فريق مرتين في نفس الجولة اختلّ عدد مبارياته
+     مقابل بقية الفرق، فيصير الترتيب غير عادل — ولا شيء في الواجهة يشي
+     بالسبب. ننبّه بوضوح ونسمح بالمتابعة (قد يكون مقصوداً في بطولة خاصة). */
+  if (!isCrossGroupPlayoff) {
+    const _sameRound = matches.filter(m =>
+      !m.isKnockout && (m.round || 0) === round &&
+      (m.homeId === homeId || m.awayId === homeId || m.homeId === awayId || m.awayId === awayId));
+    if (_sameRound.length) {
+      const _busy = [];
+      if (_sameRound.some(m => m.homeId === homeId || m.awayId === homeId)) _busy.push(homeTeam?.name);
+      if (_sameRound.some(m => m.homeId === awayId || m.awayId === awayId)) _busy.push(awayTeam?.name);
+      const okDup = await window.confirmDialog({
+        title: '⚠️ فريق يلعب مرتين في نفس الجولة',
+        message:
+          `${_busy.filter(Boolean).join(' و')} ${_busy.length > 1 ? 'لهما' : 'له'} مباراة أخرى في الجولة ${round}.\n\n` +
+          `في الجولة الواحدة يلعب كل فريق مباراة واحدة. المتابعة تجعل عدد مبارياته ` +
+          `مختلفاً عن بقية الفرق — وجدول الترتيب يصير غير عادل بلا سبب ظاهر.\n\n` +
+          `هل تريد المتابعة؟`,
+        confirmText: 'نعم، تابع', danger: true
+      });
+      if (!okDup) return;
+    }
+  }
+
   // ✅︎ تنبيه على المباراة المكررة (نفس الفريقين في نفس الجولة) — مع السماح بالمتابعة
   /* ✅︎ حارس المجموعات — منع باتّ لمباراة بين فريقين من مجموعتين مختلفتين.
      في نظام المجموعات، فرق المجموعة A لا تلعب ضد فرق المجموعة B إطلاقاً
@@ -5293,10 +5319,57 @@ window.openModal = function(id) {
   el.classList.add('open');
   document.body.style.overflow = 'hidden';
 };
+/* ── تهيئة ذكية للنافذة قبل فتحها ──
+   يملأ ما يمكن استنتاجه بدل أن يكتبه المنظّم في كل مباراة:
+    • رقم الجولة   ← الجولة الحالية (أعلى جولة موجودة، أو التالية إن اكتملت)
+    • الملعب       ← آخر ملعب استُعمل فعلاً في هذه البطولة
+    • التاريخ      ← اليوم
+    • الفريق الثاني ← أول فريق مختلف عن الأول (فلا يبدأ الاثنان متطابقين) */
+function _prefillMatchModal() {
+  const ms = (window.matches || []).filter(m => !m.isKnockout);
+
+  // رقم الجولة
+  const rIn = document.getElementById('matchRound');
+  if (rIn) {
+    const maxR = ms.reduce((a, m) => Math.max(a, m.round || 0), 0);
+    if (maxR > 0) {
+      const inMax = ms.filter(m => (m.round || 0) === maxR);
+      const teamsN = (window.teams || []).length;
+      // الجولة ممتلئة عندما تحوي نصف عدد الفرق (كل فريق يلعب مرة)
+      const full = teamsN >= 2 && inMax.length >= Math.floor(teamsN / 2);
+      rIn.value = full ? maxR + 1 : maxR;
+    } else rIn.value = 1;
+  }
+
+  // الملعب: آخر ملعب مستعمل فعلياً
+  const vIn = document.getElementById('matchVenue');
+  if (vIn) {
+    const lastV = [...(window.matches || [])].reverse()
+      .map(m => (m.venue || '').trim()).find(v => v);
+    if (lastV) vIn.value = lastV;
+  }
+
+  // التاريخ: اليوم
+  const dIn = document.getElementById('matchDate');
+  if (dIn && !dIn.value) {
+    const d = new Date();
+    dIn.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  // لا يبدأ الفريقان متطابقين
+  const h = document.getElementById('matchHome'), a = document.getElementById('matchAway');
+  if (h && a && h.value && h.value === a.value && a.options.length > 1) {
+    const alt = [...a.options].find(o => o.value !== h.value);
+    if (alt) a.value = alt.value;
+  }
+}
+window._prefillMatchModal = _prefillMatchModal;
+
 // فتح نافذة الإضافة العادية — يضمن دائماً العودة للوضع الافتراضي (وليس وضع المباراة الفاصلة)
 window.openNormalMatchModal = function() {
   window._matchModalMode = 'normal';
   openModal('modal-match');
+  setTimeout(() => { try { _prefillMatchModal(); } catch (e) {} }, 30);
 };
 // فتح نافذة "مباراة فاصلة بين مجموعتين" — لا تظهر إلا من الزر المخصّص في صفحة المجموعات،
 // وتتأكد من أن الإعداد مفعّل فعلاً قبل السماح (دفاع مزدوج مع الفحص في addMatch)
@@ -9761,6 +9834,10 @@ function renderKnockoutAdmin() {
         </div>
       </div>
       <div style="display:flex;gap:8px">
+        <button onclick="openKoSchedule()"
+          style="padding:9px 12px;border-radius:9px;border:1px solid rgba(201,160,43,.3);
+                 background:rgba(201,160,43,.08);color:var(--gold);font-family:Tajawal,sans-serif;
+                 font-size:11px;font-weight:800;cursor:pointer">📅 المواعيد</button>
         <button onclick="adminResetBracket()"
           style="padding:7px 12px;border-radius:8px;font-family:Tajawal,sans-serif;font-size:11px;cursor:pointer;
           border:1px solid rgba(192,57,43,.3);background:rgba(192,57,43,.07);color:var(--red)">
@@ -9908,16 +9985,12 @@ function renderKnockoutAdmin() {
     /* data-half يخبر رسّام الخطوط باتّجاه التدفّق نحو النهائي */
     return `
       <div class="abm-round" data-half="${half}">
-        <div class="abm-label">
-          <span class="abm-label-name">${round.name}</span>
-          <span class="abm-label-cnt">${doneCount}/${slots} منتهية</span>
-        </div>
         <div class="abm-grid">${cards}</div>
       </div>`;
   };
 
-  const AB_DOWN = '<div class="abm-flow abm-flow-down"><span class="abm-chev"></span></div>';
-  const AB_UP   = '<div class="abm-flow abm-flow-up"><span class="abm-chev"></span></div>';
+  const AB_DOWN = '<div class="abm-flow"></div>';
+  const AB_UP   = '<div class="abm-flow"></div>';
 
   const abFinal = roundData[roundData.length - 1];
   const abPre   = roundData.slice(0, -1);
@@ -9928,12 +10001,8 @@ function renderKnockoutAdmin() {
 
   const abFinalHtml = abFinal ? `
     <div class="abm-round abm-final-round">
-      <div class="abm-label abm-label-final">
-        <span class="abm-label-name">${abFinal.round.name}</span>
-        <span class="abm-label-cnt">${abFinal.doneCount}/${abFinal.slots} منتهية</span>
-      </div>
       <div class="abm-grid">
-        ${_adminBracketBox(abFinal.slotArr[0], abFinal.round.id, 0, abFinal.isFirstRound, abFinal.round, false, `r${abFinal.idx}-s0`, abPre.length ? abPre[abPre.length-1].round.name : '')}
+        ${_adminBracketBox(abFinal.slotArr[0], abFinal.round.id, 0, abFinal.isFirstRound, abFinal.round, false, `r${abFinal.idx}-s0`, abPre.length ? abPre[abPre.length-1].round.name : '', true)}
       </div>
     </div>` : '';
 
@@ -9955,7 +10024,7 @@ window._abmDrawJoiners = function(root) {
   tree.querySelectorAll('svg.abm-lines').forEach(el => el.remove());
   tree.style.position = 'relative';
   const wr = tree.getBoundingClientRect();
-  const paths = [], dots = [];
+  const paths = [];
 
   tree.querySelectorAll('.abm-round').forEach(sec => {
     const half = sec.getAttribute('data-half');
@@ -9967,18 +10036,15 @@ window._abmDrawJoiners = function(root) {
       const a = cards[i].getBoundingClientRect();
       const b = cards[i+1].getBoundingClientRect();
       if (Math.abs(a.top - b.top) > 4) continue;          // ليسا في صف واحد
+      // خطوط مستقيمة بزوايا قائمة — بلا انحناءات ولا نقاط زينة
       const y0 = (down ? a.bottom : a.top) - wr.top;
-      const dir = down ? 1 : -1, stem = 11, r = 7;
-      const y1 = y0 + dir * stem;
+      const dir = down ? 1 : -1;
+      const y1 = y0 + dir * 10;
       const xa = a.left + a.width/2 - wr.left;
       const xb = b.left + b.width/2 - wr.left;
       const xm = (xa + xb) / 2;
-      [[xa, xm], [xb, xm]].forEach(([x, tx]) => {
-        const sgn = tx > x ? 1 : -1;
-        paths.push(`M ${x} ${y0} L ${x} ${y1 - dir*r} Q ${x} ${y1} ${x + sgn*r} ${y1} L ${tx} ${y1}`);
-      });
-      paths.push(`M ${xm} ${y1} L ${xm} ${y1 + dir*7}`);
-      dots.push({ x: xm, y: y1 });
+      paths.push(`M ${xa} ${y0} L ${xa} ${y1} L ${xb} ${y1} L ${xb} ${y0}`);
+      paths.push(`M ${xm} ${y1} L ${xm} ${y1 + dir*10}`);
     }
   });
 
@@ -9986,9 +10052,9 @@ window._abmDrawJoiners = function(root) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'abm-lines');
   svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0';
-  svg.innerHTML =
-    paths.map(d => `<path d="${d}" fill="none" stroke="rgba(201,160,43,.42)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`).join('') +
-    dots.map(p => `<circle cx="${p.x}" cy="${p.y}" r="2.6" fill="rgba(201,160,43,.85)"/>`).join('');
+  svg.innerHTML = paths.map(d =>
+    `<path d="${d}" fill="none" stroke="rgba(201,160,43,.30)" stroke-width="1.5" shape-rendering="crispEdges"/>`
+  ).join('');
   tree.appendChild(svg);
 };
 
@@ -10005,7 +10071,7 @@ if (!window._abmResizeBound) {
 }
 
 // ── صندوق مباراة واحد في الشجرة التفاعلية ──
-function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round, mirror, brkAttr, prevName) {
+function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round, mirror, brkAttr, prevName, isFinal) {
   const brk = brkAttr ? ` data-brk="${brkAttr}"` : '';
   // ✅︎ خانة نصف مكتملة: فريق واحد اختير فعلاً وظهر للجمهور، بانتظار الفريق الثاني
   const pick = !m && round && round.slotPicks && round.slotPicks[slotIdx];
@@ -10049,6 +10115,28 @@ function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round, mirror, brkA
   const penH = fin && m.penaltyScoreHome != null ? `<span class="ab-pen">رك ${m.penaltyScoreHome}</span>` : '';
   const penA = fin && m.penaltyScoreAway != null ? `<span class="ab-pen">رك ${m.penaltyScoreAway}</span>` : '';
   const clickAttr = virtual ? `adminOpenBracketSlot('${roundId}',${slotIdx})` : `mcv2OpenInfo('${m.id}')`;
+
+  /* ── النهائي: تخطيط أفقي كبطاقة المباريات (مطابق لصفحة الجمهور) ──
+     فريق يمين · النتيجة في الوسط · فريق يسار. */
+  if (isFinal) {
+    const _sc = (v) => (fin || live) ? String(v ?? 0) : '';
+    const _side = (t, win, tbd) => `
+      <div class="btf-side${win ? ' btf-win' : ''}">
+        <span class="btf-logo">${t.logo ? logoHtml(t.logo, 32, 8) : crestTbd}</span>
+        <span class="btf-name${tbd ? ' ab-tbd' : ''}">${t.name}</span>
+      </div>`;
+    const _mid = (fin || live)
+      ? `<span class="btf-score">${_sc(m.homeScore)}<i>-</i>${_sc(m.awayScore)}</span>
+         ${fin && m.penaltyScoreHome != null ? `<span class="btf-pen">ركلات ${m.penaltyScoreHome} - ${m.penaltyScoreAway}</span>` : ''}`
+      : `<span class="btf-vs">ضد</span>`;
+    return `<div class="ab-box btf ${pend || virtual ? 'ab-pending' : ''} ${live ? 'ab-live' : ''} ${fin ? 'ab-done' : ''}"${brk} onclick="${clickAttr}">
+      ${pend ? '<div class="ab-tag ab-tag-pend">لم تُفعّل بعد</div>'
+        : live ? '<div class="ab-tag ab-tag-live">جارية الآن</div>' : ''}
+      ${_side(ht, hw, false)}
+      <div class="btf-mid">${_mid}</div>
+      ${_side(at, aw, virtual)}
+    </div>`;
+  }
 
   return `<div class="ab-box ${pend || virtual ? 'ab-pending' : ''} ${live ? 'ab-live' : ''} ${fin ? 'ab-done' : ''}"${brk} onclick="${clickAttr}">
     ${pend ? '<div class="ab-tag ab-tag-pend">لم تُفعّل بعد</div>'
@@ -10298,6 +10386,188 @@ window.adminAutoDrawBracket = async function() {
     showToast(`✅︎ وُزّعت ${pairsCount} مواجهة${twoLegs ? ' (ذهاب وإياب)' : ''} — راجعها ثم انشر الشجرة`, 'success');
   } catch (e) {
     showToast('تعذّر التوزيع: ' + window._trErr(e), 'error');
+  }
+};
+
+/* ════════════════════════════════════════════════════════════════════
+ *  📅 مواعيد مباريات الشجرة — تحديد جماعي بنافذة واحدة
+ *  ──────────────────────────────────────────────────────────────────
+ *  قبل: لتحديد موعد كل مباراة إقصاء يفتح المنظّم بطاقتها ثم نافذة
+ *  التعديل ثم يحفظ — ثلاث خطوات × عدد المباريات. في دور 16 ذلك 16 دورة
+ *  كاملة، والمواعيد تضيع بين النوافذ فيصعب رؤية الجدول ككل.
+ *
+ *  الآن: نافذة واحدة تعرض كل مباريات الشجرة مرتّبة حسب الدور، لكل واحدة
+ *  حقلا تاريخ ووقت، وحفظ دفعة واحدة (writeBatch = عملية ذرّية).
+ *  مع أداة «تعبئة سريعة»: تاريخ البداية + وقت ثابت + فاصل أيام بين
+ *  الأدوار، فيتولّد جدول البطولة كاملاً بثلاث خانات.
+ * ════════════════════════════════════════════════════════════════════ */
+
+// كل مباريات الشجرة مرتّبة: حسب ترتيب الدور ثم رقم الخانة
+function _koScheduleList() {
+  const rounds = [...(adminKnockoutRounds || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const out = [];
+  rounds.forEach(r => {
+    const ms = (matches || [])
+      .filter(m => m.knockoutRoundId === r.id)
+      .sort((a, b) => (a.knockoutSlot ?? 0) - (b.knockoutSlot ?? 0) || (_legOf(a) - _legOf(b)));
+    if (ms.length) out.push({ round: r, ms });
+  });
+  return out;
+}
+
+window.openKoSchedule = function() {
+  const groups = _koScheduleList();
+  if (!groups.length) {
+    showToast('لا توجد مباريات في الشجرة بعد', 'error');
+    return;
+  }
+
+  const _nm = (id, fb) => {
+    const t = (teams || []).find(x => x.id === id);
+    return (t && t.name) || fb || 'بانتظار المتأهل';
+  };
+
+  const rows = groups.map(g => `
+    <div style="margin-bottom:14px">
+      <div style="font-size:10.5px;font-weight:900;color:var(--gold,#C9A02B);
+                  padding:6px 0;border-bottom:1px solid var(--border,#1f1f1f);margin-bottom:8px">
+        ${g.round.name} <span style="color:var(--muted,#888);font-weight:600">· ${g.ms.length} مباراة</span>
+      </div>
+      ${g.ms.map(m => {
+        const lg = _legOf(m);
+        return `
+        <div style="margin-bottom:9px;padding:9px;background:var(--card3,#1a1a1a);
+                    border:1px solid var(--border2,#2a2a2a);border-radius:9px">
+          <div style="font-size:11.5px;font-weight:700;color:var(--text,#eee);margin-bottom:7px;
+                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            ${_nm(m.homeId, m.homeName)} <span style="color:var(--muted,#888)">ضد</span> ${_nm(m.awayId, m.awayName)}
+            ${lg ? `<span style="font-size:9px;color:var(--muted,#888)"> · ${_legLabel(lg)}</span>` : ''}
+            ${m.status === 'finished' ? '<span style="font-size:9px;color:var(--green,#27ae60)"> · انتهت</span>' : ''}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+            <input type="date" class="form-input" id="kos-d-${m.id}" value="${m.date || ''}"
+              style="padding:8px;font-size:12px"/>
+            <input type="time" class="form-input" id="kos-t-${m.id}" value="${m.time || ''}"
+              style="padding:8px;font-size:12px"/>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+
+  document.getElementById('koScheduleOv')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'koScheduleOv';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,.82);display:flex;align-items:flex-end;justify-content:center';
+  ov.innerHTML = `
+    <div style="width:100%;max-width:520px;max-height:92vh;display:flex;flex-direction:column;
+                background:var(--card,#141414);border:1px solid var(--border2,#2a2a2a);
+                border-radius:18px 18px 0 0;font-family:Tajawal,sans-serif">
+      <div style="flex-shrink:0;padding:15px 16px;border-bottom:1px solid var(--border,#1f1f1f)">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:14px;font-weight:900;color:var(--gold,#C9A02B)">📅 مواعيد مباريات الشجرة</div>
+            <div style="font-size:10px;color:var(--muted,#888);margin-top:3px">تظهر للجمهور على بطاقات الشجرة</div>
+          </div>
+          <button onclick="document.getElementById('koScheduleOv').remove()"
+            style="background:none;border:none;color:var(--muted,#888);font-size:20px;cursor:pointer;padding:4px">✕</button>
+        </div>
+
+        <!-- تعبئة سريعة: تولّد جدول البطولة كاملاً بثلاث خانات -->
+        <div style="margin-top:12px;padding:10px;border-radius:10px;
+                    background:rgba(201,160,43,.06);border:1px solid rgba(201,160,43,.22)">
+          <div style="font-size:10px;font-weight:800;color:var(--gold,#C9A02B);margin-bottom:8px">⚡ تعبئة سريعة</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+            <div><label style="font-size:9px;color:var(--muted,#888);display:block;margin-bottom:3px">تاريخ أول دور</label>
+              <input type="date" class="form-input" id="kosQuickDate" style="padding:7px;font-size:11px"/></div>
+            <div><label style="font-size:9px;color:var(--muted,#888);display:block;margin-bottom:3px">الوقت</label>
+              <input type="time" class="form-input" id="kosQuickTime" value="20:00" style="padding:7px;font-size:11px"/></div>
+            <div><label style="font-size:9px;color:var(--muted,#888);display:block;margin-bottom:3px">أيام بين الأدوار</label>
+              <input type="number" class="form-input" id="kosQuickGap" value="7" min="0" max="60"
+                inputmode="numeric" style="padding:7px;font-size:11px"/></div>
+          </div>
+          <button onclick="kosQuickFill()"
+            style="width:100%;margin-top:8px;padding:8px;border-radius:8px;cursor:pointer;
+                   border:1px solid rgba(201,160,43,.32);background:rgba(201,160,43,.1);
+                   color:var(--gold,#C9A02B);font-family:Tajawal,sans-serif;font-size:11px;font-weight:800">
+            املأ كل المواعيد</button>
+        </div>
+      </div>
+
+      <div style="flex:1;overflow-y:auto;padding:14px 16px">${rows}</div>
+
+      <div style="flex-shrink:0;display:grid;grid-template-columns:1fr 2fr;gap:8px;
+                  padding:12px 16px;border-top:1px solid var(--border,#1f1f1f);background:var(--card2,#161616)">
+        <button onclick="document.getElementById('koScheduleOv').remove()"
+          style="padding:12px;border-radius:10px;border:1px solid var(--border,#333);background:transparent;
+                 color:var(--muted,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">إلغاء</button>
+        <button onclick="saveKoSchedule()"
+          style="padding:12px;border-radius:10px;border:none;background:var(--gold,#C9A02B);color:#000;
+                 font-family:Tajawal,sans-serif;font-weight:900;font-size:12px;cursor:pointer">💾 حفظ كل المواعيد</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  window.bindModalDismiss && window.bindModalDismiss(ov);
+};
+
+/* ── التعبئة السريعة ──
+   كل دور يبدأ بعد الذي قبله بعدد الأيام المحدَّد. مباريات الدور الواحد
+   في نفس اليوم (وهو المعتاد في الإقصاء)، ومباريات الإياب بعد الذهاب
+   بنفس الفاصل كي لا تقع في اليوم ذاته. */
+window.kosQuickFill = function() {
+  const d0  = document.getElementById('kosQuickDate')?.value;
+  const t0  = document.getElementById('kosQuickTime')?.value || '20:00';
+  const gap = parseInt(document.getElementById('kosQuickGap')?.value, 10);
+  if (!d0) { showToast('اختر تاريخ أول دور', 'error'); return; }
+  const step = isNaN(gap) ? 7 : Math.max(0, gap);
+
+  const base = new Date(d0 + 'T00:00:00');
+  if (isNaN(base.getTime())) { showToast('تاريخ غير صالح', 'error'); return; }
+
+  const groups = _koScheduleList();
+  let offset = 0, filled = 0;
+  groups.forEach(g => {
+    // الذهاب والإياب داخل الدور الواحد يفصلهما نفس عدد الأيام
+    const legs = [...new Set(g.ms.map(m => _legOf(m)))].filter(Boolean);
+    g.ms.forEach(m => {
+      const lg = _legOf(m);
+      const extra = (legs.length > 1 && lg === 2) ? step : 0;
+      const d = new Date(base);
+      d.setDate(d.getDate() + offset + extra);
+      const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const de = document.getElementById('kos-d-' + m.id);
+      const te = document.getElementById('kos-t-' + m.id);
+      if (de) { de.value = ds; filled++; }
+      if (te) te.value = t0;
+    });
+    offset += step * (legs.length > 1 ? 2 : 1);
+  });
+  showToast(`عُبّئ ${filled} موعداً — راجعها ثم احفظ`, 'success');
+};
+
+// ── حفظ كل المواعيد دفعة واحدة (ذرّية) ──
+window.saveKoSchedule = async function() {
+  const groups = _koScheduleList();
+  const all = groups.flatMap(g => g.ms);
+  const changes = [];
+  all.forEach(m => {
+    const d = (document.getElementById('kos-d-' + m.id)?.value || '') || null;
+    const t = (document.getElementById('kos-t-' + m.id)?.value || '') || null;
+    // نكتب فقط ما تغيّر فعلاً — لا نلمس مستندات بلا داعٍ
+    if ((m.date || null) !== d || (m.time || null) !== t) changes.push({ id: m.id, date: d, time: t });
+  });
+
+  if (!changes.length) { showToast('لا تغييرات لحفظها', 'error'); return; }
+  try {
+    const batch = writeBatch(db);
+    changes.forEach(c => {
+      batch.update(doc(db, 'leagues', LEAGUE_ID, 'matches', c.id),
+        { date: c.date, time: c.time, updatedAt: serverTimestamp() });
+    });
+    await batch.commit();
+    document.getElementById('koScheduleOv')?.remove();
+    showToast(`✅︎ حُفظ ${changes.length} موعداً — تظهر الآن للجمهور`, 'success');
+  } catch (e) {
+    showToast('تعذّر الحفظ: ' + window._trErr(e), 'error');
   }
 };
 
@@ -11010,131 +11280,103 @@ window.adminAutoCreateKnockout = async function () {
 function injectAdminCSS() {
   const style = document.createElement('style');
   style.textContent = `
-    /* ══ شجرة الإقصاء — نفس تصميم المرايا العمودي في صفحة الجمهور ══
-       المسار الأول فوق · النهائي في القلب · المسار الثاني تحت
-       تمرير طولي فقط · كل البطاقات بمقاس واحد ثابت */
+    /* ══ شجرة الإقصاء — رسمية بلا زخارف (مطابقة لصفحة الجمهور) ══
+       أُزيلت: شارات أسماء الأدوار · المعيّنات ◆ · الأسهم · التوهّج ·
+       التدرّجات · الظلال العائمة. بقي: بطاقات متقاربة · خطوط مستقيمة ·
+       تمييز خفيف للنهائي. */
     .ab-tree { display:flex; flex-direction:column; gap:0;
-      --abm-w:170px; --abm-h:74px; }
-    @media (min-width:430px){ .ab-tree { --abm-w:186px } }
-    @media (min-width:760px){ .ab-tree { --abm-w:200px } }
+      --abm-w:168px; --abm-h:70px; }
+    @media (max-width:400px){ .ab-tree { --abm-w:156px } }
+    @media (min-width:430px){ .ab-tree { --abm-w:184px } }
+    @media (min-width:760px){ .ab-tree { --abm-w:198px } }
 
     .abm-round { margin:0; }
-    .abm-label {
-      position:relative; display:flex; align-items:center; gap:8px; width:fit-content;
-      margin:0 auto 12px; padding:7px 18px; border-radius:20px; white-space:nowrap;
-      background:#0b0c0e; border:1px solid rgba(201,160,43,.4);
-    }
-    .abm-label::before, .abm-label::after {
-      content:''; position:absolute; top:50%; width:24px; height:1px;
-      background:linear-gradient(90deg,rgba(201,160,43,.42),transparent);
-    }
-    .abm-label::before { right:100%; margin-right:10px; }
-    .abm-label::after  { left:100%; margin-left:10px;
-      background:linear-gradient(270deg,rgba(201,160,43,.42),transparent); }
-    .abm-label-name { font-size:11px; font-weight:900; color:var(--gold,#C9A02B); letter-spacing:.3px; }
-    .abm-label-cnt  { font-size:9.5px; font-weight:700; color:var(--muted,#888); }
-
     .abm-grid {
       display:grid; grid-template-columns:repeat(auto-fit,var(--abm-w));
-      justify-content:center; gap:26px 10px; position:relative;
+      justify-content:center; gap:22px 8px; position:relative;
     }
-    /* ── النهائي: بلا لوح خلفي ──
-       الصندوق الذهبي كان كتلة لونية ثقيلة تكسر انتظام الشجرة. التمييز
-       الآن من البطاقة والشارة نفسيهما لا من خلفية وراءهما. */
-    .abm-final-round { margin:2px auto; padding:0; background:none; border:0; }
-    .abm-final-round .abm-label { border-width:1.5px; border-color:var(--gold,#C9A02B);
-      padding:8px 24px; letter-spacing:1px; }
-    .abm-final-round .abm-label-name { font-size:13px; }
-    /* معيّنان جانبيان بدل الخطّين — تمييز رسمي هادئ */
-    .abm-final-round .abm-label::before,
-    .abm-final-round .abm-label::after {
-      content:''; position:absolute; top:50%; width:5px; height:5px;
-      background:var(--gold,#C9A02B); transform:translateY(-50%) rotate(45deg);
+    /* النهائي: أكبر قليلاً ومميّز بإطاره فقط */
+    .abm-final-round { margin:0; padding:0; background:none; border:0; }
+    /* flex لا grid: البطاقة أعرض من مسار الشبكة فتفيض وتنزاح عن المحور */
+    .abm-final-round .abm-grid { display:flex; justify-content:center; }
+    /* ── بطاقة النهائي: أفقية كبطاقة المباريات (مطابقة لصفحة الجمهور) ── */
+    .abm-final-round .ab-box {
+      width:calc(var(--abm-w) * 2 + 8px);
+      height:calc(var(--abm-h) + 16px);
+      border-color:var(--gold,#C9A02B) !important;
+      border-width:1.5px; margin:0 auto;
+      flex-direction:row; align-items:center; padding:0 10px; gap:6px;
     }
-    .abm-final-round .abm-label::before { right:100%; margin-right:12px; }
-    .abm-final-round .abm-label::after  { left:100%;  margin-left:12px;  }
-    .abm-final-round .ab-box { border-color:var(--gold,#C9A02B) !important; border-width:1.5px;
-      box-shadow:0 0 0 3px rgba(201,160,43,.10),0 6px 20px rgba(0,0,0,.42); }
+    .btf-side { flex:1 1 0; min-width:0; display:flex; flex-direction:column;
+      align-items:center; gap:5px; text-align:center; }
+    .btf-logo { width:32px; height:32px; display:flex; align-items:center; justify-content:center; }
+    .btf-logo img { width:32px; height:32px; object-fit:cover; border-radius:8px; }
+    .btf-logo .ab-crest-tbd { width:32px; height:32px; border-radius:8px; }
+    .btf-name { font-size:11.5px; font-weight:800; color:var(--text,#eee); max-width:100%;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }
+    .btf-win .btf-name { color:var(--gold,#C9A02B); font-weight:900; }
+    .btf-mid { flex:0 0 auto; display:flex; flex-direction:column; align-items:center;
+      gap:2px; padding:0 6px; min-width:60px; }
+    .btf-score { display:flex; align-items:center; gap:5px; font-size:21px; font-weight:900;
+      color:var(--text,#eee); font-variant-numeric:tabular-nums; line-height:1; }
+    .btf-score i { font-style:normal; font-size:14px; color:var(--muted,#888); font-weight:700; }
+    .btf-pen { font-size:8.5px; font-weight:800; color:var(--gold,#C9A02B); white-space:nowrap; }
+    .btf-vs { font-size:11px; font-weight:800; color:var(--muted,#888); }
 
-    /* سهم التدفّق — يتّجه دائماً نحو النهائي في المنتصف */
-    .abm-flow { display:flex; align-items:center; justify-content:center; height:26px; }
-    .abm-flow::before, .abm-flow::after {
-      content:''; flex:0 0 42px; height:1px;
-      background:linear-gradient(90deg,transparent,rgba(201,160,43,.26),transparent);
-    }
-    .abm-chev { width:9px; height:9px; margin:0 8px; flex:0 0 auto;
-      border-right:1.8px solid rgba(201,160,43,.62);
-      border-bottom:1.8px solid rgba(201,160,43,.62); }
-    .abm-flow-down .abm-chev { transform:rotate(45deg) translate(-1px,-1px); }
-    .abm-flow-up   .abm-chev { transform:rotate(-135deg) translate(-1px,-1px); }
+    /* الوصل بين الأدوار — خطّ عمودي مستقيم (الفاصل الوحيد بعد حذف العناوين) */
+    .abm-flow { display:flex; align-items:center; justify-content:center; height:30px; }
+    .abm-flow::before { content:''; width:1.5px; height:100%; background:rgba(201,160,43,.30); }
 
-    /* ── بطاقة المباراة: مقاس واحد لكل الحالات (مطابقة لبطاقة الجمهور) ── */
+    /* ── بطاقة المباراة: سطح مسطّح رسمي ── */
     .ab-box {
       width:100%; height:var(--abm-h); box-sizing:border-box; z-index:1;
       display:flex; flex-direction:column;
-      background:linear-gradient(180deg,var(--card2,#141820),var(--card,#0f1216));
-      border:1px solid var(--border2,#2a2a2a); border-radius:12px;
-      /* overflow مرئي عمداً: شارة الحالة تطفو أعلى البطاقة، و overflow:hidden
-         كان يقصّها تماماً فتختفي «غير مفعّلة» و«مباشر» عن المنظّم.
-         التدوير مضمون بدلاً منه عبر تدوير أول صف وآخر صف. */
-      overflow:visible; cursor:pointer; position:relative; z-index:1;
-      transition:border-color .15s, transform .15s;
-      box-shadow:0 3px 12px rgba(0,0,0,.28);
+      background:var(--card,#0f1216);
+      border:1px solid var(--border2,#2a2a2a); border-radius:8px;
+      overflow:visible; cursor:pointer; position:relative;
+      transition:border-color .15s;
     }
-    .ab-box > .ab-team:first-of-type { border-radius:11px 11px 0 0; }
-    .ab-box > .ab-team:last-of-type  { border-radius:0 0 11px 11px; }
-    .ab-box:active { transform:scale(.98); border-color:var(--gold,#C9A02B); }
-    .ab-box.ab-done { border-color:rgba(201,160,43,.26); }
-    .ab-box.ab-pending { border-style:dashed; border-color:rgba(201,160,43,.4); }
-    .ab-box.ab-live { border-color:rgba(192,57,43,.55); box-shadow:0 0 0 1px rgba(220,50,50,.2),0 4px 16px rgba(0,0,0,.4); }
-    .ab-box.ab-empty { background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);
-      border-color:var(--border,#1f1f1f); box-shadow:none; }
+    .ab-box > .ab-team:first-of-type { border-radius:7px 7px 0 0; }
+    .ab-box > .ab-team:last-of-type  { border-radius:0 0 7px 7px; }
+    .ab-box:active { border-color:var(--gold,#C9A02B); }
+    .ab-box.ab-done { border-color:rgba(201,160,43,.24); }
+    .ab-box.ab-pending { border-style:dashed; border-color:rgba(201,160,43,.32); }
+    .ab-box.ab-live { border-color:rgba(192,57,43,.55); }
+    .ab-box.ab-empty { background:rgba(255,255,255,.015); border-color:var(--border,#1f1f1f); }
     .ab-box.ab-waiting { cursor:default; }
 
-    .ab-team { display:flex; align-items:center; gap:8px; padding:0 10px;
+    .ab-team { display:flex; align-items:center; gap:8px; padding:0 9px;
       flex:1 1 0; min-height:0; position:relative; }
     .ab-sep { height:1px; background:var(--border,#1f1f1f); flex:0 0 1px; }
     .ab-box.ab-empty .ab-team + .ab-team { border-top:1px solid var(--border,#1f1f1f); }
-    .ab-team.ab-winner { background:rgba(201,160,43,.10); }
+    .ab-team.ab-winner { background:rgba(201,160,43,.09); }
     .ab-team.ab-winner .ab-name { color:var(--gold,#C9A02B); font-weight:900; }
     .ab-team.ab-winner .ab-score { color:var(--gold,#C9A02B); }
-    .ab-team.ab-winner::after {
-      content:''; position:absolute; inset-inline-start:0; top:14%; bottom:14%;
-      width:3px; border-radius:0 3px 3px 0; background:var(--gold,#C9A02B);
-    }
-    /* ✅︎ الخاسر يبقى ظاهراً لكن مميّز — زي التطبيقات الرسمية */
     .ab-team.ab-loser { opacity:.5; }
     .ab-team.ab-loser .ab-name { color:#777; font-weight:600; }
     .ab-team.ab-loser .ab-logo { filter:grayscale(1); }
 
-    .ab-logo { width:24px; height:24px; flex-shrink:0; display:flex;
+    .ab-logo { width:22px; height:22px; flex-shrink:0; display:flex;
       align-items:center; justify-content:center; }
-    .ab-logo img { width:24px; height:24px; object-fit:cover; border-radius:6px; }
-    .ab-crest-tbd { width:24px; height:24px; display:flex; align-items:center; justify-content:center;
-      border-radius:6px; background:rgba(255,255,255,.04); border:1px dashed var(--border2,#2a2a2a);
+    .ab-logo img { width:22px; height:22px; object-fit:cover; border-radius:5px; }
+    .ab-crest-tbd { width:22px; height:22px; display:flex; align-items:center; justify-content:center;
+      border-radius:5px; background:rgba(255,255,255,.04); border:1px dashed var(--border2,#2a2a2a);
       color:var(--muted,#888); opacity:.6; }
     .ab-name { flex:1; min-width:0; font-size:11.5px; font-weight:800; color:var(--text,#eee);
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .ab-name.ab-tbd { color:var(--muted,#777); font-weight:600; font-size:10px; }
     .ab-score { font-size:13px; font-weight:900; color:var(--text,#eee); min-width:16px;
-      text-align:center; flex:0 0 auto; font-family:Tajawal,sans-serif; line-height:1.05; }
+      text-align:center; flex:0 0 auto; font-family:Tajawal,sans-serif; line-height:1.05;
+      font-variant-numeric:tabular-nums; }
     .ab-pen { display:block; font-size:8px; font-weight:800; color:var(--gold,#C9A02B); line-height:1; }
 
-    /* شارة حالة المباراة أعلى البطاقة */
+    /* شارة حالة المباراة — معلومة إدارية يحتاجها المنظّم، تبقى */
     .ab-tag { position:absolute; top:-8px; inset-inline-end:8px; z-index:2;
-      font-size:8px; font-weight:800; padding:1px 7px; border-radius:8px;
+      font-size:8px; font-weight:800; padding:1px 7px; border-radius:6px;
       background:var(--dark,#0c0c0c); white-space:nowrap; }
     .ab-tag-pend { color:var(--gold,#C9A02B); border:1px solid rgba(201,160,43,.3); }
     .ab-tag-live { color:#C0392B; border:1px solid rgba(192,57,43,.45); }
     .ab-tag-ok   { color:var(--green,#27ae60); border:1px solid rgba(39,174,96,.35); }
-    .ab-tag-done { color:var(--muted,#888); border:1px solid rgba(255,255,255,.10); }
-    /* قرص «إضافة» في خانات الدور الأول القابلة للاختيار */
-    .ab-crest-add { width:24px; height:24px; display:flex; align-items:center; justify-content:center;
-      border-radius:6px; background:rgba(201,160,43,.12); border:1px dashed rgba(201,160,43,.45);
-      color:var(--gold,#C9A02B); }
-    .ab-box.ab-pick { border-style:dashed; border-color:rgba(201,160,43,.35); }
-    .ab-box.ab-pick:active { border-color:var(--gold,#C9A02B); }
-    .ab-box.ab-pick .ab-name { color:var(--gold,#C9A02B); opacity:.9; }
 
     /* ── Match Stats Toggle ── */
     .me-stats-toggle summary::-webkit-details-marker { display:none; }

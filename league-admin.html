@@ -1039,42 +1039,34 @@ if('serviceWorker' in navigator) {
   <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto">
     <div class="modal-header"><div class="modal-title">➕︎ إضافة مباراة</div><button class="modal-close" onclick="closeModal('modal-match')">✕</button></div>
     <div class="modal-body">
-      <!-- الفريقان -->
-      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px">⚽ الفريقان</div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">🏠 الفريق الأول</label><select class="form-select" id="matchHome"></select></div>
-        <div class="form-group"><label class="form-label">✈︎️ الفريق الثاني</label><select class="form-select" id="matchAway"></select></div>
-      </div>
-      <!-- الوقت والمكان -->
-      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">📅 الوقت والمكان</div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">التاريخ</label><input class="form-input" type="date" id="matchDate"/></div>
-        <div class="form-group"><label class="form-label">الوقت</label><input class="form-input" type="time" id="matchTime" value="16:00"/></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">🏟 الملعب</label><input class="form-input" id="matchVenue" value="ملعب الحارة"/></div>
-        <div class="form-group" id="matchRoundGroup"><label class="form-label">🎯 رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1"/></div>
-      </div>
-      <!-- طاقم المباراة -->
-      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">👔 طاقم المباراة <span style="color:var(--muted);font-weight:400">(اختياري)</span></div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">🏁 الحكم الرئيسي</label><input class="form-input" id="matchReferee" placeholder="اسم الحكم"/></div>
-        <div class="form-group"><label class="form-label">🎙 المعلق</label><input class="form-input" id="matchCommentator" placeholder="اسم المعلق"/></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">🚩 حكم خط 1</label><input class="form-input" id="matchLinesman1" placeholder="الاسم"/></div>
-        <div class="form-group"><label class="form-label">🚩 حكم خط 2</label><input class="form-input" id="matchLinesman2" placeholder="الاسم"/></div>
-      </div>
-      <!-- الرعاة والإضافات -->
-      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">🏅 الرعاة والإضافات <span style="color:var(--muted);font-weight:400">(اختياري)</span></div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">🏅 الراعي الرئيسي</label><input class="form-input" id="matchSponsor" placeholder="اسم الراعي"/></div>
-        <div class="form-group"><label class="form-label">📸 المصور</label><input class="form-input" id="matchPhotographer" placeholder="اسم المصور"/></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">🎤 مذيع الملعب</label><input class="form-input" id="matchAnnouncer" placeholder="اسم المذيع"/></div>
-        <div class="form-group"><label class="form-label">👥 عدد الجمهور</label><input class="form-input" type="number" id="matchAttendance" placeholder="500"/></div>
-      </div>
+      <!-- ══ كل الحقول ظاهرة، وكل حقل في سطر مستقلّ ══
+           سبب التغيير: كانت الحقول مزدوجة في صفٍّ واحد (form-row بعمودين).
+           على الجوال يصير عرض الحقل ~150px، فحقلا التاريخ والوقت — وهما
+           input[type=date/time] بواجهة نظام لها عرض أدنى ثابت — يفيضان
+           عن خانتيهما فيتداخل النص مع أيقونة التقويم ويبدو "خبصاً".
+           سطر لكل حقل = عرض كامل مضمون لكل واحد، ولا تداخل مهما ضاقت الشاشة. -->
+
+      <div class="mm-sec">⚽ الفريقان</div>
+      <div class="form-group"><label class="form-label">🏠 الفريق الأول (المضيف)</label><select class="form-select" id="matchHome"></select></div>
+      <div class="form-group"><label class="form-label">✈︎️ الفريق الثاني (الضيف)</label><select class="form-select" id="matchAway"></select></div>
+
+      <div class="mm-sec">📅 الوقت والمكان</div>
+      <div class="form-group"><label class="form-label">📆 التاريخ</label><input class="form-input" type="date" id="matchDate"/></div>
+      <div class="form-group"><label class="form-label">🕓 الوقت</label><input class="form-input" type="time" id="matchTime" value="16:00"/></div>
+      <div class="form-group"><label class="form-label">🏟 الملعب</label><input class="form-input" id="matchVenue" value="ملعب الحارة"/></div>
+      <div class="form-group" id="matchRoundGroup"><label class="form-label">🎯 رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1" inputmode="numeric"/></div>
+
+      <div class="mm-sec">👔 طاقم المباراة <span class="mm-opt">(اختياري)</span></div>
+      <div class="form-group"><label class="form-label">🏁 الحكم الرئيسي</label><input class="form-input" id="matchReferee" placeholder="اسم الحكم"/></div>
+      <div class="form-group"><label class="form-label">🎙 المعلق</label><input class="form-input" id="matchCommentator" placeholder="اسم المعلق"/></div>
+      <div class="form-group"><label class="form-label">🚩 حكم الخط الأول</label><input class="form-input" id="matchLinesman1" placeholder="الاسم"/></div>
+      <div class="form-group"><label class="form-label">🚩 حكم الخط الثاني</label><input class="form-input" id="matchLinesman2" placeholder="الاسم"/></div>
+
+      <div class="mm-sec">🏅 الرعاة والإضافات <span class="mm-opt">(اختياري)</span></div>
+      <div class="form-group"><label class="form-label">🏅 الراعي الرئيسي</label><input class="form-input" id="matchSponsor" placeholder="اسم الراعي"/></div>
+      <div class="form-group"><label class="form-label">📸 المصور</label><input class="form-input" id="matchPhotographer" placeholder="اسم المصور"/></div>
+      <div class="form-group"><label class="form-label">🎤 مذيع الملعب</label><input class="form-input" id="matchAnnouncer" placeholder="اسم المذيع"/></div>
+      <div class="form-group"><label class="form-label">👥 عدد الجمهور</label><input class="form-input" type="number" id="matchAttendance" placeholder="500" inputmode="numeric"/></div>
       <div class="form-group"><label class="form-label">📝 ملاحظات (تظهر للجمهور)</label><textarea class="form-input" id="matchNotes" rows="2" placeholder="أي ملاحظات إضافية..." style="resize:none"></textarea></div>
     </div>
     <div class="modal-footer">

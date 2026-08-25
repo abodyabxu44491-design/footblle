@@ -464,196 +464,178 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .bm-score{font-size:16px;font-weight:900;font-family:'Tajawal',sans-serif;color:var(--gold);min-width:20px;text-align:center}
 
 /* ═══════════════════════════════════════════════════════
-   BRACKET — شجرة مرايا عمودية (تمرير طولي فقط)
-   المسار الأول فوق · النهائي في القلب · المسار الثاني تحت
-   كل البطاقات بمقاس واحد ثابت مهما كان الدور
+   BRACKET — شجرة إقصاء رسمية (بلا زخارف)
+   ───────────────────────────────────────────────────────
+   أُزيلت: شارات أسماء الأدوار · المعيّنات الذهبية ◆ · الأسهم
+   والخطوط المتلاشية حولها · هالات التوهّج.
+   بقي: بطاقات متقاربة · خطوط وصل مستقيمة · تمييز خفيف للنهائي.
+   الشجرة تُقرأ بالتدرّج كالتطبيقات الرسمية، لا بالعناوين والزينة.
 ═══════════════════════════════════════════════════════ */
 :root{
-  --btm-w:170px;    /* عرض البطاقة — موحّد لكل الأدوار */
-  --btm-h:74px;     /* ارتفاع البطاقة — موحّد لكل الأدوار */
+  --btm-w:168px;    /* عرض البطاقة — موحّد لكل الأدوار */
+  --btm-h:70px;     /* ارتفاع البطاقة — موحّد لكل الأدوار */
 }
-.btm-wrap{padding:6px 14px 24px}
+.btm-wrap{padding:8px 14px 24px}
 
-/* عنوان الدور — شارة موسّطة بخط فاصل على الجانبين */
-.btm-label{
-  position:relative;display:block;width:fit-content;margin:0 auto 12px;
-  padding:7px 20px;border-radius:20px;white-space:nowrap;
-  font-size:11px;font-weight:900;letter-spacing:.4px;color:var(--gold);
-  background:#0b0c0e;border:1px solid rgba(201,160,43,.4);
-}
-.btm-label::before,.btm-label::after{
-  content:'';position:absolute;top:50%;width:26px;height:1px;
-  background:linear-gradient(90deg,rgba(201,160,43,.42),transparent);
-}
-.btm-label::before{right:100%;margin-right:10px}
-.btm-label::after{left:100%;margin-left:10px;
-  background:linear-gradient(270deg,rgba(201,160,43,.42),transparent)}
-
-/* شبكة مباريات الدور — تلتفّ عمودياً فلا تمرير عرضي إطلاقاً */
+/* شبكة مباريات الدور — متقاربة، وتلتفّ عمودياً فلا تمرير عرضي */
 .btm-grid{
-  /* فجوة رأسية أوسع (26px) لتتّسع لقوس وصل الأزواج بين الصفوف */
   display:grid;grid-template-columns:repeat(auto-fit,var(--btm-w));
-  justify-content:center;gap:26px 10px;position:relative;
+  justify-content:center;gap:20px 8px;position:relative;
 }
-/* البطاقات فوق طبقة الخطوط دائماً */
 .btm-grid .bt-match{position:relative;z-index:1}
 .btm-round{margin:0}
 
-/* النهائي — القلب: إطار ذهبي وهالة تميّزه بلا تكبير مقاسه */
-/* ── النهائي: بلا لوح خلفي ──
-   الصندوق الذهبي خلف النهائي كان يضيف كتلة لونية ثقيلة تكسر انتظام
-   الشجرة ويجعل القسم يبدو «ملصوقاً» فوق الباقي. التمييز الآن يأتي من
-   البطاقة نفسها (إطار ذهبي + هالة) لا من خلفية وراءها — أسلوب أرصن
-   وأقرب للمنصات الرسمية. */
-.btm-final-round{ margin:2px auto; padding:0; background:none; border:0 }
-.btm-label-final{
-  font-size:13px;padding:8px 26px;border-width:1.5px;border-color:var(--gold);
-  letter-spacing:1px;
+/* النهائي: أكبر قليلاً ومميّز بإطاره فقط — بلا لوح خلفي ولا توهّج */
+.btm-final-round{margin:0;padding:0;background:none;border:0}
+/* شبكة النهائي: flex لا grid — مسار الشبكة عرضه 168px والبطاقة 320px،
+   فكانت تفيض عن مسارها وتنزاح 82px عن محور الشجرة رغم تطابق العرض. */
+.btm-final-round .btm-grid{display:flex;justify-content:center}
+/* ── النهائي حين يكون الطرفان معروفَين: بطاقة قسم المباريات نفسها ──
+   بعرض بطاقتين + الفجوة، وإطار ذهبي يميّزها كأهمّ مباراة في البطولة. */
+.btm-final-card{width:calc(var(--btm-w) * 2 + 8px);margin:0 auto}
+.btm-final-card .mc2{
+  border-color:var(--gold);border-width:1.5px;margin:0;
 }
-/* شارة النهائي بمعيّنين جانبيين — تمييز رسمي بلا كتلة لونية */
-.btm-label-final::before,.btm-label-final::after{
-  content:'';position:absolute;top:50%;width:5px;height:5px;
-  background:var(--gold);transform:translateY(-50%) rotate(45deg);
+.btm-final-card .mc2-round{margin-bottom:6px}
+
+/* ── بطاقة النهائي: تخطيط أفقي كبطاقة المباريات ──
+   فريق يمين · النتيجة في الوسط · فريق يسار. عرضها بطاقتان + الفجوة
+   بالضبط فتحاذي حافتَي الدور الذي فوقها بلا بروز. */
+.btm-final-round .bt-match.btf{
+  width:calc(var(--btm-w) * 2 + 8px);
+  height:calc(var(--btm-h) + 16px);
+  border-color:var(--gold);
+  border-width:1.5px;
+  margin:0 auto;
+  flex-direction:row;align-items:center;
+  padding:0 10px;gap:6px;
 }
-.btm-label-final::before{right:100%;margin-right:12px}
-.btm-label-final::after{left:100%;margin-left:12px}
-/* بطاقة النهائي وحدها هي ما يحمل التمييز */
-.btm-grid-final .bt-match{
-  border-color:var(--gold);border-width:1.5px;
-  box-shadow:0 0 0 3px rgba(201,160,43,.10),0 6px 20px rgba(0,0,0,.42);
+.btf-side{
+  flex:1 1 0;min-width:0;display:flex;flex-direction:column;
+  align-items:center;gap:5px;text-align:center;
 }
-
-/* سهم التدفّق بين الأدوار — يتّجه دائماً نحو النهائي في المنتصف */
-.btm-flow{display:flex;align-items:center;justify-content:center;height:26px}
-.btm-flow::before,.btm-flow::after{
-  content:'';flex:0 0 44px;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(201,160,43,.26),transparent);
+.btf-logo{width:34px;height:34px;display:flex;align-items:center;justify-content:center}
+.btf-logo img{width:34px;height:34px;object-fit:cover;border-radius:9px}
+.btf-logo .bt-crest-tbd{width:34px;height:34px;border-radius:9px}
+.btf-name{
+  font-size:11.5px;font-weight:800;color:var(--t1);max-width:100%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;
 }
-.btm-chev{
-  width:9px;height:9px;margin:0 8px;flex:0 0 auto;
-  border-right:1.8px solid rgba(201,160,43,.62);
-  border-bottom:1.8px solid rgba(201,160,43,.62);
+.btf-win .btf-name{color:var(--gold);font-weight:900}
+.btf-mid{
+  flex:0 0 auto;display:flex;flex-direction:column;align-items:center;
+  gap:2px;padding:0 6px;min-width:62px;
 }
-.btm-flow-down .btm-chev{transform:rotate(45deg) translate(-1px,-1px)}
-.btm-flow-up   .btm-chev{transform:rotate(-135deg) translate(-1px,-1px)}
+.btf-score{
+  display:flex;align-items:center;gap:5px;
+  font-size:22px;font-weight:900;color:var(--t1);
+  font-variant-numeric:tabular-nums;line-height:1;
+}
+.btf-score i{font-style:normal;font-size:15px;color:var(--t3);font-weight:700}
+.btf-pen{font-size:8.5px;font-weight:800;color:var(--gold);white-space:nowrap}
+.btf-vs{font-size:11px;font-weight:800;color:var(--t3)}
 
-/* شاشات أوسع: بطاقة أكبر قليلاً (الشبكة تزيد أعمدتها تلقائياً) */
-@media (min-width:430px){ :root{--btm-w:186px} }
-@media (min-width:760px){ :root{--btm-w:200px} }
+/* الوصل بين الأدوار — خطّ عمودي مستقيم بلا أسهم ولا تلاشٍ */
+/* الوصل بين الأدوار: خطّ عمودي أطول قليلاً — بعد حذف عناوين الأدوار
+   صار هو الفاصل الوحيد بينها، فيجب أن يُقرأ بوضوح. */
+.btm-flow{display:flex;align-items:center;justify-content:center;height:30px}
+.btm-flow::before{
+  content:'';width:1.5px;height:100%;
+  background:rgba(201,160,43,.30);
+}
+.btm-chev{display:none}
 
-/* ═══════════════════════════════════════════════════════
-   BRACKET TREE — شجرة إقصاء مرايا احترافية (مسار ↔ مسار، النهائي بالنص)
-═══════════════════════════════════════════════════════ */
-.bracket-tree-wrap{overflow-x:auto;overflow-y:hidden;padding:36px 12px 24px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
-.bracket-tree-wrap::-webkit-scrollbar{height:5px}
-.bracket-tree-wrap::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
-.bracket-tree{display:flex;align-items:center;gap:0;min-width:max-content;margin:0 auto;direction:ltr}
-.bt-side{display:flex;position:relative}
-.bt-side-left{flex-direction:row}
-.bt-side-right{flex-direction:row-reverse}
-.bt-col{width:158px;flex:0 0 158px;position:relative;margin:0 15px}
-.bt-col-final{width:164px;flex:0 0 164px;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 8px;position:relative}
-.bt-thirdplace{margin:16px 14px 0;text-align:center}
-.bt-thirdplace-label{font-size:10px;font-weight:900;letter-spacing:1px;color:var(--t3);margin-bottom:8px}
+/* شاشة 360px: العرض المتاح 332px بعد الحشوة. بطاقتان بـ168 تحتاجان
+   344px — فتنهار الشبكة إلى عمود واحد وتختفي كل خطوط الوصل معها.
+   156px تُبقي العمودين (320px) على أضيق الأجهزة الشائعة. */
+@media (max-width:400px){ :root{--btm-w:156px} }
+@media (min-width:430px){ :root{--btm-w:184px} }
+@media (min-width:760px){ :root{--btm-w:198px} }
 
-.bt-round-label{position:absolute;top:-26px;left:0;right:0;text-align:center;font-size:9px;font-weight:900;letter-spacing:.8px;color:var(--gold);opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bt-col-final .bt-round-label{position:static;margin-bottom:10px;font-size:10px}
-
-.bt-slot{position:absolute;left:0;right:0;transform:translateY(-50%)}
-.bt-slot::after{content:'';position:absolute;top:50%;width:15px;height:1px;background:var(--b2)}
-.bt-side-left .bt-slot::after{right:-15px}
-.bt-side-right .bt-slot::after{left:-15px}
-
-.bt-conn{position:absolute;width:15px;box-sizing:border-box}
-.bt-side-left .bt-conn{right:-15px;border:1px solid var(--b2);border-left:none;border-radius:0 7px 7px 0}
-.bt-side-right .bt-conn{left:-15px;border:1px solid var(--b2);border-right:none;border-radius:7px 0 0 7px}
-.bt-side-left .bt-conn::after{content:'';position:absolute;top:50%;right:-15px;width:15px;height:1px;background:var(--b2)}
-.bt-side-right .bt-conn::after{content:'';position:absolute;top:50%;left:-15px;width:15px;height:1px;background:var(--b2)}
-
-/* ── بطاقة المباراة داخل الشجرة — مقاس واحد ثابت لكل الحالات ── */
+/* ── بطاقة الشجرة: تخطيط أفقي (فريق · وسط · فريق) بنفس المقاس ── */
 .bt-match{
   width:100%;height:var(--btm-h);box-sizing:border-box;
-  display:flex;flex-direction:column;
-  background:linear-gradient(180deg,var(--s2),var(--s1));
-  border:1px solid var(--b2);border-radius:12px;overflow:hidden;cursor:pointer;
-  transition:border-color .15s,transform .15s,box-shadow .15s;
-  position:relative;z-index:1;box-shadow:0 3px 12px rgba(0,0,0,.28);
+  display:flex;flex-direction:row;align-items:center;
+  background:var(--s1);
+  border:1px solid var(--b1);border-radius:8px;overflow:hidden;cursor:pointer;
+  transition:border-color .15s;
+  position:relative;z-index:1;padding:0 5px;gap:2px;
 }
-.bt-match:active{transform:scale(.98)}
-.bt-match.bt-live{border-color:var(--live);box-shadow:0 0 0 1px rgba(220,50,50,.25),0 4px 16px rgba(0,0,0,.4)}
-.bt-match.bt-done{border-color:rgba(201,160,43,.26)}
-/* خانة لم يتأهل لها أحد: نفس المقاس والحدود تماماً — تهدئة اللون فقط */
-.bt-match.bt-empty{
-  cursor:default;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);
-  border-color:var(--b1);box-shadow:none;
+.bt-match:active{border-color:var(--b2)}
+.bt-match.bt-done{border-color:rgba(201,160,43,.24)}
+.bt-match.bt-live{border-color:var(--live)}
+.bt-match.bt-empty{cursor:default;background:rgba(255,255,255,.015);border-color:var(--b1)}
+.bt-match.bt-final{border-color:var(--gold)}
+
+/* جهة فريق: الشعار فوق الاسم — يتّسع داخل ~52px بلا قصّ */
+.btc-side{
+  flex:1 1 0;min-width:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:3px;text-align:center;
 }
-.bt-match.bt-final{
-  border-color:var(--gold);
-  box-shadow:0 0 0 1px rgba(201,160,43,.22),0 6px 22px rgba(201,160,43,.14);
-}
-/* الصفّان يقتسمان ارتفاع البطاقة بالتساوي → ارتفاع موحّد دائماً */
-.bt-team{
-  display:flex;align-items:center;gap:9px;padding:0 10px;position:relative;
-  flex:1 1 0;min-height:0;
-}
-.bt-team.bt-winner{background:rgba(201,160,43,.10)}
-.bt-team.bt-winner .bt-name{color:var(--gold);font-weight:900}
-.bt-team.bt-loser{opacity:.5}
-.bt-team.bt-loser .bt-name{color:var(--t3,#777);font-weight:600}
-.bt-team.bt-loser .bt-logo{filter:grayscale(1)}
-.bt-team.bt-winner::after{
-  content:'';position:absolute;inset-inline-start:0;top:14%;bottom:14%;
-  width:3px;border-radius:0 3px 3px 0;background:var(--gold);
-}
-/* شعار الفريق — أكبر وأوضح (26px) مع درع افتراضي بنفس المساحة */
-.bt-logo{
-  width:26px;height:26px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
-  font-size:15px;line-height:1;
-}
-.bt-logo img{width:26px;height:26px;object-fit:cover;border-radius:7px}
-.bt-crest-tbd{
-  width:26px;height:26px;display:flex;align-items:center;justify-content:center;
-  border-radius:7px;background:rgba(255,255,255,.04);
+.btc-logo{width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.btc-logo img{width:24px;height:24px;object-fit:cover;border-radius:6px}
+.btc-crest{
+  width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  border-radius:6px;background:rgba(255,255,255,.04);
   border:1px dashed var(--b2);color:var(--t3);opacity:.65;
 }
-.bt-name{
-  flex:1;min-width:0;font-size:12px;font-weight:800;color:var(--t1);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+.btc-name{
+  font-size:10px;font-weight:800;color:var(--t1);width:100%;
+  line-height:1.15;word-break:break-word;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
-.bt-name.bt-tbd{color:var(--t3);font-weight:600;font-size:10px;letter-spacing:-.2px}
-.bt-score{
-  font-size:14px;font-weight:900;font-family:'Tajawal',sans-serif;color:var(--t1);
-  min-width:18px;text-align:center;flex:0 0 auto;line-height:1.05;
+.btc-name.btc-tbd{color:var(--t3);font-weight:600;font-size:8.5px}
+.btc-win .btc-name{color:var(--gold);font-weight:900}
+.btc-lose{opacity:.5}
+.btc-lose .btc-name{color:var(--t3);font-weight:600}
+.btc-lose .btc-logo{filter:grayscale(1)}
+
+/* عمود الوسط — عرض ثابت مهما كان المحتوى (نتيجة · موعد · ضد) */
+.btc-mid{
+  flex:0 0 42px;width:42px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
 }
-.bt-pen{font-size:8.5px;color:var(--gold);display:block;line-height:1;font-weight:800}
-.bt-sep{height:1px;background:var(--b1);flex:0 0 1px}
+.btc-score{
+  display:flex;align-items:center;gap:2px;
+  font-size:14px;font-weight:900;color:var(--t1);
+  font-variant-numeric:tabular-nums;line-height:1;
+}
+.btc-score i{font-style:normal;font-size:11px;color:var(--t3);font-weight:700}
+.btc-pen{font-size:7.5px;font-weight:800;color:var(--gold);white-space:nowrap}
+.btc-time{font-size:9px;font-weight:800;color:var(--gold);white-space:nowrap}
+.btc-date{font-size:8.5px;font-weight:700;color:var(--t3);white-space:nowrap}
+.btc-vs{font-size:9px;font-weight:700;color:var(--t3)}
+
 .bt-live-dot{
-  /* جهة النتيجة (يسار في RTL) لا جهة الشعار، ومرفوعة كي لا تلامس الرقم */
-  position:absolute;top:4px;inset-inline-end:5px;width:6px;height:6px;border-radius:50%;
-  background:var(--live);animation:btpulse 1.2s infinite;z-index:2;
-  box-shadow:0 0 0 3px rgba(220,50,50,.18);
+  position:absolute;top:4px;inset-inline-start:5px;width:5px;height:5px;border-radius:50%;
+  background:var(--live);z-index:2;
 }
-.bt-match.bt-mirror .bt-team{flex-direction:row-reverse}
 @keyframes btpulse{0%,100%{opacity:1}50%{opacity:.25}}
 
-/* ── لوحة البطل — تُعرض أسفل الشجرة بعرض كامل (فخامة بلا زحمة) ── */
+/* ── لوحة البطل — مسطّحة رسمية بإطار ذهبي رفيع ──
+   (أُعيدت بعد أن حذفها استبدال كتلة بطاقة الشجرة سهواً) */
 .bt-champion{
-  margin:18px 14px 0;padding:20px 16px;text-align:center;border-radius:16px;
-  background:linear-gradient(180deg,rgba(201,160,43,.13),rgba(201,160,43,.03));
-  border:1px solid rgba(201,160,43,.34);
-  box-shadow:0 8px 30px rgba(0,0,0,.32);
+  margin:16px auto 0;padding:16px;text-align:center;border-radius:10px;
+  max-width:calc(var(--btm-w) * 2 + 8px);
+  background:rgba(201,160,43,.06);
+  border:1px solid rgba(201,160,43,.30);
 }
-.bt-champion-crown{font-size:32px;margin-bottom:6px;line-height:1}
+.bt-champion-logo{display:flex;justify-content:center;margin-bottom:7px}
+.bt-champion-crown{font-size:24px;margin-bottom:5px;line-height:1}
 .bt-champion-name{
-  font-size:19px;font-weight:900;color:var(--gold);margin:0 auto;
+  font-size:16px;font-weight:900;color:var(--gold);margin:0 auto;
   max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.bt-champion-tag{font-size:9.5px;color:var(--t3);letter-spacing:2.5px;margin-top:5px;font-weight:800}
+.bt-champion-tag{font-size:9px;color:var(--t3);letter-spacing:1.5px;margin-top:4px;font-weight:700}
+
 /* ── مباراة تحديد المركز الثالث — بطاقة مستقلة بنفس مقاس بطاقات الشجرة ──
    بدون تحديد العرض كانت تمتدّ لعرض الحاوية كاملاً (لأنها خارج .btm-grid)
    فتظهر بضعف حجم بقية البطاقات. */
+/* ── مباراة تحديد المركز الثالث — بطاقة مستقلة بنفس مقاس بطاقات الشجرة ── */
+.bt-thirdplace{margin:16px 14px 0;text-align:center}
+.bt-thirdplace-label{font-size:10px;font-weight:900;letter-spacing:1px;color:var(--t3);margin-bottom:8px}
 .bt-thirdplace .bt-match{width:var(--btm-w);margin:0 auto}
-.bt-champion-logo{display:flex;justify-content:center;margin-bottom:8px}
+.bt-champion-logo{display:flex;justify-content:center;margin-bottom:7px}
 
 /* CHARTS */
 .chart-wrap{padding:0 14px 14px}

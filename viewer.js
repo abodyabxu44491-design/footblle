@@ -3236,7 +3236,7 @@ async function _shGenBracketCanvas(rounds, thirdRound){
 async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, tbdText){
   const hasHome = m && (m.homeId || m.homeName);
   const hasAway = m && (m.awayId || m.awayName);
-  const R = 14;
+  const R = 9;
   const rowH2 = h/2;
   const logoR  = isFinal ? 25 : 22;
   const logoCX = x + w - 20 - logoR;          // الشعار على الحافة اليمنى دائماً
@@ -3249,11 +3249,8 @@ async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, tbdText){
   const isEmpty   = !hasHome && !hasAway;
 
   // خلفية البطاقة — متدرّجة كنسخة الـ CSS
-  const bg = ctx.createLinearGradient(0, y, 0, y+h);
-  if (isFinal)      { bg.addColorStop(0,'rgba(201,160,43,.13)'); bg.addColorStop(1,'rgba(201,160,43,.04)'); }
-  else if (isEmpty) { bg.addColorStop(0,'#0e1013');              bg.addColorStop(1,'#0b0d0f'); }
-  else              { bg.addColorStop(0,'#141820');              bg.addColorStop(1,'#0f1216'); }
-  ctx.fillStyle = bg;
+  // سطح مسطّح بلا تدرّج — مظهر جدول رسمي
+  ctx.fillStyle = isFinal ? 'rgba(201,160,43,.05)' : isEmpty ? '#0d0f12' : '#131720';
   _shRoundRect(ctx,x,y,w,h,R); ctx.fill();
 
   ctx.strokeStyle = isFinal ? _SH_GOLD
@@ -3301,6 +3298,74 @@ async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, tbdText){
     {team:ht, win:hw, lose: isFin && !hw && aw, score: isFin||isLive ? (m.homeScore??0) : null, pen: isFin&&_ps ? _ps.h : null},
     {team:at, win:aw, lose: isFin && !aw && hw, score: isFin||isLive ? (m.awayScore??0) : null, pen: isFin&&_ps ? _ps.a : null},
   ];
+  /* ── النهائي: تخطيط أفقي كبطاقة المباريات (مطابق للجمهور والإدارة) ── */
+  if (isFinal) {
+    const cxm = x + w/2;
+    const decided = isFin && (_ps ? _ps.h !== _ps.a : (m.homeScore??0) !== (m.awayScore??0));
+    const _hw = decided && (_ps ? _ps.h > _ps.a : (m.homeScore??0) > (m.awayScore??0));
+    const _aw = decided && !_hw;
+
+    const drawSide = async (team, win, cx) => {
+      const lr = 30;
+      const lg = team.logo || '';
+      const isUrl = /^(data:|https?:|\/)/.test(lg);
+      const img = (lg && isUrl) ? await _shLoadImg(lg) : null;
+      const ly = y + h*0.34;
+      if (img) {
+        ctx.save();
+        ctx.beginPath(); ctx.arc(cx, ly, lr, 0, Math.PI*2); ctx.fillStyle='#0a0b0d'; ctx.fill(); ctx.clip();
+        _shDrawImgCover(ctx, img, cx-lr, ly-lr, lr*2);
+        ctx.restore();
+        ctx.strokeStyle = win ? _SH_GOLD : '#5A6470'; ctx.lineWidth = win ? 2 : 1.3;
+        ctx.beginPath(); ctx.arc(cx, ly, lr, 0, Math.PI*2); ctx.stroke();
+      } else if (lg && !isUrl) {
+        ctx.beginPath(); ctx.arc(cx, ly, lr, 0, Math.PI*2);
+        ctx.fillStyle='#0a0b0d'; ctx.fill();
+        ctx.strokeStyle = win ? _SH_GOLD : '#5A6470'; ctx.lineWidth = win ? 2 : 1.3; ctx.stroke();
+        ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font = Math.round(lr*1.35)+'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",Tajawal,Arial';
+        ctx.fillText(lg, cx, ly+1); ctx.restore(); ctx.textBaseline='alphabetic';
+      } else {
+        ctx.save(); ctx.setLineDash([3,3]);
+        ctx.beginPath(); ctx.arc(cx, ly, lr, 0, Math.PI*2);
+        ctx.fillStyle='#12161b'; ctx.fill();
+        ctx.strokeStyle='#3A424B'; ctx.lineWidth=1.4; ctx.stroke(); ctx.restore();
+        _shIconBadge && _shIconBadge(ctx, 'shield', cx, ly, lr*0.86, '#4A535D', 0);
+      }
+      ctx.textAlign='center';
+      ctx.font = (win?'900 ':'800 ')+19+'px Tajawal,Arial';
+      ctx.fillStyle = win ? _SH_GOLD : '#EDEFF2';
+      let nm = team.name || _TBD;
+      const maxW = w/2 - 90;
+      if (ctx.measureText(nm).width > maxW) {
+        while (nm.length>1 && ctx.measureText(nm+'…').width > maxW) nm = nm.slice(0,-1);
+        nm += '…';
+      }
+      ctx.fillText(nm, cx, y + h*0.78);
+    };
+
+    await drawSide(ht, _hw, x + w*0.76);   // المضيف يميناً
+    await drawSide(at, _aw, x + w*0.24);   // الضيف يساراً
+
+    ctx.textAlign='center';
+    if (isFin || isLive) {
+      ctx.font='900 40px Tajawal,Arial'; ctx.fillStyle='#EDEFF2';
+      ctx.fillText(`${m.homeScore??0} - ${m.awayScore??0}`, cxm, y + h*0.52);
+      if (_ps) {
+        ctx.font='800 13px Tajawal,Arial'; ctx.fillStyle=_SH_GOLD;
+        ctx.fillText(`ركلات ${_ps.h} - ${_ps.a}`, cxm, y + h*0.72);
+      }
+    } else {
+      ctx.font='800 18px Tajawal,Arial'; ctx.fillStyle='#5A6470';
+      ctx.fillText('ضد', cxm, y + h*0.55);
+    }
+    if (isLive) {
+      ctx.fillStyle='#D64541';
+      ctx.beginPath(); ctx.arc(x+15, y+12, 4, 0, Math.PI*2); ctx.fill();
+    }
+    return;
+  }
+
   const scoreFS = isFinal?23:21;
 
   for(let ri=0; ri<2; ri++){
@@ -3310,12 +3375,11 @@ async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, tbdText){
 
     // تينت الفائز + الشريط الذهبي على الحافة اليمنى (مطابق لـ .bt-winner في CSS)
     if (rw.win) {
+      // تينت خفيف فقط — أُزيل الشريط الذهبي الجانبي (زخرفة فوق التينت ولون الاسم)
       ctx.save();
       _shRoundRect(ctx,x,y,w,h,R); ctx.clip();
-      ctx.fillStyle = 'rgba(201,160,43,.11)';
+      ctx.fillStyle = 'rgba(201,160,43,.10)';
       ctx.fillRect(x, rowTop, w, rowH2);
-      ctx.fillStyle = _SH_GOLD;
-      _shRoundRect(ctx, x+w-4, rowTop+rowH2*0.16, 4, rowH2*0.68, 2); ctx.fill();
       ctx.restore();
     }
 
@@ -3397,7 +3461,7 @@ async function _btBoxCanvas(ctx, m, x, y, w, h, isFinal, tbdText){
 async function _shGenBracketTreeCanvas(rounds, thirdRound){
   const COL = 2;                                  // عمودان — مطابق للشبكة على الجوال
   const BOX_W = 420, BOX_H = 132, GAP_X = 26, GAP_Y = 40;  // GAP_Y يتّسع لقوس الوصل
-  const SIDE = 46, LABEL_H = 74, FLOW_H = 54, HEADER_H = 280;
+  const SIDE = 46, LABEL_H = 16, FLOW_H = 44, HEADER_H = 280;  // LABEL_H بلا شارات = فاصل بسيط فقط
   const W = SIDE*2 + COL*BOX_W + (COL-1)*GAP_X;   // 46*2 + 840 + 26 = 958 → نوسّعها لـ1080
 
   const CW = Math.max(1080, W);
@@ -3434,8 +3498,11 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
 
   let H = HEADER_H;
   sections.forEach((sec, i) => {
-    H += LABEL_H + sec.rows * BOX_H + (sec.rows - 1) * GAP_Y;
-    if (sec.isFinal) H += 210;                    // لوحة البطل داخل قسم النهائي
+    H += LABEL_H + sec.rows * (sec.isFinal ? BOX_H + 40 : BOX_H) + (sec.rows - 1) * GAP_Y;
+    /* 🔴 كانت 210px تُحجَز للبطل دائماً — فتبقى **مساحة بيضاء ضخمة**
+       أسفل النهائي في كل بطولة لم يُحسم نهائيها بعد. نحجزها فقط إن
+       وُجد بطل فعلي. */
+    if (sec.isFinal && _btChampCanvasInfo(finalMatch)) H += 210;
     if (i < sections.length - 1) H += FLOW_H;
   });
   if (thirdRound) H += 70 + BOX_H + 30;
@@ -3456,34 +3523,8 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
        الكتلة الذهبية كانت تكسر انتظام الشجرة؛ التمييز يأتي من الشارة
        والبطاقة نفسيهما (معيّنان جانبيان + إطار ذهبي). */
 
-    // ── شارة اسم الدور (موسّطة مع خطّين جانبيين) ──
-    const cx = CW/2;
-    ctx.font = `900 ${sec.isFinal ? 26 : 22}px Tajawal,Arial`;
-    const tw = ctx.measureText(sec.name).width;
-    const padX = sec.isFinal ? 34 : 26, pillH = sec.isFinal ? 52 : 46;
-    const pillW = tw + padX*2, pillY = y + 6;
-    ctx.fillStyle = '#0b0c0e';
-    _shRoundRect(ctx, cx-pillW/2, pillY, pillW, pillH, pillH/2); ctx.fill();
-    ctx.strokeStyle = sec.isFinal ? _SH_GOLD : 'rgba(201,160,43,.4)';
-    ctx.lineWidth = sec.isFinal ? 2 : 1.3;
-    _shRoundRect(ctx, cx-pillW/2, pillY, pillW, pillH, pillH/2); ctx.stroke();
-    ctx.textAlign='center'; ctx.fillStyle=_SH_GOLD;
-    ctx.fillText(sec.name, cx, pillY + pillH/2 + (sec.isFinal ? 9 : 8));
-    if (sec.isFinal) {
-      // معيّنان ذهبيان يميّزان النهائي بهدوء
-      [[-1],[1]].forEach(([sgn]) => {
-        ctx.save();
-        ctx.translate(cx + sgn*(pillW/2 + 20), pillY+pillH/2);
-        ctx.rotate(Math.PI/4); ctx.fillStyle=_SH_GOLD;
-        ctx.fillRect(-5,-5,10,10); ctx.restore();
-      });
-    } else {
-      ctx.strokeStyle='rgba(201,160,43,.28)'; ctx.lineWidth=1.4;
-      [[-1],[1]].forEach(([sgn]) => {
-        const x0 = cx + sgn*(pillW/2 + 16), x1 = x0 + sgn*46;
-        ctx.beginPath(); ctx.moveTo(x0, pillY+pillH/2); ctx.lineTo(x1, pillY+pillH/2); ctx.stroke();
-      });
-    }
+    /* بلا شارة اسم دور ولا معيّنات — مطابقة لنسختَي الجمهور والإدارة
+       بعد إزالة الزخارف. يُترك فاصل بسيط بين الأدوار فقط. */
     y += LABEL_H;
 
     // ── بطاقات القسم في شبكة من عمودين (RTL: العمود الأول يميناً) ──
@@ -3495,7 +3536,11 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
       const startX = Math.round((CW - rowW) / 2);
       const x = startX + (total - 1 - col) * (BOX_W + GAP_X);   // RTL
       const by = y + row * (BOX_H + GAP_Y);
-      await _btBoxCanvas(ctx, sec.cards[i], x, by, BOX_W, BOX_H, !!sec.isFinal, sec.tbd);
+      /* النهائي أكبر قليلاً — نفس التمييز الخفيف في الجمهور والإدارة */
+      const bw = sec.isFinal ? BOX_W * 2 + GAP_X : BOX_W;   // عرض بطاقتين + الفجوة
+      const bh = sec.isFinal ? BOX_H + 40 : BOX_H;
+      const bx = sec.isFinal ? (CW - bw) / 2 : x;
+      await _btBoxCanvas(ctx, sec.cards[i], bx, by, bw, bh, !!sec.isFinal, sec.tbd);
     }
     /* ── وصلات الأزواج داخل القسم — مطابقة لنسختَي الجمهور والإدارة ──
        كل مباراتين متجاورتين يلتقي فائزاهما في مباراة واحدة، فيُرسم قوس
@@ -3503,8 +3548,8 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
     if (!sec.isFinal && sec.cards.length > 1) {
       const down = sec.flow === 'down';
       ctx.save();
-      ctx.strokeStyle = 'rgba(201,160,43,.42)';
-      ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(201,160,43,.30)';
+      ctx.lineWidth = 2;
       for (let i = 0; i + 1 < sec.cards.length; i += 2) {
         const rowA = Math.floor(i / COL), rowB = Math.floor((i+1) / COL);
         if (rowA !== rowB) continue;                    // ليسا في صف واحد
@@ -3517,36 +3562,28 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
         const xm = (xa + xb) / 2;
         const by = y + rowA*(BOX_H+GAP_Y);
         const y0 = down ? by + BOX_H : by;
-        const dir = down ? 1 : -1, stem = 12, r = 8;
-        const y1 = y0 + dir*stem;
-        [[xa, xm], [xb, xm]].forEach(([x, tx]) => {
-          const sgn = tx > x ? 1 : -1;
-          ctx.beginPath();
-          ctx.moveTo(x, y0);
-          ctx.lineTo(x, y1 - dir*r);
-          ctx.quadraticCurveTo(x, y1, x + sgn*r, y1);
-          ctx.lineTo(tx, y1);
-          ctx.stroke();
-        });
-        ctx.beginPath(); ctx.moveTo(xm, y1); ctx.lineTo(xm, y1 + dir*8); ctx.stroke();
-        ctx.beginPath(); ctx.arc(xm, y1, 3.6, 0, Math.PI*2);
-        ctx.fillStyle = 'rgba(201,160,43,.85)'; ctx.fill();
+        // خطوط مستقيمة بزوايا قائمة — بلا انحناءات ولا نقاط زينة
+        const dir = down ? 1 : -1;
+        const y1 = y0 + dir * 14;
+        ctx.beginPath();
+        ctx.moveTo(xa, y0); ctx.lineTo(xa, y1); ctx.lineTo(xb, y1); ctx.lineTo(xb, y0);
+        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(xm, y1); ctx.lineTo(xm, y1 + dir*14); ctx.stroke();
       }
       ctx.restore();
     }
-    y += sec.rows * BOX_H + (sec.rows - 1) * GAP_Y;
+    y += sec.rows * (sec.isFinal ? BOX_H + 40 : BOX_H) + (sec.rows - 1) * GAP_Y;
 
-    // ── لوحة البطل داخل قسم النهائي مباشرة ──
-    if (sec.isFinal) {
+    // ── لوحة البطل داخل قسم النهائي مباشرة (تُرسم فقط عند وجود بطل) ──
+    const champ = sec.isFinal ? _btChampCanvasInfo(finalMatch) : null;
+    if (champ) {
       y += 18;
-      const champ = _btChampCanvasInfo(finalMatch);
-      if (champ) {
-        const pw = Math.min(640, CW-200), px = (CW-pw)/2, ph = 168;
-        const g2 = ctx.createLinearGradient(0, y, 0, y+ph);
-        g2.addColorStop(0,'rgba(201,160,43,.16)'); g2.addColorStop(1,'rgba(201,160,43,.03)');
-        ctx.fillStyle=g2; _shRoundRect(ctx, px, y, pw, ph, 22); ctx.fill();
-        ctx.strokeStyle='rgba(201,160,43,.40)'; ctx.lineWidth=1.6;
-        _shRoundRect(ctx, px, y, pw, ph, 22); ctx.stroke();
+      {
+        const pw = BOX_W * 2 + GAP_X, px = (CW-pw)/2, ph = 168;
+        ctx.fillStyle='rgba(201,160,43,.06)';      // مسطّحة بلا تدرّج
+        _shRoundRect(ctx, px, y, pw, ph, 12); ctx.fill();
+        ctx.strokeStyle='rgba(201,160,43,.30)'; ctx.lineWidth=1.4;
+        _shRoundRect(ctx, px, y, pw, ph, 12); ctx.stroke();
         const logoImg = champ.logo ? await _shLoadImg(champ.logo) : null;
         if (logoImg) {
           ctx.save();
@@ -3569,20 +3606,10 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
 
     // ── سهم التدفّق نحو النهائي ──
     if (si < sections.length - 1) {
-      const ay = y + FLOW_H/2, acx = CW/2;
-      ctx.strokeStyle='rgba(201,160,43,.26)'; ctx.lineWidth=1.4;
-      [[-1],[1]].forEach(([sgn]) => {
-        ctx.beginPath(); ctx.moveTo(acx + sgn*18, ay); ctx.lineTo(acx + sgn*76, ay); ctx.stroke();
-      });
-      // رأس السهم: للأسفل في النصف العلوي، للأعلى بعد النهائي
-      const dir = sections[si+1].flow === 'up' && sec.flow === 'up' ? -1 : (sec.flow === 'up' ? -1 : 1);
-      ctx.strokeStyle='rgba(201,160,43,.62)'; ctx.lineWidth=2.4;
-      ctx.lineCap='round'; ctx.lineJoin='round';
-      ctx.beginPath();
-      ctx.moveTo(acx-9, ay - dir*5);
-      ctx.lineTo(acx,   ay + dir*5);
-      ctx.lineTo(acx+9, ay - dir*5);
-      ctx.stroke();
+      // خطّ عمودي مستقيم بلا سهم ولا خطوط جانبية متلاشية
+      const acx = CW/2;
+      ctx.strokeStyle = 'rgba(201,160,43,.30)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(acx, y + 6); ctx.lineTo(acx, y + FLOW_H - 6); ctx.stroke();
       y += FLOW_H;
     }
   }
@@ -3608,7 +3635,13 @@ async function _shGenBracketTreeCanvas(rounds, thirdRound){
 function _btChampCanvasInfo(finalMatch) {
   if (!finalMatch || finalMatch.status !== 'finished') return null;
   const _ps = _penScore(finalMatch);
-  const hw = _ps ? _ps.h > _ps.a : ((finalMatch.homeScore ?? 0) > (finalMatch.awayScore ?? 0));
+  /* 🔴 نهائي انتهى بالتعادل بلا ركلات ترجيح: لا فائز بعد. كان الشرط
+     `home > away` وحده فيعطي false عند التعادل، فيُتوَّج **فريق الضيف**
+     بطلاً بالخطأ. لا بطل إلا بنتيجة حاسمة. */
+  const _h = finalMatch.homeScore ?? 0, _a = finalMatch.awayScore ?? 0;
+  const decided = _ps ? _ps.h !== _ps.a : _h !== _a;
+  if (!decided) return null;
+  const hw = _ps ? _ps.h > _ps.a : (_h > _a);
   const id = hw ? finalMatch.homeId : finalMatch.awayId;
   const t = (window.teams || []).find(x => x.id === id) || {};
   const name = t.name || (hw ? finalMatch.homeName : finalMatch.awayName) || '';
@@ -3658,6 +3691,24 @@ function isCleanBracket(rounds) {
  *     وللأعلى في النصف السفلي — فتتقارب العين على البطل في الوسط.
  *   • كل البطاقات بمقاس واحد ثابت مهما كان الدور أو حالة التأهل.
  * ════════════════════════════════════════════════════════════════════ */
+/* ── بطاقة النهائي: نفس بطاقة قسم المباريات بكل مميزاتها ──
+   بدل إعادة بناء تصميم مشابه، نستدعي `_matchCard` نفسها — فترث تلقائياً:
+   الساعة الحيّة والدقيقة الجارية · حالة «متوقفة» وسببها · العدّ التنازلي
+   خلال ٢٤ ساعة · «على وشك البدء» · ركلات الترجيح مع نتيجة الوقت الأصلي ·
+   شارة الدور وذهاب/إياب · شارة التوقّع · الموعد والتاريخ.
+   وأي ميزة تُضاف لبطاقة المباريات مستقبلاً تصل النهائي بلا عمل إضافي.
+
+   نرجع لبطاقة الشجرة فقط حين لا يكون الطرفان معروفَين بعد — لأن
+   `_matchCard` تعرض «؟» بينما الشجرة تحتاج «بانتظار المتأهل». */
+function _finalCardHTML(finalMatch, lastIdx) {
+  const known = finalMatch && (finalMatch.homeId || finalMatch.homeName)
+                           && (finalMatch.awayId || finalMatch.awayName);
+  if (known && typeof _matchCard === 'function') {
+    return `<div class="btm-final-card">${_matchCard(finalMatch)}</div>`;
+  }
+  return btMatchBox(finalMatch, true, false, `r${lastIdx}-s0`, 'بانتظار المتأهل');
+}
+
 function buildVerticalBracketHTML(rounds, thirdRound) {
   const lastIdx = rounds.length - 1;
   const finalRound = rounds[lastIdx];
@@ -3682,9 +3733,11 @@ function buildVerticalBracketHTML(rounds, thirdRound) {
     ).join('');
     /* data-half يخبر رسّام الخطوط باتّجاه التدفّق: أقسام النصف العلوي
        يخرج منها الخطّ لأسفل، والسفلي لأعلى — كلاهما نحو النهائي. */
+    /* بلا شارة اسم دور: اسم الدور يتكرّر أعلى وأسفل فيربك، والخانة
+       نفسها تقول ما يلزم («فائز ربع النهائي»). الشجرة الرسمية تُقرأ
+       بالتدرّج لا بالعناوين. */
     return `
       <div class="btm-round" data-half="${half}">
-        <div class="btm-label">${r.name}</div>
         <div class="btm-grid">${cards}</div>
       </div>`;
   };
@@ -3705,15 +3758,20 @@ function buildVerticalBracketHTML(rounds, thirdRound) {
   const champHtml = btChampionHTML(finalMatch);
   const thirdHtml = thirdRound ? btThirdPlaceHTML(thirdRound) : '';
 
+  /* هل في الشجرة أي مباراة لها موعد معروض؟ إن نعم نوسّع عمود النتيجة
+     **لكل** البطاقات فيبقى المقاس موحّداً؛ وإن لا نُبقيه ضيقاً فتتّسع
+     أسماء الفرق. القرار على مستوى الشجرة كلها لا البطاقة الواحدة. */
+  const _anySched = rounds.some(r => (r.matchesWithSlot || []).some(({ m }) =>
+    m && m.status !== 'finished' && m.status !== 'live' && (m.date || m.time)));
+
   return `
-    <div class="btm-wrap">
+    <div class="btm-wrap${_anySched ? ' btm-has-sched' : ''}">
       ${topHtml}
       ${topHtml ? ARROW_DOWN : ''}
       <!-- النهائي في القلب -->
       <div class="btm-round btm-final-round">
-        <div class="btm-label btm-label-final">${finalRound.name}</div>
         <div class="btm-grid btm-grid-final">
-          ${btMatchBox(finalMatch, true, false, `r${lastIdx}-s0`, 'بانتظار المتأهل')}
+          ${_finalCardHTML(finalMatch, lastIdx)}
         </div>
         ${champHtml}
       </div>
@@ -3745,7 +3803,7 @@ function _btmDrawJoiners(root) {
 
   const wr = wrap.getBoundingClientRect();
   const ns = 'http://www.w3.org/2000/svg';
-  const paths = [], dots = [];
+  const paths = [];
 
   wrap.querySelectorAll('.btm-round').forEach(sec => {
     const half = sec.getAttribute('data-half');      // النهائي بلا اتجاه = لا وصلات
@@ -3760,26 +3818,17 @@ function _btmDrawJoiners(root) {
       // الزوج يجب أن يكون في نفس الصف (شاشة ضيقة قد تضعه في عمود واحد)
       if (Math.abs(a.top - b.top) > 4) continue;
 
-      const y0 = (down ? a.bottom : a.top) - wr.top;   // حافة البطاقتين
+      /* خطوط مستقيمة بزوايا قائمة — بلا انحناءات ولا نقاط زينة،
+         تماماً كشجرة التطبيقات الرسمية. */
+      const y0 = (down ? a.bottom : a.top) - wr.top;
       const dir = down ? 1 : -1;
-      const stem = 11;                                  // عمق القوس داخل الفراغ
-      const y1 = y0 + dir * stem;
+      const y1 = y0 + dir * 10;
       const xa = a.left + a.width/2 - wr.left;
       const xb = b.left + b.width/2 - wr.left;
       const xm = (xa + xb) / 2;
-      const r  = 7;                                     // نصف قطر الانحناء
 
-      // من كل بطاقة: نزول قصير ثم انحناء نحو المنتصف
-      [[xa, xm], [xb, xm]].forEach(([x, tx]) => {
-        const sgn = tx > x ? 1 : -1;
-        paths.push(
-          `M ${x} ${y0} L ${x} ${y1 - dir*r} ` +
-          `Q ${x} ${y1} ${x + sgn*r} ${y1} L ${tx} ${y1}`
-        );
-      });
-      // ساق واحدة من الملتقى نحو الدور التالي
-      paths.push(`M ${xm} ${y1} L ${xm} ${y1 + dir*7}`);
-      dots.push({ x: xm, y: y1 });
+      paths.push(`M ${xa} ${y0} L ${xa} ${y1} L ${xb} ${y1} L ${xb} ${y0}`);
+      paths.push(`M ${xm} ${y1} L ${xm} ${y1 + dir*10}`);
     }
   });
 
@@ -3787,9 +3836,9 @@ function _btmDrawJoiners(root) {
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('class', 'btm-lines');
   svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0';
-  svg.innerHTML =
-    paths.map(d => `<path d="${d}" fill="none" stroke="rgba(201,160,43,.42)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`).join('') +
-    dots.map(p => `<circle cx="${p.x}" cy="${p.y}" r="2.6" fill="rgba(201,160,43,.85)"/>`).join('');
+  svg.innerHTML = paths.map(d =>
+    `<path d="${d}" fill="none" stroke="rgba(201,160,43,.30)" stroke-width="1.5" shape-rendering="crispEdges"/>`
+  ).join('');
   wrap.appendChild(svg);
 }
 window._btmDrawJoiners = _btmDrawJoiners;
@@ -3879,32 +3928,41 @@ function buildSideHTML(roundsList, side, sideHeight) {
   return `<div class="bt-side bt-side-${side}" style="height:${sideHeight}px">${cols}</div>`;
 }
 
+/* تاريخ مختصر «يوم/شهر» — الشكل الكامل 2026-09-08 لا يسع عمود النتيجة */
+function _btShortDate(d) {
+  const p = String(d || '').split('-');
+  if (p.length !== 3) return String(d || '');
+  return `${p[2]}/${p[1]}`;
+}
+
 function btMatchBox(m, isFinal, mirror, brkAttr, tbdText) {
-  /* نص الطرف غير المحسوم يختلف بحسب السياق: «بانتظار القرعة» في الدور
-     الأول، و«الفائز من ربع النهائي» بعده، و«الخاسر من نصف النهائي» في
-     مباراة تحديد المركز الثالث — بدل عبارة عامة واحدة لا تفيد الجمهور. */
+  /* ════════════════════════════════════════════════════════════════
+   *  بطاقة الشجرة — تخطيط أفقي كبطاقة المباريات
+   *  فريق يمين · الوسط (نتيجة أو موعد) · فريق يسار
+   *  ────────────────────────────────────────────────────────────────
+   *  المقاس كما هو (لا تكبير): الشعار فوق الاسم في كل جهة، فيتّسع
+   *  التخطيط الأفقي داخل 156px بلا قصّ. وعمود الوسط ثابت العرض دائماً،
+   *  فمقاس كل البطاقات واحد سواء حملت نتيجة أو موعداً أو لا شيء.
+   * ════════════════════════════════════════════════════════════════ */
   const _TBD = tbdText || 'بانتظار المتأهل';
   const brk = brkAttr ? ` data-brk="${brkAttr}"` : '';
-  const mirrorCls = mirror ? ' bt-mirror' : '';
   const hasHome = m && (m.homeId || m.homeName);
   const hasAway = m && (m.awayId || m.awayName);
+  const crestTbd = `<span class="btc-crest">${window.Icon ? window.Icon('shield', 14) : ''}</span>`;
 
-  /* ✅︎ درع افتراضي بدل الدائرة الصغيرة — يحفظ نفس المساحة البصرية للشعار
-     فتبقى البطاقة الفارغة بنفس مقاس البطاقة المكتملة تماماً. */
-  const _emptyCrest = `<span class="bt-crest-tbd">${window.Icon ? window.Icon('shield', 17) : ''}</span>`;
+  // جهة فريق واحدة: الشعار فوق والاسم تحته
+  const side = (t, win, lose, isTbd) => `
+    <div class="btc-side${win ? ' btc-win' : ''}${lose ? ' btc-lose' : ''}">
+      <span class="btc-logo">${t && t.logo ? logoHtml(t.logo, 24, 6) : crestTbd}</span>
+      <span class="btc-name${isTbd ? ' btc-tbd' : ''}">${(t && t.name) || _TBD}</span>
+    </div>`;
 
-  /* ── خانة لم يتأهل لها أحد بعد: نفس مقاس البطاقة وحدودها، لون هادئ فقط.
-     نحذف خانة النتيجة الفارغة هنا (لا نتيجة أصلاً) فيتّسع مكان النص ~27px،
-     وهو ما يكفي لعرض عبارات مثل «خاسر نصف النهائي» كاملة بلا قصّ. ── */
+  // ── خانة لم يتأهل لها أحد بعد ──
   if (!hasHome && !hasAway) {
-    const _emptyRow = `<div class="bt-team">
-        <span class="bt-logo">${_emptyCrest}</span>
-        <span class="bt-name bt-tbd">${_TBD}</span>
-      </div>`;
-    return `<div class="bt-match bt-empty${isFinal ? ' bt-final' : ''}${mirrorCls}"${brk}>
-      ${_emptyRow}
-      <div class="bt-sep"></div>
-      ${_emptyRow}
+    return `<div class="bt-match btc bt-empty"${brk}>
+      ${side(null, false, false, true)}
+      <div class="btc-mid"><span class="btc-vs">ضد</span></div>
+      ${side(null, false, false, true)}
     </div>`;
   }
 
@@ -3916,32 +3974,39 @@ function btMatchBox(m, isFinal, mirror, brkAttr, tbdText) {
   const hw = isFin && (_ps ? _ps.h > _ps.a : (m.homeScore ?? 0) > (m.awayScore ?? 0));
   const aw = isFin && (_ps ? _ps.a > _ps.h : (m.awayScore ?? 0) > (m.homeScore ?? 0));
   const clickFn = m.id ? `openMatchDetail('${m.id}')` : (hasAway ? `openBracketMatch('','${encodeURIComponent(String(m.id||''))}')` : '');
-  // ✅︎ المباراة المنتهية تبقى ظاهرة ببطاقتها كاملة (الفائز + الخاسر) — لا تُفرَّغ أبداً
-  const penH = (isFin && _ps) ? `<span class="bt-pen">رك ${_ps.h}</span>` : '';
-  const penA = (isFin && _ps) ? `<span class="bt-pen">رك ${_ps.a}</span>` : '';
-  // شعار الفريق بحجم أكبر (26px) — والدرع الافتراضي عند غيابه ليتساوى الارتفاع
-  const _crest = (logo) => logo ? logoHtml(logo, 26, 7) : _emptyCrest;
 
-  return `<div class="bt-match ${isLive?'bt-live':isFin?'bt-done':''}${isFinal?' bt-final':''}${mirrorCls}"${brk} onclick="${clickFn}">
+  /* الوسط: نتيجة · أو موعد · أو «ضد». كلها في نفس العمود ثابت العرض
+     فلا يتغيّر مقاس البطاقة باختلاف المحتوى. */
+  let mid;
+  if (isFin || isLive) {
+    mid = `<span class="btc-score">${m.homeScore ?? 0}<i>:</i>${m.awayScore ?? 0}</span>
+           ${_ps ? `<span class="btc-pen">رك ${_ps.h}-${_ps.a}</span>` : ''}`;
+  } else if (m.date || m.time) {
+    const t = m.time ? (typeof formatTimeTo12H === 'function' ? formatTimeTo12H(m.time) : m.time) : '';
+    mid = `${t ? `<span class="btc-time">${t}</span>` : ''}
+           ${m.date ? `<span class="btc-date">${_btShortDate(m.date)}</span>` : ''}`;
+  } else {
+    mid = `<span class="btc-vs">ضد</span>`;
+  }
+
+  return `<div class="bt-match btc ${isLive?'bt-live':isFin?'bt-done':''}${isFinal?' bt-final':''}"${brk} onclick="${clickFn}">
     ${isLive ? '<span class="bt-live-dot"></span>' : ''}
-    <div class="bt-team ${hw?'bt-winner':''}${isFin&&!hw&&aw?' bt-loser':''}">
-      <span class="bt-logo">${_crest(ht.logo)}</span>
-      <span class="bt-name ${!hasHome?'bt-tbd':''}">${ht.name}</span>
-      <span class="bt-score">${isFin||isLive ? m.homeScore??0 : ''}${penH}</span>
-    </div>
-    <div class="bt-sep"></div>
-    <div class="bt-team ${aw?'bt-winner':''}${isFin&&!aw&&hw?' bt-loser':''}">
-      <span class="bt-logo">${_crest(at.logo)}</span>
-      <span class="bt-name ${!hasAway?'bt-tbd':''}">${at.name}</span>
-      <span class="bt-score">${isFin||isLive ? m.awayScore??0 : ''}${penA}</span>
-    </div>
+    ${side(ht, hw, isFin && !hw && aw, !hasHome)}
+    <div class="btc-mid">${mid}</div>
+    ${side(at, aw, isFin && !aw && hw, !hasAway)}
   </div>`;
 }
 
 function btChampionHTML(finalMatch) {
   if (!finalMatch || finalMatch.status !== 'finished') return '';
   const _ps = _penScore(finalMatch);
-  const hw = _ps ? _ps.h > _ps.a : ((finalMatch.homeScore ?? 0) > (finalMatch.awayScore ?? 0));
+  /* 🔴 لا بطل إلا بنتيجة حاسمة: نهائي منتهٍ بالتعادل بلا ركلات ترجيح كان
+     يُتوَّج فيه **فريق الضيف** بطلاً، لأن الشرط `home > away` يعطي false
+     عند التعادل فيُقرأ كفوز للضيف. */
+  const _h = finalMatch.homeScore ?? 0, _a = finalMatch.awayScore ?? 0;
+  const decided = _ps ? _ps.h !== _ps.a : _h !== _a;
+  if (!decided) return '';
+  const hw = _ps ? _ps.h > _ps.a : (_h > _a);
   /* ✅︎ كان يقرأ homeName/awayName فقط — وهما فارغان في المسار الطبيعي
      حيث تُخزَّن المباراة بـ homeId/awayId. فكان البطل **لا يظهر إطلاقاً**
      مهما انتهى النهائي. نحلّ الاسم من الفرق أولاً ثم نرجع للنص المخزَّن. */
@@ -3953,7 +4018,7 @@ function btChampionHTML(finalMatch) {
   if (!champName) return '';
   const champLogo = (teams.find(t => t.id === (hw ? finalMatch.homeId : finalMatch.awayId)) || {}).logo || '';
   return `<div class="bt-champion">
-    ${champLogo ? `<div class="bt-champion-logo">${logoHtml(champLogo, 54, 14)}</div>`
+    ${champLogo ? `<div class="bt-champion-logo">${logoHtml(champLogo, 42, 10)}</div>`
                 : '<div class="bt-champion-crown">🏆</div>'}
     <div class="bt-champion-name">${champName}</div>
     <div class="bt-champion-tag">بطل البطولة</div>

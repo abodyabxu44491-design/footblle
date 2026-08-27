@@ -1296,3 +1296,63 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
   background:rgba(255,255,255,.06); color:#8b8f9a;
   border:1px solid rgba(255,255,255,.1);
 }
+
+/* ── تبويبات صفحة الملحق (الإعدادات / القسم) ── */
+.po-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.po-tab{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:11px;border-radius:11px;cursor:pointer;
+  background:var(--card2);border:1px solid var(--border2);color:var(--muted);
+  font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;
+  transition:background .15s,border-color .15s,color .15s;
+}
+.po-tab.on{background:rgba(201,160,43,.12);border-color:rgba(201,160,43,.5);color:var(--gold)}
+.po-tab span{
+  font-size:9.5px;font-weight:900;padding:1px 6px;border-radius:20px;
+  background:rgba(201,160,43,.2);color:var(--gold);
+}
+
+/* ══ مركز الإعدادات — قائمة أقسام كإعدادات الجوال ══ */
+.set-list{
+  background:var(--card2);border:1px solid var(--border2);
+  border-radius:14px;overflow:hidden;
+}
+.set-row{
+  display:grid;grid-template-columns:36px 1fr 16px;align-items:center;gap:12px;
+  padding:13px 14px;cursor:pointer;border-bottom:1px solid var(--border);
+  transition:background .15s;
+}
+.set-row:last-child{border-bottom:0}
+.set-row:active{background:rgba(255,255,255,.04)}
+.set-row-ic{
+  width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.22);color:var(--gold);
+}
+.set-row-ic svg{width:17px;height:17px}
+.set-row-txt{min-width:0}
+.set-row-t{font-size:13px;font-weight:800;color:var(--text)}
+.set-row-d{
+  font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.5;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.set-row-go{display:flex;align-items:center;justify-content:center;color:var(--muted2,#555)}
+.set-row-go svg{width:14px;height:14px}
+
+/* زر الرجوع أعلى الصفحة الفرعية */
+.set-back{
+  display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+  padding:7px 12px 7px 14px;margin-bottom:12px;border-radius:20px;
+  background:var(--card2);border:1px solid var(--border2);
+  color:var(--muted);font-size:11.5px;font-weight:700;
+}
+.set-back:active{background:rgba(255,255,255,.05)}
+.set-back svg{width:13px;height:13px}
+
+/* أيقونات SVG داخل عناوين الإعدادات والمفاتيح (بدل الإيموجي) */
+.tg-ic{display:inline-flex;align-items:center;justify-content:center;
+  vertical-align:-2px;margin-inline-end:6px;color:var(--gold)}
+.tg-ic svg{width:14px;height:14px}
+.tg-ic-hint{color:var(--muted);margin-inline-end:4px}
+.tg-ic-hint svg{width:12px;height:12px}
+.card-title .tg-ic svg{width:15px;height:15px}
+.settings-group-title .tg-ic svg{width:14px;height:14px}

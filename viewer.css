@@ -3142,3 +3142,58 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .mdh-sh-btn.mdh-sh-card{
   flex:1; display:flex; align-items:center; justify-content:center; gap:7px;
 }
+
+/* شارة حالة الفريق داخل جدول المجموعة — لون الحالة نفسه */
+.gt-status{
+  display:inline-flex;align-items:center;gap:4px;flex-shrink:0;
+  font-size:8.5px;font-weight:800;padding:2px 7px;border-radius:20px;
+  border:1px solid;white-space:nowrap;line-height:1.4;
+}
+.gt-status svg{flex:0 0 auto;display:block}
+
+/* شارة خصم النقاط بجانب النقاط (جدول الترتيب والمجموعات) */
+.std-ded{
+  display:inline-block;font-size:8px;font-weight:900;line-height:1;
+  color:#e05252;background:rgba(224,82,82,.14);border:1px solid rgba(224,82,82,.35);
+  border-radius:4px;padding:1px 3px;margin-inline-start:3px;vertical-align:super;
+}
+
+/* ═══════════════════════════════════════════════════════
+   الملحق (Playoff) — قسم الجمهور
+═══════════════════════════════════════════════════════ */
+.po-info{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 14px 12px}
+.po-chip{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:11px 6px;border-radius:12px;background:var(--s1);border:1px solid var(--b1);
+}
+.po-chip-v{font-size:14px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums;line-height:1}
+.po-chip-l{font-size:9px;color:var(--t3);font-weight:700}
+.po-rules{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 10px}
+.po-rules span{
+  font-size:9.5px;font-weight:700;color:var(--t2);padding:4px 10px;border-radius:20px;
+  background:rgba(255,255,255,.04);border:1px solid var(--b1);
+}
+.po-venue{
+  display:flex;align-items:center;gap:5px;padding:0 14px 12px;
+  font-size:10.5px;color:var(--t3);font-weight:700;
+}
+.po-block{margin:0 0 16px}
+.po-block-t{
+  display:flex;align-items:center;gap:6px;padding:0 14px 9px;
+  font-size:11.5px;font-weight:900;color:var(--t1);
+}
+.po-qual{display:flex;gap:8px;flex-wrap:wrap;padding:0 14px}
+.po-qual-item{
+  display:flex;align-items:center;gap:7px;padding:7px 11px;border-radius:20px;
+  background:rgba(39,174,96,.08);border:1px solid rgba(39,174,96,.28);
+}
+.po-qual-item span{font-size:11.5px;font-weight:800;color:var(--t1);white-space:nowrap}
+.po-empty{
+  display:flex;flex-direction:column;align-items:center;gap:9px;
+  padding:36px 20px;color:var(--t3);font-size:12px;text-align:center;
+}
+.po-note{
+  margin:0 14px;padding:11px 13px;border-radius:11px;
+  background:rgba(201,160,43,.06);border:1px solid rgba(201,160,43,.2);
+  font-size:11px;color:var(--t2);line-height:1.85;
+}

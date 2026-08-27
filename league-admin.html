@@ -267,6 +267,7 @@ if('serviceWorker' in navigator) {
       <!-- ثابت: المجموعات + الإقصاء (لإظهارها حتى لو admin.js لا يحقنها) -->
       <div class="sb-item" id="sb-groups" style="display:none" onclick="showPage('groups',this)" data-page="groups"><span class="sb-icon" data-ic="users"></span> المجموعات</div>
       <div class="sb-item" id="sb-knockout" style="display:none" onclick="showPage('knockout',this)" data-page="knockout"><span class="sb-icon" data-ic="tree"></span> الإقصاء</div>
+      <div class="sb-item" id="sb-playoff" style="display:none" onclick="showPage('playoff',this)" data-page="playoff"><span class="sb-icon" data-ic="swords"></span> الملحق</div>
 
       <div class="sb-label">الإعدادات</div>
       <div class="sb-item" onclick="showPage('settings',this)"><span class="sb-icon" data-ic="settings"></span> إعدادات البطولة</div>
@@ -390,7 +391,7 @@ if('serviceWorker' in navigator) {
 
         <!-- الصنّاع (يظهر فقط عند تفعيله من الإعدادات) -->
         <div class="admin-stat-block" id="admin-stb-assists" style="display:none">
-          <div class="admin-stat-head">👟 صنّاع الأهداف <span id="cnt-assists" class="admin-stat-count"></span></div>
+          <div class="admin-stat-head"><span class="tg-ic" data-ic="boots"></span>صنّاع الأهداف <span id="cnt-assists" class="admin-stat-count"></span></div>
           <div id="statAdminAssists"></div>
         </div>
 
@@ -486,28 +487,403 @@ if('serviceWorker' in navigator) {
 
       <div class="section" id="page-settings">
         <div class="page-header">
-          <div class="page-title"><span class="pt-ic" data-ic="settings"></span>إعدادات البطولة</div>
-          <div class="page-sub">تحكم كامل في النظام والإعدادات</div>
+          <div class="page-title"><span class="pt-ic" data-ic="settings"></span>الإعدادات</div>
+          <div class="page-sub">اختر القسم الذي تريد ضبطه</div>
         </div>
-        <div style="display:grid;gap:14px">
 
-          <div class="card" style="border-color:rgba(39,174,96,.35)">
-            <div class="card-header"><div class="card-title">📄 قالب اللاعبين (استيراد سريع)</div></div>
+        <div class="set-list">
+          <div class="set-row" onclick="showPage('set-basic',null)">
+            <span class="set-row-ic"><i data-ic="doc"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">المعلومات الأساسية</div>
+              <div class="set-row-d">الاسم · الشعار · الموسم · النقاط · الملعب</div>
+            </div>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+          <div class="set-row" onclick="showPage('set-match',null)">
+            <span class="set-row-ic"><i data-ic="clock"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">إعدادات المباريات</div>
+              <div class="set-row-d">مدة الأشواط · الاستراحة · الوقت الإضافي</div>
+            </div>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+          <div class="set-row" onclick="showPage('set-squad',null)">
+            <span class="set-row-ic"><i data-ic="shirt"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">نظام التشكيلة</div>
+              <div class="set-row-d">عدد اللاعبين الأساسيين في المباراة</div>
+            </div>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+          <div class="set-row" id="setFormatRow" onclick="showPage('set-format',null)">
+            <span class="set-row-ic"><i data-ic="refresh"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">نظام المباريات</div>
+              <div class="set-row-d">ذهاب وإياب · أدوار الإقصاء · المباراة الفاصلة</div>
+            </div>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+          <div class="set-row" id="setTieRow" onclick="showPage('set-tie',null)">
+            <span class="set-row-ic"><i data-ic="swords"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">الحسم عند التساوي</div>
+              <div class="set-row-d">ترتيب معايير الفصل بين المتساويين</div>
+            </div>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+          <div class="set-row" onclick="showPage('set-mods',null)">
+            <span class="set-row-ic"><i data-ic="settings"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">الأقسام المفعّلة</div>
+              <div class="set-row-d">ما يظهر للجمهور من أقسام</div>
+            </div>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+          <div class="set-row" onclick="showPage('set-sub',null)">
+            <span class="set-row-ic"><i data-ic="key"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">الاشتراك</div>
+              <div class="set-row-d">حالة اشتراك البطولة ومدّته</div>
+            </div>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+          <div class="set-row" onclick="showPage('set-tpl',null)">
+            <span class="set-row-ic"><i data-ic="users"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">قالب اللاعبين</div>
+              <div class="set-row-d">استيراد سريع لكشوف الفرق</div>
+            </div>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+        </div>
+
+        <div class="set-list" style="margin-top:14px">
+          <div class="set-row" onclick="showPage('zones',null)">
+            <span class="set-row-ic"><i data-ic="target"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">مناطق الترتيب</div>
+              <div class="set-row-d">تلوين مراكز معيّنة في الجدول</div>
+            </div>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+          <div class="set-row" onclick="showPage('set-playoff',null)">
+            <span class="set-row-ic"><i data-ic="swords"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">الملحق</div>
+              <div class="set-row-d">دور فاصل على المقاعد المتبقّية</div>
+            </div>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="page-set-basic">
+        <div class="set-back" onclick="showPage('settings',null)">
+          <span><i data-ic="chevronR"></i></span> الإعدادات
+        </div>
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="doc"></span>المعلومات الأساسية</div>
+          <div class="page-sub">الاسم · الشعار · الموسم · النقاط · الملعب</div>
+        </div>
+<div class="card">
+            <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="doc"></span>المعلومات الأساسية</div></div>
             <div class="card-body">
-              <div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:14px">
-                أنشئ ملفاً فارغاً فيه كل خانات اللاعب (الاسم، الرقم، المركز، العمر، الجنسية، الطول، القدم).
-                املأه على جهازك بكل لاعبي الفريق، ثم استورده من نافذة «قائمة اللاعبين» → زر «📥 استيراد».
-                يطبّق كل شيء تلقائياً بدقة.
+              <div class="form-group"><label class="form-label">اسم البطولة</label><input class="form-input" id="setName" placeholder="اسم البطولة"/></div>
+
+              <!-- ✅︎ شعار البطولة — المصدر الوحيد. يُطبَّق على البطاقات وواجهة الجمهور -->
+              <div class="form-group">
+                <label class="form-label">شعار البطولة</label>
+                <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+                  <div id="setLogoPrev" style="width:64px;height:64px;flex-shrink:0;border-radius:12px;
+                    background:var(--card3);border:1px solid var(--border2);display:flex;
+                    align-items:center;justify-content:center;font-size:26px;overflow:hidden"><span class="tg-ic" data-ic="trophy"></span></div>
+                  <div style="flex:1">
+                    <input type="file" id="setLogoInput" accept="image/*" style="display:none"
+                      onchange="lgHandleLogo(this)"/>
+                    <button class="btn btn-outline" style="width:100%;padding:10px;font-size:12px"
+                      onclick="document.getElementById('setLogoInput').click()"><span class="tg-ic" data-ic="share"></span> رفع شعار</button>
+                    <button class="btn btn-outline" id="setLogoDel" style="width:100%;padding:8px;font-size:11px;
+                      margin-top:6px;display:none;color:#e74c3c;border-color:rgba(231,76,60,.3)"
+                      onclick="lgClearLogo()"><span class="tg-ic" data-ic="trash"></span> حذف الشعار</button>
+                  </div>
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.7">
+                  <span class="tg-ic tg-ic-hint" data-ic="info"></span> يظهر تلقائياً في كل البطاقات وفي واجهة الجمهور — لا حاجة لرفعه مرة أخرى
+                </div>
               </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn" style="background:rgba(39,174,96,.15);border:1px solid rgba(39,174,96,.4);color:#38d47f" onclick="downloadRosterTemplate('xlsx')">⬇︎ تنزيل قالب Excel</button>
-                <button class="btn" style="background:rgba(41,128,185,.15);border:1px solid rgba(41,128,185,.4);color:#4aa3df" onclick="downloadRosterTemplate('csv')">⬇︎ تنزيل قالب CSV</button>
+
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">الموسم</label><input class="form-input" id="setSeason" placeholder="2025"/></div>
+                <div class="form-group"><label class="form-label">عدد الجولات</label><input class="form-input" type="number" id="setRounds" value="10"/></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">نقاط الفوز</label><input class="form-input" type="number" id="setWinPts" value="3"/></div>
+                <div class="form-group"><label class="form-label">نقاط التعادل</label><input class="form-input" type="number" id="setDrawPts" value="1"/></div>
+              </div>
+              <div class="form-group">
+                <label class="form-label"><span class="tg-ic" data-ic="stadium"></span>الملعب الافتراضي</label>
+                <input class="form-input" id="setVenue" placeholder="مثال: ملعب الحارة"/>
+                <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.7">
+                  <span class="tg-ic tg-ic-hint" data-ic="info"></span> يُعبَّأ تلقائياً في خانة الملعب عند إنشاء أي مباراة جديدة — مفيد لو كل المباريات تُقام على نفس الملعب
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="card" id="subInfoCard" style="border-color:var(--border2)">
-            <div class="card-header"><div class="card-title">💳 اشتراك البطولة</div></div>
+          <div class="card">
+            <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="trophy"></span>نوع البطولة</div></div>
+            <div class="card-body">
+              <!-- نوع البطولة مقفل — للعرض فقط -->
+              <div id="typeLockedDisplay" style="display:flex;align-items:center;gap:14px;background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:14px 16px">
+                <div style="font-size:32px" id="typeLockedIcon"><span class="tg-ic" data-ic="trophy"></span></div>
+                <div style="flex:1">
+                  <div style="font-size:13px;font-weight:900;color:var(--text)" id="typeLockedName">—</div>
+                  <div style="font-size:10px;color:var(--muted);margin-top:3px" id="typeLockedDesc">—</div>
+                </div>
+                <div style="background:rgba(200,80,80,.1);border:1px solid rgba(200,80,80,.3);border-radius:8px;padding:5px 10px;text-align:center">
+                  <div style="font-size:14px"><span class="tg-ic" data-ic="lock"></span></div>
+                  <div style="font-size:9px;color:#e07070;margin-top:2px">مقفل</div>
+                </div>
+              </div>
+              <div style="margin-top:10px;background:rgba(200,80,80,.06);border:1px solid rgba(200,80,80,.15);border-radius:8px;padding:9px 12px;font-size:10px;color:#c07070;line-height:1.6">
+                <span class="tg-ic" data-ic="lock"></span> نوع البطولة مقفل نهائياً ولا يمكن تغييره بعد الإطلاق
+              </div>
+
+            </div>
+          </div>
+
+          <!-- ═══════ المجموعة ٢: إعدادات المباريات (تُطبَّق تلقائياً على الكل) ═══════ -->
+          <div class="settings-group-title"><span class="tg-ic" data-ic="ball"></span> إعدادات المباريات <span class="settings-group-sub">تُطبَّق تلقائياً على كل مباريات البطولة</span></div>
+        <button class="btn btn-gold" style="width:100%;margin-top:16px;padding:14px;font-size:14px" onclick="saveSettings()"><span class="tg-ic" data-ic="save"></span>حفظ الإعدادات</button>
+      </div>
+
+      <div class="section" id="page-set-match">
+        <div class="set-back" onclick="showPage('settings',null)">
+          <span><i data-ic="chevronR"></i></span> الإعدادات
+        </div>
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="clock"></span>إعدادات المباريات</div>
+          <div class="page-sub">مدة الأشواط · الاستراحة · الوقت الإضافي</div>
+        </div>
+<div class="card">
+            <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="clock"></span>مدة الأشواط</div></div>
+            <div class="card-body">
+              <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
+                <span class="tg-ic tg-ic-hint" data-ic="info"></span> هذه الإعدادات تُطبَّق تلقائياً على جميع المباريات — لا تحتاج لضبطها في كل مباراة
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label"><span class="tg-ic" data-ic="clock"></span>مدة الشوط الأول (د)</label>
+                  <input class="form-input" type="number" id="setHalf1Dur" value="45" min="1" max="90" oninput="updateMatchDurPreview()"/>
+                </div>
+                <div class="form-group">
+                  <label class="form-label"><span class="tg-ic" data-ic="clock"></span>مدة الاستراحة (د)</label>
+                  <input class="form-input" type="number" id="setBreakDur" value="15" min="1" max="30" oninput="updateMatchDurPreview()"/>
+                </div>
+              </div>
+              <div class="form-row" style="margin-top:10px">
+                <div class="form-group">
+                  <label class="form-label"><span class="tg-ic" data-ic="clock"></span>مدة الشوط الثاني (د)</label>
+                  <input class="form-input" type="number" id="setHalf2Dur" value="45" min="1" max="90" oninput="updateMatchDurPreview()"/>
+                </div>
+                <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-end">
+                  <div style="font-size:10px;color:var(--muted);margin-bottom:6px">مثال: خماسي = 10 / 10</div>
+                  <div style="font-size:11px;color:var(--gold);font-weight:700" id="matchDurPreview">المباراة: 105 دقيقة</div>
+                </div>
+              </div>
+              <div style="margin-top:14px;border-top:1px solid var(--border2);padding-top:14px">
+                <div style="font-size:11px;color:var(--muted2);font-weight:700;margin-bottom:10px">خيارات إضافية</div>
+                <div class="toggle-row" onclick="toggleSwitch(this)" data-key="hasExtraTime">
+                  <div class="toggle-info">
+                    <div class="toggle-name"><span class="tg-ic" data-ic="flash"></span>وقت إضافي</div>
+                    <div class="toggle-desc">يظهر زر "إضافة وقت" أثناء البث</div>
+                  </div>
+                  <div class="toggle-switch on"></div>
+                </div>
+                <div class="toggle-row" onclick="toggleSwitch(this)" data-key="hasPenalties">
+                  <div class="toggle-info">
+                    <div class="toggle-name"><span class="tg-ic" data-ic="target"></span>ركلات الترجيح</div>
+                    <div class="toggle-desc">يظهر زر "بدء الركلات" عند التعادل</div>
+                  </div>
+                  <div class="toggle-switch on"></div>
+                </div>
+
+                <!-- ⚡ إعدادات الوقت الإضافي -->
+                <div id="et-settings-block" style="margin-top:10px;padding:12px 14px;background:var(--card3);border-radius:10px;border:1px solid rgba(243,156,18,.2)">
+                  <div style="font-size:10px;color:#f39c12;font-weight:700;margin-bottom:10px"><span class="tg-ic" data-ic="flash"></span>مدة الوقت الإضافي</div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label class="form-label"><span class="tg-ic" data-ic="clock"></span>وإضافي 1 (د)</label>
+                      <input class="form-input" type="number" id="setET1Dur" value="15" min="1" max="30" oninput="updateMatchDurPreview()"/>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label"><span class="tg-ic" data-ic="clock"></span>وإضافي 2 (د)</label>
+                      <input class="form-input" type="number" id="setET2Dur" value="15" min="1" max="30" oninput="updateMatchDurPreview()"/>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 👕 نظام التشكيلة — إعداد واحد على مستوى البطولة كاملة -->
+        <button class="btn btn-gold" style="width:100%;margin-top:16px;padding:14px;font-size:14px" onclick="saveSettings()"><span class="tg-ic" data-ic="save"></span>حفظ الإعدادات</button>
+      </div>
+
+      <div class="section" id="page-set-squad">
+        <div class="set-back" onclick="showPage('settings',null)">
+          <span><i data-ic="chevronR"></i></span> الإعدادات
+        </div>
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="shirt"></span>نظام التشكيلة</div>
+          <div class="page-sub">عدد اللاعبين الأساسيين في المباراة</div>
+        </div>
+<div class="card">
+            <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="shirt"></span>نظام التشكيلة</div></div>
+            <div class="card-body">
+              <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
+                <span class="tg-ic tg-ic-hint" data-ic="info"></span> يحدّد عدد لاعبي التشكيلة الأساسيين (شامل الحارس) لكل مباريات البطولة — يطبَّق تلقائياً في قسم التشكيلات وصفحة الجمهور، بدون اختيار في كل مباراة
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="setSquadGrid">
+                <button type="button" class="type-card" id="setSquad5" onclick="setSquadSize(5)" style="padding:12px 4px;font-size:13px;font-weight:700">5</button>
+                <button type="button" class="type-card" id="setSquad6" onclick="setSquadSize(6)" style="padding:12px 4px;font-size:13px;font-weight:700">6</button>
+                <button type="button" class="type-card" id="setSquad7" onclick="setSquadSize(7)" style="padding:12px 4px;font-size:13px;font-weight:700">7</button>
+                <button type="button" class="type-card" id="setSquad8" onclick="setSquadSize(8)" style="padding:12px 4px;font-size:13px;font-weight:700">8</button>
+                <button type="button" class="type-card" id="setSquad9" onclick="setSquadSize(9)" style="padding:12px 4px;font-size:13px;font-weight:700">9</button>
+                <button type="button" class="type-card" id="setSquad10" onclick="setSquadSize(10)" style="padding:12px 4px;font-size:13px;font-weight:700">10</button>
+                <button type="button" class="type-card" id="setSquad11" onclick="setSquadSize(11)" style="padding:12px 4px;font-size:13px;font-weight:700">11</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 🔁 نظام الذهاب والإياب — يظهر فقط في بطولات المجموعات -->
+        <button class="btn btn-gold" style="width:100%;margin-top:16px;padding:14px;font-size:14px" onclick="saveSettings()"><span class="tg-ic" data-ic="save"></span>حفظ الإعدادات</button>
+      </div>
+
+      <div class="section" id="page-set-format">
+        <div class="set-back" onclick="showPage('settings',null)">
+          <span><i data-ic="chevronR"></i></span> الإعدادات
+        </div>
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="refresh"></span>نظام المباريات</div>
+          <div class="page-sub">ذهاب وإياب · أدوار الإقصاء · المباراة الفاصلة</div>
+        </div>
+<div class="card" id="legModeCard" style="display:none">
+            <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="refresh"></span><span id="legModeTitle">نظام مباريات المجموعات</span></div></div>
+            <div class="card-body">
+              <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
+                <span class="tg-ic tg-ic-hint" data-ic="info"></span> يُطبَّق على كل مباريات المجموعات القادمة عند توليدها — التغيير هنا لا يعدّل مباريات مولّدة مسبقاً
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <button type="button" class="type-card" id="setLegSingle" onclick="setLegMode('single')" style="padding:12px 8px;font-size:12px">
+                  <div style="margin-bottom:4px"><span class="tg-ic" data-ic="arrowL"></span></div>ذهاب فقط
+                </button>
+                <button type="button" class="type-card" id="setLegDouble" onclick="setLegMode('double')" style="padding:12px 8px;font-size:12px">
+                  <div style="margin-bottom:4px;display:flex;justify-content:center"><span data-ic="refresh"></span></div>ذهاب وإياب
+                </button>
+              </div>
+
+              <!-- ⚔️ مباراة فاصلة بين مجموعتين — مطفأة افتراضياً؛ لا تظهر أي وسيلة لإنشائها إلا بعد تفعيلها هنا -->
+              <div style="margin-top:14px;border-top:1px solid var(--border2);padding-top:14px">
+                <div class="toggle-row" onclick="toggleSwitch(this)" data-key="allowCrossGroupPlayoff" id="crossGroupPlayoffToggle">
+                  <div class="toggle-info">
+                    <div class="toggle-name"><span class="tg-ic" data-ic="swords"></span>السماح بمباراة فاصلة بين مجموعتين</div>
+                    <div class="toggle-desc">لحالات استثنائية (مثلاً تعادل مركزَين متأهلين): تتيح إنشاء مباراة قرار واحدة بين فريقين من مجموعتين مختلفتين، تقبل التعادل وركلات الترجيح، ولا تُحتسب في جدول أي مجموعة. مطفأة افتراضياً</div>
+                  </div>
+                  <div class="toggle-switch"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<div class="card" id="koLegCard" style="display:none">
+            <div class="card-header"><div class="card-title"><span data-ic="tree" style="vertical-align:-2px;margin-inline-end:5px"></span>نظام أدوار الإقصاء</div></div>
+            <div class="card-body">
+              <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
+                <span class="tg-ic tg-ic-hint" data-ic="info"></span> «ذهاب وإياب» = كل دور إقصائي يُلعب مباراتين ويتأهل صاحب المجموع الكلي (مثل دوري الأبطال). يُطبَّق على المواجهات القادمة عند إنشائها
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <button type="button" class="type-card" id="setKoSingle" onclick="setKoTwoLegs(false)" style="padding:12px 8px;font-size:12px">
+                  <div style="margin-bottom:4px;display:flex;justify-content:center"><span data-ic="bolt"></span></div>مباراة واحدة
+                </button>
+                <button type="button" class="type-card" id="setKoDouble" onclick="setKoTwoLegs(true)" style="padding:12px 8px;font-size:12px">
+                  <div style="margin-bottom:4px;display:flex;justify-content:center"><span data-ic="refresh"></span></div>ذهاب وإياب
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════ المجموعة ٣: الترتيب والتأهل ═══════ -->
+          <div class="settings-group-title"><span class="tg-ic" data-ic="trophy"></span> الترتيب والتأهل</div>
+
+          <!-- ⚖️ إعداد طريقة الحسم عند التساوي بالنقاط -->
+        <button class="btn btn-gold" style="width:100%;margin-top:16px;padding:14px;font-size:14px" onclick="saveSettings()"><span class="tg-ic" data-ic="save"></span>حفظ الإعدادات</button>
+      </div>
+
+      <div class="section" id="page-set-tie">
+        <div class="set-back" onclick="showPage('settings',null)">
+          <span><i data-ic="chevronR"></i></span> الإعدادات
+        </div>
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="swords"></span>الحسم عند التساوي</div>
+          <div class="page-sub">ترتيب معايير الفصل بين المتساويين</div>
+        </div>
+<div class="card" id="tiebreakCard">
+            <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="swords"></span>طريقة الحسم عند التساوي بالنقاط</div></div>
+            <div class="card-body">
+              <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
+                <span class="tg-ic tg-ic-hint" data-ic="info"></span> عند تساوي فريقين أو أكثر بالنقاط، يتم الفصل بينهم بالترتيب التالي حسب اختيارك
+              </div>
+              <div style="font-size:12px;font-weight:700;color:var(--muted2);margin-bottom:10px">رتّب المعايير حسب الأولوية (الأول = الأعلى أهمية):</div>
+              <div id="tiebreakList" style="display:flex;flex-direction:column;gap:8px">
+                <!-- يتم حقنها من JS -->
+              </div>
+              <div style="margin-top:12px;font-size:10px;color:var(--muted);line-height:1.7;border-top:1px solid var(--border2);padding-top:10px">
+                <b>المواجهات المباشرة</b>: النتيجة بين الفريقين المتساويين<br/>
+                <b>فارق الأهداف</b>: الأهداف المسجلة – الأهداف المستقبلة<br/>
+                <b>الأهداف المسجلة</b>: عدد الأهداف المسجلة فقط<br/>
+                <b>القرعة</b>: قرعة عشوائية (آخر خيار)
+              </div>
+            </div>
+          </div>
+        <button class="btn btn-gold" style="width:100%;margin-top:16px;padding:14px;font-size:14px" onclick="saveSettings()"><span class="tg-ic" data-ic="save"></span>حفظ الإعدادات</button>
+      </div>
+
+      <div class="section" id="page-set-mods">
+        <div class="set-back" onclick="showPage('settings',null)">
+          <span><i data-ic="chevronR"></i></span> الإعدادات
+        </div>
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="settings"></span>الأقسام المفعّلة</div>
+          <div class="page-sub">ما يظهر للجمهور من أقسام</div>
+        </div>
+<div class="card">
+            <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="settings"></span>الأقسام المفعّلة</div></div>
+            <div class="card-body">
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showLive"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="broadcast"></span>مؤشر المباشر</div><div class="toggle-desc">يظهر LIVE على المباراة الجارية</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showCountdown"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="clock"></span>عداد تنازلي</div><div class="toggle-desc">يظهر للجمهور قبل المباراة</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showShare"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="share"></span>مشاركة الصور</div><div class="toggle-desc">زر المشاركة على البطاقات</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showStats"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="chart"></span>إحصائيات البطولة</div><div class="toggle-desc">يظهر تبويب الإحصائيات للجمهور</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showScorers"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="medal"></span>جدول الهدافين</div><div class="toggle-desc">يظهر تبويب الهدافين للجمهور</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showStory"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="doc"></span>قصة المباراة</div><div class="toggle-desc">سرد تلقائي لمجريات المباراة يظهر للجمهور (قابل للتعديل يدوياً لكل مباراة)</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showLineups"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="shirt"></span>نظام التشكيلات</div><div class="toggle-desc">تشكيلة كل فريق على أرضية الملعب — يجب تفعيله لتظهر أدوات التشكيلة في البث وللجمهور</div></div><div class="toggle-switch"></div></div>
+                <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showAssists"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="boots"></span>صنّاع الأهداف</div><div class="toggle-desc">يظهر قسم الصنّاع للجمهور داخل الإحصائيات</div></div><div class="toggle-switch"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showAssistPicker"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="target"></span>اختيار الصانع مع الهدف</div><div class="toggle-desc">عند تسجيل هدف تظهر خانة «من صنعه؟» لاختيار صانع الهدف</div></div><div class="toggle-switch"></div></div>
+            </div>
+          </div>
+
+      </div>
+
+      <div class="section" id="page-set-sub">
+        <div class="set-back" onclick="showPage('settings',null)">
+          <span><i data-ic="chevronR"></i></span> الإعدادات
+        </div>
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="key"></span>الاشتراك</div>
+          <div class="page-sub">حالة اشتراك البطولة ومدّته</div>
+        </div>
+<div class="card" id="subInfoCard" style="border-color:var(--border2)">
+            <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="key"></span>اشتراك البطولة</div></div>
             <div class="card-body">
               <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
                 <div>
@@ -535,285 +911,85 @@ if('serviceWorker' in navigator) {
           </div>
 
           <!-- ═══════ المجموعة ١: معلومات البطولة ═══════ -->
-          <div class="settings-group-title">📋 معلومات البطولة</div>
+          <div class="settings-group-title"><span class="tg-ic" data-ic="doc"></span> معلومات البطولة</div>
 
-          <div class="card">
-            <div class="card-header"><div class="card-title">📋 المعلومات الأساسية</div></div>
-            <div class="card-body">
-              <div class="form-group"><label class="form-label">اسم البطولة</label><input class="form-input" id="setName" placeholder="اسم البطولة"/></div>
-
-              <!-- ✅︎ شعار البطولة — المصدر الوحيد. يُطبَّق على البطاقات وواجهة الجمهور -->
-              <div class="form-group">
-                <label class="form-label">شعار البطولة</label>
-                <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
-                  <div id="setLogoPrev" style="width:64px;height:64px;flex-shrink:0;border-radius:12px;
-                    background:var(--card3);border:1px solid var(--border2);display:flex;
-                    align-items:center;justify-content:center;font-size:26px;overflow:hidden">🏆</div>
-                  <div style="flex:1">
-                    <input type="file" id="setLogoInput" accept="image/*" style="display:none"
-                      onchange="lgHandleLogo(this)"/>
-                    <button class="btn btn-outline" style="width:100%;padding:10px;font-size:12px"
-                      onclick="document.getElementById('setLogoInput').click()">📤 رفع شعار</button>
-                    <button class="btn btn-outline" id="setLogoDel" style="width:100%;padding:8px;font-size:11px;
-                      margin-top:6px;display:none;color:#e74c3c;border-color:rgba(231,76,60,.3)"
-                      onclick="lgClearLogo()">🗑 حذف الشعار</button>
-                  </div>
-                </div>
-                <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.7">
-                  💡 يظهر تلقائياً في كل البطاقات وفي واجهة الجمهور — لا حاجة لرفعه مرة أخرى
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group"><label class="form-label">الموسم</label><input class="form-input" id="setSeason" placeholder="2025"/></div>
-                <div class="form-group"><label class="form-label">عدد الجولات</label><input class="form-input" type="number" id="setRounds" value="10"/></div>
-              </div>
-              <div class="form-row">
-                <div class="form-group"><label class="form-label">نقاط الفوز</label><input class="form-input" type="number" id="setWinPts" value="3"/></div>
-                <div class="form-group"><label class="form-label">نقاط التعادل</label><input class="form-input" type="number" id="setDrawPts" value="1"/></div>
-              </div>
-              <div class="form-group">
-                <label class="form-label">🏟 الملعب الافتراضي</label>
-                <input class="form-input" id="setVenue" placeholder="مثال: ملعب الحارة"/>
-                <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.7">
-                  💡 يُعبَّأ تلقائياً في خانة الملعب عند إنشاء أي مباراة جديدة — مفيد لو كل المباريات تُقام على نفس الملعب
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-header"><div class="card-title">🏆 نوع البطولة</div></div>
-            <div class="card-body">
-              <!-- نوع البطولة مقفل — للعرض فقط -->
-              <div id="typeLockedDisplay" style="display:flex;align-items:center;gap:14px;background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:14px 16px">
-                <div style="font-size:32px" id="typeLockedIcon">🏆</div>
-                <div style="flex:1">
-                  <div style="font-size:13px;font-weight:900;color:var(--text)" id="typeLockedName">—</div>
-                  <div style="font-size:10px;color:var(--muted);margin-top:3px" id="typeLockedDesc">—</div>
-                </div>
-                <div style="background:rgba(200,80,80,.1);border:1px solid rgba(200,80,80,.3);border-radius:8px;padding:5px 10px;text-align:center">
-                  <div style="font-size:14px">🔒</div>
-                  <div style="font-size:9px;color:#e07070;margin-top:2px">مقفل</div>
-                </div>
-              </div>
-              <div style="margin-top:10px;background:rgba(200,80,80,.06);border:1px solid rgba(200,80,80,.15);border-radius:8px;padding:9px 12px;font-size:10px;color:#c07070;line-height:1.6">
-                🔒 نوع البطولة مقفل نهائياً ولا يمكن تغييره بعد الإطلاق
-              </div>
-
-            </div>
-          </div>
-
-          <!-- ═══════ المجموعة ٢: إعدادات المباريات (تُطبَّق تلقائياً على الكل) ═══════ -->
-          <div class="settings-group-title">⚽ إعدادات المباريات <span class="settings-group-sub">تُطبَّق تلقائياً على كل مباريات البطولة</span></div>
-
-          <div class="card">
-            <div class="card-header"><div class="card-title">⏱ مدة الأشواط</div></div>
-            <div class="card-body">
-              <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
-                💡 هذه الإعدادات تُطبَّق تلقائياً على جميع المباريات — لا تحتاج لضبطها في كل مباراة
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">⏱ مدة الشوط الأول (د)</label>
-                  <input class="form-input" type="number" id="setHalf1Dur" value="45" min="1" max="90" oninput="updateMatchDurPreview()"/>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">☕ مدة الاستراحة (د)</label>
-                  <input class="form-input" type="number" id="setBreakDur" value="15" min="1" max="30" oninput="updateMatchDurPreview()"/>
-                </div>
-              </div>
-              <div class="form-row" style="margin-top:10px">
-                <div class="form-group">
-                  <label class="form-label">⏱ مدة الشوط الثاني (د)</label>
-                  <input class="form-input" type="number" id="setHalf2Dur" value="45" min="1" max="90" oninput="updateMatchDurPreview()"/>
-                </div>
-                <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-end">
-                  <div style="font-size:10px;color:var(--muted);margin-bottom:6px">مثال: خماسي = 10 / 10</div>
-                  <div style="font-size:11px;color:var(--gold);font-weight:700" id="matchDurPreview">المباراة: 105 دقيقة</div>
-                </div>
-              </div>
-              <div style="margin-top:14px;border-top:1px solid var(--border2);padding-top:14px">
-                <div style="font-size:11px;color:var(--muted2);font-weight:700;margin-bottom:10px">خيارات إضافية</div>
-                <div class="toggle-row" onclick="toggleSwitch(this)" data-key="hasExtraTime">
-                  <div class="toggle-info">
-                    <div class="toggle-name">⚡ وقت إضافي</div>
-                    <div class="toggle-desc">يظهر زر "إضافة وقت" أثناء البث</div>
-                  </div>
-                  <div class="toggle-switch on"></div>
-                </div>
-                <div class="toggle-row" onclick="toggleSwitch(this)" data-key="hasPenalties">
-                  <div class="toggle-info">
-                    <div class="toggle-name">🥅 ركلات الترجيح</div>
-                    <div class="toggle-desc">يظهر زر "بدء الركلات" عند التعادل</div>
-                  </div>
-                  <div class="toggle-switch on"></div>
-                </div>
-
-                <!-- ⚡ إعدادات الوقت الإضافي -->
-                <div id="et-settings-block" style="margin-top:10px;padding:12px 14px;background:var(--card3);border-radius:10px;border:1px solid rgba(243,156,18,.2)">
-                  <div style="font-size:10px;color:#f39c12;font-weight:700;margin-bottom:10px">⚡ مدة الوقت الإضافي</div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label class="form-label">⏱ وإضافي 1 (د)</label>
-                      <input class="form-input" type="number" id="setET1Dur" value="15" min="1" max="30" oninput="updateMatchDurPreview()"/>
-                    </div>
-                    <div class="form-group">
-                      <label class="form-label">⏱ وإضافي 2 (د)</label>
-                      <input class="form-input" type="number" id="setET2Dur" value="15" min="1" max="30" oninput="updateMatchDurPreview()"/>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 👕 نظام التشكيلة — إعداد واحد على مستوى البطولة كاملة -->
-          <div class="card">
-            <div class="card-header"><div class="card-title">👕 نظام التشكيلة</div></div>
-            <div class="card-body">
-              <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
-                💡 يحدّد عدد لاعبي التشكيلة الأساسيين (شامل الحارس) لكل مباريات البطولة — يطبَّق تلقائياً في قسم التشكيلات وصفحة الجمهور، بدون اختيار في كل مباراة
-              </div>
-              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="setSquadGrid">
-                <button type="button" class="type-card" id="setSquad5" onclick="setSquadSize(5)" style="padding:12px 4px;font-size:13px;font-weight:700">5</button>
-                <button type="button" class="type-card" id="setSquad6" onclick="setSquadSize(6)" style="padding:12px 4px;font-size:13px;font-weight:700">6</button>
-                <button type="button" class="type-card" id="setSquad7" onclick="setSquadSize(7)" style="padding:12px 4px;font-size:13px;font-weight:700">7</button>
-                <button type="button" class="type-card" id="setSquad8" onclick="setSquadSize(8)" style="padding:12px 4px;font-size:13px;font-weight:700">8</button>
-                <button type="button" class="type-card" id="setSquad9" onclick="setSquadSize(9)" style="padding:12px 4px;font-size:13px;font-weight:700">9</button>
-                <button type="button" class="type-card" id="setSquad10" onclick="setSquadSize(10)" style="padding:12px 4px;font-size:13px;font-weight:700">10</button>
-                <button type="button" class="type-card" id="setSquad11" onclick="setSquadSize(11)" style="padding:12px 4px;font-size:13px;font-weight:700">11</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 🔁 نظام الذهاب والإياب — يظهر فقط في بطولات المجموعات -->
-          <div class="card" id="legModeCard" style="display:none">
-            <div class="card-header"><div class="card-title">🔁 نظام مباريات المجموعات</div></div>
-            <div class="card-body">
-              <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
-                💡 يُطبَّق على كل مباريات المجموعات القادمة عند توليدها — التغيير هنا لا يعدّل مباريات مولّدة مسبقاً
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <button type="button" class="type-card" id="setLegSingle" onclick="setLegMode('single')" style="padding:12px 8px;font-size:12px">
-                  <div style="font-size:18px;margin-bottom:4px">➡️</div>ذهاب فقط
-                </button>
-                <button type="button" class="type-card" id="setLegDouble" onclick="setLegMode('double')" style="padding:12px 8px;font-size:12px">
-                  <div style="margin-bottom:4px;display:flex;justify-content:center"><span data-ic="refresh"></span></div>ذهاب وإياب
-                </button>
-              </div>
-
-              <!-- ⚔️ مباراة فاصلة بين مجموعتين — مطفأة افتراضياً؛ لا تظهر أي وسيلة لإنشائها إلا بعد تفعيلها هنا -->
-              <div style="margin-top:14px;border-top:1px solid var(--border2);padding-top:14px">
-                <div class="toggle-row" onclick="toggleSwitch(this)" data-key="allowCrossGroupPlayoff" id="crossGroupPlayoffToggle">
-                  <div class="toggle-info">
-                    <div class="toggle-name">⚔️ السماح بمباراة فاصلة بين مجموعتين</div>
-                    <div class="toggle-desc">لحالات استثنائية (مثلاً تعادل مركزَين متأهلين): تتيح إنشاء مباراة قرار واحدة بين فريقين من مجموعتين مختلفتين، تقبل التعادل وركلات الترجيح، ولا تُحتسب في جدول أي مجموعة. مطفأة افتراضياً</div>
-                  </div>
-                  <div class="toggle-switch"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card" id="koLegCard" style="display:none">
-            <div class="card-header"><div class="card-title"><span data-ic="tree" style="vertical-align:-2px;margin-inline-end:5px"></span>نظام أدوار الإقصاء</div></div>
-            <div class="card-body">
-              <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
-                💡 «ذهاب وإياب» = كل دور إقصائي يُلعب مباراتين ويتأهل صاحب المجموع الكلي (مثل دوري الأبطال). يُطبَّق على المواجهات القادمة عند إنشائها
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <button type="button" class="type-card" id="setKoSingle" onclick="setKoTwoLegs(false)" style="padding:12px 8px;font-size:12px">
-                  <div style="margin-bottom:4px;display:flex;justify-content:center"><span data-ic="bolt"></span></div>مباراة واحدة
-                </button>
-                <button type="button" class="type-card" id="setKoDouble" onclick="setKoTwoLegs(true)" style="padding:12px 8px;font-size:12px">
-                  <div style="margin-bottom:4px;display:flex;justify-content:center"><span data-ic="refresh"></span></div>ذهاب وإياب
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- ═══════ المجموعة ٣: الترتيب والتأهل ═══════ -->
-          <div class="settings-group-title">🏆 الترتيب والتأهل</div>
-
-          <!-- ⚖️ إعداد طريقة الحسم عند التساوي بالنقاط -->
-          <div class="card" id="tiebreakCard">
-            <div class="card-header"><div class="card-title">⚖️ طريقة الحسم عند التساوي بالنقاط</div></div>
-            <div class="card-body">
-              <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
-                💡 عند تساوي فريقين أو أكثر بالنقاط، يتم الفصل بينهم بالترتيب التالي حسب اختيارك
-              </div>
-              <div style="font-size:12px;font-weight:700;color:var(--muted2);margin-bottom:10px">رتّب المعايير حسب الأولوية (الأول = الأعلى أهمية):</div>
-              <div id="tiebreakList" style="display:flex;flex-direction:column;gap:8px">
-                <!-- يتم حقنها من JS -->
-              </div>
-              <div style="margin-top:12px;font-size:10px;color:var(--muted);line-height:1.7;border-top:1px solid var(--border2);padding-top:10px">
-                <b>المواجهات المباشرة</b>: النتيجة بين الفريقين المتساويين<br/>
-                <b>فارق الأهداف</b>: الأهداف المسجلة – الأهداف المستقبلة<br/>
-                <b>الأهداف المسجلة</b>: عدد الأهداف المسجلة فقط<br/>
-                <b>القرعة</b>: قرعة عشوائية (آخر خيار)
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-header"><div class="card-title">🎯 مناطق الترتيب</div><button class="btn btn-outline btn-sm" onclick="showPage('zones',null)">فتح</button></div>
-            <div class="card-body">
-              <div style="font-size:11px;color:var(--muted2);line-height:1.7">
-                حدّد مناطق التأهل والهبوط (المتوج، المتأهل، الهابط...) من صفحة مناطق الترتيب المخصّصة.
-              </div>
-            </div>
-          </div>
-
-          <!-- ═══════ المجموعة ٤: العرض للجمهور ═══════ -->
-          <div class="settings-group-title">🎛 خيارات العرض للجمهور</div>
-
-          <div class="card">
-            <div class="card-header"><div class="card-title">🎛 الأقسام المفعّلة</div></div>
-            <div class="card-body">
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showLive"><div class="toggle-info"><div class="toggle-name">🔴 مؤشر المباشر</div><div class="toggle-desc">يظهر LIVE على المباراة الجارية</div></div><div class="toggle-switch on"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showCountdown"><div class="toggle-info"><div class="toggle-name">⏰ عداد تنازلي</div><div class="toggle-desc">يظهر للجمهور قبل المباراة</div></div><div class="toggle-switch on"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showShare"><div class="toggle-info"><div class="toggle-name">📤 مشاركة الصور</div><div class="toggle-desc">زر المشاركة على البطاقات</div></div><div class="toggle-switch on"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showStats"><div class="toggle-info"><div class="toggle-name">📊 إحصائيات البطولة</div><div class="toggle-desc">يظهر تبويب الإحصائيات للجمهور</div></div><div class="toggle-switch on"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showScorers"><div class="toggle-info"><div class="toggle-name">🥇 جدول الهدافين</div><div class="toggle-desc">يظهر تبويب الهدافين للجمهور</div></div><div class="toggle-switch on"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showStory"><div class="toggle-info"><div class="toggle-name">📖 قصة المباراة</div><div class="toggle-desc">سرد تلقائي لمجريات المباراة يظهر للجمهور (قابل للتعديل يدوياً لكل مباراة)</div></div><div class="toggle-switch on"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showAssists"><div class="toggle-info"><div class="toggle-name">👟 صنّاع الأهداف</div><div class="toggle-desc">يظهر قسم الصنّاع للجمهور داخل الإحصائيات</div></div><div class="toggle-switch"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showAssistPicker"><div class="toggle-info"><div class="toggle-name">🎯 اختيار الصانع مع الهدف</div><div class="toggle-desc">عند تسجيل هدف تظهر خانة «من صنعه؟» لاختيار صانع الهدف</div></div><div class="toggle-switch"></div></div>
-            </div>
-          </div>
-
-          <button class="btn btn-gold" style="width:100%;padding:14px;font-size:14px;position:sticky;bottom:10px;box-shadow:0 4px 20px rgba(0,0,0,.4)" onclick="saveSettings()">💾 حفظ جميع الإعدادات</button>
-        </div>
       </div>
 
-      <!-- ZONES -->
+      <div class="section" id="page-set-tpl">
+        <div class="set-back" onclick="showPage('settings',null)">
+          <span><i data-ic="chevronR"></i></span> الإعدادات
+        </div>
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="users"></span>قالب اللاعبين</div>
+          <div class="page-sub">استيراد سريع لكشوف الفرق</div>
+        </div>
+<div class="card" style="border-color:rgba(39,174,96,.35)">
+            <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="users"></span>قالب اللاعبين (استيراد سريع)</div></div>
+            <div class="card-body">
+              <div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:14px">
+                أنشئ ملفاً فارغاً فيه كل خانات اللاعب (الاسم، الرقم، المركز، العمر، الجنسية، الطول، القدم).
+                املأه على جهازك بكل لاعبي الفريق، ثم استورده من نافذة «قائمة اللاعبين» → زر «📥 استيراد».
+                يطبّق كل شيء تلقائياً بدقة.
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn" style="background:rgba(39,174,96,.15);border:1px solid rgba(39,174,96,.4);color:#38d47f" onclick="downloadRosterTemplate('xlsx')">⬇︎ تنزيل قالب Excel</button>
+                <button class="btn" style="background:rgba(41,128,185,.15);border:1px solid rgba(41,128,185,.4);color:#4aa3df" onclick="downloadRosterTemplate('csv')">⬇︎ تنزيل قالب CSV</button>
+              </div>
+            </div>
+          </div>
+
+      </div>
+
+      <!-- ── إعدادات الملحق (داخل الإعدادات) — الإعداد والإنشاء وإعادة التعيين ── -->
+      <div class="section" id="page-set-playoff">
+        <div class="set-back" onclick="showPage('settings',null)">
+          <span><i data-ic="chevronR"></i></span> الإعدادات
+        </div>
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="swords"></span>الملحق</div>
+          <div class="page-sub">اضبط كل شيء ثم أنشئ القسم</div>
+        </div>
+        <div id="playoffSetup"></div>
+      </div>
+
+<div class="section" id="page-playoff">
+        <div class="page-header">
+          <div class="page-title"><span class="pt-ic" data-ic="swords"></span>الملحق</div>
+          <div class="page-sub">دور فاصل بين الدور الأول والإقصاء</div>
+        </div>
+        <div id="playoffBody"></div>
+      </div>
+
       <div class="section" id="page-zones">
         <div class="page-header">
           <div class="page-title"><span class="pt-ic" data-ic="target"></span>مناطق الترتيب</div>
-          <div class="page-sub">تحديد المتأهلين والهابطين</div>
+          <div class="page-sub">تلوين مراكز معيّنة في الجدول — كله اختياري</div>
         </div>
+
         <div class="card" style="margin-bottom:14px">
-          <div class="card-header"><div class="card-title">🏆 إعداد المناطق</div></div>
           <div class="card-body">
-            <p style="font-size:11px;color:var(--muted2);margin-bottom:14px">المجموع يجب أن يساوي عدد الفرق</p>
-            <div class="zone-builder">
-              <div class="zone-row"><div class="zone-color" style="background:var(--gold)"></div><div class="zone-name">🏆 المتوج</div><input class="zone-count" type="number" value="1" min="0" id="z_champion" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فريق</span></div>
-              <div class="zone-row"><div class="zone-color" style="background:var(--green)"></div><div class="zone-name">✅︎ متأهل</div><input class="zone-count" type="number" value="2" min="0" id="z_qualify" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فرق</span></div>
-              <div class="zone-row"><div class="zone-color" style="background:var(--blue)"></div><div class="zone-name">🔵 مشروط</div><input class="zone-count" type="number" value="1" min="0" id="z_cond" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فرق</span></div>
-              <div class="zone-row"><div class="zone-color" style="background:#888"></div><div class="zone-name">⚪ عادي</div><input class="zone-count" type="number" value="0" min="0" id="z_normal" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فرق</span></div>
-              <div class="zone-row"><div class="zone-color" style="background:var(--orange)"></div><div class="zone-name">🟠 ملعب الهبوط</div><input class="zone-count" type="number" value="1" min="0" id="z_playoff" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فريق</span></div>
-              <div class="zone-row"><div class="zone-color" style="background:var(--red)"></div><div class="zone-name">🔴 هابط</div><input class="zone-count" type="number" value="1" min="0" id="z_relegate" oninput="updateZoneTotal()"/><span style="font-size:10px;color:var(--muted);width:40px;text-align:center">فرق</span></div>
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:10px 14px;background:var(--card3);border-radius:8px">
-              <span style="font-size:11px;color:var(--muted2)">الإجمالي</span>
-              <span id="zoneTotal" style="font-size:14px;font-weight:900;color:var(--gold)">6 / 6</span>
+            <p style="font-size:11px;color:var(--muted2);line-height:1.9;margin:0 0 14px">
+              حدّد <b style="color:var(--gold)">من أي مركز إلى أي مركز</b> وسمِّ المنطقة كما تشاء.
+              أضِف ما تحتاجه فقط — والمراكز غير المشمولة تبقى بلا تصنيف.
+            </p>
+            <div id="zoneRulesList"></div>
+
+            <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px">
+              <button class="btn btn-outline btn-sm" onclick="zoneAdd()">＋ منطقة مخصّصة</button>
+              <button class="btn btn-outline btn-sm" onclick="zoneAdd(0)">🏆 بطل</button>
+              <button class="btn btn-outline btn-sm" onclick="zoneAdd(1)">✅︎ متأهل</button>
+              <button class="btn btn-outline btn-sm" onclick="zoneAdd(3)">🟠 ملحق</button>
+              <button class="btn btn-outline btn-sm" onclick="zoneAdd(4)">🔻 هابط</button>
             </div>
           </div>
         </div>
-        <button class="btn btn-gold" style="width:100%;padding:14px;margin-top:4px" onclick="saveZones()">💾 حفظ المناطق</button>
+
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:9px">
+          <button class="btn btn-outline" onclick="zoneClearAll()">مسح الكل</button>
+          <button class="btn btn-gold" onclick="saveZoneRules()">💾 حفظ المناطق</button>
+        </div>
       </div>
 
-      <!-- DANGER -->
       <div class="section" id="page-danger">
         <div class="page-header">
           <div class="page-title" style="color:var(--red)">⚠️ منطقة الخطر</div>
@@ -1054,7 +1230,17 @@ if('serviceWorker' in navigator) {
       <div class="form-group"><label class="form-label">📆 التاريخ</label><input class="form-input" type="date" id="matchDate"/></div>
       <div class="form-group"><label class="form-label">🕓 الوقت</label><input class="form-input" type="time" id="matchTime" value="16:00"/></div>
       <div class="form-group"><label class="form-label">🏟 الملعب</label><input class="form-input" id="matchVenue" value="ملعب الحارة"/></div>
-      <div class="form-group" id="matchRoundGroup"><label class="form-label">🎯 رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1" inputmode="numeric"/></div>
+      <div class="form-group" id="matchRoundGroup"><label class="form-label"><span class="tg-ic" data-ic="target"></span>رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1" inputmode="numeric" oninput="_syncMatchLeg()"/></div>
+      <!-- دور المواجهة: يظهر فقط في بطولات «ذهاب وإياب»، ويُحسب تلقائياً من رقم الجولة -->
+      <div class="form-group" id="matchLegGroup" style="display:none">
+        <label class="form-label"><span class="tg-ic" data-ic="refresh"></span>دور المواجهة</label>
+        <select class="form-select" id="matchLeg">
+          <option value="auto">تلقائي (حسب رقم الجولة)</option>
+          <option value="1">ذهاب</option>
+          <option value="2">إياب</option>
+        </select>
+        <div id="matchLegHint" style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.7"></div>
+      </div>
 
       <div class="mm-sec">👔 طاقم المباراة <span class="mm-opt">(اختياري)</span></div>
       <div class="form-group"><label class="form-label">🏁 الحكم الرئيسي</label><input class="form-input" id="matchReferee" placeholder="اسم الحكم"/></div>

@@ -244,6 +244,19 @@
       });
     }
 
+    /* ⑫ خصومات النقاط النشطة — تذكير للمنظّم بأنها تؤثّر على الترتيب */
+    var ded = ts.filter(function (t) { return (parseInt(t.deduction, 10) || 0) > 0; });
+    if (ded.length) {
+      out.push({
+        lvl: 'info',
+        t: ded.length + ' فريق عليه خصم نقاط',
+        d: ded.map(function (t) {
+          return t.name + ': -' + t.deduction + (t.deductionReason ? ' (' + t.deductionReason + ')' : '');
+        }).join('\n'),
+        fix: 'راجعها من ملف الفريق إن لم تعد سارية'
+      });
+    }
+
     if (!out.length) {
       out.push({ lvl: 'ok', t: 'كل شيء سليم', d: ms.length + ' مباراة · لا أخطاء' });
     }

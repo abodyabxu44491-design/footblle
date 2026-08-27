@@ -82,7 +82,12 @@
 
           // tiebreakCard — للدوري والمجموعات (كلاهما يحتاج حسم التعادل بالنقاط)
           const tiebreakCard = document.getElementById('tiebreakCard');
-          if (tiebreakCard) tiebreakCard.style.display = (type === 'league' || type === 'groups') ? '' : 'none';
+          if (tiebreakCard) tiebreakCard.style.display =
+            (type === 'league' || type === 'groups' || type === 'swiss') ? '' : 'none';
+          // صفّ المركز يتبع البطاقة — كي لا يفتح قسماً فارغاً
+          var tieRow2 = document.getElementById('setTieRow');
+          if (tieRow2) tieRow2.style.display =
+            (type === 'league' || type === 'groups' || type === 'swiss') ? '' : 'none';
 
           // console.log('[FIX-2] ✅ UI مُكيَّف لنوع البطولة:', type);
         };

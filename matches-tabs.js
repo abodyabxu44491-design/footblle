@@ -53,13 +53,22 @@
   var LEG_KEY = '_mtLeg';        // 0 = الكل · 1 = ذهاب · 2 = إياب
 
   /* ── التبويبات المتاحة فعلياً حسب البيانات ── */
+  /* مباراة ملحق — لها تبويبها المستقلّ كي لا تختلط بمباريات الدور الأول
+     ولا بالإقصاء، فالملحق دور قائم بذاته بقواعده ومقاعده. */
+  function isPO(m) { return m && m.isPlayoff === true; }
+
   function availableTabs() {
     var list = pub();
     var live = list.filter(function (m) { return !isFinished(m); });
-    var hasKO = live.some(isKO);
-    var hasGR = live.some(function (m) { return !isKO(m); });
+    var hasPO = live.some(isPO);
+    var hasKO = live.some(function (m) { return !isPO(m) && isKO(m); });
+    var hasGR = live.some(function (m) { return !isPO(m) && !isKO(m); });
     var tabs = [];
     if (hasKO) tabs.push({ id: 'ko', label: '🏆 الإقصاء' });
+    if (hasPO) {
+      var pn = (window.settings && window.settings.playoff && window.settings.playoff.name) || 'الملحق';
+      tabs.push({ id: 'po', label: '🥊 ' + pn });
+    }
     if (hasGR) {
       var t = (window.settings && window.settings.type) || '';
       tabs.push({ id: 'gr', label: t === 'groups' ? '👥 المجموعات' : '⚽ المباريات' });
@@ -72,8 +81,9 @@
   function filterFor(tab) {
     var list = pub().slice();
     if (tab === 'fin') return list.filter(isFinished);
-    if (tab === 'ko')  return list.filter(function (m) { return !isFinished(m) && isKO(m); });
-    if (tab === 'gr')  return list.filter(function (m) { return !isFinished(m) && !isKO(m); });
+    if (tab === 'po')  return list.filter(function (m) { return !isFinished(m) && isPO(m); });
+    if (tab === 'ko')  return list.filter(function (m) { return !isFinished(m) && !isPO(m) && isKO(m); });
+    if (tab === 'gr')  return list.filter(function (m) { return !isFinished(m) && !isPO(m) && !isKO(m); });
     return list;
   }
 

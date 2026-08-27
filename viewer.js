@@ -276,6 +276,76 @@ window._legOf = _legOf;
 const _legLabel = n => n === 1 ? 'ذهاب' : n === 2 ? 'إياب' : '';
 window._legLabel = _legLabel;
 
+/* ── مناطق الترتيب: قواعد {from,to,label,color} يحدّدها المنظّم ──
+   مع ترجمة تلقائية من النظام القديم (six zones بعدّاد لكل واحدة) كي لا
+   تفقد البطولات القائمة تلوينها. */
+/* ── حالات الفرق في المجموعات (مصدر واحد للأدمن والجمهور) ── */
+/* أيقونات SVG لا إيموجي — الإيموجي يختلف شكله بين الأجهزة فيكسر انتظام
+   الصفوف، وبعضه لا يُرسم على أندرويد قديم فتظهر الشارة بلا رمز. */
+const VIEWER_STATUSES = {
+  qualified:  { label: 'متأهل',            ic: 'check',  color: '#27ae60', qualified: true  },
+  qualifiedC: { label: 'متأهل مشروط',      ic: 'clock',  color: '#3B7DBF', qualified: true  },
+  playoff:    { label: 'ملحق',             ic: 'swords', color: '#D35400', qualified: false },
+  eliminated: { label: 'خرج',              ic: 'close',  color: '#C0392B', qualified: false },
+  withdrew:   { label: 'منسحب',            ic: 'minus',  color: '#8e44ad', qualified: false },
+  banned:     { label: 'مستبعَد',           ic: 'lock',   color: '#7f1d1d', qualified: false }
+};
+function _viewerStatusMeta(k) {
+  return VIEWER_STATUSES[k] || { label: '', ic: '', color: 'var(--t3)', qualified: false };
+}
+function _statusChip(k) {
+  const m = _viewerStatusMeta(k);
+  if (!m.label) return '';
+  const ic = (m.ic && window.Icon) ? window.Icon(m.ic, 10, m.color) : '';
+  return `<span class="gt-status" style="color:${m.color};background:${m.color}1a;border-color:${m.color}55">${ic}${m.label}</span>`;
+}
+/* خريطة teamStatus الجديدة أولاً، ثم الحقلان القديمان للتوافق */
+function _viewerTeamStatus(g, teamId) {
+  if (g && g.teamStatus && g.teamStatus[teamId] != null) return g.teamStatus[teamId] || '';
+  if (g && (g.qualifiedTeamIds  || []).includes(teamId)) return 'qualified';
+  if (g && (g.eliminatedTeamIds || []).includes(teamId)) return 'eliminated';
+  return '';
+}
+window._viewerTeamStatus = _viewerTeamStatus;
+
+/* ── خصم النقاط: يُقرأ من مستند الفريق ويُطرح في كل مواضع الحساب ── */
+function _deductionOfV(teamId) {
+  const t = (window.teams || []).find(x => x.id === teamId);
+  const n = t ? parseInt(t.deduction, 10) : 0;
+  return (!isNaN(n) && n > 0) ? n : 0;
+}
+function _deductionBadgeV(teamId) {
+  const d = _deductionOfV(teamId);
+  return d ? `<span class="std-ded" title="خُصمت ${d} نقطة">-${d}</span>` : '';
+}
+window._deductionOfV = _deductionOfV;
+
+function _viewerZoneRules() {
+  const s = window.settings || {};
+  if (Array.isArray(s.zoneRules)) return s.zoneRules;
+  const z = s.zones || {};
+  const LEGACY = [
+    ['champion', 'بطل البطولة',  'var(--gold)'],
+    ['qualify',  'متأهل',        'var(--green)'],
+    ['cond',     'متأهل مشروط',  'var(--blue)'],
+    ['normal',   'عادي',         '#666'],
+    ['playoff',  'ملحق التأهّل', 'var(--orange)'],
+    ['relegate', 'هابط',         'var(--red)']
+  ];
+  const out = []; let pos = 1;
+  LEGACY.forEach(([k, label, color]) => {
+    const n = parseInt(z[k], 10) || 0;
+    if (n > 0) { out.push({ from: pos, to: pos + n - 1, label, color }); pos += n; }
+  });
+  return out;
+}
+function _viewerZoneAt(rules, rank) {
+  for (const r of rules) {
+    if (rank >= (parseInt(r.from,10)||1) && rank <= (parseInt(r.to,10)||1)) return r;
+  }
+  return null;
+}
+
 const _HAS_BRACKET   = t => t === 'knockout' || t === 'groups' || t === 'swiss';
 const _HAS_STANDINGS = t => t === 'league'   || t === 'swiss';
 const _HAS_GROUPS    = t => t === 'groups';
@@ -1315,6 +1385,8 @@ function computeGroupStats(teamIds, groupId) {
       else { h.d++;a.d++;h.pts+=settings.drawPts||1;a.pts+=settings.drawPts||1; }
     }
   });
+  // ➖ خصم النقاط يسري على جداول المجموعات أيضاً
+  teamIds.forEach(id => { const d = _deductionOfV(id); if (d && stats[id]) stats[id].pts -= d; });
   return stats;
 }
 
@@ -2959,7 +3031,7 @@ function renderGroupsStandings() {
       <div class="group-header">
         <div class="group-title">${g.icon||'👥'} المجموعة ${g.name||''}</div>
         <div style="display:flex;align-items:center;gap:8px">
-          <div class="group-sub">${showBadges&&manualQ.size ? `✅ ${manualQ.size} متأهل` : `متأهلون: أفضل ${qCount}`}</div>
+          <div class="group-sub">${showBadges&&manualQ.size ? `${manualQ.size} متأهل` : `متأهلون: أفضل ${qCount}`}</div>
           ${_shButton(`_shShareGroup('${g.id}')`, 'مشاركة المجموعة')}
         </div>
       </div>
@@ -2969,24 +3041,27 @@ function renderGroupsStandings() {
       </div>
       ${sorted.map((t,i)=>{
         const s=gs[t.id]||{};const gd=(s.gf||0)-(s.ga||0);
-        // يدويّ بالكامل: فقط ما حدّده المنظّم صراحة (بلا أي استنتاج تلقائي)
-        const isQ = showBadges && manualQ.has(t.id);
-        const isElim = showBadges && manualE.has(t.id);
-        const rowColor = isQ?'var(--green)':isElim?'var(--red)':'var(--t3)';
+        /* الحالة يدويّة بالكامل — فقط ما حدّده المنظّم صراحةً.
+           تُقرأ من خريطة teamStatus الجديدة (متأهل · مشروط · ملحق · خارج ·
+           منسحب · مستبعَد)، وترجع للحقلين القديمين في البطولات السابقة. */
+        const stKey = showBadges ? _viewerTeamStatus(g, t.id) : '';
+        const stm   = _viewerStatusMeta(stKey);
+        const isQ    = !!stm.qualified;
+        const isElim = !!stKey && !stm.qualified && stKey !== 'playoff';
+        const rowColor = stKey ? stm.color : 'var(--t3)';
         return`<div class="gt-row${isQ?' gt-row-qualified':''}${isElim?' gt-row-eliminated':''}">
           <div class="gt-pos" style="color:${rowColor}">${i+1}</div>
           <div class="gt-team">
             <span>${logoHtml(t.logo,18,4)}</span>
             <span class="gt-name">${t.name}</span>
-            ${isQ?`<span class="qualify-badge">${_qSvgCheck()}متأهل</span>`:''}
-            ${isElim?`<span class="elim-badge">${_qSvgX()}خرج</span>`:''}
+            ${stKey ? _statusChip(stKey) : ''}
           </div>
           <div class="gt-val">${s.p||0}</div>
           <div class="gt-val" style="color:var(--green)">${s.w||0}</div>
           <div class="gt-val">${s.d||0}</div>
           <div class="gt-val" style="color:var(--red)">${s.l||0}</div>
           <div class="gt-val" style="color:${gd>0?'var(--green)':gd<0?'var(--red)':'#666'}">${gd>0?'+'+gd:gd}</div>
-          <div class="gt-pts" style="color:${isQ?'var(--green)':'var(--gold)'}">${s.pts||0}</div>
+          <div class="gt-pts" style="color:${isQ?'var(--green)':'var(--gold)'}">${s.pts||0}${_deductionBadgeV(t.id)}</div>
         </div>`;
       }).join('')}
       ${gmHtml}
@@ -4199,11 +4274,20 @@ function adaptUIToType() {
 
   // الشجرة تظهر للجمهور فقط إذا نشرها المدير (bracketPublished = true)
   const bracketOK = settings.bracketPublished === true;
+  /* الملحق تبويب اختياري تماماً: لا يظهر إلا إذا فعّله المنظّم **ونشره**.
+     فالبطولات التي لا ملحق فيها لا ترى الزرّ إطلاقاً. */
+  const poEl = document.getElementById('tab-playoff');
+  const playoffOK = (typeof _poVisible === 'function') && _poVisible();
+  const poBtn = playoffOK
+    ? `<button class="bn-item" id="bn-playoff" onclick="switchTab('playoff',null,this)"><span class="bi">${window.Icon?Icon('swords',19):''}</span>${_poV().name}</button>`
+    : '';
+  if (poEl) poEl.style.display = playoffOK ? 'block' : 'none';
 
   if(type === 'knockout') {
     bn.innerHTML = `
       <button class="bn-item active" id="bn-home"     onclick="switchTab('home',null,this)"><span class="bi">${window.Icon?Icon('home',19):''}</span>الرئيسية</button>
       ${bracketOK ? `<button class="bn-item" id="bn-bracket"  onclick="switchTab('bracket',null,this)"><span class="bi">${window.Icon?Icon('tree',19):''}</span>الشجرة</button>` : ''}
+      ${poBtn}
       <button class="bn-item" id="bn-matches"  onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
       <button class="bn-item" id="bn-teams"    onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
       <button class="bn-item" id="bn-stats"    onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
@@ -4219,6 +4303,7 @@ function adaptUIToType() {
       <button class="bn-item active" id="bn-home"     onclick="switchTab('home',null,this)"><span class="bi">${window.Icon?Icon('home',19):''}</span>الرئيسية</button>
       <button class="bn-item" id="bn-groups"   onclick="switchTab('groups',null,this)"><span class="bi">${window.Icon?Icon('target',19):''}</span>المجموعات</button>
       ${bracketOK ? `<button class="bn-item" id="bn-bracket" onclick="switchTab('bracket',null,this)"><span class="bi">${window.Icon?Icon('tree',19):''}</span>الشجرة</button>` : ''}
+      ${poBtn}
       <button class="bn-item" id="bn-matches"  onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
       <button class="bn-item" id="bn-teams"    onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
       <button class="bn-item" id="bn-stats"    onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
@@ -4236,6 +4321,7 @@ function adaptUIToType() {
       <button class="bn-item active" id="bn-home"      onclick="switchTab('home',null,this)"><span class="bi">${window.Icon?Icon('home',19):''}</span>الرئيسية</button>
       <button class="bn-item" id="bn-standings" onclick="switchTab('standings',null,this)"><span class="bi">${window.Icon?Icon('list',19):''}</span>الترتيب</button>
       ${bracketOK ? `<button class="bn-item" id="bn-bracket"  onclick="switchTab('bracket',null,this)"><span class="bi">${window.Icon?Icon('tree',19):''}</span>الإقصاء</button>` : ''}
+      ${poBtn}
       <button class="bn-item" id="bn-matches"   onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
       <button class="bn-item" id="bn-teams"     onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
       <button class="bn-item" id="bn-stats"     onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
@@ -4250,6 +4336,7 @@ function adaptUIToType() {
     bn.innerHTML = `
       <button class="bn-item active" id="bn-home"      onclick="switchTab('home',null,this)"><span class="bi">${window.Icon?Icon('home',19):''}</span>الرئيسية</button>
       <button class="bn-item" id="bn-standings" onclick="switchTab('standings',null,this)"><span class="bi">${window.Icon?Icon('list',19):''}</span>الترتيب</button>
+      ${poBtn}
       <button class="bn-item" id="bn-matches"   onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
       <button class="bn-item" id="bn-teams"     onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
       <button class="bn-item" id="bn-stats"     onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
@@ -4308,6 +4395,7 @@ window.switchTab = function(name, btn, mn) {
   haptic('light');
   if (name === 'groups')  renderGroupsStandings();
   if (name === 'bracket') renderKnockoutBracket();
+  if (name === 'playoff') renderPlayoff();
   if (name === 'stats')   { if (typeof renderStats === 'function') renderStats(); if (typeof renderChart === 'function') renderChart(); if (typeof renderSummaryStats === 'function') renderSummaryStats(); }
 };
 
@@ -4857,12 +4945,18 @@ window.openTeamProfile = function(teamId) {
         ['لعب','p',stats.p,'var(--t2)'],
         ['فوز','w',stats.w,'var(--green)'],
         ['خسر','l',stats.l,'var(--red)'],
-      ].map(([lbl,,val,clr])=>`
+      ].map(([lbl,key,val,clr])=>`
         <div style="padding:12px 6px;text-align:center;position:relative">
-          <div style="font-size:22px;font-weight:900;font-family:'Tajawal',sans-serif;color:${clr};line-height:1">${val}</div>
+          <div style="font-size:22px;font-weight:900;font-family:'Tajawal',sans-serif;color:${clr};line-height:1">${val}${key==='pts'?_deductionBadgeV(t.id):''}</div>
           <div style="font-size:9px;color:var(--t3);margin-top:2px">${lbl}</div>
         </div>`).join('')}
     </div>
+    ${_deductionOfV(t.id) ? `
+      <div style="margin:0 14px 12px;padding:10px 12px;border-radius:10px;
+                  background:rgba(224,82,82,.07);border:1px solid rgba(224,82,82,.25);text-align:center">
+        <div style="font-size:12px;font-weight:900;color:#e05252">➖ خُصمت ${_deductionOfV(t.id)} نقطة</div>
+        ${t.deductionReason ? `<div style="font-size:10px;color:var(--t3);margin-top:3px">${t.deductionReason}</div>` : ''}
+      </div>` : ''}
     ${(function(){
       const c = _teamCardsSplit(teamId);
       const cells = [
@@ -5485,6 +5579,13 @@ function renderStandings() {
   });
 
   // تحديث بيانات الفرق
+  /* ➖ خصم النقاط الإداري — يُطرح بعد اكتمال الحساب من المباريات.
+     الجمهور يحسب مستقلاً عن الإدارة، فلولا الطرح هنا لظهر للجمهور
+     ترتيب مخالف لما يراه المنظّم في لوحته. */
+  Object.keys(statsMap).forEach(id => {
+    const d = _deductionOfV(id);
+    if (d) statsMap[id].pts -= d;
+  });
   teams.forEach(t => { if (statsMap[t.id]) Object.assign(t, statsMap[t.id]); });
 
   const sorted = [...teams].sort((a, b) => {
@@ -5492,17 +5593,13 @@ function renderStandings() {
     return applyTiebreak(a, b, matches);
   });
 
-  const z = settings.zones || {};
-  const ZONE_KEYS2   = ['champion','qualify','cond','normal','playoff','relegate'];
-  const ZONE_COLORS2 = ['var(--gold)','var(--green)','var(--blue)','#666','var(--orange)','var(--red)'];
-  const ZONE_NAMES2  = ['المتوج 🏆','متأهل ✅︎','مشروط 🔵','عادي ⚪','ملعب الهبوط 🟠','هابط 🔴'];
-  let zoneIdx = 0, rowIdx = 0;
+  /* مناطق الترتيب — قواعد مرنة يحدّدها المنظّم (من مركز إلى مركز باسم
+     ولون)، مع ترجمة تلقائية للبطولات القديمة ذات المناطق الستّ الثابتة. */
+  const _zRules = _viewerZoneRules();
   const zoneColors = {};
-  ZONE_KEYS2.forEach((k, ki) => {
-    const count = z[k] || 0;
-    for (let i = 0; i < count; i++) {
-      zoneColors[rowIdx++] = ZONE_COLORS2[ki];
-    }
+  sorted.forEach((_, i) => {
+    const zr = _viewerZoneAt(_zRules, i + 1);
+    if (zr) zoneColors[i] = zr.color;
   });
 
   const tableHtml = `
@@ -5538,7 +5635,7 @@ function renderStandings() {
             <span class="std-num std-hide-sm">${s.d||0}</span>
             <span class="std-num std-hide-sm" style="color:var(--red)">${s.l||0}</span>
             <span class="std-gd" style="color:${gd>0?'var(--green)':gd<0?'var(--red)':'var(--t3)'}">${gdTxt}</span>
-            <span class="std-pts">${s.pts||0}</span>
+            <span class="std-pts">${s.pts||0}${_deductionBadgeV(t.id)}</span>
           </div>`;
         }).join('')}
       </div>
@@ -5554,14 +5651,125 @@ function renderStandings() {
   // legend
   const legEl = document.getElementById('zoneLegend');
   if (legEl) {
-    const keys = ZONE_KEYS2.filter(k => (z[k]||0) > 0);
-    legEl.innerHTML = keys.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px">` +
-      keys.map((k, i) => `<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t3)"><div style="width:10px;height:10px;border-radius:2px;background:${ZONE_COLORS2[ZONE_KEYS2.indexOf(k)]}"></div>${ZONE_NAMES2[ZONE_KEYS2.indexOf(k)]}</div>`).join('') +
+    legEl.innerHTML = _zRules.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 14px">` +
+      _zRules.map(r => `<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t3)">
+        <div style="width:10px;height:10px;border-radius:2px;background:${r.color}"></div>${r.label}</div>`).join('') +
       `</div>` : '';
   }
 }
 // ✅︎ تصدير — يسمح لـall-fixes.js باستبدالها فعلياً
 window.renderStandings = renderStandings;
+
+/* ════════════════════════════════════════════════════════════════════
+ *  🥊 الملحق عند الجمهور — تبويب مستقلّ
+ *  ──────────────────────────────────────────────────────────────────
+ *  يظهر **فقط** إذا فعّله المنظّم ونشره (`playoff.enabled && published`)،
+ *  فالبطولات التي لا ملحق فيها لا ترى التبويب إطلاقاً.
+ *  يعرض: الصيغة والمقاعد · المباريات · المتأهلون عبر الملحق.
+ * ════════════════════════════════════════════════════════════════════ */
+function _poV() {
+  const p = (window.settings && window.settings.playoff) || {};
+  return {
+    enabled:      !!p.enabled,
+    published:    !!p.published,
+    name:         p.name || 'الملحق',
+    // ✅︎ الإدارة تكتب `type` الآن؛ `format` اسم قديم نقبله للبطولات السابقة
+    type:         p.type || p.format || 'single',
+    slots:        parseInt(p.slots, 10) > 0 ? parseInt(p.slots, 10) : 1,
+    teamIds:      Array.isArray(p.teamIds) ? p.teamIds : [],
+    qualifiedIds: Array.isArray(p.qualifiedIds) ? p.qualifiedIds : [],
+    venue:        p.venue || '',
+    extraTime:    p.extraTime !== false,
+    penalties:    p.penalties !== false,
+    awayGoals:    !!p.awayGoals,
+    note:         p.note || ''
+  };
+}
+window._poV = _poV;
+
+// هل يُعرض التبويب أصلاً؟
+function _poVisible() {
+  const p = _poV();
+  return p.enabled && p.published;
+}
+window._poVisible = _poVisible;
+
+const _PO_FMT_V = {
+  single:  'مباراة واحدة',
+  double:  'ذهاب وإياب',
+  mini:    'دوري مصغّر',
+  groups:  'مجموعات',
+  bracket: 'شجرة إقصاء'
+};
+
+function renderPlayoff() {
+  const el = document.getElementById('playoffContent');
+  if (!el) return;
+  const p = _poV();
+
+  const tEl = document.getElementById('poTitle');
+  if (tEl) tEl.textContent = p.name;
+
+  if (!_poVisible()) { el.innerHTML = ''; return; }
+
+  const ms = (matches || []).filter(m => m.isPlayoff === true)
+    .sort((a, b) => (a.playoffOrder ?? 0) - (b.playoffOrder ?? 0));
+  const done = ms.filter(m => m.status === 'finished').length;
+
+  // ── شريط المعلومات: الصيغة · المقاعد · قواعد الحسم ──
+  const rules = [];
+  if (p.extraTime) rules.push('وقت إضافي');
+  if (p.penalties) rules.push('ركلات ترجيح');
+  if (p.type === 'double' && p.awayGoals) rules.push('أهداف الخارج');
+
+  const info = `
+    <div class="po-info">
+      <div class="po-chip"><span class="po-chip-v">${_PO_FMT_V[p.type] || ''}</span><span class="po-chip-l">الصيغة</span></div>
+      <div class="po-chip"><span class="po-chip-v">${p.slots}</span><span class="po-chip-l">مقعد متاح</span></div>
+      <div class="po-chip"><span class="po-chip-v">${done}/${ms.length}</span><span class="po-chip-l">لُعبت</span></div>
+    </div>
+    ${rules.length ? `<div class="po-rules">${rules.map(r => `<span>${r}</span>`).join('')}</div>` : ''}
+    ${p.venue ? `<div class="po-venue">${window.Icon ? window.Icon('stadium', 12) : ''} ${p.venue}</div>` : ''}`;
+
+  // ── المتأهلون عبر الملحق ──
+  const qHtml = p.qualifiedIds.length ? `
+    <div class="po-block">
+      <div class="po-block-t">${window.Icon ? window.Icon('check', 13, 'var(--green)') : ''} المتأهلون عبر ${p.name}</div>
+      <div class="po-qual">
+        ${p.qualifiedIds.map(id => {
+          const t = (teams || []).find(x => x.id === id) || { name: '؟', logo: '' };
+          return `<div class="po-qual-item">${logoHtml(t.logo, 26, 7)}<span>${t.name}</span></div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  // ── المباريات: نستعمل بطاقة المباريات نفسها فترث كل مميزاتها ──
+  const mHtml = ms.length ? `
+    <div class="po-block">
+      <div class="po-block-t">${window.Icon ? window.Icon('ball', 13, 'var(--gold)') : ''} مباريات ${p.name}</div>
+      ${ms.map(m => (typeof _matchCard === 'function') ? _matchCard(m) : '').join('')}
+    </div>` : `
+    <div class="po-empty">
+      ${window.Icon ? window.Icon('clock', 26, 'var(--t3)') : ''}
+      <div>لم تُحدَّد مباريات الملحق بعد</div>
+    </div>`;
+
+  // ── الفرق المشاركة (حين لا مباريات بعد) ──
+  const teamsHtml = (!ms.length && p.teamIds.length) ? `
+    <div class="po-block">
+      <div class="po-block-t">${window.Icon ? window.Icon('users', 13, 'var(--t2)') : ''} الفرق المشاركة</div>
+      <div class="po-qual">
+        ${p.teamIds.map(id => {
+          const t = (teams || []).find(x => x.id === id) || { name: '؟', logo: '' };
+          return `<div class="po-qual-item">${logoHtml(t.logo, 26, 7)}<span>${t.name}</span></div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  el.innerHTML = info + qHtml + mHtml + teamsHtml +
+    (p.note ? `<div class="po-note">${p.note}</div>` : '');
+}
+window.renderPlayoff = renderPlayoff;
 
 // ── renderMatches ─────────────────────────────────────────
 function renderMatches(filter) {
@@ -7404,7 +7612,9 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
     const tabs = [];
     tabs.push({id:'events', label: isUpcoming ? 'الأحداث' : 'مجريات المباراة'});
     if (!isUpcoming) tabs.push({id:'stats', label:'الإحصائيات'});
-    tabs.push({id:'lineup', label:'التشكيلات'});
+    /* نظام التشكيلات قسم اختياري: لا يظهر تبويبه للجمهور إلا إذا فعّله
+       المنظّم من «الأقسام المفعّلة» — كبقية الأقسام الاختيارية. */
+    if (window.settings && window.settings.showLineups === true) tabs.push({id:'lineup', label:'التشكيلات'});
     tabs.push({id:'h2h', label:'المواجهات'});
 
     // كشف الإحصائيات — يدعم تنسيقَين:

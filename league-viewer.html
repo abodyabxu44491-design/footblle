@@ -167,6 +167,14 @@ if('serviceWorker' in navigator) {
   </div>
 
   <!-- BRACKET -->
+  <!-- ── الملحق: دور فاصل على المقاعد المتبقّية ── -->
+  <div class="section" id="tab-playoff" style="display:none">
+    <div class="sec-header">
+      <div><div class="sec-title" id="poTitle">الملحق</div><div class="sec-sub">دور فاصل على المقاعد المتبقّية</div></div>
+    </div>
+    <div id="playoffContent"></div>
+  </div>
+
   <div class="section" id="tab-bracket" style="display:none">
     <div class="sec-header">
       <div><div class="sec-title">🌳 شجرة البطولة</div><div class="sec-sub">مسيرة المتأهلين</div></div>
@@ -284,6 +292,7 @@ if('serviceWorker' in navigator) {
   <!-- مجموعات -->
   <button class="bn-item" id="bn-groups" style="display:none" onclick="switchTab('groups',null,this)"><span class="bi" data-ic="target"></span>المجموعات</button>
   <!-- إقصاء/شجرة -->
+  <button class="bn-item" id="bn-playoff" style="display:none" onclick="switchTab('playoff',null,this)"><span class="bi" data-ic="swords"></span>الملحق</button>
   <button class="bn-item" id="bn-bracket" style="display:none" onclick="switchTab('bracket',null,this)"><span class="bi" data-ic="tree"></span>الشجرة</button>
   <button class="bn-item" id="bn-matches" onclick="switchTab('matches',null,this)"><span class="bi" data-ic="ball"></span>المباريات</button>
   <button class="bn-item" id="bn-teams" onclick="switchTab('teams',null,this)"><span class="bi" data-ic="users"></span>الفرق</button>

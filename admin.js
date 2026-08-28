@@ -4671,58 +4671,130 @@ function _tpLogo(t) {
 }
 
 /* رسم منتقي واحد. `other` = معرّف الحقل الآخر لتعطيل الفريق المختار فيه. */
-function _renderTeamPicker(selId) {
-  const sel  = document.getElementById(selId);
-  const host = document.getElementById(selId + 'List');
-  if (!sel || !host) return;
-  const otherId = selId === 'matchHome' ? 'matchAway' : 'matchHome';
-  const otherVal = document.getElementById(otherId)?.value || '';
-  const cur = sel.value;
+// مجموعة فريق معيّن (أو null)
+function _groupOfTeam(teamId) {
+  return (window.adminGroups || []).find(g => (g.teamIds || []).includes(teamId)) || null;
+}
+window._groupOfTeam = _groupOfTeam;
+
+/* هل نُلزم الفريقين بنفس المجموعة؟
+   نعم في نظام المجموعات — إلا في وضع «المباراة الفاصلة» الذي غرضه
+   بالتحديد مواجهة بين مجموعتين. */
+function _tpSameGroupOnly() {
+  return settings.type === 'groups'
+      && (window.adminGroups || []).length
+      && window._matchModalMode !== 'crossGroup';
+}
+
+/* ── شريط الاختيار الحالي ──
+   يُظهر المضيف والضيف كما اختارهما المنظّم، مع زرّ تبديل الأرضية —
+   فلا يحتاج لإلغاء الاثنين وإعادة اختيارهما بالترتيب المعكوس. */
+function _tpRenderPicked() {
+  const box = document.getElementById('tpPicked');
+  if (!box) return;
+  const h = document.getElementById('matchHome')?.value || '';
+  const a = document.getElementById('matchAway')?.value || '';
+  const nm = id => ((window.teams || []).find(t => t.id === id) || {}).name || '';
+
+  if (!h && !a) {
+    box.className = 'tp-picked tp-picked-empty';
+    box.innerHTML = `${window.Icon ? window.Icon('info', 13) : ''}
+      اضغط فريقين من <b>نفس المجموعة</b> — الأول مضيف والثاني ضيف`;
+    return;
+  }
+  box.className = 'tp-picked';
+  box.innerHTML = `
+    <div class="tp-pk-side">
+      <span class="tp-pk-lbl">المضيف</span>
+      <span class="tp-pk-nm${h ? '' : ' empty'}">${h ? nm(h) : '—'}</span>
+    </div>
+    <button type="button" class="tp-pk-swap" onclick="_tpSwap()" title="تبديل الأرضية"
+      ${(h && a) ? '' : 'disabled'}>${window.Icon ? window.Icon('refresh', 15) : '⇄'}</button>
+    <div class="tp-pk-side">
+      <span class="tp-pk-lbl">الضيف</span>
+      <span class="tp-pk-nm${a ? '' : ' empty'}">${a ? nm(a) : '—'}</span>
+    </div>`;
+}
+
+window._tpSwap = function() {
+  const h = document.getElementById('matchHome'), a = document.getElementById('matchAway');
+  if (!h || !a || !h.value || !a.value) return;
+  const tmp = h.value; h.value = a.value; a.value = tmp;
+  _renderTeamPicker();
+};
+
+/* ── القائمة الواحدة ──
+   كل المجموعات وفرقها. الضغط يختار: الأول مضيف، الثاني ضيف.
+   الضغط على مختار يلغيه. والفريق من مجموعة أخرى يُرفض برسالة صريحة. */
+function _renderTeamPicker() {
+  const host = document.getElementById('matchTeamsList');
+  if (!host) return;
+  const hv = document.getElementById('matchHome')?.value || '';
+  const av = document.getElementById('matchAway')?.value || '';
 
   host.innerHTML = _teamSections().map(sec => `
     ${sec.name ? `<div class="tp-head">${sec.name}<span>${sec.teams.length}</span></div>` : ''}
     <div class="tp-grid">
       ${sec.teams.map(t => {
-        const on   = t.id === cur;
-        const busy = t.id === otherVal;
-        return `<button type="button" class="tp-item${on ? ' on' : ''}${busy ? ' busy' : ''}"
-          ${busy ? 'disabled title="مُختار في الحقل الآخر"' : ''}
-          onclick="_tpPick('${selId}','${t.id}')">
-          ${_tpLogo(t)}<span class="tp-name">${t.name}</span></button>`;
+        const isH = t.id === hv, isA = t.id === av;
+        const cls = isH ? ' on home' : isA ? ' on away' : '';
+        return `<button type="button" class="tp-item${cls}" onclick="_tpPick('${t.id}')">
+          ${_tpLogo(t)}<span class="tp-name">${t.name}</span>
+          ${isH ? '<span class="tp-badge">مضيف</span>' : ''}
+          ${isA ? '<span class="tp-badge away">ضيف</span>' : ''}
+        </button>`;
       }).join('')}
     </div>`).join('');
-}
 
-window._tpPick = function(selId, teamId) {
-  const sel = document.getElementById(selId);
-  if (!sel) return;
-  sel.value = teamId;
-  // إعادة رسم المنتقيين: أحدهما ليُظهر الاختيار والآخر ليعطّل الفريق نفسه
-  _renderTeamPicker('matchHome');
-  _renderTeamPicker('matchAway');
+  _tpRenderPicked();
   try { window._syncMatchLeg && window._syncMatchLeg(); } catch (e) {}
+}
+window._renderTeamPicker = _renderTeamPicker;
+
+window._tpPick = function(teamId) {
+  const H = document.getElementById('matchHome'), A = document.getElementById('matchAway');
+  if (!H || !A) return;
+
+  // إلغاء الاختيار عند الضغط على فريق مختار
+  if (H.value === teamId) { H.value = A.value; A.value = ''; _renderTeamPicker(); return; }
+  if (A.value === teamId) { A.value = ''; _renderTeamPicker(); return; }
+
+  // الخانة الأولى الفارغة
+  if (!H.value) { H.value = teamId; _renderTeamPicker(); return; }
+
+  /* الفريق الثاني: يجب أن يكون من مجموعة الأول. الرفض هنا **قبل** الحفظ
+     أوضح من تحذير بعده — والمنظّم يعرف السبب فوراً. */
+  if (_tpSameGroupOnly()) {
+    const g1 = _groupOfTeam(H.value), g2 = _groupOfTeam(teamId);
+    if (!g1 || !g2) {
+      showToast('أحد الفريقين غير موزَّع على مجموعة — وزّعه من صفحة المجموعات', 'error');
+      return;
+    }
+    if (g1.id !== g2.id) {
+      showToast(`الفريقان من مجموعتين مختلفتين (${g1.name} و${g2.name}) — اختر من نفس المجموعة`, 'error');
+      return;
+    }
+  }
+  A.value = teamId;
+  _renderTeamPicker();
 };
 
 function populateMatchSelects() {
-  const opts = [...teams].sort(_byName)
+  /* 🔴 خيار فارغ في المقدّمة ضروري: `<select>` يختار أول خيار تلقائياً،
+     فكانت النافذة تفتح بفريقين **مُختارَين لم يخترهما أحد** (أول اسمين
+     أبجدياً) — وقد يحفظهما المنظّم دون أن ينتبه. الآن تفتح فارغة حتى
+     يختار بنفسه. */
+  const opts = '<option value=""></option>' + [...teams].sort(_byName)
     .map(t => `<option value="${t.id}">${t.name}</option>`).join('');
   ['matchHome', 'matchAway'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     const prev = sel.value;
     sel.innerHTML = opts;
-    if (prev) sel.value = prev;
+    sel.value = prev || '';
   });
-  // الفريقان لا يتطابقان ابتداءً
-  const h = document.getElementById('matchHome'), a = document.getElementById('matchAway');
-  if (h && a && h.value && h.value === a.value && a.options.length > 1) {
-    const alt = [...a.options].find(o => o.value !== h.value);
-    if (alt) a.value = alt.value;
-  }
-  _renderTeamPicker('matchHome');
-  _renderTeamPicker('matchAway');
+  _renderTeamPicker();
 }
-window._renderTeamPicker = _renderTeamPicker;
 
 
 // ══ مولّد جدول الدوري الموحّد ══
@@ -6164,16 +6236,13 @@ function _prefillMatchModal() {
     dIn.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
-  // لا يبدأ الفريقان متطابقين
-  const h = document.getElementById('matchHome'), a = document.getElementById('matchAway');
-  // القوائم المفتوحة تُحدَّث عبر _tpPick، فلا حاجة لمستمع change
+  // النافذة تفتح بلا اختيار مسبق — المنظّم يختار الفريقين بنفسه
   if (h && a && h.value && h.value === a.value && a.options.length > 1) {
     const alt = [...a.options].find(o => o.value !== h.value);
     if (alt) a.value = alt.value;
   }
 
-  _renderTeamPicker('matchHome');
-  _renderTeamPicker('matchAway');
+  _renderTeamPicker();
   window._syncMatchLeg();
 }
 window._prefillMatchModal = _prefillMatchModal;

@@ -1341,20 +1341,14 @@ if('serviceWorker' in navigator) {
            سطر لكل حقل = عرض كامل مضمون لكل واحد، ولا تداخل مهما ضاقت الشاشة. -->
 
       <div class="mm-sec"><span class="tg-ic" data-ic="ball"></span>الفريقان</div>
-      <!-- ── قائمة الفرق مفتوحة مباشرة: عنوان المجموعة وتحته فرقها ──
-           بدل <select> يفتح لوحة نظام: المنظّم يرى كل الفرق مقسّمة أمامه
-           ويضغط الفريق مباشرة. الـselect باقٍ مخفياً لأن بقية الكود يقرأ
-           قيمته (addMatch وغيرها) — فلا شيء يحتاج إعادة برمجة. -->
-      <div class="form-group">
-        <label class="form-label"><span class="tg-ic" data-ic="home"></span>الفريق الأول (المضيف)</label>
-        <select id="matchHome" style="display:none"></select>
-        <div class="tp-list" id="matchHomeList"></div>
-      </div>
-      <div class="form-group">
-        <label class="form-label"><span class="tg-ic" data-ic="plane"></span>الفريق الثاني (الضيف)</label>
-        <select id="matchAway" style="display:none"></select>
-        <div class="tp-list" id="matchAwayList"></div>
-      </div>
+      <!-- ── قائمة واحدة لكل المجموعات ──
+           اضغط فريقين من **نفس المجموعة**: الأول مضيف والثاني ضيف.
+           اختيار فريق من مجموعة أخرى يُرفض فوراً برسالة.
+           الحقلان المخفيان يحملان القيمة فيبقى بقية الكود يعمل بلا تغيير. -->
+      <select id="matchHome" style="display:none"></select>
+      <select id="matchAway" style="display:none"></select>
+      <div id="tpPicked" class="tp-picked"></div>
+      <div class="tp-list" id="matchTeamsList"></div>
 
       <div class="mm-sec">📅 الوقت والمكان</div>
       <div class="form-group"><label class="form-label">📆 التاريخ</label><input class="form-input" type="date" id="matchDate"/></div>

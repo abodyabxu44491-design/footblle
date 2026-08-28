@@ -191,13 +191,27 @@ body.drawer-open .drawer-backdrop{opacity:1;pointer-events:auto}
 .me-footer{display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--border)}
 
 /* STANDINGS */
-.sp-row{display:grid;grid-template-columns:28px 1fr 30px 30px 30px 30px 30px 38px;padding:10px 12px;align-items:center;gap:4px;border-bottom:1px solid var(--border);transition:background .15s}
+/* box-sizing ناقص: الحشوة (24px) كانت تُضاف فوق العرض الكامل فيفيض
+   الصفّ عن حاويته ويظهر تمرير عرضي على الشاشات الضيقة. */
+.sp-row{display:grid;grid-template-columns:28px 1fr 30px 30px 30px 30px 30px 38px;padding:10px 12px;align-items:center;gap:4px;border-bottom:1px solid var(--border);transition:background .15s;box-sizing:border-box;max-width:100%;min-width:0;overflow:hidden}
+/* شاشات ضيقة جداً: حشوة أقلّ وفجوة أصغر — الأعمدة الثابتة وحدها تتجاوز
+   العرض المتاح عند 360px فيظهر تمرير عرضي. */
+@media (max-width:375px){
+  .sp-row{padding:10px 8px;gap:3px}
+  .sp-nm{font-size:11.5px}
+}
 .sp-row:last-child{border-bottom:none}
 .sp-row:hover{background:var(--card3)}
 .sp-header{background:var(--card3);border-bottom:1px solid var(--gold3) !important}
 .sp-pos{font-size:11px;font-weight:900;text-align:center}
-.sp-team{display:flex;align-items:center;gap:7px;justify-content:flex-end}
-.sp-val{font-size:11px;text-align:center;color:var(--muted2)}
+/* الاسم يبدأ من حافة الشعار مباشرة (يمين في RTL) لا من طرف الخليّة —
+   فتبدأ كل الأسماء من نقطة واحدة بدل أن تتذبذب مع طول كل اسم. */
+.sp-team{display:flex;align-items:center;gap:6px;justify-content:flex-start;min-width:0;overflow:hidden}
+/* الشعار عمود مستقلّ بعرض ثابت — فتصطفّ كل الشعارات رأسياً */
+.sp-logo{width:22px;height:22px;max-width:22px;overflow:hidden;display:flex;align-items:center;justify-content:center;flex:0 0 22px}
+.sp-logo img,.sp-logo span{width:22px!important;height:22px!important;object-fit:cover;border-radius:5px;display:block;flex:0 0 22px}
+.sp-nm{font-size:12px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-val{font-size:11px;text-align:center;color:var(--muted2);min-width:0}
 .sp-pts{font-size:13px;font-weight:900;text-align:center}
 .sp-logo{font-size:17px}
 
@@ -1427,3 +1441,14 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
 .tp-badge.away{background:#3B7DBF;color:#fff}
 .tp-item.on.home{background:rgba(201,160,43,.14);border-color:var(--gold);color:var(--gold)}
 .tp-item.on.away{background:rgba(59,125,191,.14);border-color:#3B7DBF;color:#7FA9DC}
+
+/* شارة الحالة داخل جدول الترتيب (الدوري الموحّد) */
+.sp-st{
+  display:inline-flex;align-items:center;gap:3px;justify-content:center;
+  width:100%;box-sizing:border-box;
+  font-size:8.5px;font-weight:800;padding:3px 4px;border-radius:20px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  color:var(--muted);background:rgba(255,255,255,.03);
+  border:1px solid var(--border2);
+}
+.sp-st svg{flex:0 0 auto}

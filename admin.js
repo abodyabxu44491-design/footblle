@@ -3668,29 +3668,66 @@ function renderStandings() {
       : (b.gf - b.ga) - (a.gf - a.ga);
   });
 
+  /* ── جدول واحد لا جدولان ──
+     كان «الدوري الموحّد» يعرض جدول الترتيب **ولوحة متأهلين منفصلة تسرد
+     كل الفرق مرة ثانية** — تكرار كامل بمحاذاة مختلفة. الآن عمود الحالة
+     داخل الجدول نفسه: صفّ واحد لكل فريق، وضغطة عليه تفتح قائمة حالته. */
+  const isSw = (window.settings && window.settings.type) === 'swiss';
+  /* عرض العمود مضبوط على أطول شارة مختصرة («مستبعَد») — 78px كانت تدفع
+     الجدول لتمرير عرضي على شاشة 390px. */
+  /* 🔴 الشعار كان داخل خانة الاسم بمحاذاة نهائية (`justify-content:flex-end`)،
+     فموضعه يتبع **طول الاسم**: يتقدّم مع الأسماء القصيرة ويتأخّر مع
+     الطويلة. جعلناه عموداً مستقلاً بعرض ثابت، فتصطفّ كل الشعارات على
+     خطّ واحد مهما اختلفت الأسماء. */
+  /* مسار الشعار 22px بالضبط ليطابق `.sp-logo` — أي فرق بينهما يفيض
+     الشعار عن مساره فيزيح الصفّ عن الرأس. */
+  const COLS = isSw
+    ? '22px 22px minmax(0,1fr) 22px 22px 28px 32px 58px'
+    : '26px 22px minmax(0,1fr) 28px 28px 28px 28px 28px 36px';
+
   const html = `
-    <div class="sp-row sp-header" style="grid-template-columns:28px 1fr 30px 30px 30px 30px 30px 38px">
+    <div class="sp-row sp-header" style="grid-template-columns:${COLS};border-right:3px solid transparent">
       <span class="sp-pos" style="color:var(--gold);font-size:9px">#</span>
+      <span></span>
       <span class="sp-team" style="font-size:9px;color:var(--gold)">الفريق</span>
       <span class="sp-val" style="color:var(--gold);font-size:9px">ل</span>
       <span class="sp-val" style="color:var(--gold);font-size:9px">ف</span>
-      <span class="sp-val" style="color:var(--gold);font-size:9px">ت</span>
-      <span class="sp-val" style="color:var(--gold);font-size:9px">خ</span>
+      ${isSw ? '' : `<span class="sp-val" style="color:var(--gold);font-size:9px">ت</span>
+      <span class="sp-val" style="color:var(--gold);font-size:9px">خ</span>`}
       <span class="sp-val" style="color:var(--gold);font-size:9px">±</span>
       <span class="sp-pts" style="color:var(--gold);font-size:9px">ن</span>
+      ${isSw ? '<span class="sp-val" style="color:var(--gold);font-size:9px">الحالة</span>' : ''}
     </div>
     ${sorted.map((t, i) => {
-      const zc = getZoneColor(i);
+      /* 🔴 `getZoneColor` تُرجع 'transparent' للمراكز غير المشمولة بأي
+         منطقة — وكانت تُستعمل لوناً للنصّ، فيختفي رقم المركز والنقاط
+         **تماماً**. ومع نظام المناطق المرن (حيث ترك مراكز بلا تصنيف
+         مقصود) يعني ذلك اختفاء معظم الجدول. الشريط الجانبي وحده يأخذ
+         اللون؛ النصّ يأخذ لوناً مقروءاً دائماً. */
+      const zc  = getZoneColor(i);
+      const zOn = zc && zc !== 'transparent';
+      const txt = zOn ? zc : 'var(--text)';
+      const num = zOn ? zc : 'var(--muted)';
       const gd = t.gf - t.ga;
-      return `<div class="sp-row" style="grid-template-columns:28px 1fr 30px 30px 30px 30px 30px 38px;border-right:3px solid ${zc};cursor:pointer" onclick="adminOpenTeamInfo('${t.id}')">
-        <span class="sp-pos" style="color:${zc}">${i + 1}</span>
-        <span class="sp-team"><span class="sp-logo">${logoHtml(t.logo, 16, 4)}</span><span style="font-size:12px;font-weight:700">${t.name}</span><span style="font-size:11px;color:var(--muted);margin-inline-start:4px">ⓘ</span></span>
+      const stKey = isSw ? _swissStatusOf(t.id) : '';
+      const stm   = isSw ? _statusMeta(stKey) : null;
+      const seed  = (stm && stm.qualified) ? _swissQualifiedIds().indexOf(t.id) + 1 : 0;
+      return `<div class="sp-row" style="grid-template-columns:${COLS};border-right:3px solid ${zc};cursor:pointer" onclick="adminOpenTeamInfo('${t.id}')">
+        <span class="sp-pos" style="color:${num}">${i + 1}</span>
+        <span class="sp-logo">${logoHtml(t.logo, 22, 5)}</span>
+        <span class="sp-team"><span class="sp-nm">${t.name}</span></span>
         <span class="sp-val">${t.p || 0}</span>
         <span class="sp-val" style="color:var(--green)">${t.w || 0}</span>
-        <span class="sp-val">${t.d || 0}</span>
-        <span class="sp-val" style="color:var(--red)">${t.l || 0}</span>
+        ${isSw ? '' : `<span class="sp-val">${t.d || 0}</span>
+        <span class="sp-val" style="color:var(--red)">${t.l || 0}</span>`}
         <span class="sp-val" style="color:${gd > 0 ? 'var(--green)' : gd < 0 ? 'var(--red)' : '#888'}">${gd > 0 ? '+' + gd : gd}</span>
-        <span class="sp-pts" style="color:${zc}">${t.pts || 0}${_deductionBadge(t.id)}</span>
+        <span class="sp-pts" style="color:${txt}">${t.pts || 0}${_deductionBadge(t.id)}</span>
+        ${isSw ? `<span class="sp-val" onclick="event.stopPropagation();swissOpenStatusPicker('${t.id}')">
+          <span class="sp-st" style="${stKey
+            ? `color:${stm.color};background:${stm.color}1f;border-color:${stm.color}55` : ''}">${
+            stKey ? _statusIcon(stm, 10) + ((SW_SHORT[stKey] || stm.label) + (stm.qualified && seed ? ' ' + seed : '')) : 'تحديد'
+          }</span>
+        </span>` : ''}
       </div>`;
     }).join('')}`;
 
@@ -5082,6 +5119,15 @@ window.addMatch = async function() {
       status: 'upcoming', createdAt: serverTimestamp()
     }));
     closeModal('modal-match');
+    /* 🔴 تصفير الفريقين بعد الحفظ ضروري: كانا يبقيان مُختارَين، فتُفتح
+       النافذة في المرة التالية بنفس المواجهة. وضغط «إضافة» فوراً يوقظ
+       حوار «بينهما مباراة بالفعل» — ولو لم ينتبه له المنظّم بدا الزر
+       معلّقاً على «جارٍ الحفظ…» بانتظار تأكيد لا يراه. */
+    ['matchHome','matchAway'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    try { window._renderTeamPicker && window._renderTeamPicker(); } catch (e) {}
+
     // إعادة تعيين الحقول الإضافية
     ['matchReferee','matchCommentator','matchLinesman1','matchLinesman2','matchSponsor','matchPhotographer','matchAnnouncer','matchAttendance','matchNotes'].forEach(id => {
       const el = document.getElementById(id); if(el) el.value = '';
@@ -6236,11 +6282,10 @@ function _prefillMatchModal() {
     dIn.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
-  // النافذة تفتح بلا اختيار مسبق — المنظّم يختار الفريقين بنفسه
-  if (h && a && h.value && h.value === a.value && a.options.length > 1) {
-    const alt = [...a.options].find(o => o.value !== h.value);
-    if (alt) a.value = alt.value;
-  }
+  /* 🔴 كان هنا كود يمنع تطابق الفريقين يستعمل `h` و`a` — وقد أُزيل
+     تعريفهما عند التحوّل للمنتقي المفتوح، فيرمي «h is not defined»
+     ويقطع بقية التهيئة (رسم المنتقي وحساب دور المواجهة). النافذة تفتح
+     بلا اختيار مسبق أصلاً، فلا حاجة لهذا الفحص. */
 
   _renderTeamPicker();
   window._syncMatchLeg();
@@ -10889,6 +10934,13 @@ window.poResetAll = async function() {
    qualified: هل يُحتسب الفريق متأهلاً لشجرة الإقصاء؟ */
 /* الأيقونات SVG من مكتبة المنصة (لا إيموجي): الإيموجي يختلف شكله وحجمه
    بين الأجهزة فيكسر انتظام الصفوف، وبعضه لا يُرسم أصلاً على أندرويد قديم. */
+/* أسماء مختصرة داخل جدول الترتيب — «متأهل مشروط» و«ملحق التأهّل»
+   يفيضان عن عرض العمود فيدفعان الجدول لتمرير عرضي. الاسم الكامل يبقى
+   في قائمة الاختيار حيث المساحة تتّسع له. */
+const SW_SHORT = { qualified:'متأهل', qualifiedC:'مشروط', playoff:'ملحق',
+                   eliminated:'خرج', withdrew:'منسحب', banned:'مستبعَد' };
+window.SW_SHORT = SW_SHORT;
+
 const TEAM_STATUSES = [
   { key: '',           label: 'بلا حالة',        ic: 'dot',    color: '#7f8c8d', qualified: false, desc: 'ما زال في المنافسة' },
   { key: 'qualified',  label: 'متأهل',           ic: 'check',  color: '#27ae60', qualified: true,  desc: 'يصعد لدور الإقصاء' },
@@ -10997,17 +11049,25 @@ window.adminApplyTeamStatus = async function(groupId, teamId, statusKey) {
     else if (k && k !== 'playoff') eliminated.push(id);
   });
 
+  /* 🔴 `qualificationPublished` لم يكن يُضبط في أي مكان — والواجهة تقول
+     «ينشرون تلقائياً بمجرد ما تحدد فريقاً متأهلاً». والنتيجة أن
+     `_getQualifiedPool()` (وشرطه `qualificationPublished === true`) يبقى
+     فارغاً للأبد، فلا يظهر أي متأهل في منتقي خانات الشجرة مهما حدّد
+     المنظّم. نضبطه تلقائياً عند وجود متأهل واحد على الأقل — كما تَعِد
+     الواجهة تماماً. */
   try {
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'groups', groupId), {
       teamStatus: map,
       qualifiedTeamIds: qualified,
       eliminatedTeamIds: eliminated,
+      ...(qualified.length && g.qualificationPublished !== true
+            ? { qualificationPublished: true } : {}),
       updatedAt: serverTimestamp()
     });
     document.getElementById('statusPickOv')?.remove();
-    showToast(statusKey
-      ? `${meta.label} — اضغط «اعتماد ونشر» ليظهر للجمهور`
-      : 'أُزيلت الحالة', 'success');
+    // النشر صار تلقائياً — الرسالة القديمة كانت تطلب خطوة لم تعد لازمة
+    showToast(statusKey ? `${meta.label} — ${_statusMeta(statusKey).qualified ? 'أُضيف للمتأهلين' : 'حُفظت الحالة'}`
+                        : 'أُزيلت الحالة', 'success');
   } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
@@ -11478,6 +11538,7 @@ window.swissApplyStatus = async function(teamId, statusKey) {
     document.getElementById('swStatusOv')?.remove();
     showToast(statusKey ? `${meta.label} — ${(teams.find(x=>x.id===teamId)||{}).name || ''}` : 'أُزيلت الحالة', 'success');
     window.renderSwissQualifyPanel && window.renderSwissQualifyPanel();
+    window.renderStandings && window.renderStandings();   // الشارة داخل الجدول
     if (typeof renderKnockoutAdmin === 'function') renderKnockoutAdmin();
   } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
@@ -11495,6 +11556,7 @@ window.swissToggleQualified = async function(teamId) {
     settings.swissQualifiedIds = ids;
     showToast(was ? `أُلغي تأهّل ${t?.name || 'الفريق'}` : `✅︎ ${t?.name || 'الفريق'} متأهل (${ids.length})`, 'success');
     window.renderSwissQualifyPanel && window.renderSwissQualifyPanel();
+    window.renderStandings && window.renderStandings();   // الشارة داخل الجدول
     if (typeof renderKnockoutAdmin === 'function') renderKnockoutAdmin();
   } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
@@ -11511,6 +11573,7 @@ window.swissClearQualified = async function() {
     settings.swissTeamStatus = {};
     showToast('تم مسح التحديد', 'success');
     window.renderSwissQualifyPanel && window.renderSwissQualifyPanel();
+    window.renderStandings && window.renderStandings();   // الشارة داخل الجدول
     if (typeof renderKnockoutAdmin === 'function') renderKnockoutAdmin();
   } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
@@ -11526,8 +11589,8 @@ window.swissAutoTopN = async function(n) {
     return;
   }
   const ids = ordered.slice(0, target).map(t => t.id);
-  /* نكتب الخريطة أيضاً لا القائمة وحدها — وإلا ظهرت الصفوف بلا حالة
-     بينما هم متأهلون فعلاً (انقسام بين مصدرَي الحقيقة). */
+  /* نُفرغ خريطة الحالات القديمة مع الكتابة — بقاياها من نسخة سابقة قد
+     تُربك أي قراءة لاحقة. المتأهلون الآن قائمة واحدة لا غير. */
   const map = {};
   ids.forEach(id => { map[id] = 'qualified'; });
   try {
@@ -11537,6 +11600,7 @@ window.swissAutoTopN = async function(n) {
     settings.swissTeamStatus = map;
     showToast(`✅︎ حُدّد أفضل ${target} حسب الترتيب`, 'success');
     window.renderSwissQualifyPanel && window.renderSwissQualifyPanel();
+    window.renderStandings && window.renderStandings();   // الشارة داخل الجدول
     if (typeof renderKnockoutAdmin === 'function') renderKnockoutAdmin();
   } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
@@ -11571,8 +11635,11 @@ function _swissStandingsOrder() {
 }
 window._swissStandingsOrder = _swissStandingsOrder;
 
-/* ── لوحة تحديد المتأهلين — تُحقن أعلى صفحة الترتيب في الدوري الموحّد ── */
-window.renderSwissQualifyPanel = function() {
+/* ── شريط علوي مختصر لا جدول ثانٍ ──
+   كان يسرد كل الفرق مرة أخرى فوق جدول الترتيب — تكرار كامل بمحاذاة
+   مختلفة (وهو «الجدولان المكرّران»). الحالة صارت عموداً داخل الجدول
+   نفسه، فلم يبقَ للشريط إلا عدّاد التقدّم وزرّا الاختصار. */
+window.renderSwissQualifyPanel = function () {
   const host = document.getElementById('swissQualifyPanel');
   if (!host) return;
   if (settings.type !== 'swiss') { host.innerHTML = ''; host.style.display = 'none'; return; }
@@ -11580,73 +11647,39 @@ window.renderSwissQualifyPanel = function() {
 
   const ids = _swissQualifiedIds();
   const target = _swissQualifyTarget();
-  const ordered = _swissStandingsOrder();
   const done = ids.length;
   const pct = target ? Math.min(100, Math.round(done / target * 100)) : 0;
+  const full = target && done === target;
 
-  const rows = ordered.map((t, i) => {
-    const on = ids.includes(t.id);
-    const seed = on ? ids.indexOf(t.id) + 1 : null;
-    const s = t._st || {};
-    const stKey = _swissStatusOf(t.id);
-    const stm   = _statusMeta(stKey);
-    return `
-      <div onclick="swissOpenStatusPicker('${t.id}')"
-        style="display:flex;align-items:center;gap:9px;padding:9px 11px;cursor:pointer;
-               border-bottom:1px solid var(--border,#1f1f1f);
-               background:${on ? 'rgba(39,174,96,.07)' : 'transparent'}">
-        <span style="width:20px;text-align:center;font-size:11px;font-weight:800;color:var(--muted,#888)">${i + 1}</span>
-        <span style="width:26px;height:26px;flex-shrink:0;display:flex;align-items:center;justify-content:center">
-          ${logoHtml(t.logo, 24, 6)}</span>
-        <span style="flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--text,#eee);
-                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</span>
-        <span style="font-size:10px;color:var(--muted,#888);flex-shrink:0">${s.pts || 0} ن</span>
-        <span style="flex-shrink:0;display:inline-flex;align-items:center;gap:4px;justify-content:center;
-               min-width:86px;font-size:10px;font-weight:800;padding:4px 9px;border-radius:20px;
-               ${stKey ? `color:${stm.color};background:${stm.color}1f;border:1px solid ${stm.color}55`
-                       : 'color:var(--muted,#777);background:rgba(255,255,255,.03);border:1px solid var(--border2,#2a2a2a)'}">
-          ${stKey ? _statusIcon(stm, 11) : ''}${stKey ? (stm.qualified && seed ? stm.label + ' #' + seed : stm.label) : 'الحالة'}</span>
-      </div>`;
-  }).join('');
-
-  host.innerHTML = `
-    <div style="background:var(--card2,#161616);border:1px solid var(--border2,#2a2a2a);
-                border-radius:16px;overflow:hidden;margin-bottom:14px">
-      <div style="padding:13px 14px;border-bottom:1px solid var(--border,#1f1f1f)">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-          <div>
-            <div style="font-size:13px;font-weight:900;color:var(--gold,#C9A02B)">🎯 المتأهلون لدور الإقصاء</div>
-            <div style="font-size:10.5px;color:var(--muted,#888);margin-top:3px">
-              اضغط أي فريق لتحديده — ترتيب الاختيار يُستعمل في القرعة</div>
-          </div>
-          <div style="text-align:center;flex-shrink:0">
-            <div style="font-size:19px;font-weight:900;color:${target && done === target ? '#27ae60' : 'var(--gold,#C9A02B)'}">${done}${target ? '<span style="font-size:12px;color:var(--muted,#888)">/' + target + '</span>' : ''}</div>
-            <div style="font-size:9px;color:var(--muted,#888)">محدَّد</div>
-          </div>
-        </div>
-        ${target ? `<div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px;margin-top:10px;overflow:hidden">
-          <div style="height:100%;width:${pct}%;background:${done === target ? '#27ae60' : 'var(--gold,#C9A02B)'};transition:width .3s"></div>
-        </div>` : ''}
-        <div style="display:flex;gap:7px;margin-top:11px">
-          <button onclick="swissAutoTopN(${target || 8})"
-            style="flex:2;padding:9px;border-radius:9px;border:1px solid rgba(201,160,43,.32);
-                   background:rgba(201,160,43,.09);color:var(--gold,#C9A02B);
-                   font-family:Tajawal,sans-serif;font-size:11px;font-weight:800;cursor:pointer">
-            ⚡ أفضل ${target || 8} تلقائياً</button>
-          <button onclick="swissClearQualified()"
-            style="flex:1;padding:9px;border-radius:9px;border:1px solid var(--border,#333);
-                   background:transparent;color:var(--muted,#888);
-                   font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer">مسح</button>
-        </div>
-      </div>
-      <div style="max-height:46vh;overflow-y:auto">${rows || ''}</div>
-      ${done ? `<div style="padding:11px 14px;border-top:1px solid var(--border,#1f1f1f);
-                  font-size:10.5px;color:var(--muted,#888);line-height:1.7">
-        المتأهلون جاهزون — افتح <b style="color:var(--gold,#C9A02B)">صفحة الإقصاء</b> واضغط أي خانة
-        لاختيارهم، أو استخدم <b style="color:var(--gold,#C9A02B)">التوزيع التلقائي</b> هناك.
-      </div>` : ''}
-    </div>`;
+  host.innerHTML =
+    '<div style="background:var(--card2);border:1px solid ' +
+      (full ? 'rgba(39,174,96,.3)' : 'var(--border2)') +
+      ';border-radius:14px;padding:13px 14px;margin-bottom:12px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+        '<div style="min-width:0">' +
+          '<div style="font-size:12.5px;font-weight:900;color:var(--gold)">المتأهلون لدور الإقصاء</div>' +
+          '<div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.6">' +
+            'اضغط <b style="color:var(--gold)">الحالة</b> بجانب أي فريق في الجدول لتحديده</div>' +
+        '</div>' +
+        '<div style="text-align:center;flex-shrink:0">' +
+          '<div style="font-size:19px;font-weight:900;color:' + (full ? 'var(--green)' : 'var(--gold)') + '">' +
+            done + (target ? '<span style="font-size:12px;color:var(--muted)">/' + target + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      (target
+        ? '<div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px;margin-top:10px;overflow:hidden">' +
+          '<div style="height:100%;width:' + pct + '%;background:' + (full ? 'var(--green)' : 'var(--gold)') +
+          ';transition:width .3s"></div></div>'
+        : '') +
+      '<div style="display:flex;gap:7px;margin-top:11px">' +
+        '<button class="btn btn-outline btn-sm" onclick="swissAutoTopN(' + (target || 8) + ')" style="flex:2">' +
+          '⚡ أفضل ' + (target || 8) + ' تلقائياً</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="swissClearQualified()" style="flex:1">مسح</button>' +
+      '</div>' +
+    '</div>';
 };
+
 
 // ✅︎ تجميع المتأهلين المعتمدين رسمياً من كل المجموعات (المصدر الوحيد لملء شجرة الإقصاء)
 function _getQualifiedPool() {
@@ -11749,12 +11782,12 @@ function renderKnockoutAdmin() {
   const _firstRd = [...adminKnockoutRounds].sort((a,b)=>(a.order??0)-(b.order??0))[0];
   const _slots   = _firstRd ? (_firstRd.slots || 0) : 0;
   const _needed  = _slots * 2;
-  const _canDraw = _firstRd && _free.length >= 2 && _placed.size === 0;
+  const _ready   = _needed > 0 && _free.length >= _needed;   // المتأهلون يكفون الدور الأول
   const _srcName = settings.type === 'swiss' ? 'جدول الترتيب' : 'المجموعات';
 
   const drawBar = `
     <div style="margin-bottom:14px;padding:12px 14px;background:var(--card2);
-      border:1px solid ${_canDraw ? 'rgba(201,160,43,.28)' : 'var(--border2)'};border-radius:12px">
+      border:1px solid ${_ready ? 'rgba(39,174,96,.28)' : 'var(--border2)'};border-radius:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
         <div style="min-width:0">
           <div style="font-size:12px;font-weight:800;color:var(--text)">🎯 المتأهلون الجاهزون</div>
@@ -11770,18 +11803,16 @@ function renderKnockoutAdmin() {
         </div>
       </div>
       <div style="display:flex;gap:7px;margin-top:11px">
-        <button onclick="adminAutoDrawBracket()" ${_canDraw ? '' : 'disabled'}
-          style="flex:2;padding:10px;border-radius:9px;font-family:Tajawal,sans-serif;font-size:11.5px;font-weight:800;
-          cursor:${_canDraw ? 'pointer' : 'not-allowed'};opacity:${_canDraw ? '1' : '.45'};
-          border:1px solid rgba(201,160,43,.35);background:rgba(201,160,43,.1);color:var(--gold)">
-          🎲 توزيع القرعة تلقائياً</button>
         ${settings.type === 'swiss' ? `<button onclick="showPage('standings',null)"
           style="flex:1;padding:10px;border-radius:9px;font-family:Tajawal,sans-serif;font-size:11.5px;font-weight:700;
           cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted)">
-          تحديد المتأهلين</button>` : ''}
+          تحديد المتأهلين من الترتيب</button>` : `<button onclick="showPage('groups',null)"
+          style="flex:1;padding:10px;border-radius:9px;font-family:Tajawal,sans-serif;font-size:11.5px;font-weight:700;
+          cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted)">
+          تحديد المتأهلين من المجموعات</button>`}
       </div>
-      ${_placed.size ? `<div style="font-size:9.5px;color:var(--muted);margin-top:8px;line-height:1.6">
-        التوزيع التلقائي متاح فقط والشجرة فارغة — امسحها بـ«إعادة بناء» لإعادة القرعة.</div>` : ''}
+      <div style="font-size:9.5px;color:var(--muted);margin-top:8px;line-height:1.7">
+        اضغط أي خانة في الشجرة لاختيار الفريق بنفسك — القرعة يدوية بالكامل.</div>
     </div>`;
 
   // ── تفعيل مباراة تحديد المركز الثالث ──────────────────────────
@@ -12094,7 +12125,26 @@ function _openBracketTeamPicker(pool, roundId, slotIdx) {
       <div style="font-size:10px;color:#888">${t.groupName}</div>
     </div>`).join('')
     : `<div style="text-align:center;padding:30px 14px;color:#888;font-size:12px;line-height:1.8">
-        لا يوجد متأهلون متاحون بعد.<br>اعتمد المتأهلين من صفحة المجموعات أولاً (زر «✅︎ اعتماد»).
+        ${/* 🔴 الرسالة كانت تُحيل دائماً إلى «صفحة المجموعات» — وهي غير
+             موجودة في «الدوري الموحّد». فالمنظّم يحدّد المتأهلين من جدول
+             الترتيب ثم يفتح الخانة فتخبره أن يذهب لمكان لا وجود له. */''}
+        ${settings.type === 'swiss'
+          ? `لا يوجد متأهلون متاحون بعد.<br>
+             حدّد المتأهلين من <b style="color:#C9A02B">جدول الترتيب</b> — اضغط عمود «الحالة» بجانب الفريق.
+             <div style="margin-top:14px">
+               <button onclick="_closeBracketPicker();showPage('standings',null)"
+                 style="padding:9px 16px;border-radius:9px;cursor:pointer;background:rgba(201,160,43,.1);
+                        border:1px solid rgba(201,160,43,.35);color:#C9A02B;font-family:Tajawal,sans-serif;
+                        font-size:11.5px;font-weight:800">فتح جدول الترتيب ←</button>
+             </div>`
+          : `لا يوجد متأهلون متاحون بعد.<br>
+             حدّد حالة الفرق في المجموعات ثم اضغط <b style="color:#C9A02B">«اعتماد ونشر»</b> للمجموعة.
+             <div style="margin-top:14px">
+               <button onclick="_closeBracketPicker();showPage('groups',null)"
+                 style="padding:9px 16px;border-radius:9px;cursor:pointer;background:rgba(201,160,43,.1);
+                        border:1px solid rgba(201,160,43,.35);color:#C9A02B;font-family:Tajawal,sans-serif;
+                        font-size:11.5px;font-weight:800">فتح المجموعات ←</button>
+             </div>`}
       </div>`;
   sheet.innerHTML = `
     <div style="background:#111318;border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:70vh;display:flex;flex-direction:column">
@@ -12184,110 +12234,9 @@ window._adminPickBracketTeam = async function(roundId, slotIdx, teamId) {
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
-/* ════════════════════════════════════════════════════════════════════
- *  🎲 التوزيع التلقائي لقرعة الدور الأول
- *  ──────────────────────────────────────────────────────────────────
- *  أكبر تسهيل للمنظّم: بدل فتح كل خانة واختيار فريقين يدوياً (32 نقرة
- *  في دور الـ16)، تُوزَّع القرعة كاملة بضغطة واحدة.
- *
- *  نظام التوزيع «الأول ضد الأخير» (كقرعة البطولات الرسمية):
- *    ١ × الأخير · ٢ × ما قبل الأخير · ٣ × … — فيلتقي المتصدّر بأضعف
- *    متأهل، وهو ما يكافئ الأداء في الدور الأول. الترتيب المعتمد هو
- *    ترتيب المتأهلين كما اختارهم المنظّم (أو ترتيب المجموعات).
- * ════════════════════════════════════════════════════════════════════ */
-window.adminAutoDrawBracket = async function() {
-  const rounds = [...adminKnockoutRounds].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const first = rounds[0];
-  if (!first) { showToast('لا توجد أدوار — أنشئ الشجرة أولاً', 'error'); return; }
+/* (أُزيل التوزيع التلقائي للقرعة — القرعة يدوية بالكامل في كل
+   أنواع الشجرة، بطلب المنظّم: الترتيب التلقائي لم يكن محرَجاً بحاجته.) */
 
-  // شرط السلامة: لا نوزّع فوق شجرة فيها فرق موضوعة — كي لا نكرّر فريقاً
-  if (_getPlacedKnockoutTeamIds().size > 0) {
-    showToast('الشجرة تحتوي فرقاً بالفعل — استخدم «إعادة بناء» أولاً', 'error');
-    return;
-  }
-
-  const pool = _getQualifiedPool();
-  if (pool.length < 2) {
-    showToast(settings.type === 'swiss'
-      ? 'حدّد المتأهلين من جدول الترتيب أولاً'
-      : 'اعتمد متأهلي المجموعات أولاً', 'error');
-    return;
-  }
-
-  const slots = first.slots || 0;
-  const capacity = slots * 2;
-  /* عدد فردي أو زائد عن سعة الدور: نأخذ ما يملأ الخانات كاملة فقط.
-     المتبقّي يبقى للمنظّم يضعه يدوياً — لا نخمّن نيابةً عنه. */
-  const usable = Math.min(pool.length - (pool.length % 2), capacity);
-  if (usable < 2) { showToast('المتأهلون غير كافين', 'error'); return; }
-
-  const pairsCount = usable / 2;
-  const list = pool.slice(0, usable);
-  const preview = [];
-  for (let i = 0; i < pairsCount; i++) {
-    preview.push(`${list[i].name} × ${list[usable - 1 - i].name}`);
-  }
-
-  const extra = pool.length - usable;
-  const ok = await window.confirmDialog({
-    title: '🎲 توزيع القرعة',
-    message:
-      `سيُوزَّع ${usable} فريقاً على ${pairsCount} مواجهة في «${first.name}»` +
-      (extra ? `\n(${extra} فريق زائد يبقى بلا خانة — ضعه يدوياً)` : '') +
-      `\n\nنظام «الأول ضد الأخير»:\n` + preview.slice(0, 8).join('\n') +
-      (preview.length > 8 ? `\n… و${preview.length - 8} مواجهة أخرى` : ''),
-    confirmText: 'وزّع الآن'
-  });
-  if (!ok) return;
-
-  const twoLegs = !!(settings && settings.koTwoLegs);
-  try {
-    showToast('⏳ جارِ التوزيع...', 'success');
-    const batch = writeBatch(db);
-    const newIds = [];
-
-    for (let i = 0; i < pairsCount; i++) {
-      const home = list[i], away = list[usable - 1 - i];
-      const base = (extraFields) => _lightMatch({
-        homeScore: null, awayScore: null,
-        isKnockout: true, knockoutRoundId: first.id, knockoutRoundName: first.name || '',
-        knockoutSlot: i,
-        round: first.order ?? 0,
-        date: null, time: null, venue: null,
-        status: 'upcoming', createdAt: serverTimestamp(),
-        ...extraFields
-      });
-
-      const r1 = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
-      batch.set(r1, base({
-        homeId: home.id, homeName: home.name, homeLogo: home.logo || '⚽',
-        awayId: away.id, awayName: away.name, awayLogo: away.logo || '⚽',
-        ...(twoLegs ? { legNo: 1, leg: 1, knockoutRoundName: (first.name || '') + ' — الذهاب' } : {})
-      }));
-      newIds.push(r1.id);
-
-      if (twoLegs) {
-        const r2 = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
-        batch.set(r2, base({
-          homeId: away.id, homeName: away.name, homeLogo: away.logo || '⚽',
-          awayId: home.id, awayName: home.name, awayLogo: home.logo || '⚽',
-          legNo: 2, leg: 2, knockoutRoundName: (first.name || '') + ' — الإياب'
-        }));
-        newIds.push(r2.id);
-      }
-    }
-
-    batch.update(doc(db, 'leagues', LEAGUE_ID, 'knockoutRounds', first.id), {
-      matchIds: [...(first.matchIds || []), ...newIds],
-      slotPicks: {},
-      updatedAt: serverTimestamp()
-    });
-    await batch.commit();
-    showToast(`✅︎ وُزّعت ${pairsCount} مواجهة${twoLegs ? ' (ذهاب وإياب)' : ''} — راجعها ثم انشر الشجرة`, 'success');
-  } catch (e) {
-    showToast('تعذّر التوزيع: ' + window._trErr(e), 'error');
-  }
-};
 
 /* ════════════════════════════════════════════════════════════════════
  *  📅 مواعيد مباريات الشجرة — تحديد جماعي بنافذة واحدة
@@ -16830,7 +16779,7 @@ window.importRosterToLineup = function(teamId) {
     'addTeam', 'addMatch', 'adminAddGroup', 'addRosterPlayer', 'savePlayerProfile',
     'saveEditTeam', 'saveZoneRules', 'saveSettings', 'saveKoSchedule',
     'poCreateSection', 'poGenerateMatches', 'poResetAll', 'adminConfirmBracketCreate',
-    'saveDeduction', 'autoSchedule', 'adminAutoDrawBracket', 'swissGenerateFixtures',
+    'saveDeduction', 'autoSchedule', 'swissGenerateFixtures',
     'saveNewPassword', 'uploadRosterPhoto', 'removeRosterPhoto'
   ];
 
@@ -16873,15 +16822,48 @@ window.importRosterToLineup = function(teamId) {
       busy.add(name);
       const btn = lastBtn;
       const prev = lockBtn(btn);
+
+      /* ⏱ حارس زمني — بلا هذا يبقى الزر «جارٍ الحفظ…» **للأبد** لو تعطّلت
+         الشبكة أو لم يعد Firestore ردّاً: لا رسالة ولا سبيل لإعادة
+         المحاولة. القفل يُفكّ بعد 15 ثانية مع إخبار المنظّم، فيقرّر
+         بنفسه هل يعيد المحاولة. (العملية قد تكتمل لاحقاً — لذا الرسالة
+         تطلب التحقّق قبل الإعادة، لا تجزم بالفشل.) */
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        busy.delete(name);
+        unlockBtn(btn, prev);
+      };
+      /* حوار تأكيد مفتوح = العملية بانتظار المنظّم لا بانتظار الشبكة.
+         نغيّر نصّ الزر ليعرف أن الكرة في ملعبه، ونوقف العدّاد. */
+      const poll = setInterval(() => {
+        if (released) { clearInterval(poll); return; }
+        const waiting = !!document.getElementById('confirmDlgOv');
+        if (btn && waiting && btn.innerHTML !== 'بانتظار تأكيدك…') btn.innerHTML = 'بانتظار تأكيدك…';
+        else if (btn && !waiting && btn.innerHTML === 'بانتظار تأكيدك…') btn.innerHTML = 'جارٍ الحفظ…';
+      }, 300);
+
+      const watchdog = setTimeout(() => {
+        if (released) return;
+        // لا نفكّ القفل ما دام حوار التأكيد مفتوحاً — الانتظار مقصود
+        if (document.getElementById('confirmDlgOv')) return;
+        release();
+        try {
+          window.showToast && window.showToast(
+            'الاتصال بطيء — تحقّق من النتيجة قبل إعادة المحاولة', 'error');
+        } catch (_) {}
+      }, 15000);
+
       try {
         return await orig.apply(this, args);
       } catch (e) {
-        // نُظهر الخطأ ولا نبتلعه — الدوالّ الأصلية تتولّى رسائلها عادةً
         try { window.showToast && window.showToast('تعذّر التنفيذ: ' + (window._trErr ? window._trErr(e) : e.message), 'error'); } catch (_) {}
         throw e;
       } finally {
-        busy.delete(name);
-        unlockBtn(btn, prev);
+        clearTimeout(watchdog);
+        clearInterval(poll);
+        release();
       }
     };
     guarded.__guarded = true;

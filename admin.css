@@ -1356,3 +1356,36 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
 .tg-ic-hint svg{width:12px;height:12px}
 .card-title .tg-ic svg{width:15px;height:15px}
 .settings-group-title .tg-ic svg{width:14px;height:14px}
+
+/* ══ منتقي الفرق — قائمة مفتوحة مقسّمة بالمجموعات ══ */
+.tp-list{
+  max-height:230px;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  background:var(--card3);border:1px solid var(--border2);border-radius:11px;padding:8px;
+}
+.tp-head{
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:10px;font-weight:900;color:var(--gold);letter-spacing:.3px;
+  padding:7px 4px 6px;margin-top:4px;
+  border-bottom:1px solid var(--border);
+}
+.tp-head:first-child{margin-top:0}
+.tp-head span{
+  font-size:9px;font-weight:800;color:var(--muted);
+  background:rgba(255,255,255,.05);border-radius:20px;padding:1px 7px;
+}
+.tp-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:7px 0 3px}
+.tp-item{
+  display:flex;align-items:center;gap:7px;min-width:0;
+  padding:9px 10px;border-radius:9px;cursor:pointer;text-align:right;
+  background:var(--card2);border:1px solid var(--border2);
+  color:var(--text);font-family:'Tajawal',sans-serif;font-size:11.5px;font-weight:700;
+  transition:background .12s,border-color .12s;
+}
+.tp-item .tp-name{
+  flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.tp-item:active{background:rgba(255,255,255,.05)}
+.tp-item.on{
+  background:rgba(201,160,43,.14);border-color:var(--gold);color:var(--gold);font-weight:900;
+}
+.tp-item.busy{opacity:.32;cursor:not-allowed}

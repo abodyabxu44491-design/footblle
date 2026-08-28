@@ -104,38 +104,74 @@ if('serviceWorker' in navigator) {
 
         <!-- STEP 2: نوع البطولة -->
         <div id="wz-step-2" style="display:none">
-          <div style="font-size:13px;font-weight:900;color:var(--gold);margin-bottom:6px">② اختر نوع البطولة</div>
-          <div style="font-size:11px;color:var(--red);background:rgba(220,50,50,.08);border:1px solid rgba(220,50,50,.2);border-radius:8px;padding:9px 12px;margin-bottom:16px;line-height:1.6">
-            ⚠️ <strong>تنبيه هام:</strong> بعد التأكيد لن تتمكن من تغيير نوع البطولة أبداً
+          <div style="font-size:14px;font-weight:900;color:var(--gold);margin-bottom:4px">② نظام البطولة</div>
+          <div style="font-size:11px;color:var(--muted2);line-height:1.8;margin-bottom:12px">
+            اقرأ الشرح تحت كل نظام واختر ما يناسب بطولتك. يمكنك ضبط تفاصيله في الخطوة التالية.
           </div>
-          <div style="display:grid;gap:10px">
+          <div class="wz-warn">
+            <i data-ic="alert"></i>
+            <div><b>النوع لا يتغيّر بعد الإنشاء.</b> اختره بعناية — تغييره لاحقاً يتطلّب إنشاء بطولة جديدة.</div>
+          </div>
+          <div class="wz-types">
             <div class="wz-type-card" id="wzt-league" onclick="wzSelectType('league')">
-              <div style="font-size:28px">📋</div>
-              <div>
-                <div style="font-size:13px;font-weight:900">دوري نقاط</div>
-                <div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5">كل فريق يلعب ضد الآخرين · جدول ترتيب كامل · مناطق متأهلين وهابطين</div>
+              <div class="wzt-head">
+                <span class="wzt-ic"><i data-ic="list"></i></span>
+                <div class="wzt-ttl">
+                  <div class="wzt-name">دوري نقاط</div>
+                  <div class="wzt-tag">الأنسب لبطولة بعدد فرق متوسط</div>
+                </div>
+                <span class="wzt-mark"><i data-ic="check"></i></span>
               </div>
+              <div class="wzt-desc">كل فريق يلعب ضد كل الفرق الأخرى، وتُجمع النقاط في جدول ترتيب واحد. البطل هو صاحب أعلى رصيد في نهاية الموسم.</div>
+              <ul class="wzt-feats">
+                <li>جدول ترتيب كامل بالنقاط وفارق الأهداف</li><li>خيار ذهاب فقط أو ذهاب وإياب</li><li>مناطق تحدّدها: متأهل · ملحق · هابط</li>
+              </ul>
+              <div class="wzt-note"><i data-ic="info"></i> لا شجرة إقصاء — البطولة تُحسم بالنقاط</div>
             </div>
             <div class="wz-type-card" id="wzt-groups" onclick="wzSelectType('groups')">
-              <div style="font-size:28px">🔷</div>
-              <div>
-                <div style="font-size:13px;font-weight:900">مجموعات + خروج مغلوب</div>
-                <div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5">دور المجموعات أولاً ← ثم شجرة إقصاء للمتأهلين</div>
+              <div class="wzt-head">
+                <span class="wzt-ic"><i data-ic="target"></i></span>
+                <div class="wzt-ttl">
+                  <div class="wzt-name">مجموعات + خروج مغلوب</div>
+                  <div class="wzt-tag">الأنسب لعدد كبير من الفرق</div>
+                </div>
+                <span class="wzt-mark"><i data-ic="check"></i></span>
               </div>
+              <div class="wzt-desc">تُقسَّم الفرق مجموعات، كل مجموعة دوري مصغّر. يتأهل الأوائل من كل مجموعة إلى شجرة إقصاء تُحسم بالمواجهات المباشرة.</div>
+              <ul class="wzt-feats">
+                <li>عدد المجموعات وحجمها كما تريده</li><li>تحدّد كم يتأهل من كل مجموعة</li><li>جدول لكل مجموعة ثم شجرة إقصاء</li>
+              </ul>
+              <div class="wzt-note"><i data-ic="info"></i> يحتاج عدد فرق يقبل التقسيم على المجموعات</div>
             </div>
             <div class="wz-type-card" id="wzt-knockout" onclick="wzSelectType('knockout')">
-              <div style="font-size:28px">⚡</div>
-              <div>
-                <div style="font-size:13px;font-weight:900">خروج مغلوب فقط</div>
-                <div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5">شجرة إقصاء مباشرة من البداية · الخاسر يخرج فوراً</div>
+              <div class="wzt-head">
+                <span class="wzt-ic"><i data-ic="swords"></i></span>
+                <div class="wzt-ttl">
+                  <div class="wzt-name">خروج مغلوب فقط</div>
+                  <div class="wzt-tag">الأنسب للبطولات القصيرة</div>
+                </div>
+                <span class="wzt-mark"><i data-ic="check"></i></span>
               </div>
+              <div class="wzt-desc">شجرة إقصاء من أول مباراة: الفائز يصعد والخاسر يخرج فوراً، حتى النهائي.</div>
+              <ul class="wzt-feats">
+                <li>أسرع نظام — أقلّ عدد مباريات</li><li>عدد الفرق يجب أن يكون 2 · 4 · 8 · 16 · 32</li><li>خيار ذهاب وإياب لكل دور</li>
+              </ul>
+              <div class="wzt-note"><i data-ic="info"></i> لا جدول ترتيب — الخسارة الأولى تعني الخروج</div>
             </div>
             <div class="wz-type-card" id="wzt-swiss" onclick="wzSelectType('swiss')">
-              <div style="font-size:28px">🏅</div>
-              <div>
-                <div style="font-size:13px;font-weight:900">دوري موحّد + إقصاء <span style="font-size:8px;background:rgba(201,160,43,.15);color:var(--gold);padding:1px 6px;border-radius:4px;vertical-align:middle">نظام أوروبي</span></div>
-                <div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5">جدول ترتيب واحد لكل الفرق · تحدّد المباريات يدوياً · أفضل الفرق تتأهل للإقصاء</div>
+              <div class="wzt-head">
+                <span class="wzt-ic"><i data-ic="trophy"></i></span>
+                <div class="wzt-ttl">
+                  <div class="wzt-name">دوري موحّد + إقصاء</div>
+                  <div class="wzt-tag">النظام الأوروبي الحديث</div>
+                </div>
+                <span class="wzt-mark"><i data-ic="check"></i></span>
               </div>
+              <div class="wzt-desc">جدول ترتيب واحد يضمّ كل الفرق، لكن كل فريق يلعب عدداً محدّداً من المباريات ضد خصوم مختلفين — لا ضد الجميع. ثم يتأهل الأوائل للإقصاء.</div>
+              <ul class="wzt-feats">
+                <li>مباريات أقل مع عدد فرق كبير</li><li>جدول واحد يجمع الجميع</li><li>تحدّد المتأهلين للإقصاء يدوياً</li>
+              </ul>
+              <div class="wzt-note"><i data-ic="info"></i> تختار مواجهات كل جولة بنفسك</div>
             </div>
           </div>
           <div style="display:flex;gap:10px;margin-top:20px">
@@ -196,12 +232,94 @@ if('serviceWorker' in navigator) {
 .settings-group-sub {
   font-size:10px; font-weight:400; color:var(--muted); letter-spacing:0;
 }
-.wz-type-card {
-  display:flex;align-items:flex-start;gap:14px;padding:14px 16px;
-  background:var(--card2);border:2px solid var(--border2);border-radius:12px;cursor:pointer;transition:all .2s;
+/* ── أقسام الخطوة ٣ + ملخّص البطولة ── */
+.wz-sec{
+  display:flex;align-items:center;gap:9px;margin:22px 0 12px;
+  padding-bottom:9px;border-bottom:1px solid var(--border);
 }
-.wz-type-card:hover { border-color:var(--gold3);background:var(--card3); }
-.wz-type-card.selected { border-color:var(--gold);background:rgba(201,160,43,.08); }
+.wz-sec:first-child{margin-top:0}
+.wz-sec-ic{
+  width:28px;height:28px;flex-shrink:0;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.22);color:var(--gold);
+}
+.wz-sec-t{font-size:12.5px;font-weight:900;color:var(--text)}
+.wz-sec-d{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.5}
+.wz-summary{
+  margin-top:20px;background:var(--card2);border:1px solid rgba(201,160,43,.24);
+  border-radius:13px;overflow:hidden;
+}
+.wz-sum-head{
+  padding:10px 13px;font-size:11px;font-weight:900;color:var(--gold);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;
+}
+.wz-sum-row{
+  display:grid;grid-template-columns:20px 1fr auto;align-items:center;gap:9px;
+  padding:9px 13px;border-bottom:1px solid var(--border);
+}
+.wz-sum-row:last-of-type{border-bottom:0}
+.wz-sum-ic{display:flex;align-items:center;justify-content:center;color:var(--muted2)}
+.wz-sum-l{font-size:11.5px;color:var(--muted)}
+.wz-sum-v{font-size:12px;font-weight:800;color:var(--text)}
+.wz-sum-row.warn .wz-sum-v{color:#D35400}
+.wz-sum-note{
+  display:flex;align-items:flex-start;gap:6px;padding:10px 13px;
+  background:rgba(211,84,0,.07);border-top:1px solid rgba(211,84,0,.2);
+  font-size:10.5px;color:#D35400;line-height:1.7;
+}
+.wz-sum-foot{
+  display:flex;align-items:flex-start;gap:6px;padding:10px 13px;
+  border-top:1px solid var(--border);font-size:10px;color:var(--muted2);line-height:1.7;
+}
+.wz-sum-empty{padding:16px 13px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:7px}
+/* ── بطاقات اختيار النظام: شرح رسمي كامل لا سطر واحد ── */
+.wz-warn{
+  display:flex;align-items:flex-start;gap:9px;
+  background:rgba(220,50,50,.07);border:1px solid rgba(220,50,50,.22);
+  border-radius:10px;padding:11px 12px;margin-bottom:16px;
+  font-size:11px;color:#e08585;line-height:1.75;
+}
+.wz-warn svg{width:15px;height:15px;flex-shrink:0;margin-top:1px}
+.wz-warn b{color:#ef9a9a}
+.wz-types{display:grid;gap:11px}
+.wz-type-card {
+  background:var(--card2);border:1px solid var(--border2);border-radius:14px;
+  padding:14px;cursor:pointer;transition:border-color .15s,background .15s;
+}
+.wz-type-card:hover{border-color:var(--gold3);background:var(--card3)}
+.wz-type-card.selected{border-color:var(--gold);background:rgba(201,160,43,.06)}
+.wzt-head{display:grid;grid-template-columns:38px 1fr 22px;align-items:center;gap:11px}
+.wzt-ic{
+  width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+  background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.24);color:var(--gold);
+}
+.wzt-ic svg{width:18px;height:18px}
+.wzt-name{font-size:13.5px;font-weight:900;color:var(--text)}
+.wzt-tag{font-size:10px;color:var(--gold);margin-top:2px;font-weight:700}
+.wzt-mark{
+  width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  border:1.5px solid var(--border2);color:transparent;
+}
+.wzt-mark svg{width:12px;height:12px}
+.wz-type-card.selected .wzt-mark{background:var(--gold);border-color:var(--gold);color:#000}
+.wzt-desc{
+  font-size:11.5px;color:var(--muted2);line-height:1.9;
+  margin:11px 0 10px;padding-top:11px;border-top:1px solid var(--border);
+}
+.wzt-feats{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.wzt-feats li{
+  position:relative;padding-inline-start:16px;
+  font-size:11px;color:var(--muted);line-height:1.6;
+}
+.wzt-feats li::before{
+  content:'';position:absolute;inset-inline-start:4px;top:7px;
+  width:5px;height:5px;border-radius:50%;background:var(--gold);opacity:.65;
+}
+.wzt-note{
+  display:flex;align-items:center;gap:6px;margin-top:11px;padding-top:10px;
+  border-top:1px solid var(--border);
+  font-size:10px;color:var(--muted2);line-height:1.6;
+}
+.wzt-note svg{width:12px;height:12px;flex-shrink:0;opacity:.7}
 </style>
 
 <!-- APP -->
@@ -1222,9 +1340,21 @@ if('serviceWorker' in navigator) {
            عن خانتيهما فيتداخل النص مع أيقونة التقويم ويبدو "خبصاً".
            سطر لكل حقل = عرض كامل مضمون لكل واحد، ولا تداخل مهما ضاقت الشاشة. -->
 
-      <div class="mm-sec">⚽ الفريقان</div>
-      <div class="form-group"><label class="form-label">🏠 الفريق الأول (المضيف)</label><select class="form-select" id="matchHome"></select></div>
-      <div class="form-group"><label class="form-label">✈︎️ الفريق الثاني (الضيف)</label><select class="form-select" id="matchAway"></select></div>
+      <div class="mm-sec"><span class="tg-ic" data-ic="ball"></span>الفريقان</div>
+      <!-- ── قائمة الفرق مفتوحة مباشرة: عنوان المجموعة وتحته فرقها ──
+           بدل <select> يفتح لوحة نظام: المنظّم يرى كل الفرق مقسّمة أمامه
+           ويضغط الفريق مباشرة. الـselect باقٍ مخفياً لأن بقية الكود يقرأ
+           قيمته (addMatch وغيرها) — فلا شيء يحتاج إعادة برمجة. -->
+      <div class="form-group">
+        <label class="form-label"><span class="tg-ic" data-ic="home"></span>الفريق الأول (المضيف)</label>
+        <select id="matchHome" style="display:none"></select>
+        <div class="tp-list" id="matchHomeList"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label"><span class="tg-ic" data-ic="plane"></span>الفريق الثاني (الضيف)</label>
+        <select id="matchAway" style="display:none"></select>
+        <div class="tp-list" id="matchAwayList"></div>
+      </div>
 
       <div class="mm-sec">📅 الوقت والمكان</div>
       <div class="form-group"><label class="form-label">📆 التاريخ</label><input class="form-input" type="date" id="matchDate"/></div>

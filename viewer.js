@@ -309,27 +309,6 @@ function _viewerTeamStatus(g, teamId) {
 window._viewerTeamStatus = _viewerTeamStatus;
 
 /* ── خصم النقاط: يُقرأ من مستند الفريق ويُطرح في كل مواضع الحساب ── */
-/* ── شارة حالة الفريق بجانب اسمه ──
-   ليست عموداً مستقلاً: العمود يضغط بقية الأعمدة ويكسر انتظام الجدول.
-   الشارة تجلس داخل خانة الفريق بعد الاسم، صغيرة وبلون حالتها، وتنكمش
-   قبل الاسم عند ضيق المساحة فلا تزيح شيئاً. */
-const _SW_SHORT = { qualified:'متأهل', qualifiedC:'مشروط', playoff:'ملحق',
-                    eliminated:'خرج', withdrew:'منسحب', banned:'مستبعَد' };
-function _swStatusOfV(teamId) {
-  if ((window.settings && window.settings.type) !== 'swiss') return '';
-  const m = (window.settings && window.settings.swissTeamStatus) || {};
-  if (m[teamId] != null) return m[teamId] || '';
-  return ((window.settings && window.settings.swissQualifiedIds) || []).includes(teamId) ? 'qualified' : '';
-}
-function _swNameChip(teamId) {
-  const k = _swStatusOfV(teamId);
-  if (!k) return '';
-  const meta = _viewerStatusMeta(k);
-  const ic = (meta.ic && window.Icon) ? window.Icon(meta.ic, 8, meta.color) : '';
-  return `<span class="std-tag" style="color:${meta.color};background:${meta.color}1c;border-color:${meta.color}4d">${ic}${_SW_SHORT[k] || meta.label}</span>`;
-}
-window._swStatusOfV = _swStatusOfV;
-
 function _deductionOfV(teamId) {
   const t = (window.teams || []).find(x => x.id === teamId);
   const n = t ? parseInt(t.deduction, 10) : 0;
@@ -5624,7 +5603,7 @@ function renderStandings() {
   });
 
   const tableHtml = `
-    <div class="std-wrap${sorted.some(t => _swStatusOfV(t.id)) ? ' std-has-tag' : ''}">
+    <div class="std-wrap">
       <div class="std-head">
         <span class="std-h-pos">#</span>
         <span></span>
@@ -5650,7 +5629,7 @@ function renderStandings() {
               <span class="std-pos-num" style="${zc?`color:${zc}`:''}">${rank}</span>
             </span>
             <span class="std-logo">${logoHtml(t.logo,30,8)}</span>
-            <span class="std-team"><span class="std-name">${t.name}</span>${_swNameChip(t.id)}</span>
+            <span class="std-team"><span class="std-name">${t.name}</span></span>
             <span class="std-num">${s.p||0}</span>
             <span class="std-num std-hide-sm" style="color:var(--green)">${s.w||0}</span>
             <span class="std-num std-hide-sm">${s.d||0}</span>

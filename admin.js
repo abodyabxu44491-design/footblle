@@ -1003,6 +1003,9 @@ window.wzConfirmFinal = async function() {
 
   } catch(e) {
     showWzError('خطأ في الإنشاء: ' + window._trErr(e));
+  } finally {
+    /* 🔴 كان التفعيل داخل `catch` وحده — فمسار النجاح يترك الزر معطّلاً
+       بلا مخرج. `finally` يضمن عودته في كل الحالات. */
     if(btn) { btn.disabled = false; btn.textContent = 'تأكيد وإنشاء البطولة'; }
   }
 };
@@ -1047,7 +1050,10 @@ window.wzConfirmSetup = async function() {
 
   } catch(e) {
     showWzError('خطأ في الحفظ: ' + window._trErr(e));
-    if(btn) { btn.disabled = false; btn.textContent = '✅︎ تأكيد وابدأ'; }
+  } finally {
+    /* 🔴 كان التفعيل داخل `catch` وحده — فأي مسار لا يرمي خطأً (نجاح
+       جزئي · خروج مبكر بعد التعطيل) يترك الزر معطّلاً بلا مخرج. */
+    if (btn) { btn.disabled = false; btn.textContent = '✅︎ تأكيد وابدأ'; }
   }
 };
 
@@ -16784,21 +16790,24 @@ window.importRosterToLineup = function(teamId) {
   ];
 
   const busy = new Set();
+  const startedAt = {};
 
+  /* ⚠️ لا نستعمل `disabled` إطلاقاً.
+     تعطيل الزر يجعل أي تسريب في القفل **بلا مخرج**: الزر يبدو ميتاً ولا
+     شيء يعيده. الآن الزر يبقى قابلاً للنقر، ومنع التكرار يتكفّل به
+     `busy` وحده — ونقرة ثانية بعد ثانيتين تفكّ قفلاً عالقاً (انظر أدناه).
+     النتيجة: لا حالة يبقى فيها الزر معطّلاً مهما حدث. */
   function lockBtn(el) {
     if (!el || el.tagName !== 'BUTTON') return null;
-    const prev = { html: el.innerHTML, dis: el.disabled, op: el.style.opacity };
-    el.disabled = true;
-    el.style.opacity = '.6';
-    el.style.cursor = 'wait';
-    // نبقي عرض الزر ثابتاً كي لا يقفز التخطيط
-    el.style.minWidth = el.offsetWidth + 'px';
+    const prev = { html: el.innerHTML, op: el.style.opacity };
+    el.style.opacity = '.65';
+    el.style.cursor = 'progress';
+    el.style.minWidth = el.offsetWidth + 'px';   // لا يقفز التخطيط
     el.innerHTML = 'جارٍ الحفظ…';
     return prev;
   }
   function unlockBtn(el, prev) {
     if (!el || !prev) return;
-    el.disabled = prev.dis;
     el.style.opacity = prev.op;
     el.style.cursor = '';
     el.style.minWidth = '';
@@ -16818,8 +16827,17 @@ window.importRosterToLineup = function(teamId) {
     if (typeof orig !== 'function' || orig.__guarded) return;
 
     const guarded = async function (...args) {
-      if (busy.has(name)) return;            // ← النقرة المكرّرة تُتجاهَل
+      /* نقرة مكرّرة أثناء التنفيذ تُتجاهَل — إلا إن مضت ثانيتان، فالأرجح
+         أن القفل عالق لا أن العملية ما زالت تعمل. هذا مخرج المنظّم من أي
+         تسريب محتمل بلا انتظار المهلة الطويلة. */
+      const since = Date.now() - (startedAt[name] || 0);
+      if (busy.has(name)) {
+        if (since < 2000) return;
+        busy.delete(name);
+        try { window.showToast && window.showToast('أُعيدت المحاولة', 'error'); } catch (_) {}
+      }
       busy.add(name);
+      startedAt[name] = Date.now();
       const btn = lastBtn;
       const prev = lockBtn(btn);
 
@@ -16844,16 +16862,23 @@ window.importRosterToLineup = function(teamId) {
         else if (btn && !waiting && btn.innerHTML === 'بانتظار تأكيدك…') btn.innerHTML = 'جارٍ الحفظ…';
       }, 300);
 
-      const watchdog = setTimeout(() => {
-        if (released) return;
-        // لا نفكّ القفل ما دام حوار التأكيد مفتوحاً — الانتظار مقصود
-        if (document.getElementById('confirmDlgOv')) return;
-        release();
-        try {
-          window.showToast && window.showToast(
-            'الاتصال بطيء — تحقّق من النتيجة قبل إعادة المحاولة', 'error');
-        } catch (_) {}
-      }, 15000);
+      /* ⏱ الحارس الزمني — **يُعاد جدولته** ما دام حوار التأكيد مفتوحاً.
+         الإصدار السابق كان لقطة واحدة: لو صادف الحوار مفتوحاً عند انتهاء
+         المهلة، عاد دون إفراج **ولم يُجدوَل ثانيةً** — فيبقى الزر معطّلاً
+         للأبد. الآن لا مسار يترك القفل قائماً. */
+      let watchdog;
+      const arm = (ms) => {
+        watchdog = setTimeout(() => {
+          if (released) return;
+          if (document.getElementById('confirmDlgOv')) { arm(5000); return; }
+          release();
+          try {
+            window.showToast && window.showToast(
+              'الاتصال بطيء — تحقّق من النتيجة قبل إعادة المحاولة', 'error');
+          } catch (_) {}
+        }, ms);
+      };
+      arm(15000);
 
       try {
         return await orig.apply(this, args);

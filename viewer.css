@@ -269,7 +269,7 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t1);min-h
 .std-logo img{width:30px;height:30px;object-fit:cover;border-radius:8px}
 
 .std-h-team{text-align:right}
-.std-team{min-width:0;display:flex;align-items:center;gap:5px;text-align:right}
+.std-team{min-width:0; text-align:right}
 .std-name{
   font-size:13.5px; font-weight:700; color:var(--t1);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;
@@ -3197,26 +3197,3 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
   background:rgba(201,160,43,.06);border:1px solid rgba(201,160,43,.2);
   font-size:11px;color:var(--t2);line-height:1.85;
 }
-
-
-
-/* عند وجود حالات: تُخفى (ف · ت · خ) لإفساح المجال للشارة بجانب الاسم.
-   نفس ما يفعله وضع الشاشة الضيقة — الشارة أهمّ للجمهور من هذه الأعمدة،
-   والنقاط وفارق الأهداف باقيان. عدد المسارات يطابق الخلايا الظاهرة في
-   الرأس والصفوف معاً فلا ينزاح شيء. */
-.std-wrap.std-has-tag{ --std-cols: 30px 28px minmax(0,1fr) 24px 32px 40px }
-.std-wrap.std-has-tag .std-hide-sm{display:none}
-.std-wrap.std-has-tag .std-logo,
-.std-wrap.std-has-tag .std-logo img{width:28px;height:28px}
-
-/* شارة حالة الفريق بجانب اسمه — لا عمود مستقلّ */
-.std-tag{
-  display:inline-flex;align-items:center;gap:2px;flex:0 1 auto;min-width:0;
-  font-size:8px;font-weight:800;line-height:1.5;
-  padding:1px 5px;border-radius:20px;border:1px solid;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-.std-tag svg{flex:0 0 auto}
-/* الاسم يتقلّص قبل الشارة فلا تُزاح ولا تُقصّ */
-.std-team .std-name{flex:0 1 auto;min-width:0}
-@media (max-width:380px){ .std-tag{font-size:7.5px;padding:1px 4px} }

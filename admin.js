@@ -465,6 +465,8 @@ window.wzPickLegMode = function(btn, mode) {
   document.querySelectorAll('#wzLegGrid .type-card').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   window._wzLegMode = mode;
+  // الملخّص يعتمد على النظام (الجولات والمباريات تتضاعف) — يجب تحديثه
+  _wzUpdateGroupsMath();
 }
 
 // يحدّث اقتراح شجرة الإقصاء بحسب عدد المتأهلين في الدوري الموحّد
@@ -504,11 +506,78 @@ function _wzUpdateGroupsMath() {
     : 'مثلاً: يتأهل الأول من كل مجموعة + أفضل ثانٍ/ثالث بين باقي الفرق';
   const grid = document.getElementById('wzGroupsBracketGrid');
   if (grid) grid.outerHTML = _wzBracketOptionsHtml(suggested, 'wzGroupsBracketGrid');
+  _wzRenderGroupsSummary();
 }
+
+/* ── ملخّص حيّ لما سيُنشأ ──
+   بدل رسالة ثابتة تقول «ستُنشأ المجموعات والشجرة»، يعرض الأرقام الفعلية
+   المشتقّة من اختيارات المنظّم: كم مجموعة، كم فريقاً في كل واحدة، كم
+   مباراة، وكم جولة. فيراجع قراره قبل التأكيد لا بعده. */
+function _wzRenderGroupsSummary() {
+  const box = document.getElementById('wzGroupsSummary');
+  if (!box) return;
+  const total  = window._wzTeamsTotal || 0;
+  const groups = window._wzGroupsCount || 1;
+  const qN     = window._wzQualifyN || 1;
+  const best   = window._wzBestOf || 0;
+  const dbl    = (window._wzLegMode || 'single') === 'double';
+
+  if (!total) {
+    box.innerHTML = `<div class="wz-sum-empty">${_ic('info',13)} أدخل عدد الفرق ليظهر ملخّص البطولة</div>`;
+    return;
+  }
+
+  const per   = total / groups;
+  const even  = Number.isInteger(per);
+  const lo    = Math.floor(per), hi = Math.ceil(per);
+  // جولات المجموعة الواحدة (round-robin) × الدورين
+  const rr    = n => (n < 2 ? 0 : (n % 2 === 0 ? n - 1 : n));
+  const rounds = rr(hi) * (dbl ? 2 : 1);
+  // مباريات المجموعة = C(n,2) × الدورين
+  const gm    = n => (n * (n - 1) / 2) * (dbl ? 2 : 1);
+  const totalMatches = even
+    ? groups * gm(per)
+    : null;   // توزيع غير متساوٍ — لا نعطي رقماً قد يكون خاطئاً
+  const qualifiers = groups * qN + best;
+
+  const row = (ic, label, val, warn) => `
+    <div class="wz-sum-row${warn ? ' warn' : ''}">
+      <span class="wz-sum-ic">${_ic(ic, 13)}</span>
+      <span class="wz-sum-l">${label}</span>
+      <span class="wz-sum-v">${val}</span>
+    </div>`;
+
+  box.innerHTML = `
+    <div class="wz-sum-head">${_ic('list',13)} ملخّص البطولة</div>
+    ${row('users','الفرق', total + ' فريق')}
+    ${row('target','المجموعات', groups + ' × ' + (even ? per + ' فرق' : `${lo}–${hi} فرق`), !even)}
+    ${row('refresh','النظام', dbl ? 'ذهاب وإياب' : 'ذهاب فقط')}
+    ${row('clock','الجولات', rounds + ' جولة')}
+    ${totalMatches != null ? row('ball','مباريات المجموعات', totalMatches + ' مباراة') : ''}
+    ${row('check','المتأهلون', qualifiers + ' فريق' + (best ? ` (${groups}×${qN} + أفضل ${best})` : ''))}
+    ${!even ? `<div class="wz-sum-note">${_ic('alert',12)} العدد لا يقبل القسمة على ${groups} — ستكون المجموعات غير متساوية.</div>` : ''}
+    <div class="wz-sum-foot">${_ic('info',12)} تُنشأ المجموعات والشجرة فارغتين الآن، ثم تضيف الفرق وتوزّعها.</div>`;
+}
+window._wzRenderGroupsSummary = _wzRenderGroupsSummary;
 
 
 // ── كتلة الإعدادات المشتركة في المعالج (مدة الشوط + التشكيلة) ──
 // تظهر لكل الأنواع — كان المنظم يضطر لدخول الإعدادات بعد الإنشاء.
+/* ── عنوان قسم داخل الخطوة ٣ ──
+   الخطوة كانت قائمة حقول متتالية بلا فواصل: عدد الفرق ثم نوع المباريات
+   ثم المجموعات ثم الأسماء ثم المتأهلون ثم الشجرة ثم المدة ثم التشكيلة —
+   كتلة واحدة يصعب مسحها بالعين. الأقسام تجعل كل مجموعة إعدادات وحدة
+   مستقلّة بعنوان يشرح غرضها. */
+function _wzSec(icon, title, desc) {
+  return `<div class="wz-sec">
+    <span class="wz-sec-ic">${_ic(icon, 15)}</span>
+    <div>
+      <div class="wz-sec-t">${title}</div>
+      ${desc ? `<div class="wz-sec-d">${desc}</div>` : ''}
+    </div>
+  </div>`;
+}
+
 function _wzCommonSettingsHtml() {
   window._wzHalfDur   = window._wzHalfDur   || 45;
   window._wzSquadSize = window._wzSquadSize || 11;
@@ -543,7 +612,8 @@ function _wzCommonSettingsHtml() {
       <div style="font-size:10px;color:var(--gold2);margin-top:6px">ذهاب وإياب: كل دور يُلعب مباراتين، ويتأهل صاحب المجموع الكلي الأكبر (مثل دوري الأبطال)</div>
     </div>` : '';
   return `
-    <div class="form-group" style="margin-top:16px">
+    ${_wzSec('clock','إعدادات المباريات','المدة والتشكيلة وطريقة الحسم')}
+    <div class="form-group">
       <label class="form-label">مدة الشوط الواحد (دقيقة)</label>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px" id="wzDurGrid">
         ${durs.map(n => `<button type="button" class="type-card ${n===window._wzHalfDur?'selected':''}" style="padding:10px 4px;font-size:13px;font-weight:700" onclick="wzPickHalfDur(this,${n})">${n}</button>`).join('')}
@@ -636,7 +706,8 @@ function _wzRenderDynamicConfig() {
           value="${window._wzSwissMatches}" oninput="window._wzSwissMatches=parseInt(this.value)||8;_wzSwissMath()"/>
         <div style="font-size:10px;color:var(--muted);margin-top:6px">في النظام الأوروبي الجديد: 8 مباريات لكل فريق ضد خصوم مختلفين</div>
       </div>
-      <div class="form-group" style="margin-top:16px">
+      ${_wzSec('check','التأهّل للإقصاء','كم فريقاً يصعد من جدول الترتيب')}
+      <div class="form-group">
         <label class="form-label">عدد المتأهلين للإقصاء</label>
         <input type="number" class="form-input" id="wzSwissQualify" min="2" max="64" placeholder="مثال: 8"
           value="${window._wzSwissQualify}" oninput="window._wzSwissQualify=parseInt(this.value)||8;_wzSwissMath()"/>
@@ -657,6 +728,7 @@ function _wzRenderDynamicConfig() {
     if (!window._wzGroupNames || !window._wzGroupNames.length) window._wzGroupNames = ['A','B','C','D'];
 
     el.innerHTML = `
+      ${_wzSec('users','الفرق والمباريات','كم فريقاً يشارك، وكيف تُلعب مبارياتهم')}
       <div class="form-group">
         <label class="form-label">عدد الفرق المشاركة الكلي</label>
         <input type="number" class="form-input" min="2" max="256" placeholder="مثال: 24"
@@ -675,7 +747,8 @@ function _wzRenderDynamicConfig() {
         </div>
       </div>
 
-      <div class="form-group" style="margin-top:16px">
+      ${_wzSec('target','تقسيم المجموعات','عدد المجموعات وأسماؤها — يُحسب حجم كل مجموعة تلقائياً')}
+      <div class="form-group">
         <label class="form-label">عدد المجموعات</label>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px" id="wzGcGrid">
           ${[2,3,4,6,8].map(n => `<button type="button" class="type-card ${n===window._wzGroupsCount?'selected':''}" style="padding:12px 6px;font-size:13px;font-weight:700" onclick="wzPickGroupsCount(this,${n})">${n}</button>`).join('')}
@@ -689,7 +762,8 @@ function _wzRenderDynamicConfig() {
         <div id="wzGroupNamesBox" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;margin-top:8px"></div>
       </div>
 
-      <div class="form-group" style="margin-top:16px">
+      ${_wzSec('check','التأهّل للإقصاء','من يصعد من كل مجموعة، ومن أين تبدأ الشجرة')}
+      <div class="form-group">
         <label class="form-label">عدد المتأهلين من كل مجموعة</label>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px" id="wzQnGrid">
           ${[1,2,3,4].map(n => `<button type="button" class="type-card ${n===window._wzQualifyN?'selected':''}" style="padding:10px 6px;font-size:13px;font-weight:700" onclick="wzPickQualifyN(this,${n})">${n}</button>`).join('')}
@@ -716,9 +790,7 @@ function _wzRenderDynamicConfig() {
 
       ${_wzCommonSettingsHtml()}
 
-      <div style="background:rgba(201,160,43,.06);border:1px solid rgba(201,160,43,.15);border-radius:12px;padding:12px 14px;margin-top:16px;font-size:11px;color:var(--muted2);line-height:1.7">
-        ${_ic('bulb',13)} ستُنشأ المجموعات والشجرة فارغتين الآن بنفس الأرقام أعلاه. في الخطوة القادمة تضيف الفرق وتوزّعها على المجموعات بسهولة.
-      </div>`;
+      <div class="wz-summary" id="wzGroupsSummary"></div>`;
 
     _wzRegenGroupNames(window._wzGroupsCount);
     _wzUpdateGroupsMath();
@@ -728,12 +800,14 @@ function _wzRenderDynamicConfig() {
   if (_wzSelectedType === 'knockout') {
     window._wzBracketKey = window._wzBracketKey || 'qf';
     el.innerHTML = `
+      ${_wzSec('users','الفرق','عدد الفرق يحدّد من أي دور تبدأ الشجرة')}
       <div class="form-group">
         <label class="form-label">عدد الفرق المشاركة</label>
         <input type="number" class="form-input" min="2" max="256" placeholder="مثال: 8"
           value="${window._wzTeamsTotal || ''}" oninput="wzSetTeamsTotal(this.value)"/>
       </div>
-      <div class="form-group" style="margin-top:16px">
+      ${_wzSec('swords','شجرة الإقصاء','من أي دور تنطلق البطولة')}
+      <div class="form-group">
         <label class="form-label">بداية الشجرة من</label>
         ${_wzBracketOptionsHtml(window._wzBracketKey, 'wzKoBracketGrid')}
         <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.6">
@@ -775,8 +849,12 @@ async function _wzCreateGroupsAndBracket() {
   const batch = writeBatch(db);
   // المجموعات — فارغة دائماً هنا (لا توجد فرق مضافة بعد)
   for (let i = 0; i < groupsN; i++) {
+    /* `size` = سعة المجموعة المخطّطة من المعالج. بدونها كانت كل مجموعة
+       تسقط على الحدّ الافتراضي (4 فرق) مهما اختار المنظّم. */
     batch.set(doc(collection(db, 'leagues', LEAGUE_ID, 'groups')), {
-      name: names[i], icon: icons[i] || '👥', teamIds: [], qualify, order: i, createdAt: serverTimestamp(),
+      name: names[i], icon: icons[i] || '👥', teamIds: [], qualify,
+      size: Math.max(2, Math.ceil((window._wzTeamsTotal || 0) / groupsN)) || null,
+      order: i, createdAt: serverTimestamp(),
     });
   }
   // شجرة الإقصاء الفارغة — بنفس منطق معالج الإقصاء المستقل
@@ -867,6 +945,12 @@ window.wzConfirmFinal = async function() {
       type, typeLocked: true,
       plannedTeamsTotal: window._wzTeamsTotal || null,
       plannedGroupsCount: type === 'groups' ? (window._wzGroupsCount || null) : null,
+      /* 🔴 حجم المجموعة لم يكن يُحفظ إطلاقاً — فسعة كل مجموعة تسقط على
+         `|| 4` الافتراضية في `gaSave`/`gaOpen`، ويُمنع المنظّم من تجاوز
+         أربعة فرق مهما اختار في المعالج. نحسبه من العددين ونحفظه. */
+      groupSize: type === 'groups'
+        ? Math.max(2, Math.ceil((window._wzTeamsTotal || 0) / (window._wzGroupsCount || 1)))
+        : null,
       plannedQualifyN:   type === 'groups' ? (window._wzQualifyN || null) : null,
       plannedBestOf:     type === 'groups' ? (window._wzBestOf || 0) : null,
       swissMatchesPerTeam: type === 'swiss' ? (window._wzSwissMatches || 8) : null,
@@ -919,6 +1003,9 @@ window.wzConfirmFinal = async function() {
 
   } catch(e) {
     showWzError('خطأ في الإنشاء: ' + window._trErr(e));
+  } finally {
+    /* 🔴 كان التفعيل داخل `catch` وحده — فمسار النجاح يترك الزر معطّلاً
+       بلا مخرج. `finally` يضمن عودته في كل الحالات. */
     if(btn) { btn.disabled = false; btn.textContent = 'تأكيد وإنشاء البطولة'; }
   }
 };
@@ -963,7 +1050,10 @@ window.wzConfirmSetup = async function() {
 
   } catch(e) {
     showWzError('خطأ في الحفظ: ' + window._trErr(e));
-    if(btn) { btn.disabled = false; btn.textContent = '✅︎ تأكيد وابدأ'; }
+  } finally {
+    /* 🔴 كان التفعيل داخل `catch` وحده — فأي مسار لا يرمي خطأً (نجاح
+       جزئي · خروج مبكر بعد التعطيل) يترك الزر معطّلاً بلا مخرج. */
+    if (btn) { btn.disabled = false; btn.textContent = '✅︎ تأكيد وابدأ'; }
   }
 };
 
@@ -1554,40 +1644,205 @@ window._autoGenerateMatchesIfReady = async function () {
   }
 };
 
+/* ════════════════════════════════════════════════════════════════════
+ *  👥 شاشة إضافة الفرق — إدخال سريع بدل نافذة لكل فريق
+ *  ──────────────────────────────────────────────────────────────────
+ *  السابق: زرّ واحد يفتح نافذة الفريق، يملؤها المنظّم ويحفظ ويغلق… ثم
+ *  يعيدها ٢٤ مرة في بطولة من ٢٤ فريقاً. أربع خطوات × عدد الفرق.
+ *
+ *  الآن: حقل واحد في الشاشة نفسها — اكتب الاسم واضغط Enter، يُضاف الفريق
+ *  ويبقى المؤشر جاهزاً للتالي. ولمن يريد لصق قائمة جاهزة: زرّ إدخال
+ *  جماعي يقبل اسماً في كل سطر.
+ *
+ *  الشعار والتفاصيل تُضاف لاحقاً من صفحة الفرق — لا نُثقل خطوة البداية
+ *  بما يمكن تأجيله.
+ * ════════════════════════════════════════════════════════════════════ */
 function _renderForceTeamsGate(total) {
   let gate = document.getElementById('forceTeamsGate');
   if (!gate) {
     gate = document.createElement('div');
     gate.id = 'forceTeamsGate';
-    gate.style.cssText = 'position:fixed;inset:0;z-index:900;background:rgba(5,5,5,.97);display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;font-family:Tajawal,Tajawal,sans-serif;opacity:1;transition:opacity .3s';
+    gate.style.cssText = 'position:fixed;inset:0;z-index:900;background:rgba(5,5,5,.97);display:flex;align-items:flex-start;justify-content:center;padding:20px 16px 40px;overflow-y:auto;font-family:Tajawal,sans-serif;opacity:1;transition:opacity .3s';
     document.body.appendChild(gate);
   }
   gate.style.display = 'flex';
   gate.style.opacity = '1';
-  const remaining = Math.max(0, total - teams.length);
-  const pct = Math.min(100, Math.round((teams.length / total) * 100));
+
+  const have = teams.length;
+  const remaining = Math.max(0, total - have);
+  const pct = total ? Math.min(100, Math.round((have / total) * 100)) : 0;
+  const done = remaining === 0;
+  const ic = (n, sz, c) => (window.Icon ? window.Icon(n, sz || 16, c) : '');
+
   gate.innerHTML = `
-    <div style="max-width:460px;width:100%;text-align:center">
-      <div style="font-size:44px;margin-bottom:10px">👥</div>
-      <div style="font-size:17px;font-weight:900;color:var(--gold,#C9A02B);margin-bottom:8px">أضف الفرق المشاركة</div>
-      <div style="font-size:12px;color:var(--muted,#888);line-height:1.8;margin-bottom:18px">
-        حددت <strong style="color:var(--gold2,#f0c84a)">${total}</strong> فريق عند إعداد البطولة.
-        أضف بيانات كل فريق الآن — بعدها توزّعهم على المجموعات بضغطة واحدة، وتتولّد المباريات تلقائياً.
+    <div style="max-width:460px;width:100%;margin-top:8px">
+      <div style="text-align:center;margin-bottom:18px">
+        <div style="width:52px;height:52px;margin:0 auto 12px;border-radius:15px;display:flex;
+                    align-items:center;justify-content:center;background:rgba(201,160,43,.1);
+                    border:1px solid rgba(201,160,43,.25);color:var(--gold,#C9A02B)">${ic('users', 24)}</div>
+        <div style="font-size:17px;font-weight:900;color:var(--gold,#C9A02B);margin-bottom:7px">
+          ${done ? 'اكتملت الفرق' : 'أضف الفرق المشاركة'}</div>
+        <div style="font-size:11.5px;color:var(--muted,#888);line-height:1.85">
+          ${done
+            ? 'يمكنك الدخول للوحة الآن — الشعارات والتفاصيل تُضاف لاحقاً من صفحة الفرق.'
+            : `حدّدت <b style="color:var(--gold2,#f0c84a)">${total}</b> فريقاً عند الإعداد.<br>اكتب الاسم واضغط Enter — يُضاف ويبقى الحقل جاهزاً للتالي.`}
+        </div>
       </div>
-      <div style="background:var(--card2,#1a1a1a);border:1px solid var(--border2,#2a2a2a);border-radius:14px;padding:16px;margin-bottom:18px">
+
+      <!-- التقدّم -->
+      <div style="background:var(--card2,#1a1a1a);border:1px solid var(--border2,#2a2a2a);
+                  border-radius:14px;padding:14px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted,#888);margin-bottom:8px">
-          <span>التقدّم</span><span style="color:var(--gold,#C9A02B);font-weight:900">${teams.length} / ${total}</span>
+          <span>التقدّم</span>
+          <span style="color:${done ? 'var(--green,#27ae60)' : 'var(--gold,#C9A02B)'};font-weight:900">${have} / ${total}</span>
         </div>
         <div style="height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden">
-          <div style="height:100%;width:${pct}%;background:var(--gold,#C9A02B);border-radius:4px;transition:width .3s"></div>
+          <div style="height:100%;width:${pct}%;background:${done ? 'var(--green,#27ae60)' : 'var(--gold,#C9A02B)'};
+                      border-radius:4px;transition:width .3s"></div>
         </div>
       </div>
-      ${teams.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:18px">
-        ${teams.map(t => `<span style="font-size:11px;background:var(--card2,#1a1a1a);border:1px solid var(--border2,#2a2a2a);border-radius:20px;padding:5px 12px;color:var(--text,#eee)">${t.name}</span>`).join('')}
+
+      ${done ? '' : `
+      <!-- إدخال سريع -->
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input id="fgName" class="form-input" placeholder="اسم الفريق…" autocomplete="off"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickAdd()}"
+          style="flex:1;padding:13px;font-size:14px;font-weight:700"/>
+        <button class="btn btn-gold" onclick="fgQuickAdd()"
+          style="flex-shrink:0;padding:0 18px;font-size:14px;font-weight:900">إضافة</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn btn-outline" onclick="fgBulkOpen()" style="flex:1;padding:10px;font-size:11.5px">
+          ${ic('doc', 13)} لصق قائمة جاهزة</button>
+        <button class="btn btn-outline" onclick="openModal('modal-team')" style="flex:1;padding:10px;font-size:11.5px">
+          ${ic('settings', 13)} إضافة بالتفاصيل</button>
+      </div>`}
+
+      <!-- الفرق المضافة -->
+      ${have ? `
+      <div style="background:var(--card2,#1a1a1a);border:1px solid var(--border2,#2a2a2a);
+                  border-radius:14px;overflow:hidden;margin-bottom:16px">
+        <div style="padding:10px 13px;border-bottom:1px solid var(--border,#1f1f1f);
+                    font-size:11px;font-weight:800;color:var(--muted,#888)">الفرق المضافة</div>
+        <div style="max-height:38vh;overflow-y:auto">
+          ${teams.map((t, i) => `
+            <div style="display:flex;align-items:center;gap:9px;padding:9px 13px;
+                        border-bottom:1px solid var(--border,#1f1f1f)">
+              <span style="width:20px;font-size:10px;font-weight:800;color:var(--muted,#888);text-align:center">${i+1}</span>
+              <span style="flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--text,#eee);
+                           overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</span>
+              <button onclick="fgRemove('${t.id}')" title="حذف"
+                style="width:26px;height:26px;border-radius:7px;cursor:pointer;flex-shrink:0;display:flex;
+                       align-items:center;justify-content:center;background:rgba(192,57,43,.1);
+                       border:1px solid rgba(192,57,43,.3);color:#C0392B">${ic('close', 12, '#C0392B')}</button>
+            </div>`).join('')}
+        </div>
       </div>` : ''}
-      <button class="btn btn-gold" style="width:100%;padding:14px;font-size:14px;font-weight:900;border-radius:12px" onclick="openModal('modal-team')">+ إضافة فريق (باقي ${remaining})</button>
+
+      ${done ? `
+        <button class="btn btn-gold" onclick="fgFinish()"
+          style="width:100%;padding:15px;font-size:14px;font-weight:900;border-radius:12px">
+          ${ic('check', 16, '#000')} الدخول للوحة</button>
+      ` : `
+        <div style="text-align:center;font-size:11px;color:var(--muted,#888);line-height:1.8">
+          باقي <b style="color:var(--gold,#C9A02B)">${remaining}</b> ${remaining === 1 ? 'فريق' : 'فرق'}
+        </div>`}
     </div>`;
+
+  // المؤشر جاهز دائماً للاسم التالي — بلا نقرة إضافية
+  setTimeout(() => { document.getElementById('fgName')?.focus(); }, 40);
 }
+
+/* إضافة سريعة باسم فقط. التحقق من التكرار قبل الكتابة — إضافة فريقين
+   بنفس الاسم تربك كل شيء لاحقاً (الجداول والقوائم والمنتقيات). */
+window.fgQuickAdd = async function() {
+  const el = document.getElementById('fgName');
+  const name = (el?.value || '').trim();
+  if (!name) { el?.focus(); return; }
+  if (teams.some(t => String(t.name || '').trim() === name)) {
+    showToast(`«${name}» مضاف بالفعل`, 'error'); el.select(); return;
+  }
+  el.value = '';
+  try {
+    await addDoc(collection(db, 'leagues', LEAGUE_ID, 'teams'), {
+      name, logo: '⚽', p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0,
+      createdAt: serverTimestamp()
+    });
+  } catch (e) {
+    showToast('تعذّرت الإضافة: ' + window._trErr(e), 'error');
+    el.value = name;
+  }
+  el.focus();
+};
+
+// لصق قائمة جاهزة — اسم في كل سطر
+window.fgBulkOpen = function() {
+  document.getElementById('fgBulkOv')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'fgBulkOv';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;justify-content:center;font-family:Tajawal,sans-serif';
+  ov.innerHTML = `
+    <div style="width:100%;max-width:440px;background:var(--card,#141414);
+                border:1px solid var(--border2,#2a2a2a);border-radius:18px 18px 0 0;padding:16px">
+      <div style="font-size:14px;font-weight:900;color:var(--gold,#C9A02B);margin-bottom:5px">لصق قائمة الفرق</div>
+      <div style="font-size:10.5px;color:var(--muted,#888);line-height:1.8;margin-bottom:12px">
+        اسم فريق في كل سطر. الأسماء المكرّرة أو الموجودة تُتجاهَل تلقائياً.</div>
+      <textarea id="fgBulkTxt" class="form-input" rows="8" placeholder="الهلال&#10;النصر&#10;الاتحاد&#10;الأهلي"
+        style="resize:none;line-height:2;font-size:13px"></textarea>
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:14px">
+        <button class="btn btn-outline" onclick="document.getElementById('fgBulkOv').remove()">إلغاء</button>
+        <button class="btn btn-gold" onclick="fgBulkAdd()">إضافة الكل</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+  setTimeout(() => document.getElementById('fgBulkTxt')?.focus(), 50);
+};
+
+window.fgBulkAdd = async function() {
+  const raw = (document.getElementById('fgBulkTxt')?.value || '').split('\n')
+    .map(x => x.trim()).filter(Boolean);
+  if (!raw.length) { showToast('الصق الأسماء أولاً', 'error'); return; }
+
+  // إزالة التكرار داخل اللصق نفسه وما هو مضاف مسبقاً
+  const existing = new Set(teams.map(t => String(t.name || '').trim()));
+  const fresh = [];
+  raw.forEach(n => { if (!existing.has(n)) { existing.add(n); fresh.push(n); } });
+  if (!fresh.length) { showToast('كل الأسماء مضافة بالفعل', 'error'); return; }
+
+  try {
+    const batch = writeBatch(db);
+    fresh.forEach(name => {
+      batch.set(doc(collection(db, 'leagues', LEAGUE_ID, 'teams')), {
+        name, logo: '⚽', p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0,
+        createdAt: serverTimestamp()
+      });
+    });
+    await batch.commit();
+    document.getElementById('fgBulkOv')?.remove();
+    showToast(`✅︎ أُضيف ${fresh.length} ${fresh.length === 1 ? 'فريق' : 'فرق'}` +
+              (raw.length - fresh.length ? ` · تُجوهل ${raw.length - fresh.length} مكرّر` : ''), 'success');
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
+window.fgRemove = async function(teamId) {
+  try { await deleteDoc(doc(db, 'leagues', LEAGUE_ID, 'teams', teamId)); }
+  catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
+/* إنهاء الخطوة — نسجّلها فيختفي الحاجز، ولا نجبر على أي خطوة تالية. */
+window.fgFinish = async function() {
+  try {
+    await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'),
+      { teamsSetupDone: true, updatedAt: serverTimestamp() }, { merge: true });
+    settings.teamsSetupDone = true;
+  } catch (e) {}
+  const g = document.getElementById('forceTeamsGate');
+  if (g) { g.style.opacity = '0'; setTimeout(() => { g.style.display = 'none'; }, 260); }
+  showToast('✅︎ اكتملت الفرق — أكمل الإعدادات متى شئت', 'success');
+  try { window._autoGenerateMatchesIfReady && window._autoGenerateMatchesIfReady(); } catch (e) {}
+};
+
 
 // ═══════════════════════════════════════════════════════════════════
 // §  نظام لاعبي الفريق (Roster) — يُسجَّل مرة واحدة لكل فريق
@@ -3419,29 +3674,66 @@ function renderStandings() {
       : (b.gf - b.ga) - (a.gf - a.ga);
   });
 
+  /* ── جدول واحد لا جدولان ──
+     كان «الدوري الموحّد» يعرض جدول الترتيب **ولوحة متأهلين منفصلة تسرد
+     كل الفرق مرة ثانية** — تكرار كامل بمحاذاة مختلفة. الآن عمود الحالة
+     داخل الجدول نفسه: صفّ واحد لكل فريق، وضغطة عليه تفتح قائمة حالته. */
+  const isSw = (window.settings && window.settings.type) === 'swiss';
+  /* عرض العمود مضبوط على أطول شارة مختصرة («مستبعَد») — 78px كانت تدفع
+     الجدول لتمرير عرضي على شاشة 390px. */
+  /* 🔴 الشعار كان داخل خانة الاسم بمحاذاة نهائية (`justify-content:flex-end`)،
+     فموضعه يتبع **طول الاسم**: يتقدّم مع الأسماء القصيرة ويتأخّر مع
+     الطويلة. جعلناه عموداً مستقلاً بعرض ثابت، فتصطفّ كل الشعارات على
+     خطّ واحد مهما اختلفت الأسماء. */
+  /* مسار الشعار 22px بالضبط ليطابق `.sp-logo` — أي فرق بينهما يفيض
+     الشعار عن مساره فيزيح الصفّ عن الرأس. */
+  const COLS = isSw
+    ? '22px 22px minmax(0,1fr) 22px 22px 28px 32px 58px'
+    : '26px 22px minmax(0,1fr) 28px 28px 28px 28px 28px 36px';
+
   const html = `
-    <div class="sp-row sp-header" style="grid-template-columns:28px 1fr 30px 30px 30px 30px 30px 38px">
+    <div class="sp-row sp-header" style="grid-template-columns:${COLS};border-right:3px solid transparent">
       <span class="sp-pos" style="color:var(--gold);font-size:9px">#</span>
+      <span></span>
       <span class="sp-team" style="font-size:9px;color:var(--gold)">الفريق</span>
       <span class="sp-val" style="color:var(--gold);font-size:9px">ل</span>
       <span class="sp-val" style="color:var(--gold);font-size:9px">ف</span>
-      <span class="sp-val" style="color:var(--gold);font-size:9px">ت</span>
-      <span class="sp-val" style="color:var(--gold);font-size:9px">خ</span>
+      ${isSw ? '' : `<span class="sp-val" style="color:var(--gold);font-size:9px">ت</span>
+      <span class="sp-val" style="color:var(--gold);font-size:9px">خ</span>`}
       <span class="sp-val" style="color:var(--gold);font-size:9px">±</span>
       <span class="sp-pts" style="color:var(--gold);font-size:9px">ن</span>
+      ${isSw ? '<span class="sp-val" style="color:var(--gold);font-size:9px">الحالة</span>' : ''}
     </div>
     ${sorted.map((t, i) => {
-      const zc = getZoneColor(i);
+      /* 🔴 `getZoneColor` تُرجع 'transparent' للمراكز غير المشمولة بأي
+         منطقة — وكانت تُستعمل لوناً للنصّ، فيختفي رقم المركز والنقاط
+         **تماماً**. ومع نظام المناطق المرن (حيث ترك مراكز بلا تصنيف
+         مقصود) يعني ذلك اختفاء معظم الجدول. الشريط الجانبي وحده يأخذ
+         اللون؛ النصّ يأخذ لوناً مقروءاً دائماً. */
+      const zc  = getZoneColor(i);
+      const zOn = zc && zc !== 'transparent';
+      const txt = zOn ? zc : 'var(--text)';
+      const num = zOn ? zc : 'var(--muted)';
       const gd = t.gf - t.ga;
-      return `<div class="sp-row" style="grid-template-columns:28px 1fr 30px 30px 30px 30px 30px 38px;border-right:3px solid ${zc};cursor:pointer" onclick="adminOpenTeamInfo('${t.id}')">
-        <span class="sp-pos" style="color:${zc}">${i + 1}</span>
-        <span class="sp-team"><span class="sp-logo">${logoHtml(t.logo, 16, 4)}</span><span style="font-size:12px;font-weight:700">${t.name}</span><span style="font-size:11px;color:var(--muted);margin-inline-start:4px">ⓘ</span></span>
+      const stKey = isSw ? _swissStatusOf(t.id) : '';
+      const stm   = isSw ? _statusMeta(stKey) : null;
+      const seed  = (stm && stm.qualified) ? _swissQualifiedIds().indexOf(t.id) + 1 : 0;
+      return `<div class="sp-row" style="grid-template-columns:${COLS};border-right:3px solid ${zc};cursor:pointer" onclick="adminOpenTeamInfo('${t.id}')">
+        <span class="sp-pos" style="color:${num}">${i + 1}</span>
+        <span class="sp-logo">${logoHtml(t.logo, 22, 5)}</span>
+        <span class="sp-team"><span class="sp-nm">${t.name}</span></span>
         <span class="sp-val">${t.p || 0}</span>
         <span class="sp-val" style="color:var(--green)">${t.w || 0}</span>
-        <span class="sp-val">${t.d || 0}</span>
-        <span class="sp-val" style="color:var(--red)">${t.l || 0}</span>
+        ${isSw ? '' : `<span class="sp-val">${t.d || 0}</span>
+        <span class="sp-val" style="color:var(--red)">${t.l || 0}</span>`}
         <span class="sp-val" style="color:${gd > 0 ? 'var(--green)' : gd < 0 ? 'var(--red)' : '#888'}">${gd > 0 ? '+' + gd : gd}</span>
-        <span class="sp-pts" style="color:${zc}">${t.pts || 0}${_deductionBadge(t.id)}</span>
+        <span class="sp-pts" style="color:${txt}">${t.pts || 0}${_deductionBadge(t.id)}</span>
+        ${isSw ? `<span class="sp-val" onclick="event.stopPropagation();swissOpenStatusPicker('${t.id}')">
+          <span class="sp-st" style="${stKey
+            ? `color:${stm.color};background:${stm.color}1f;border-color:${stm.color}55` : ''}">${
+            stKey ? _statusIcon(stm, 10) + ((SW_SHORT[stKey] || stm.label) + (stm.qualified && seed ? ' ' + seed : '')) : 'تحديد'
+          }</span>
+        </span>` : ''}
       </div>`;
     }).join('')}`;
 
@@ -4368,18 +4660,185 @@ window.generateScorersCard = function() {
 };
 
 // ══ ADD MATCH ══
+/* ── قوائم الفرق في نافذة المباراة ──
+   كانت قائمة مسطّحة بكل الفرق بلا ترتيب: في بطولة من ٢٤ فريقاً على ٦
+   مجموعات يبحث المنظّم عن الفريق بين الجميع، ولا شيء يمنعه من اختيار
+   فريقين من مجموعتين مختلفتين — وهو خطأ شائع يفسد الجدول.
+
+   الآن مقسّمة بـ<optgroup> حسب المجموعات، وداخل كل مجموعة الفرق مرتّبة
+   أبجدياً. والفرق بلا مجموعة تُجمَع في مجموعة أخيرة صريحة بدل أن تختفي
+   بين الباقين. */
+/* ════════════════════════════════════════════════════════════════════
+ *  منتقي الفرق — قائمة مفتوحة مقسّمة بالمجموعات
+ *  ──────────────────────────────────────────────────────────────────
+ *  كان <select> يفتح لوحة نظام: المنظّم يضغط، يبحث في قائمة مسطّحة، ثم
+ *  يخرج فلا يرى إلا الاسم المختار وحده. في بطولة من ٦ مجموعات لا يعرف
+ *  أي فريق في أي مجموعة إلا بالحفظ.
+ *
+ *  الآن القائمة **معروضة مباشرة**: عنوان كل مجموعة وتحته فرقها، يضغط
+ *  الفريق فيُختار. والفريق المختار في الحقل الآخر يظهر معطّلاً فيستحيل
+ *  اختيار الفريق نفسه في الجهتين.
+ *
+ *  الـ<select> باقٍ مخفياً ويحمل القيمة — فكل الكود الذي يقرأ
+ *  `getElementById('matchHome').value` يعمل بلا تغيير.
+ * ════════════════════════════════════════════════════════════════════ */
+function _byName(a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'ar'); }
+
+// [{ name, teams:[] }] — مقسّمة بالمجموعات إن وُجدت، وإلا قائمة واحدة
+function _teamSections() {
+  const gs = window.adminGroups || [];
+  if (!gs.length || settings.type !== 'groups') {
+    return [{ name: '', teams: [...teams].sort(_byName) }];
+  }
+  const seen = new Set(), out = [];
+  [...gs].sort((a, b) => String(a.name||'').localeCompare(String(b.name||''), 'ar')).forEach(g => {
+    const list = (g.teamIds || []).map(id => teams.find(t => t.id === id)).filter(Boolean).sort(_byName);
+    if (!list.length) return;
+    list.forEach(t => seen.add(t.id));
+    out.push({ name: 'المجموعة ' + g.name, teams: list });
+  });
+  const rest = teams.filter(t => !seen.has(t.id)).sort(_byName);
+  if (rest.length) out.push({ name: 'بلا مجموعة', teams: rest });
+  return out;
+}
+window._teamSections = _teamSections;
+
+function _tpLogo(t) {
+  const lg = t.logo || '';
+  if (!lg) return '';
+  if (/^(data:|https?:|\/)/.test(lg))
+    return `<img src="${lg}" style="width:20px;height:20px;border-radius:5px;object-fit:cover">`;
+  if (lg.startsWith('#'))
+    return `<span style="width:20px;height:20px;border-radius:5px;background:${lg};display:block"></span>`;
+  return `<span style="font-size:15px;line-height:1">${lg}</span>`;   // إيموجي
+}
+
+/* رسم منتقي واحد. `other` = معرّف الحقل الآخر لتعطيل الفريق المختار فيه. */
+// مجموعة فريق معيّن (أو null)
+function _groupOfTeam(teamId) {
+  return (window.adminGroups || []).find(g => (g.teamIds || []).includes(teamId)) || null;
+}
+window._groupOfTeam = _groupOfTeam;
+
+/* هل نُلزم الفريقين بنفس المجموعة؟
+   نعم في نظام المجموعات — إلا في وضع «المباراة الفاصلة» الذي غرضه
+   بالتحديد مواجهة بين مجموعتين. */
+function _tpSameGroupOnly() {
+  return settings.type === 'groups'
+      && (window.adminGroups || []).length
+      && window._matchModalMode !== 'crossGroup';
+}
+
+/* ── شريط الاختيار الحالي ──
+   يُظهر المضيف والضيف كما اختارهما المنظّم، مع زرّ تبديل الأرضية —
+   فلا يحتاج لإلغاء الاثنين وإعادة اختيارهما بالترتيب المعكوس. */
+function _tpRenderPicked() {
+  const box = document.getElementById('tpPicked');
+  if (!box) return;
+  const h = document.getElementById('matchHome')?.value || '';
+  const a = document.getElementById('matchAway')?.value || '';
+  const nm = id => ((window.teams || []).find(t => t.id === id) || {}).name || '';
+
+  if (!h && !a) {
+    box.className = 'tp-picked tp-picked-empty';
+    box.innerHTML = `${window.Icon ? window.Icon('info', 13) : ''}
+      اضغط فريقين من <b>نفس المجموعة</b> — الأول مضيف والثاني ضيف`;
+    return;
+  }
+  box.className = 'tp-picked';
+  box.innerHTML = `
+    <div class="tp-pk-side">
+      <span class="tp-pk-lbl">المضيف</span>
+      <span class="tp-pk-nm${h ? '' : ' empty'}">${h ? nm(h) : '—'}</span>
+    </div>
+    <button type="button" class="tp-pk-swap" onclick="_tpSwap()" title="تبديل الأرضية"
+      ${(h && a) ? '' : 'disabled'}>${window.Icon ? window.Icon('refresh', 15) : '⇄'}</button>
+    <div class="tp-pk-side">
+      <span class="tp-pk-lbl">الضيف</span>
+      <span class="tp-pk-nm${a ? '' : ' empty'}">${a ? nm(a) : '—'}</span>
+    </div>`;
+}
+
+window._tpSwap = function() {
+  const h = document.getElementById('matchHome'), a = document.getElementById('matchAway');
+  if (!h || !a || !h.value || !a.value) return;
+  const tmp = h.value; h.value = a.value; a.value = tmp;
+  _renderTeamPicker();
+};
+
+/* ── القائمة الواحدة ──
+   كل المجموعات وفرقها. الضغط يختار: الأول مضيف، الثاني ضيف.
+   الضغط على مختار يلغيه. والفريق من مجموعة أخرى يُرفض برسالة صريحة. */
+function _renderTeamPicker() {
+  const host = document.getElementById('matchTeamsList');
+  if (!host) return;
+  const hv = document.getElementById('matchHome')?.value || '';
+  const av = document.getElementById('matchAway')?.value || '';
+
+  host.innerHTML = _teamSections().map(sec => `
+    ${sec.name ? `<div class="tp-head">${sec.name}<span>${sec.teams.length}</span></div>` : ''}
+    <div class="tp-grid">
+      ${sec.teams.map(t => {
+        const isH = t.id === hv, isA = t.id === av;
+        const cls = isH ? ' on home' : isA ? ' on away' : '';
+        return `<button type="button" class="tp-item${cls}" onclick="_tpPick('${t.id}')">
+          ${_tpLogo(t)}<span class="tp-name">${t.name}</span>
+          ${isH ? '<span class="tp-badge">مضيف</span>' : ''}
+          ${isA ? '<span class="tp-badge away">ضيف</span>' : ''}
+        </button>`;
+      }).join('')}
+    </div>`).join('');
+
+  _tpRenderPicked();
+  try { window._syncMatchLeg && window._syncMatchLeg(); } catch (e) {}
+}
+window._renderTeamPicker = _renderTeamPicker;
+
+window._tpPick = function(teamId) {
+  const H = document.getElementById('matchHome'), A = document.getElementById('matchAway');
+  if (!H || !A) return;
+
+  // إلغاء الاختيار عند الضغط على فريق مختار
+  if (H.value === teamId) { H.value = A.value; A.value = ''; _renderTeamPicker(); return; }
+  if (A.value === teamId) { A.value = ''; _renderTeamPicker(); return; }
+
+  // الخانة الأولى الفارغة
+  if (!H.value) { H.value = teamId; _renderTeamPicker(); return; }
+
+  /* الفريق الثاني: يجب أن يكون من مجموعة الأول. الرفض هنا **قبل** الحفظ
+     أوضح من تحذير بعده — والمنظّم يعرف السبب فوراً. */
+  if (_tpSameGroupOnly()) {
+    const g1 = _groupOfTeam(H.value), g2 = _groupOfTeam(teamId);
+    if (!g1 || !g2) {
+      showToast('أحد الفريقين غير موزَّع على مجموعة — وزّعه من صفحة المجموعات', 'error');
+      return;
+    }
+    if (g1.id !== g2.id) {
+      showToast(`الفريقان من مجموعتين مختلفتين (${g1.name} و${g2.name}) — اختر من نفس المجموعة`, 'error');
+      return;
+    }
+  }
+  A.value = teamId;
+  _renderTeamPicker();
+};
+
 function populateMatchSelects() {
+  /* 🔴 خيار فارغ في المقدّمة ضروري: `<select>` يختار أول خيار تلقائياً،
+     فكانت النافذة تفتح بفريقين **مُختارَين لم يخترهما أحد** (أول اسمين
+     أبجدياً) — وقد يحفظهما المنظّم دون أن ينتبه. الآن تفتح فارغة حتى
+     يختار بنفسه. */
+  const opts = '<option value=""></option>' + [...teams].sort(_byName)
+    .map(t => `<option value="${t.id}">${t.name}</option>`).join('');
   ['matchHome', 'matchAway'].forEach(id => {
     const sel = document.getElementById(id);
-    if(!sel) return;
+    if (!sel) return;
     const prev = sel.value;
-    sel.innerHTML = teams.map(t => {
-     const logoText = (t.logo && !t.logo.startsWith('data:') && !t.logo.startsWith('http')) ? t.logo : '';
-     return `<option value="${t.id}">${logoText ? logoText + ' ' : ''}${t.name}</option>`;
-   }).join('');
-    if(prev) sel.value = prev;
+    sel.innerHTML = opts;
+    sel.value = prev || '';
   });
+  _renderTeamPicker();
 }
+
 
 // ══ مولّد جدول الدوري الموحّد ══
 // كل فريق يلعب عدداً محدّداً من المباريات ضد خصوم مختلفين (بلا تكرار)، متوازن قدر الإمكان.
@@ -4463,6 +4922,25 @@ window.swissGenerateFixtures = async function() {
 };
 
 window.addMatch = async function() {
+  // ✅︎ حارس الضغط المزدوج — كان الزر يبقى قابلاً للضغط طول فترة الحفظ
+  // (تحقّق + احتمال نافذة تأكيد + كتابة على Firestore)، فضغطتان سريعتان
+  // (شائعتان على الجوال) كانتا تُنشئان مباراتين مكررتين لنفس الفريقين،
+  // أو تُسقطان نافذة تأكيد الأولى بصمت (confirmDialog تمسح أي نافذة سابقة
+  // دون أن ترد على وعدها). نقفل الزر من أول سطر حتى نهاية الدالة بكل مساراتها.
+  if (window._addMatchBusy) return;
+  window._addMatchBusy = true;
+  const _btnAM = document.getElementById('btnAddMatch');
+  const _btnAMLabel = _btnAM ? _btnAM.textContent : null;
+  if (_btnAM) { _btnAM.disabled = true; _btnAM.textContent = '⏳ جارٍ الحفظ...'; }
+  try {
+    await _addMatchInner();
+  } finally {
+    window._addMatchBusy = false;
+    if (_btnAM) { _btnAM.disabled = false; _btnAM.textContent = _btnAMLabel || '✓ إضافة المباراة'; }
+  }
+};
+
+async function _addMatchInner() {
   const homeId = document.getElementById('matchHome')?.value;
   const awayId = document.getElementById('matchAway')?.value;
 
@@ -4666,6 +5144,30 @@ window.addMatch = async function() {
       status: 'upcoming', createdAt: serverTimestamp()
     }));
     closeModal('modal-match');
+
+    /* ✅︎ إظهار المباراة الجديدة فوراً بدون أي خطوة يدوية ──
+       قسم المباريات مقسّم لتبويبات (الإقصاء / المباريات / المنتهية) وكل
+       تبويب يجمع مبارياته حسب الجولة، ويطوي تلقائياً أي جولة غير
+       "الجولة الحالية". فلو كان المنظّم واقفاً على تبويب أو جولة غير التي
+       أُضيفت لها المباراة، تُحفظ فعلياً لكن لا تظهر أمامه إلا بتدخّل يدوي.
+       نجبر الانتقال لمكان المباراة الجديدة بالضبط: التبويب الصحيح، وضع
+       "بالجولة" (حتى يتطابق مفتاح المجموعة مع ما يبنيه admin-matches-tabs.js)،
+       والجولة المعنية مفتوحة. */
+    window._amtTab = isCrossGroupPlayoff ? 'ko' : 'gr';
+    window._amtMode = 'round';
+    window._amtCollapsed = window._amtCollapsed || {};
+    const _revealKey = isCrossGroupPlayoff ? _cgLabel : ('الجولة ' + round);
+    window._amtCollapsed[_revealKey] = false;
+
+    /* 🔴 تصفير الفريقين بعد الحفظ ضروري: كانا يبقيان مُختارَين، فتُفتح
+       النافذة في المرة التالية بنفس المواجهة. وضغط «إضافة» فوراً يوقظ
+       حوار «بينهما مباراة بالفعل» — ولو لم ينتبه له المنظّم بدا الزر
+       معلّقاً على «جارٍ الحفظ…» بانتظار تأكيد لا يراه. */
+    ['matchHome','matchAway'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    try { window._renderTeamPicker && window._renderTeamPicker(); } catch (e) {}
+
     // إعادة تعيين الحقول الإضافية
     ['matchReferee','matchCommentator','matchLinesman1','matchLinesman2','matchSponsor','matchPhotographer','matchAnnouncer','matchAttendance','matchNotes'].forEach(id => {
       const el = document.getElementById(id); if(el) el.value = '';
@@ -4674,7 +5176,7 @@ window.addMatch = async function() {
     window._matchModalMode = 'normal';
     showToast(isCrossGroupPlayoff ? 'تمت إضافة المباراة الفاصلة ⚔️' : 'تمت إضافة المباراة ✓', 'success');
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
-};
+}
 
 // ══ AUTO SCHEDULE ══
 window.autoSchedule = async function() {
@@ -5224,7 +5726,15 @@ if (!window._escBound) {
 window.confirmDialog = function (opts) {
   const o = opts || {};
   return new Promise(resolve => {
+    // ✅︎ لو فيه نافذة تأكيد سابقة معلّقة، نرد على وعدها بـ false قبل حذفها
+    // من الـ DOM — قبل كان يُحذف العنصر فقط، فيبقى الوعد الأول معلّقاً للأبد
+    // (لا resolve ولا reject)، وأي كود ينتظره بـ await يتجمّد بصمت.
     document.getElementById('confirmDlgOv')?.remove();
+    if (typeof window._confirmDlgResolve === 'function') {
+      const prevResolve = window._confirmDlgResolve;
+      window._confirmDlgResolve = null;
+      prevResolve(false);
+    }
     const ov = document.createElement('div');
     ov.id = 'confirmDlgOv';
     ov.style.cssText = 'position:fixed;inset:0;z-index:100010;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:18px';
@@ -5239,8 +5749,14 @@ window.confirmDialog = function (opts) {
         </div>
       </div>`;
     document.body.appendChild(ov);
+    window._confirmDlgResolve = resolve;
 
-    const done = v => { ov.remove(); document.removeEventListener('keydown', onKey, true); resolve(v); };
+    const done = v => {
+      ov.remove();
+      document.removeEventListener('keydown', onKey, true);
+      if (window._confirmDlgResolve === resolve) window._confirmDlgResolve = null;
+      resolve(v);
+    };
     function onKey(e) {
       if (e.key === 'Escape') { e.stopPropagation(); done(false); }
       if (e.key === 'Enter')  { e.stopPropagation(); done(true); }
@@ -5820,14 +6336,12 @@ function _prefillMatchModal() {
     dIn.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
-  // لا يبدأ الفريقان متطابقين
-  const h = document.getElementById('matchHome'), a = document.getElementById('matchAway');
-  if (h && !h._legBound) { h._legBound = true; h.addEventListener('change', () => window._syncMatchLeg()); }
-  if (h && a && h.value && h.value === a.value && a.options.length > 1) {
-    const alt = [...a.options].find(o => o.value !== h.value);
-    if (alt) a.value = alt.value;
-  }
+  /* 🔴 كان هنا كود يمنع تطابق الفريقين يستعمل `h` و`a` — وقد أُزيل
+     تعريفهما عند التحوّل للمنتقي المفتوح، فيرمي «h is not defined»
+     ويقطع بقية التهيئة (رسم المنتقي وحساب دور المواجهة). النافذة تفتح
+     بلا اختيار مسبق أصلاً، فلا حاجة لهذا الفحص. */
 
+  _renderTeamPicker();
   window._syncMatchLeg();
 }
 window._prefillMatchModal = _prefillMatchModal;
@@ -10474,6 +10988,13 @@ window.poResetAll = async function() {
    qualified: هل يُحتسب الفريق متأهلاً لشجرة الإقصاء؟ */
 /* الأيقونات SVG من مكتبة المنصة (لا إيموجي): الإيموجي يختلف شكله وحجمه
    بين الأجهزة فيكسر انتظام الصفوف، وبعضه لا يُرسم أصلاً على أندرويد قديم. */
+/* أسماء مختصرة داخل جدول الترتيب — «متأهل مشروط» و«ملحق التأهّل»
+   يفيضان عن عرض العمود فيدفعان الجدول لتمرير عرضي. الاسم الكامل يبقى
+   في قائمة الاختيار حيث المساحة تتّسع له. */
+const SW_SHORT = { qualified:'متأهل', qualifiedC:'مشروط', playoff:'ملحق',
+                   eliminated:'خرج', withdrew:'منسحب', banned:'مستبعَد' };
+window.SW_SHORT = SW_SHORT;
+
 const TEAM_STATUSES = [
   { key: '',           label: 'بلا حالة',        ic: 'dot',    color: '#7f8c8d', qualified: false, desc: 'ما زال في المنافسة' },
   { key: 'qualified',  label: 'متأهل',           ic: 'check',  color: '#27ae60', qualified: true,  desc: 'يصعد لدور الإقصاء' },
@@ -10582,17 +11103,25 @@ window.adminApplyTeamStatus = async function(groupId, teamId, statusKey) {
     else if (k && k !== 'playoff') eliminated.push(id);
   });
 
+  /* 🔴 `qualificationPublished` لم يكن يُضبط في أي مكان — والواجهة تقول
+     «ينشرون تلقائياً بمجرد ما تحدد فريقاً متأهلاً». والنتيجة أن
+     `_getQualifiedPool()` (وشرطه `qualificationPublished === true`) يبقى
+     فارغاً للأبد، فلا يظهر أي متأهل في منتقي خانات الشجرة مهما حدّد
+     المنظّم. نضبطه تلقائياً عند وجود متأهل واحد على الأقل — كما تَعِد
+     الواجهة تماماً. */
   try {
     await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'groups', groupId), {
       teamStatus: map,
       qualifiedTeamIds: qualified,
       eliminatedTeamIds: eliminated,
+      ...(qualified.length && g.qualificationPublished !== true
+            ? { qualificationPublished: true } : {}),
       updatedAt: serverTimestamp()
     });
     document.getElementById('statusPickOv')?.remove();
-    showToast(statusKey
-      ? `${meta.label} — اضغط «اعتماد ونشر» ليظهر للجمهور`
-      : 'أُزيلت الحالة', 'success');
+    // النشر صار تلقائياً — الرسالة القديمة كانت تطلب خطوة لم تعد لازمة
+    showToast(statusKey ? `${meta.label} — ${_statusMeta(statusKey).qualified ? 'أُضيف للمتأهلين' : 'حُفظت الحالة'}`
+                        : 'أُزيلت الحالة', 'success');
   } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
@@ -10770,7 +11299,9 @@ window.openGroupAssign = function (groupId) {
   const pool = (window.teams || []).filter(t => !takenElsewhere.has(t.id));
 
   _gaSelected[groupId] = new Set(current);
-  const cap = g.size || g.capacity || (window.settings?.groupSize) || 4;
+  /* 0 = بلا حدّ. الافتراضي السابق (4) كان يقيّد كل بطولة لم تحفظ حجماً
+     — وهي كل البطولات، لأن الحقل لم يكن يُحفظ أصلاً. */
+  const cap = g.size || g.capacity || (window.settings?.groupSize) || 0;
 
   document.getElementById('gaOverlay')?.remove();
   const ov = document.createElement('div');
@@ -10784,7 +11315,7 @@ window.openGroupAssign = function (groupId) {
           style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border2,#2a2a2a);background:transparent;color:var(--muted,#888);cursor:pointer;font-size:15px">✕</button>
       </div>
       <div style="font-size:11px;color:var(--muted,#888);margin-bottom:12px">
-        اختر الفرق — <span id="gaCount" style="color:var(--gold,#C9A02B);font-weight:900">${current.size}</span> / ${cap}
+        اختر الفرق — <span id="gaCount" style="color:var(--gold,#C9A02B);font-weight:900">${current.size}</span>${cap ? ' / ' + cap : ''}
       </div>
       <div id="gaList" style="overflow-y:auto;flex:1;display:grid;gap:8px;padding-bottom:8px">
         ${pool.length ? pool.map(t => {
@@ -10815,7 +11346,8 @@ window.gaToggle = function (groupId, teamId, cap) {
   if (!sel) return;
   if (sel.has(teamId)) sel.delete(teamId);
   else {
-    if (sel.size >= cap) { showToast(`الحد الأقصى ${cap} فرق لهذه المجموعة`, 'error'); return; }
+    // cap = 0 يعني «بلا حدّ» — لا نمنع المنظّم من بناء مجموعة بأي حجم
+    if (cap && sel.size >= cap) { showToast(`الحد الأقصى ${cap} فرق لهذه المجموعة`, 'error'); return; }
     sel.add(teamId);
   }
   const on = sel.has(teamId);
@@ -10835,7 +11367,7 @@ window.gaSave = async function (groupId) {
   if (!sel) return;
   const ids = [...sel];
   const g = adminGroups.find(x => x.id === groupId);
-  const cap = g ? (g.size || g.capacity || (window.settings?.groupSize) || 4) : 0;
+  const cap = g ? (g.size || g.capacity || (window.settings?.groupSize) || 0) : 0;
 
   // ⚠️ تنبيه واضح لو العدد ناقص — مع السماح بالحفظ الجزئي
   if (cap && ids.length > 0 && ids.length < cap) {
@@ -10971,6 +11503,100 @@ function _swissQualifyTarget() {
 /* ── تبديل حالة فريق: متأهل / غير متأهل ──
    الترتيب مقصود: نضيف في نهاية القائمة، فيبقى ترتيب الاختيار محفوظاً
    ويُستعمل لاحقاً في القرعة. الإلغاء يزيل ويُبقي ترتيب الباقين. */
+/* ── حالة الفريق في الدوري الموحّد ──
+   كان زرّ «تحديد» ثنائياً: متأهل أو لا شيء. والواقع فيه أكثر — مشروط ·
+   ملحق · خارج · منسحب · مستبعَد. نستعمل نفس قائمة `TEAM_STATUSES`
+   المستخدمة في المجموعات فيكون النظام موحّداً في المنصة كلها.
+   الحالة تُحفظ في `settings.swissTeamStatus`، و`swissQualifiedIds`
+   تُشتقّ منها كاملةً — فلا ينقسم مصدر الحقيقة. */
+function _swissStatusOf(teamId) {
+  const m = (settings && settings.swissTeamStatus) || {};
+  if (m[teamId] != null) return m[teamId] || '';
+  // توافق: بطولات حُدِّد فيها المتأهلون قبل إضافة الحالات
+  return _swissQualifiedIds().includes(teamId) ? 'qualified' : '';
+}
+window._swissStatusOf = _swissStatusOf;
+
+window.swissOpenStatusPicker = function(teamId) {
+  const t = (teams || []).find(x => x.id === teamId);
+  if (!t) return;
+  const cur = _swissStatusOf(teamId);
+
+  document.getElementById('swStatusOv')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'swStatusOv';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100003;background:rgba(0,0,0,.82);display:flex;align-items:flex-end;justify-content:center';
+  ov.innerHTML = `
+    <div style="width:100%;max-width:440px;max-height:88vh;overflow-y:auto;
+                background:var(--card,#141414);border:1px solid var(--border2,#2a2a2a);
+                border-radius:18px 18px 0 0;padding:16px;font-family:Tajawal,sans-serif">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <span>${(window.logoHtml||(l=>''))(t.logo, 30, 7)}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:900;color:var(--text,#eee)">${t.name}</div>
+          <div style="font-size:10px;color:var(--muted,#888);margin-top:2px">حالة الفريق في البطولة</div>
+        </div>
+        <button onclick="document.getElementById('swStatusOv').remove()" title="إغلاق"
+          style="background:none;border:none;color:var(--muted,#888);cursor:pointer;padding:4px;display:flex">
+          ${window.Icon ? window.Icon('close', 18) : '✕'}</button>
+      </div>
+      <div style="font-size:10.5px;color:var(--muted,#888);margin:12px 0 10px">
+        المتأهلون يظهرون في شجرة الإقصاء بترتيب اختيارهم
+      </div>
+      ${TEAM_STATUSES.map(st => {
+        const on = st.key === cur;
+        return `
+        <div onclick="swissApplyStatus('${teamId}','${st.key}')"
+          style="display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:11px;
+                 padding:11px 12px;margin-bottom:7px;border-radius:11px;cursor:pointer;
+                 background:${on ? st.color + '14' : 'var(--card3,#1a1a1a)'};
+                 border:1px solid ${on ? st.color + '5c' : 'var(--border2,#2a2a2a)'}">
+          <span style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;
+                       justify-content:center;background:${st.color}1a;border:1px solid ${st.color}3d">
+            ${_statusIcon(st, 16)}</span>
+          <div style="min-width:0">
+            <div style="font-size:12.5px;font-weight:800;color:${on ? st.color : 'var(--text,#eee)'}">${st.label}</div>
+            <div style="font-size:9.5px;color:var(--muted,#888);margin-top:2px">${st.desc}</div>
+          </div>
+          <span style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+                       border:1.5px solid ${on ? st.color : 'var(--border2,#2a2a2a)'};
+                       background:${on ? st.color : 'transparent'}">
+            ${on && window.Icon ? window.Icon('check', 11, '#fff') : ''}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  document.body.appendChild(ov);
+  window.bindModalDismiss && window.bindModalDismiss(ov);
+};
+
+window.swissApplyStatus = async function(teamId, statusKey) {
+  const map = Object.assign({}, (settings && settings.swissTeamStatus) || {});
+  if (statusKey) map[teamId] = statusKey; else delete map[teamId];
+
+  /* المتأهلون يُشتقّون من الخريطة، مع **الحفاظ على ترتيب الاختيار
+     السابق** — لأن هذا الترتيب هو ما تعتمده قرعة الشجرة. */
+  const prev = _swissQualifiedIds();
+  const nowQ = (teams || []).map(t => t.id).filter(id => {
+    const k = (id === teamId) ? statusKey : (map[id] || '');
+    return _statusMeta(k).qualified;
+  });
+  const ids = prev.filter(id => nowQ.includes(id))
+    .concat(nowQ.filter(id => !prev.includes(id)));
+
+  const meta = _statusMeta(statusKey);
+  try {
+    await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'),
+      { swissTeamStatus: map, swissQualifiedIds: ids, updatedAt: serverTimestamp() }, { merge: true });
+    settings.swissTeamStatus = map;
+    settings.swissQualifiedIds = ids;
+    document.getElementById('swStatusOv')?.remove();
+    showToast(statusKey ? `${meta.label} — ${(teams.find(x=>x.id===teamId)||{}).name || ''}` : 'أُزيلت الحالة', 'success');
+    window.renderSwissQualifyPanel && window.renderSwissQualifyPanel();
+    window.renderStandings && window.renderStandings();   // الشارة داخل الجدول
+    if (typeof renderKnockoutAdmin === 'function') renderKnockoutAdmin();
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
 window.swissToggleQualified = async function(teamId) {
   if (!teamId) return;
   let ids = _swissQualifiedIds();
@@ -10984,6 +11610,7 @@ window.swissToggleQualified = async function(teamId) {
     settings.swissQualifiedIds = ids;
     showToast(was ? `أُلغي تأهّل ${t?.name || 'الفريق'}` : `✅︎ ${t?.name || 'الفريق'} متأهل (${ids.length})`, 'success');
     window.renderSwissQualifyPanel && window.renderSwissQualifyPanel();
+    window.renderStandings && window.renderStandings();   // الشارة داخل الجدول
     if (typeof renderKnockoutAdmin === 'function') renderKnockoutAdmin();
   } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
@@ -10995,10 +11622,12 @@ window.swissClearQualified = async function() {
     confirmText: 'نعم، امسح', danger: true }))) return;
   try {
     await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'),
-      { swissQualifiedIds: [], updatedAt: serverTimestamp() }, { merge: true });
+      { swissQualifiedIds: [], swissTeamStatus: {}, updatedAt: serverTimestamp() }, { merge: true });
     settings.swissQualifiedIds = [];
+    settings.swissTeamStatus = {};
     showToast('تم مسح التحديد', 'success');
     window.renderSwissQualifyPanel && window.renderSwissQualifyPanel();
+    window.renderStandings && window.renderStandings();   // الشارة داخل الجدول
     if (typeof renderKnockoutAdmin === 'function') renderKnockoutAdmin();
   } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
@@ -11014,12 +11643,18 @@ window.swissAutoTopN = async function(n) {
     return;
   }
   const ids = ordered.slice(0, target).map(t => t.id);
+  /* نُفرغ خريطة الحالات القديمة مع الكتابة — بقاياها من نسخة سابقة قد
+     تُربك أي قراءة لاحقة. المتأهلون الآن قائمة واحدة لا غير. */
+  const map = {};
+  ids.forEach(id => { map[id] = 'qualified'; });
   try {
     await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'),
-      { swissQualifiedIds: ids, updatedAt: serverTimestamp() }, { merge: true });
+      { swissQualifiedIds: ids, swissTeamStatus: map, updatedAt: serverTimestamp() }, { merge: true });
     settings.swissQualifiedIds = ids;
+    settings.swissTeamStatus = map;
     showToast(`✅︎ حُدّد أفضل ${target} حسب الترتيب`, 'success');
     window.renderSwissQualifyPanel && window.renderSwissQualifyPanel();
+    window.renderStandings && window.renderStandings();   // الشارة داخل الجدول
     if (typeof renderKnockoutAdmin === 'function') renderKnockoutAdmin();
   } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
@@ -11054,8 +11689,11 @@ function _swissStandingsOrder() {
 }
 window._swissStandingsOrder = _swissStandingsOrder;
 
-/* ── لوحة تحديد المتأهلين — تُحقن أعلى صفحة الترتيب في الدوري الموحّد ── */
-window.renderSwissQualifyPanel = function() {
+/* ── شريط علوي مختصر لا جدول ثانٍ ──
+   كان يسرد كل الفرق مرة أخرى فوق جدول الترتيب — تكرار كامل بمحاذاة
+   مختلفة (وهو «الجدولان المكرّران»). الحالة صارت عموداً داخل الجدول
+   نفسه، فلم يبقَ للشريط إلا عدّاد التقدّم وزرّا الاختصار. */
+window.renderSwissQualifyPanel = function () {
   const host = document.getElementById('swissQualifyPanel');
   if (!host) return;
   if (settings.type !== 'swiss') { host.innerHTML = ''; host.style.display = 'none'; return; }
@@ -11063,71 +11701,39 @@ window.renderSwissQualifyPanel = function() {
 
   const ids = _swissQualifiedIds();
   const target = _swissQualifyTarget();
-  const ordered = _swissStandingsOrder();
   const done = ids.length;
   const pct = target ? Math.min(100, Math.round(done / target * 100)) : 0;
+  const full = target && done === target;
 
-  const rows = ordered.map((t, i) => {
-    const on = ids.includes(t.id);
-    const seed = on ? ids.indexOf(t.id) + 1 : null;
-    const s = t._st || {};
-    return `
-      <div onclick="swissToggleQualified('${t.id}')"
-        style="display:flex;align-items:center;gap:9px;padding:9px 11px;cursor:pointer;
-               border-bottom:1px solid var(--border,#1f1f1f);
-               background:${on ? 'rgba(39,174,96,.07)' : 'transparent'}">
-        <span style="width:20px;text-align:center;font-size:11px;font-weight:800;color:var(--muted,#888)">${i + 1}</span>
-        <span style="width:26px;height:26px;flex-shrink:0;display:flex;align-items:center;justify-content:center">
-          ${logoHtml(t.logo, 24, 6)}</span>
-        <span style="flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--text,#eee);
-                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</span>
-        <span style="font-size:10px;color:var(--muted,#888);flex-shrink:0">${s.pts || 0} ن</span>
-        <span style="flex-shrink:0;width:74px;text-align:center;font-size:10px;font-weight:800;
-               padding:4px 8px;border-radius:20px;
-               ${on ? 'color:#27ae60;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.35)'
-                    : 'color:var(--muted,#777);background:rgba(255,255,255,.03);border:1px solid var(--border2,#2a2a2a)'}">
-          ${on ? 'متأهل #' + seed : 'تحديد'}</span>
-      </div>`;
-  }).join('');
-
-  host.innerHTML = `
-    <div style="background:var(--card2,#161616);border:1px solid var(--border2,#2a2a2a);
-                border-radius:16px;overflow:hidden;margin-bottom:14px">
-      <div style="padding:13px 14px;border-bottom:1px solid var(--border,#1f1f1f)">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-          <div>
-            <div style="font-size:13px;font-weight:900;color:var(--gold,#C9A02B)">🎯 المتأهلون لدور الإقصاء</div>
-            <div style="font-size:10.5px;color:var(--muted,#888);margin-top:3px">
-              اضغط أي فريق لتحديده — ترتيب الاختيار يُستعمل في القرعة</div>
-          </div>
-          <div style="text-align:center;flex-shrink:0">
-            <div style="font-size:19px;font-weight:900;color:${target && done === target ? '#27ae60' : 'var(--gold,#C9A02B)'}">${done}${target ? '<span style="font-size:12px;color:var(--muted,#888)">/' + target + '</span>' : ''}</div>
-            <div style="font-size:9px;color:var(--muted,#888)">محدَّد</div>
-          </div>
-        </div>
-        ${target ? `<div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px;margin-top:10px;overflow:hidden">
-          <div style="height:100%;width:${pct}%;background:${done === target ? '#27ae60' : 'var(--gold,#C9A02B)'};transition:width .3s"></div>
-        </div>` : ''}
-        <div style="display:flex;gap:7px;margin-top:11px">
-          <button onclick="swissAutoTopN(${target || 8})"
-            style="flex:2;padding:9px;border-radius:9px;border:1px solid rgba(201,160,43,.32);
-                   background:rgba(201,160,43,.09);color:var(--gold,#C9A02B);
-                   font-family:Tajawal,sans-serif;font-size:11px;font-weight:800;cursor:pointer">
-            ⚡ أفضل ${target || 8} تلقائياً</button>
-          <button onclick="swissClearQualified()"
-            style="flex:1;padding:9px;border-radius:9px;border:1px solid var(--border,#333);
-                   background:transparent;color:var(--muted,#888);
-                   font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer">مسح</button>
-        </div>
-      </div>
-      <div style="max-height:46vh;overflow-y:auto">${rows || ''}</div>
-      ${done ? `<div style="padding:11px 14px;border-top:1px solid var(--border,#1f1f1f);
-                  font-size:10.5px;color:var(--muted,#888);line-height:1.7">
-        المتأهلون جاهزون — افتح <b style="color:var(--gold,#C9A02B)">صفحة الإقصاء</b> واضغط أي خانة
-        لاختيارهم، أو استخدم <b style="color:var(--gold,#C9A02B)">التوزيع التلقائي</b> هناك.
-      </div>` : ''}
-    </div>`;
+  host.innerHTML =
+    '<div style="background:var(--card2);border:1px solid ' +
+      (full ? 'rgba(39,174,96,.3)' : 'var(--border2)') +
+      ';border-radius:14px;padding:13px 14px;margin-bottom:12px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+        '<div style="min-width:0">' +
+          '<div style="font-size:12.5px;font-weight:900;color:var(--gold)">المتأهلون لدور الإقصاء</div>' +
+          '<div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.6">' +
+            'اضغط <b style="color:var(--gold)">الحالة</b> بجانب أي فريق في الجدول لتحديده</div>' +
+        '</div>' +
+        '<div style="text-align:center;flex-shrink:0">' +
+          '<div style="font-size:19px;font-weight:900;color:' + (full ? 'var(--green)' : 'var(--gold)') + '">' +
+            done + (target ? '<span style="font-size:12px;color:var(--muted)">/' + target + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      (target
+        ? '<div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px;margin-top:10px;overflow:hidden">' +
+          '<div style="height:100%;width:' + pct + '%;background:' + (full ? 'var(--green)' : 'var(--gold)') +
+          ';transition:width .3s"></div></div>'
+        : '') +
+      '<div style="display:flex;gap:7px;margin-top:11px">' +
+        '<button class="btn btn-outline btn-sm" onclick="swissAutoTopN(' + (target || 8) + ')" style="flex:2">' +
+          '⚡ أفضل ' + (target || 8) + ' تلقائياً</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="swissClearQualified()" style="flex:1">مسح</button>' +
+      '</div>' +
+    '</div>';
 };
+
 
 // ✅︎ تجميع المتأهلين المعتمدين رسمياً من كل المجموعات (المصدر الوحيد لملء شجرة الإقصاء)
 function _getQualifiedPool() {
@@ -11230,12 +11836,12 @@ function renderKnockoutAdmin() {
   const _firstRd = [...adminKnockoutRounds].sort((a,b)=>(a.order??0)-(b.order??0))[0];
   const _slots   = _firstRd ? (_firstRd.slots || 0) : 0;
   const _needed  = _slots * 2;
-  const _canDraw = _firstRd && _free.length >= 2 && _placed.size === 0;
+  const _ready   = _needed > 0 && _free.length >= _needed;   // المتأهلون يكفون الدور الأول
   const _srcName = settings.type === 'swiss' ? 'جدول الترتيب' : 'المجموعات';
 
   const drawBar = `
     <div style="margin-bottom:14px;padding:12px 14px;background:var(--card2);
-      border:1px solid ${_canDraw ? 'rgba(201,160,43,.28)' : 'var(--border2)'};border-radius:12px">
+      border:1px solid ${_ready ? 'rgba(39,174,96,.28)' : 'var(--border2)'};border-radius:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
         <div style="min-width:0">
           <div style="font-size:12px;font-weight:800;color:var(--text)">🎯 المتأهلون الجاهزون</div>
@@ -11251,18 +11857,16 @@ function renderKnockoutAdmin() {
         </div>
       </div>
       <div style="display:flex;gap:7px;margin-top:11px">
-        <button onclick="adminAutoDrawBracket()" ${_canDraw ? '' : 'disabled'}
-          style="flex:2;padding:10px;border-radius:9px;font-family:Tajawal,sans-serif;font-size:11.5px;font-weight:800;
-          cursor:${_canDraw ? 'pointer' : 'not-allowed'};opacity:${_canDraw ? '1' : '.45'};
-          border:1px solid rgba(201,160,43,.35);background:rgba(201,160,43,.1);color:var(--gold)">
-          🎲 توزيع القرعة تلقائياً</button>
         ${settings.type === 'swiss' ? `<button onclick="showPage('standings',null)"
           style="flex:1;padding:10px;border-radius:9px;font-family:Tajawal,sans-serif;font-size:11.5px;font-weight:700;
           cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted)">
-          تحديد المتأهلين</button>` : ''}
+          تحديد المتأهلين من الترتيب</button>` : `<button onclick="showPage('groups',null)"
+          style="flex:1;padding:10px;border-radius:9px;font-family:Tajawal,sans-serif;font-size:11.5px;font-weight:700;
+          cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted)">
+          تحديد المتأهلين من المجموعات</button>`}
       </div>
-      ${_placed.size ? `<div style="font-size:9.5px;color:var(--muted);margin-top:8px;line-height:1.6">
-        التوزيع التلقائي متاح فقط والشجرة فارغة — امسحها بـ«إعادة بناء» لإعادة القرعة.</div>` : ''}
+      <div style="font-size:9.5px;color:var(--muted);margin-top:8px;line-height:1.7">
+        اضغط أي خانة في الشجرة لاختيار الفريق بنفسك — القرعة يدوية بالكامل.</div>
     </div>`;
 
   // ── تفعيل مباراة تحديد المركز الثالث ──────────────────────────
@@ -11575,7 +12179,26 @@ function _openBracketTeamPicker(pool, roundId, slotIdx) {
       <div style="font-size:10px;color:#888">${t.groupName}</div>
     </div>`).join('')
     : `<div style="text-align:center;padding:30px 14px;color:#888;font-size:12px;line-height:1.8">
-        لا يوجد متأهلون متاحون بعد.<br>اعتمد المتأهلين من صفحة المجموعات أولاً (زر «✅︎ اعتماد»).
+        ${/* 🔴 الرسالة كانت تُحيل دائماً إلى «صفحة المجموعات» — وهي غير
+             موجودة في «الدوري الموحّد». فالمنظّم يحدّد المتأهلين من جدول
+             الترتيب ثم يفتح الخانة فتخبره أن يذهب لمكان لا وجود له. */''}
+        ${settings.type === 'swiss'
+          ? `لا يوجد متأهلون متاحون بعد.<br>
+             حدّد المتأهلين من <b style="color:#C9A02B">جدول الترتيب</b> — اضغط عمود «الحالة» بجانب الفريق.
+             <div style="margin-top:14px">
+               <button onclick="_closeBracketPicker();showPage('standings',null)"
+                 style="padding:9px 16px;border-radius:9px;cursor:pointer;background:rgba(201,160,43,.1);
+                        border:1px solid rgba(201,160,43,.35);color:#C9A02B;font-family:Tajawal,sans-serif;
+                        font-size:11.5px;font-weight:800">فتح جدول الترتيب ←</button>
+             </div>`
+          : `لا يوجد متأهلون متاحون بعد.<br>
+             حدّد حالة الفرق في المجموعات ثم اضغط <b style="color:#C9A02B">«اعتماد ونشر»</b> للمجموعة.
+             <div style="margin-top:14px">
+               <button onclick="_closeBracketPicker();showPage('groups',null)"
+                 style="padding:9px 16px;border-radius:9px;cursor:pointer;background:rgba(201,160,43,.1);
+                        border:1px solid rgba(201,160,43,.35);color:#C9A02B;font-family:Tajawal,sans-serif;
+                        font-size:11.5px;font-weight:800">فتح المجموعات ←</button>
+             </div>`}
       </div>`;
   sheet.innerHTML = `
     <div style="background:#111318;border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:70vh;display:flex;flex-direction:column">
@@ -11665,110 +12288,9 @@ window._adminPickBracketTeam = async function(roundId, slotIdx, teamId) {
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
-/* ════════════════════════════════════════════════════════════════════
- *  🎲 التوزيع التلقائي لقرعة الدور الأول
- *  ──────────────────────────────────────────────────────────────────
- *  أكبر تسهيل للمنظّم: بدل فتح كل خانة واختيار فريقين يدوياً (32 نقرة
- *  في دور الـ16)، تُوزَّع القرعة كاملة بضغطة واحدة.
- *
- *  نظام التوزيع «الأول ضد الأخير» (كقرعة البطولات الرسمية):
- *    ١ × الأخير · ٢ × ما قبل الأخير · ٣ × … — فيلتقي المتصدّر بأضعف
- *    متأهل، وهو ما يكافئ الأداء في الدور الأول. الترتيب المعتمد هو
- *    ترتيب المتأهلين كما اختارهم المنظّم (أو ترتيب المجموعات).
- * ════════════════════════════════════════════════════════════════════ */
-window.adminAutoDrawBracket = async function() {
-  const rounds = [...adminKnockoutRounds].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const first = rounds[0];
-  if (!first) { showToast('لا توجد أدوار — أنشئ الشجرة أولاً', 'error'); return; }
+/* (أُزيل التوزيع التلقائي للقرعة — القرعة يدوية بالكامل في كل
+   أنواع الشجرة، بطلب المنظّم: الترتيب التلقائي لم يكن محرَجاً بحاجته.) */
 
-  // شرط السلامة: لا نوزّع فوق شجرة فيها فرق موضوعة — كي لا نكرّر فريقاً
-  if (_getPlacedKnockoutTeamIds().size > 0) {
-    showToast('الشجرة تحتوي فرقاً بالفعل — استخدم «إعادة بناء» أولاً', 'error');
-    return;
-  }
-
-  const pool = _getQualifiedPool();
-  if (pool.length < 2) {
-    showToast(settings.type === 'swiss'
-      ? 'حدّد المتأهلين من جدول الترتيب أولاً'
-      : 'اعتمد متأهلي المجموعات أولاً', 'error');
-    return;
-  }
-
-  const slots = first.slots || 0;
-  const capacity = slots * 2;
-  /* عدد فردي أو زائد عن سعة الدور: نأخذ ما يملأ الخانات كاملة فقط.
-     المتبقّي يبقى للمنظّم يضعه يدوياً — لا نخمّن نيابةً عنه. */
-  const usable = Math.min(pool.length - (pool.length % 2), capacity);
-  if (usable < 2) { showToast('المتأهلون غير كافين', 'error'); return; }
-
-  const pairsCount = usable / 2;
-  const list = pool.slice(0, usable);
-  const preview = [];
-  for (let i = 0; i < pairsCount; i++) {
-    preview.push(`${list[i].name} × ${list[usable - 1 - i].name}`);
-  }
-
-  const extra = pool.length - usable;
-  const ok = await window.confirmDialog({
-    title: '🎲 توزيع القرعة',
-    message:
-      `سيُوزَّع ${usable} فريقاً على ${pairsCount} مواجهة في «${first.name}»` +
-      (extra ? `\n(${extra} فريق زائد يبقى بلا خانة — ضعه يدوياً)` : '') +
-      `\n\nنظام «الأول ضد الأخير»:\n` + preview.slice(0, 8).join('\n') +
-      (preview.length > 8 ? `\n… و${preview.length - 8} مواجهة أخرى` : ''),
-    confirmText: 'وزّع الآن'
-  });
-  if (!ok) return;
-
-  const twoLegs = !!(settings && settings.koTwoLegs);
-  try {
-    showToast('⏳ جارِ التوزيع...', 'success');
-    const batch = writeBatch(db);
-    const newIds = [];
-
-    for (let i = 0; i < pairsCount; i++) {
-      const home = list[i], away = list[usable - 1 - i];
-      const base = (extraFields) => _lightMatch({
-        homeScore: null, awayScore: null,
-        isKnockout: true, knockoutRoundId: first.id, knockoutRoundName: first.name || '',
-        knockoutSlot: i,
-        round: first.order ?? 0,
-        date: null, time: null, venue: null,
-        status: 'upcoming', createdAt: serverTimestamp(),
-        ...extraFields
-      });
-
-      const r1 = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
-      batch.set(r1, base({
-        homeId: home.id, homeName: home.name, homeLogo: home.logo || '⚽',
-        awayId: away.id, awayName: away.name, awayLogo: away.logo || '⚽',
-        ...(twoLegs ? { legNo: 1, leg: 1, knockoutRoundName: (first.name || '') + ' — الذهاب' } : {})
-      }));
-      newIds.push(r1.id);
-
-      if (twoLegs) {
-        const r2 = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
-        batch.set(r2, base({
-          homeId: away.id, homeName: away.name, homeLogo: away.logo || '⚽',
-          awayId: home.id, awayName: home.name, awayLogo: home.logo || '⚽',
-          legNo: 2, leg: 2, knockoutRoundName: (first.name || '') + ' — الإياب'
-        }));
-        newIds.push(r2.id);
-      }
-    }
-
-    batch.update(doc(db, 'leagues', LEAGUE_ID, 'knockoutRounds', first.id), {
-      matchIds: [...(first.matchIds || []), ...newIds],
-      slotPicks: {},
-      updatedAt: serverTimestamp()
-    });
-    await batch.commit();
-    showToast(`✅︎ وُزّعت ${pairsCount} مواجهة${twoLegs ? ' (ذهاب وإياب)' : ''} — راجعها ثم انشر الشجرة`, 'success');
-  } catch (e) {
-    showToast('تعذّر التوزيع: ' + window._trErr(e), 'error');
-  }
-};
 
 /* ════════════════════════════════════════════════════════════════════
  *  📅 مواعيد مباريات الشجرة — تحديد جماعي بنافذة واحدة
@@ -16287,4 +16809,146 @@ window.importRosterToLineup = function(teamId) {
     field.value = story;
     window.showToast && window.showToast('✨ تم توليد القصة — يمكنك تعديلها', 'success');
   };
+})();
+/* ════════════════════════════════════════════════════════════════════
+ *  🛡 حارس الحفظ المزدوج
+ *  ──────────────────────────────────────────────────────────────────
+ *  المشكلة: أي دالة إنشاء/حفظ تنتظر Firestore (`await`). لو تأخّرت
+ *  الشبكة ثانيةً، ضغط المنظّم الزر مرة أخرى — فتُنفَّذ الدالة **مرة
+ *  ثانية على التوازي** ويُنشأ سجلّ مكرّر. ومع ثلاث نقرات: ثلاث نسخ.
+ *  وهذا يفسّر تماماً «أضغط الحفظ أكثر من مرة ويتكرر كثير».
+ *
+ *  الحل: غلاف واحد يلفّ كل دوالّ الإنشاء والحفظ:
+ *   ① **قفل إعادة الدخول** — النقرة الثانية أثناء التنفيذ تُتجاهَل تماماً.
+ *   ② **تعطيل الزر بصرياً** مع نص «جارٍ الحفظ…» — فيرى المنظّم أن شيئاً
+ *     يحدث ولا يظنّ أن الضغطة ضاعت.
+ *   ③ **الإفراج مضمون** عبر `finally` — حتى لو رمت الدالة خطأً، فلا يبقى
+ *     الزر معطّلاً للأبد.
+ *
+ *  الغلاف يُطبَّق على `window.X` وكل الأزرار تناديها عبر `onclick`،
+ *  فيصلها الغلاف حتماً.
+ * ════════════════════════════════════════════════════════════════════ */
+(function () {
+  const NAMES = [
+    'addTeam', 'addMatch', 'adminAddGroup', 'addRosterPlayer', 'savePlayerProfile',
+    'saveEditTeam', 'saveZoneRules', 'saveSettings', 'saveKoSchedule',
+    'poCreateSection', 'poGenerateMatches', 'poResetAll', 'adminConfirmBracketCreate',
+    'saveDeduction', 'autoSchedule', 'swissGenerateFixtures',
+    'saveNewPassword', 'uploadRosterPhoto', 'removeRosterPhoto'
+  ];
+
+  const busy = new Set();
+  const startedAt = {};
+
+  /* ⚠️ لا نستعمل `disabled` إطلاقاً.
+     تعطيل الزر يجعل أي تسريب في القفل **بلا مخرج**: الزر يبدو ميتاً ولا
+     شيء يعيده. الآن الزر يبقى قابلاً للنقر، ومنع التكرار يتكفّل به
+     `busy` وحده — ونقرة ثانية بعد ثانيتين تفكّ قفلاً عالقاً (انظر أدناه).
+     النتيجة: لا حالة يبقى فيها الزر معطّلاً مهما حدث. */
+  function lockBtn(el) {
+    if (!el || el.tagName !== 'BUTTON') return null;
+    const prev = { html: el.innerHTML, op: el.style.opacity };
+    el.style.opacity = '.65';
+    el.style.cursor = 'progress';
+    el.style.minWidth = el.offsetWidth + 'px';   // لا يقفز التخطيط
+    el.innerHTML = 'جارٍ الحفظ…';
+    return prev;
+  }
+  function unlockBtn(el, prev) {
+    if (!el || !prev) return;
+    el.style.opacity = prev.op;
+    el.style.cursor = '';
+    el.style.minWidth = '';
+    el.innerHTML = prev.html;
+  }
+
+  /* الزر المضغوط: نلتقطه من حدث النقر الجاري لا من activeElement —
+     لأن بعض المتصفحات على الجوال لا تُركّز الزر عند اللمس. */
+  let lastBtn = null;
+  document.addEventListener('click', e => {
+    const b = e.target && e.target.closest ? e.target.closest('button') : null;
+    lastBtn = b || null;
+  }, true);
+
+  function wrap(name) {
+    const orig = window[name];
+    if (typeof orig !== 'function' || orig.__guarded) return;
+
+    const guarded = async function (...args) {
+      /* نقرة مكرّرة أثناء التنفيذ تُتجاهَل — إلا إن مضت ثانيتان، فالأرجح
+         أن القفل عالق لا أن العملية ما زالت تعمل. هذا مخرج المنظّم من أي
+         تسريب محتمل بلا انتظار المهلة الطويلة. */
+      const since = Date.now() - (startedAt[name] || 0);
+      if (busy.has(name)) {
+        if (since < 2000) return;
+        busy.delete(name);
+        try { window.showToast && window.showToast('أُعيدت المحاولة', 'error'); } catch (_) {}
+      }
+      busy.add(name);
+      startedAt[name] = Date.now();
+      const btn = lastBtn;
+      const prev = lockBtn(btn);
+
+      /* ⏱ حارس زمني — بلا هذا يبقى الزر «جارٍ الحفظ…» **للأبد** لو تعطّلت
+         الشبكة أو لم يعد Firestore ردّاً: لا رسالة ولا سبيل لإعادة
+         المحاولة. القفل يُفكّ بعد 15 ثانية مع إخبار المنظّم، فيقرّر
+         بنفسه هل يعيد المحاولة. (العملية قد تكتمل لاحقاً — لذا الرسالة
+         تطلب التحقّق قبل الإعادة، لا تجزم بالفشل.) */
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        busy.delete(name);
+        unlockBtn(btn, prev);
+      };
+      /* حوار تأكيد مفتوح = العملية بانتظار المنظّم لا بانتظار الشبكة.
+         نغيّر نصّ الزر ليعرف أن الكرة في ملعبه، ونوقف العدّاد. */
+      const poll = setInterval(() => {
+        if (released) { clearInterval(poll); return; }
+        const waiting = !!document.getElementById('confirmDlgOv');
+        if (btn && waiting && btn.innerHTML !== 'بانتظار تأكيدك…') btn.innerHTML = 'بانتظار تأكيدك…';
+        else if (btn && !waiting && btn.innerHTML === 'بانتظار تأكيدك…') btn.innerHTML = 'جارٍ الحفظ…';
+      }, 300);
+
+      /* ⏱ الحارس الزمني — **يُعاد جدولته** ما دام حوار التأكيد مفتوحاً.
+         الإصدار السابق كان لقطة واحدة: لو صادف الحوار مفتوحاً عند انتهاء
+         المهلة، عاد دون إفراج **ولم يُجدوَل ثانيةً** — فيبقى الزر معطّلاً
+         للأبد. الآن لا مسار يترك القفل قائماً. */
+      let watchdog;
+      const arm = (ms) => {
+        watchdog = setTimeout(() => {
+          if (released) return;
+          if (document.getElementById('confirmDlgOv')) { arm(5000); return; }
+          release();
+          try {
+            window.showToast && window.showToast(
+              'الاتصال بطيء — تحقّق من النتيجة قبل إعادة المحاولة', 'error');
+          } catch (_) {}
+        }, ms);
+      };
+      arm(15000);
+
+      try {
+        return await orig.apply(this, args);
+      } catch (e) {
+        try { window.showToast && window.showToast('تعذّر التنفيذ: ' + (window._trErr ? window._trErr(e) : e.message), 'error'); } catch (_) {}
+        throw e;
+      } finally {
+        clearTimeout(watchdog);
+        clearInterval(poll);
+        release();
+      }
+    };
+    guarded.__guarded = true;
+    window[name] = guarded;
+  }
+
+  // نلفّها بعد تحميل كل السكربتات — بعضها يُعرَّف متأخراً
+  function applyAll() { NAMES.forEach(wrap); }
+  if (document.readyState === 'complete') setTimeout(applyAll, 0);
+  else window.addEventListener('load', () => setTimeout(applyAll, 0));
+  // ومحاولة ثانية بعد ثانية لالتقاط ما عُرّف داخل وحدات مؤجَّلة
+  setTimeout(applyAll, 1200);
+
+  window._guardSaveFns = applyAll;
 })();

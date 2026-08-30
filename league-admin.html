@@ -17,7 +17,7 @@ if('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
-<link rel="stylesheet" href="./admin.css?v=269"/>
+<link rel="stylesheet" href="./admin.css?v=270"/>
 <!-- SheetJS: لإنشاء/قراءة ملفات Excel (قالب واستيراد اللاعبين) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1329,59 +1329,78 @@ if('serviceWorker' in navigator) {
   </div>
 </div>
 
+<!-- ══════════ نافذة المباراة — إعادة بناء كاملة (MM2) ══════════
+     بطاقة مواجهة بالأعلى (المضيف × الضيف) تتحدّث مع كل اختيار، وتحتها
+     بحث وقائمة فرق كأزرار. لا حوارات تأكيد إطلاقاً: كل تحقّق يظهر في
+     شريط حيّ داخل النافذة، ونصّ زر الحفظ نفسه يعكس الحالة.
+     كل الأزرار بلا onclick — التقاطها بالتفويض في admin.js (mm2Handle). -->
 <div class="modal-overlay" id="modal-match">
-  <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto">
-    <div class="modal-header"><div class="modal-title">➕︎ إضافة مباراة</div><button class="modal-close" onclick="closeModal('modal-match')">✕</button></div>
-    <div class="modal-body">
-      <!-- ══ كل الحقول ظاهرة، وكل حقل في سطر مستقلّ ══
-           سبب التغيير: كانت الحقول مزدوجة في صفٍّ واحد (form-row بعمودين).
-           على الجوال يصير عرض الحقل ~150px، فحقلا التاريخ والوقت — وهما
-           input[type=date/time] بواجهة نظام لها عرض أدنى ثابت — يفيضان
-           عن خانتيهما فيتداخل النص مع أيقونة التقويم ويبدو "خبصاً".
-           سطر لكل حقل = عرض كامل مضمون لكل واحد، ولا تداخل مهما ضاقت الشاشة. -->
+  <div class="modal-box mm2-box">
+    <div class="mm2-head">
+      <div class="mm2-title" id="mm2Title">إضافة مباراة</div>
+      <button type="button" class="mm2-close" data-mm2-close="1" aria-label="إغلاق">✕</button>
+    </div>
 
-      <div class="mm-sec"><span class="tg-ic" data-ic="ball"></span>الفريقان</div>
-      <!-- ── قائمة واحدة لكل المجموعات ──
-           اضغط فريقين من **نفس المجموعة**: الأول مضيف والثاني ضيف.
-           اختيار فريق من مجموعة أخرى يُرفض فوراً برسالة.
-           الحقلان المخفيان يحملان القيمة فيبقى بقية الكود يعمل بلا تغيير. -->
+    <div class="modal-body mm2-body">
+      <!-- حقلان مخفيان للتوافق مع بقية المنصة -->
       <select id="matchHome" style="display:none"></select>
       <select id="matchAway" style="display:none"></select>
-      <div id="tpPicked" class="tp-picked"></div>
-      <div class="tp-list" id="matchTeamsList"></div>
 
-      <div class="mm-sec">📅 الوقت والمكان</div>
-      <div class="form-group"><label class="form-label">📆 التاريخ</label><input class="form-input" type="date" id="matchDate"/></div>
-      <div class="form-group"><label class="form-label">🕓 الوقت</label><input class="form-input" type="time" id="matchTime" value="16:00"/></div>
-      <div class="form-group"><label class="form-label">🏟 الملعب</label><input class="form-input" id="matchVenue" value="ملعب الحارة"/></div>
-      <div class="form-group" id="matchRoundGroup"><label class="form-label"><span class="tg-ic" data-ic="target"></span>رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1" inputmode="numeric" oninput="_syncMatchLeg()"/></div>
-      <!-- دور المواجهة: يظهر فقط في بطولات «ذهاب وإياب»، ويُحسب تلقائياً من رقم الجولة -->
-      <div class="form-group" id="matchLegGroup" style="display:none">
-        <label class="form-label"><span class="tg-ic" data-ic="refresh"></span>دور المواجهة</label>
-        <select class="form-select" id="matchLeg">
-          <option value="auto">تلقائي (حسب رقم الجولة)</option>
-          <option value="1">ذهاب</option>
-          <option value="2">إياب</option>
-        </select>
-        <div id="matchLegHint" style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.7"></div>
+      <div class="mm2-cg" id="mm2CgHint" style="display:none">
+        ⚔️ مباراة قرار بين فريقين من مجموعتين مختلفتين — تقبل التعادل وركلات الترجيح،
+        ولا تُحتسب في ترتيب أي مجموعة.
       </div>
 
-      <div class="mm-sec">👔 طاقم المباراة <span class="mm-opt">(اختياري)</span></div>
-      <div class="form-group"><label class="form-label">🏁 الحكم الرئيسي</label><input class="form-input" id="matchReferee" placeholder="اسم الحكم"/></div>
-      <div class="form-group"><label class="form-label">🎙 المعلق</label><input class="form-input" id="matchCommentator" placeholder="اسم المعلق"/></div>
-      <div class="form-group"><label class="form-label">🚩 حكم الخط الأول</label><input class="form-input" id="matchLinesman1" placeholder="الاسم"/></div>
-      <div class="form-group"><label class="form-label">🚩 حكم الخط الثاني</label><input class="form-input" id="matchLinesman2" placeholder="الاسم"/></div>
+      <!-- بطاقة المواجهة -->
+      <div class="mm2-vs" id="mm2Vs"></div>
 
-      <div class="mm-sec">🏅 الرعاة والإضافات <span class="mm-opt">(اختياري)</span></div>
-      <div class="form-group"><label class="form-label">🏅 الراعي الرئيسي</label><input class="form-input" id="matchSponsor" placeholder="اسم الراعي"/></div>
-      <div class="form-group"><label class="form-label">📸 المصور</label><input class="form-input" id="matchPhotographer" placeholder="اسم المصور"/></div>
-      <div class="form-group"><label class="form-label">🎤 مذيع الملعب</label><input class="form-input" id="matchAnnouncer" placeholder="اسم المذيع"/></div>
-      <div class="form-group"><label class="form-label">👥 عدد الجمهور</label><input class="form-input" type="number" id="matchAttendance" placeholder="500" inputmode="numeric"/></div>
-      <div class="form-group"><label class="form-label">📝 ملاحظات (تظهر للجمهور)</label><textarea class="form-input" id="matchNotes" rows="2" placeholder="أي ملاحظات إضافية..." style="resize:none"></textarea></div>
+      <!-- شريط الحالة الحيّ -->
+      <div class="mm2-notice" id="mm2Notice" style="display:none"></div>
+
+      <!-- البحث + القائمة -->
+      <div class="mm2-searchwrap">
+        <input class="mm2-search" id="mm2Search" type="text" placeholder="ابحث عن فريق…" autocomplete="off"/>
+      </div>
+      <div class="mm2-teams" id="mm2Teams"></div>
+
+      <!-- الأساسيات -->
+      <div class="mm2-grid">
+        <div class="mm2-f"><label>📆 التاريخ</label><input type="date" id="matchDate"/></div>
+        <div class="mm2-f"><label>🕓 الوقت</label><input type="time" id="matchTime" value="16:00"/></div>
+        <div class="mm2-f mm2-wide"><label>🏟 الملعب</label><input id="matchVenue" value="ملعب الحارة"/></div>
+        <div class="mm2-f" id="matchRoundGroup"><label>🎯 الجولة</label>
+          <input type="number" id="matchRound" value="1" min="1" inputmode="numeric"/></div>
+        <div class="mm2-f" id="matchLegGroup" style="display:none"><label>🔁 الدور</label>
+          <select id="matchLeg">
+            <option value="auto">تلقائي</option>
+            <option value="1">ذهاب</option>
+            <option value="2">إياب</option>
+          </select>
+          <div id="matchLegHint" class="mm2-hint"></div>
+        </div>
+      </div>
+
+      <!-- التفاصيل الاختيارية مطوية -->
+      <button type="button" class="mm2-more" data-mm2-more="1">▾ تفاصيل إضافية (حكّام · رعاة · ملاحظات)</button>
+      <div id="mm2More" style="display:none">
+        <div class="mm2-grid">
+          <div class="mm2-f"><label>🏁 الحكم</label><input id="matchReferee" placeholder="الاسم"/></div>
+          <div class="mm2-f"><label>🎙 المعلّق</label><input id="matchCommentator" placeholder="الاسم"/></div>
+          <div class="mm2-f"><label>🚩 مساعد ١</label><input id="matchLinesman1" placeholder="الاسم"/></div>
+          <div class="mm2-f"><label>🚩 مساعد ٢</label><input id="matchLinesman2" placeholder="الاسم"/></div>
+          <div class="mm2-f"><label>🏅 الراعي</label><input id="matchSponsor" placeholder="الاسم"/></div>
+          <div class="mm2-f"><label>📸 المصوّر</label><input id="matchPhotographer" placeholder="الاسم"/></div>
+          <div class="mm2-f"><label>🎤 مذيع الملعب</label><input id="matchAnnouncer" placeholder="الاسم"/></div>
+          <div class="mm2-f"><label>👥 الجمهور</label><input type="number" id="matchAttendance" placeholder="500" inputmode="numeric"/></div>
+          <div class="mm2-f mm2-wide"><label>📝 ملاحظات (تظهر للجمهور)</label>
+            <textarea id="matchNotes" rows="2" placeholder="أي ملاحظات إضافية…"></textarea></div>
+        </div>
+      </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="closeModal('modal-match')">إلغاء</button>
-      <button class="btn btn-gold" id="btnAddMatch" onclick="if(typeof addMatch==='function'){addMatch();}else{alert('⚠️ ملف الإدارة admin.js لم يُحمَّل بالكامل.\nأغلق الصفحة وافتحها من جديد، أو امسح كاش المتصفح.');}">✓ إضافة المباراة</button>
+
+    <div class="mm2-foot">
+      <button type="button" class="btn mm2-cancel" data-mm2-close="1">إلغاء</button>
+      <button type="button" class="btn mm2-save" id="btnAddMatch" data-mm2-save="1">✓ إضافة المباراة</button>
     </div>
   </div>
 </div>
@@ -2249,14 +2268,14 @@ if('serviceWorker' in navigator) {
   };
 })();
 </script>
-<script type="module" src="./admin.js?v=269"></script>
+<script type="module" src="./admin.js?v=270"></script>
 <!-- نظام التشكيلات — Drag & Drop — يُحمّل بعد الأدمن مباشرة -->
-<script type="module" src="./admin-lineup-dragdrop.js?v=269"></script>
+<script type="module" src="./admin-lineup-dragdrop.js?v=270"></script>
 
 <!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
 
-<script src="./live-page-stats-fix.js?v=269"></script>
-<script src="./all-fixes.js?v=269"></script>
+<script src="./live-page-stats-fix.js?v=270"></script>
+<script src="./all-fixes.js?v=270"></script>
 <script>
 /* ===== timer-admin (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════
@@ -2950,8 +2969,8 @@ if('serviceWorker' in navigator) {
   console.log('[sponsor-admin] ✅︎ جاهز');
 })();
 </script>
-<script src="./cards-system.js?v=269"></script>
-<script src="./substitution-system.js?v=269"></script>
+<script src="./cards-system.js?v=270"></script>
+<script src="./substitution-system.js?v=270"></script>
 <script>
 // ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
 window.lvOpenLineupFromLive = function() {
@@ -3070,52 +3089,18 @@ window.openMatchLineup = function(matchId) {
   </div>
 </div>
 
-<script src="./timer-hotfix.js?v=269"></script>
-<script src="./tiebreak-rules.js?v=269"></script>
-<script src="./date-groups.js?v=269"></script>
-<script src="./admin-matches-tabs.js?v=269"></script>
-<script src="./groups-gate.js?v=269"></script>
-<script src="./league-logo.js?v=269"></script>
-<script src="./health-check.js?v=269"></script>
-<script src="./lock-guard.js?v=269"></script>
-<script src="./clock-sync.js?v=269"></script>
-<script src="./viewport-lock.js?v=269"></script>
-<script src="./pwa-install.js?v=269"></script>
+<script src="./timer-hotfix.js?v=270"></script>
+<script src="./tiebreak-rules.js?v=270"></script>
+<script src="./date-groups.js?v=270"></script>
+<script src="./admin-matches-tabs.js?v=270"></script>
+<script src="./groups-gate.js?v=270"></script>
+<script src="./league-logo.js?v=270"></script>
+<script src="./health-check.js?v=270"></script>
+<script src="./lock-guard.js?v=270"></script>
+<script src="./clock-sync.js?v=270"></script>
+<script src="./viewport-lock.js?v=270"></script>
+<script src="./pwa-install.js?v=270"></script>
 
-<!-- ══ شبكة أمان للمس على زر «إضافة المباراة» ══
-     على الجوال قد تضيع ضغطة `click` لأسباب خارجة عن الزر (حارس زوم يستدعي
-     preventDefault على touchend، أو انزياح في التخطيط لحظة اللمس). النتيجة:
-     الزر يُظهر أثر الضغط ولا يحدث شيء — بلا خطأ في الـConsole ولا رسالة.
-     هنا نربط `touchend` مباشرةً كمسار بديل، مع مانع ازدواج زمني حتى لا
-     تُضاف المباراة مرتين لو وصل الحدثان معاً. -->
-<script>
-(function () {
-  var lastFire = 0;
-  function fireAddMatch() {
-    var now = Date.now();
-    if (now - lastFire < 600) return;      // منع الازدواج بين touchend وclick
-    lastFire = now;
-    if (typeof window.addMatch === 'function') {
-      window.addMatch();
-    } else {
-      alert('⚠️ ملف الإدارة admin.js لم يُحمَّل بالكامل.\nأغلق الصفحة وافتحها من جديد، أو امسح كاش المتصفح.');
-    }
-  }
-  function bind() {
-    var b = document.getElementById('btnAddMatch');
-    if (!b || b._tapBound) return;
-    b._tapBound = true;
-    b.removeAttribute('onclick');
-    b.addEventListener('click', function () { fireAddMatch(); });
-    b.addEventListener('touchend', function (e) {
-      if (b.disabled) return;
-      e.preventDefault();                  // نتولّى النداء بأنفسنا
-      fireAddMatch();
-    }, { passive: false });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-  else bind();
-})();
-</script>
+<!-- (شبكة أمان اللمس القديمة أُزيلت — النافذة الجديدة تربط أحداثها بالتفويض داخل admin.js) -->
 </body>
 </html>

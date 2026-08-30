@@ -4659,185 +4659,369 @@ window.generateScorersCard = function() {
   showToast('✅︎ تم توليد بطاقة الهدافين', 'success');
 };
 
-// ══ ADD MATCH ══
-/* ── قوائم الفرق في نافذة المباراة ──
-   كانت قائمة مسطّحة بكل الفرق بلا ترتيب: في بطولة من ٢٤ فريقاً على ٦
-   مجموعات يبحث المنظّم عن الفريق بين الجميع، ولا شيء يمنعه من اختيار
-   فريقين من مجموعتين مختلفتين — وهو خطأ شائع يفسد الجدول.
-
-   الآن مقسّمة بـ<optgroup> حسب المجموعات، وداخل كل مجموعة الفرق مرتّبة
-   أبجدياً. والفرق بلا مجموعة تُجمَع في مجموعة أخيرة صريحة بدل أن تختفي
-   بين الباقين. */
 /* ════════════════════════════════════════════════════════════════════
- *  منتقي الفرق — قائمة مفتوحة مقسّمة بالمجموعات
+ *  نافذة المباراة — إعادة بناء كاملة (MM2)
  *  ──────────────────────────────────────────────────────────────────
- *  كان <select> يفتح لوحة نظام: المنظّم يضغط، يبحث في قائمة مسطّحة، ثم
- *  يخرج فلا يرى إلا الاسم المختار وحده. في بطولة من ٦ مجموعات لا يعرف
- *  أي فريق في أي مجموعة إلا بالحفظ.
+ *  النسخة السابقة كانت تعتمد على حوارات تأكيد (confirmDialog) تعترض
+ *  الحفظ، وعلى قفل الزر حتى يعود ردّ الحوار. أي حوار لا يراه المنظّم —
+ *  أو ضغطة لمس تضيع — كانت تترك الزر مقفولاً بلا رسالة، فيبدو ميتاً.
  *
- *  الآن القائمة **معروضة مباشرة**: عنوان كل مجموعة وتحته فرقها، يضغط
- *  الفريق فيُختار. والفريق المختار في الحقل الآخر يظهر معطّلاً فيستحيل
- *  اختيار الفريق نفسه في الجهتين.
+ *  المبدأ الجديد: **لا حوار فوق النافذة إطلاقاً.**
+ *   • كل تحقّق يظهر مباشرة داخل النافذة في شريط تنبيه حيّ يتحدّث مع كل
+ *     اختيار — فيعرف المنظّم الحالة قبل أن يضغط، لا بعدها.
+ *   • أخطاء مانعة (أحمر): لا تُحفظ. ضغط الزر يُبرز الشريط بدل الصمت.
+ *   • تحذيرات (ذهبي): تُحفظ بضغطة واحدة، ونصّ الزر نفسه يقولها.
+ *   • الزر لا يُعطَّل أبداً (`disabled`) — ضغطه دائماً يُنتج ردّ فعل مرئي.
  *
- *  الـ<select> باقٍ مخفياً ويحمل القيمة — فكل الكود الذي يقرأ
- *  `getElementById('matchHome').value` يعمل بلا تغيير.
+ *  الحقلان المخفيان matchHome/matchAway يبقيان محدَّثين دائماً، فأي كود
+ *  آخر في المنصة يقرأهما يعمل بلا تغيير.
  * ════════════════════════════════════════════════════════════════════ */
-function _byName(a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'ar'); }
 
-// [{ name, teams:[] }] — مقسّمة بالمجموعات إن وُجدت، وإلا قائمة واحدة
-function _teamSections() {
-  const gs = window.adminGroups || [];
-  if (!gs.length || settings.type !== 'groups') {
-    return [{ name: '', teams: [...teams].sort(_byName) }];
-  }
+const MM2 = { home: '', away: '', q: '', mode: 'normal' };
+window.MM2 = MM2;
+
+function mm2SortName(a, b) {
+  return String(a.name || '').localeCompare(String(b.name || ''), 'ar');
+}
+function mm2Team(id) { return (window.teams || []).find(t => t.id === id) || null; }
+function mm2GroupOf(id) {
+  return (window.adminGroups || []).find(g => (g.teamIds || []).includes(id)) || null;
+}
+function mm2IsGroups() {
+  return (window.settings && window.settings.type) === 'groups'
+      && (window.adminGroups || []).length > 0;
+}
+function mm2CrossMode() { return MM2.mode === 'crossGroup'; }
+
+/* شعار الفريق: رابط · لون · إيموجي · أو أول حرف من الاسم */
+function mm2Logo(t, px) {
+  const s = px || 30;
+  const lg = (t && t.logo) || '';
+  const base = `width:${s}px;height:${s}px;border-radius:${Math.round(s / 3.2)}px;flex:0 0 auto;`;
+  if (/^(data:|https?:|\/)/.test(lg))
+    return `<img src="${lg}" style="${base}object-fit:cover">`;
+  if (lg.startsWith('#'))
+    return `<span style="${base}background:${lg};display:block"></span>`;
+  if (lg)
+    return `<span style="${base}display:flex;align-items:center;justify-content:center;font-size:${Math.round(s * .62)}px">${lg}</span>`;
+  const initial = String((t && t.name) || '؟').trim().charAt(0);
+  return `<span style="${base}display:flex;align-items:center;justify-content:center;background:var(--card3,#1b1b1b);
+    border:1px solid var(--border2,#2a2a2a);font-size:${Math.round(s * .45)}px;font-weight:900;color:var(--muted,#888)">${initial}</span>`;
+}
+
+/* أقسام القائمة: مقسّمة بالمجموعات إن وُجدت، وإلا قسم واحد */
+function mm2Sections() {
+  const all = (window.teams || []).slice().sort(mm2SortName);
+  const q = MM2.q.trim();
+  const match = t => !q || String(t.name || '').includes(q);
+  if (!mm2IsGroups()) return [{ name: '', teams: all.filter(match) }];
+
   const seen = new Set(), out = [];
-  [...gs].sort((a, b) => String(a.name||'').localeCompare(String(b.name||''), 'ar')).forEach(g => {
-    const list = (g.teamIds || []).map(id => teams.find(t => t.id === id)).filter(Boolean).sort(_byName);
-    if (!list.length) return;
-    list.forEach(t => seen.add(t.id));
-    out.push({ name: 'المجموعة ' + g.name, teams: list });
-  });
-  const rest = teams.filter(t => !seen.has(t.id)).sort(_byName);
-  if (rest.length) out.push({ name: 'بلا مجموعة', teams: rest });
+  (window.adminGroups || []).slice()
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'))
+    .forEach(g => {
+      const list = (g.teamIds || []).map(mm2Team).filter(Boolean).sort(mm2SortName);
+      list.forEach(t => seen.add(t.id));
+      const shown = list.filter(match);
+      if (shown.length) out.push({ name: 'المجموعة ' + g.name, gid: g.id, teams: shown });
+    });
+  const rest = all.filter(t => !seen.has(t.id)).filter(match);
+  if (rest.length) out.push({ name: 'بلا مجموعة', gid: null, teams: rest });
   return out;
 }
-window._teamSections = _teamSections;
 
-function _tpLogo(t) {
-  const lg = t.logo || '';
-  if (!lg) return '';
-  if (/^(data:|https?:|\/)/.test(lg))
-    return `<img src="${lg}" style="width:20px;height:20px;border-radius:5px;object-fit:cover">`;
-  if (lg.startsWith('#'))
-    return `<span style="width:20px;height:20px;border-radius:5px;background:${lg};display:block"></span>`;
-  return `<span style="font-size:15px;line-height:1">${lg}</span>`;   // إيموجي
-}
+/* ── التحقّق الحيّ ──
+   يرجع { level:'block'|'warn'|'ok', text } — مصدر واحد للحقيقة يستخدمه
+   شريط التنبيه ونصّ الزر ومسار الحفظ معاً، فيستحيل أن يختلفوا. */
+function mm2Check() {
+  const h = MM2.home, a = MM2.away;
+  if (!h && !a) return { level: 'ok', text: 'اختر الفريق المضيف ثم الضيف من القائمة بالأسفل.' };
+  if (!h) return { level: 'block', text: 'ينقص الفريق المضيف.' };
+  if (!a) return { level: 'block', text: 'ينقص الفريق الضيف.' };
+  if (h === a) return { level: 'block', text: 'لا يمكن أن يلعب الفريق ضد نفسه.' };
 
-/* رسم منتقي واحد. `other` = معرّف الحقل الآخر لتعطيل الفريق المختار فيه. */
-// مجموعة فريق معيّن (أو null)
-function _groupOfTeam(teamId) {
-  return (window.adminGroups || []).find(g => (g.teamIds || []).includes(teamId)) || null;
-}
-window._groupOfTeam = _groupOfTeam;
+  const hT = mm2Team(h), aT = mm2Team(a);
+  const round = parseInt((document.getElementById('matchRound') || {}).value, 10) || 1;
+  if (round < 1) return { level: 'block', text: 'رقم الجولة يجب أن يكون 1 أو أكثر.' };
 
-/* هل نُلزم الفريقين بنفس المجموعة؟
-   نعم في نظام المجموعات — إلا في وضع «المباراة الفاصلة» الذي غرضه
-   بالتحديد مواجهة بين مجموعتين. */
-function _tpSameGroupOnly() {
-  return settings.type === 'groups'
-      && (window.adminGroups || []).length
-      && window._matchModalMode !== 'crossGroup';
-}
-
-/* ── شريط الاختيار الحالي ──
-   يُظهر المضيف والضيف كما اختارهما المنظّم، مع زرّ تبديل الأرضية —
-   فلا يحتاج لإلغاء الاثنين وإعادة اختيارهما بالترتيب المعكوس. */
-function _tpRenderPicked() {
-  const box = document.getElementById('tpPicked');
-  if (!box) return;
-  const h = document.getElementById('matchHome')?.value || '';
-  const a = document.getElementById('matchAway')?.value || '';
-  const nm = id => ((window.teams || []).find(t => t.id === id) || {}).name || '';
-
-  if (!h && !a) {
-    box.className = 'tp-picked tp-picked-empty';
-    box.innerHTML = `${window.Icon ? window.Icon('info', 13) : ''}
-      اضغط فريقين من <b>نفس المجموعة</b> — الأول مضيف والثاني ضيف`;
-    return;
+  // المجموعات: الفريقان من نفس المجموعة (إلا في وضع المباراة الفاصلة)
+  if (mm2IsGroups()) {
+    const gh = mm2GroupOf(h), ga = mm2GroupOf(a);
+    if (!gh || !ga) {
+      const miss = !gh ? hT?.name : aT?.name;
+      return { level: 'block', text: `«${miss}» غير موزَّع على أي مجموعة — وزّعه من صفحة المجموعات أولاً.` };
+    }
+    if (!mm2CrossMode() && gh.id !== ga.id)
+      return { level: 'block', text: `«${hT?.name}» في المجموعة ${gh.name} و«${aT?.name}» في المجموعة ${ga.name} — لا يلتقيان في دور المجموعات.` };
   }
-  box.className = 'tp-picked';
-  box.innerHTML = `
-    <div class="tp-pk-side">
-      <span class="tp-pk-lbl">المضيف</span>
-      <span class="tp-pk-nm${h ? '' : ' empty'}">${h ? nm(h) : '—'}</span>
-    </div>
-    <button type="button" class="tp-pk-swap" onclick="_tpSwap()" title="تبديل الأرضية"
-      ${(h && a) ? '' : 'disabled'}>${window.Icon ? window.Icon('refresh', 15) : '⇄'}</button>
-    <div class="tp-pk-side">
-      <span class="tp-pk-lbl">الضيف</span>
-      <span class="tp-pk-nm${a ? '' : ' empty'}">${a ? nm(a) : '—'}</span>
-    </div>`;
+
+  // عدد الجولات المتاح رياضياً
+  if (!mm2CrossMode() && typeof window.gtRoundsFor === 'function') {
+    const legMode = (window.settings && window.settings.legMode) || 'single';
+    let pool = null;
+    if ((window.settings || {}).type === 'groups') {
+      const g = mm2GroupOf(h); if (g) pool = (g.teamIds || []).length;
+    } else if ((window.settings || {}).type === 'league') {
+      pool = (window.teams || []).length;
+    }
+    if (pool != null) {
+      const maxR = window.gtRoundsFor(pool, legMode);
+      if (maxR && round > maxR)
+        return { level: 'block', text: `البطولة ${maxR} جولة فقط — لا توجد جولة ${round}.` };
+    }
+  }
+
+  const ms = window.matches || [];
+  // تكرار المواجهة عبر البطولة كلها
+  const dbl = ((window.settings && window.settings.legMode) || 'single') === 'double';
+  const maxMeet = mm2CrossMode() ? 1 : (dbl ? 2 : 1);
+  const prev = ms.filter(m =>
+    (mm2CrossMode() ? !!m.isKnockout : !m.isKnockout) &&
+    ((m.homeId === h && m.awayId === a) || (m.homeId === a && m.awayId === h)));
+  if (prev.length >= maxMeet)
+    return {
+      level: 'warn',
+      text: `بينهما ${prev.length} مباراة بالفعل، ونظام «${dbl ? 'ذهاب وإياب' : 'ذهاب فقط'}» يسمح بـ ${maxMeet}. الإضافة ستؤثر على جدول الترتيب.`
+    };
+
+  // فريق يلعب مرتين في نفس الجولة
+  if (!mm2CrossMode()) {
+    const clash = ms.filter(m => !m.isKnockout && (m.round || 0) === round &&
+      [m.homeId, m.awayId].some(id => id === h || id === a));
+    if (clash.length) {
+      const who = [];
+      if (clash.some(m => m.homeId === h || m.awayId === h)) who.push(hT?.name);
+      if (clash.some(m => m.homeId === a || m.awayId === a)) who.push(aT?.name);
+      return {
+        level: 'warn',
+        text: `${who.filter(Boolean).join(' و')} ${who.length > 1 ? 'لهما' : 'له'} مباراة أخرى في الجولة ${round} — عدد المباريات سيختلف عن بقية الفرق.`
+      };
+    }
+  }
+  return { level: 'ok', text: '' };
+}
+window.mm2Check = mm2Check;
+
+/* ── الرسم ── */
+function mm2Slot(side) {
+  const id = side === 'home' ? MM2.home : MM2.away;
+  const t = id ? mm2Team(id) : null;
+  const lbl = side === 'home' ? 'المضيف' : 'الضيف';
+  if (!t) return `<button type="button" class="mm2-slot empty" data-mm2-clear="${side}">
+      <span class="mm2-slot-lbl">${lbl}</span>
+      <span class="mm2-slot-ph">اختر فريقاً</span></button>`;
+  const g = mm2GroupOf(t.id);
+  return `<button type="button" class="mm2-slot filled ${side}" data-mm2-clear="${side}">
+      <span class="mm2-slot-lbl">${lbl}</span>
+      ${mm2Logo(t, 40)}
+      <span class="mm2-slot-nm">${t.name}</span>
+      ${g ? `<span class="mm2-slot-g">${g.name}</span>` : ''}
+      <span class="mm2-slot-x">إزالة ✕</span></button>`;
 }
 
-window._tpSwap = function() {
-  const h = document.getElementById('matchHome'), a = document.getElementById('matchAway');
-  if (!h || !a || !h.value || !a.value) return;
-  const tmp = h.value; h.value = a.value; a.value = tmp;
-  _renderTeamPicker();
-};
+function mm2Render() {
+  const box = document.getElementById('modal-match');
+  if (!box) return;
 
-/* ── القائمة الواحدة ──
-   كل المجموعات وفرقها. الضغط يختار: الأول مضيف، الثاني ضيف.
-   الضغط على مختار يلغيه. والفريق من مجموعة أخرى يُرفض برسالة صريحة. */
-function _renderTeamPicker() {
-  const host = document.getElementById('matchTeamsList');
-  if (!host) return;
-  const hv = document.getElementById('matchHome')?.value || '';
-  const av = document.getElementById('matchAway')?.value || '';
+  // الحقلان المخفيان — مصدر التوافق مع بقية المنصة
+  ['matchHome', 'matchAway'].forEach((sid, i) => {
+    const sel = document.getElementById(sid);
+    if (!sel) return;
+    sel.innerHTML = '<option value=""></option>' +
+      (window.teams || []).map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+    sel.value = i === 0 ? MM2.home : MM2.away;
+  });
 
-  host.innerHTML = _teamSections().map(sec => `
-    ${sec.name ? `<div class="tp-head">${sec.name}<span>${sec.teams.length}</span></div>` : ''}
-    <div class="tp-grid">
-      ${sec.teams.map(t => {
-        const isH = t.id === hv, isA = t.id === av;
-        const cls = isH ? ' on home' : isA ? ' on away' : '';
-        return `<button type="button" class="tp-item${cls}" onclick="_tpPick('${t.id}')">
-          ${_tpLogo(t)}<span class="tp-name">${t.name}</span>
-          ${isH ? '<span class="tp-badge">مضيف</span>' : ''}
-          ${isA ? '<span class="tp-badge away">ضيف</span>' : ''}
-        </button>`;
-      }).join('')}
-    </div>`).join('');
+  const vs = document.getElementById('mm2Vs');
+  if (vs) vs.innerHTML = mm2Slot('home') +
+    `<button type="button" class="mm2-swap" data-mm2-swap="1" ${(MM2.home && MM2.away) ? '' : 'disabled'} title="تبديل الأرضية">⇄</button>` +
+    mm2Slot('away');
 
-  _tpRenderPicked();
+  // القائمة
+  const host = document.getElementById('mm2Teams');
+  if (host) {
+    const secs = mm2Sections();
+    if (!secs.length || !secs.some(s => s.teams.length)) {
+      host.innerHTML = `<div class="mm2-empty">${(window.teams || []).length ? 'لا فريق يطابق البحث' : 'لا توجد فرق — أضف الفرق أولاً'}</div>`;
+    } else {
+      host.innerHTML = secs.map(s => `
+        ${s.name ? `<div class="mm2-gh">${s.name}<span>${s.teams.length}</span></div>` : ''}
+        <div class="mm2-row">${s.teams.map(t => {
+          const isH = t.id === MM2.home, isA = t.id === MM2.away;
+          return `<button type="button" class="mm2-chip${isH ? ' h' : isA ? ' a' : ''}" data-mm2-pick="${t.id}">
+            ${mm2Logo(t, 24)}<span class="mm2-chip-nm">${t.name}</span>
+            ${isH ? '<span class="mm2-tag">مضيف</span>' : isA ? '<span class="mm2-tag a">ضيف</span>' : ''}
+          </button>`;
+        }).join('')}</div>`).join('');
+    }
+  }
+
+  // شريط التنبيه + نصّ الزر
+  const chk = mm2Check();
+  const note = document.getElementById('mm2Notice');
+  if (note) {
+    note.className = 'mm2-notice ' + chk.level;
+    note.textContent = chk.text || '';
+    note.style.display = chk.text ? '' : 'none';
+  }
+  const btn = document.getElementById('btnAddMatch');
+  if (btn && !btn.dataset.busy) {
+    btn.className = 'btn mm2-save ' + chk.level;
+    btn.textContent = chk.level === 'warn'
+      ? '⚠️ أضِف رغم التحذير'
+      : (mm2CrossMode() ? '⚔️ إضافة المباراة الفاصلة' : '✓ إضافة المباراة');
+  }
   try { window._syncMatchLeg && window._syncMatchLeg(); } catch (e) {}
 }
-window._renderTeamPicker = _renderTeamPicker;
+window.mm2Render = mm2Render;
 
-window._tpPick = function(teamId) {
-  const H = document.getElementById('matchHome'), A = document.getElementById('matchAway');
-  if (!H || !A) return;
+/* ── التفاعل ── */
+function mm2Pick(id) {
+  if (MM2.home === id) { MM2.home = MM2.away; MM2.away = ''; }
+  else if (MM2.away === id) { MM2.away = ''; }
+  else if (!MM2.home) { MM2.home = id; }
+  else if (!MM2.away) { MM2.away = id; }
+  else { MM2.home = id; MM2.away = ''; }   // الخانتان ممتلئتان → ابدأ من جديد
+  mm2Render();
+}
+function mm2Clear(side) {
+  if (side === 'home') { MM2.home = MM2.away; MM2.away = ''; } else MM2.away = '';
+  mm2Render();
+}
+function mm2Swap() {
+  if (!MM2.home || !MM2.away) return;
+  const t = MM2.home; MM2.home = MM2.away; MM2.away = t;
+  mm2Render();
+}
+window.mm2Pick = mm2Pick;
 
-  // إلغاء الاختيار عند الضغط على فريق مختار
-  if (H.value === teamId) { H.value = A.value; A.value = ''; _renderTeamPicker(); return; }
-  if (A.value === teamId) { A.value = ''; _renderTeamPicker(); return; }
+/* ── ربط الأحداث بالتفويض ──
+   حدث واحد على النافذة كلها بدل onclick على كل زرّ. القائمة تُعاد كتابتها
+   مع كل اختيار، والتفويض لا يتأثر بذلك إطلاقاً.
+   نربط click و pointerup معاً مع مانع ازدواج: بعض المتصفحات/الحُرّاس
+   تبتلع click على الجوال، فيبقى pointerup مساراً مضموناً. */
+/* click هو المسار الأساسي. لكن على الجوال قد يُبتلع (حارس زوم يستدعي
+   preventDefault على touchend، أو انزياح تخطيط لحظة اللمس) فلا يصل أبداً.
+   لذلك نستمع لـ pointerup أيضاً كمسار احتياطي مؤجّل: نجدوله بعد 380ms،
+   وإن وصل click خلالها ألغيناه. النتيجة: تنفيذ واحد دائماً — ولا تُبتلع
+   ضغطتان متتاليتان سريعتان لأن لكلٍّ منهما دورتها الخاصة. */
+let _mm2Pending = null;
+function mm2Target(e) {
+  const t = e.target;
+  return (t && t.closest)
+    ? t.closest('[data-mm2-pick],[data-mm2-clear],[data-mm2-swap],[data-mm2-more],[data-mm2-close],[data-mm2-save]')
+    : null;
+}
+function mm2Act(el) {
+  if (!el) return;
+  if (el.hasAttribute('data-mm2-pick'))  return mm2Pick(el.getAttribute('data-mm2-pick'));
+  if (el.hasAttribute('data-mm2-clear')) return mm2Clear(el.getAttribute('data-mm2-clear'));
+  if (el.hasAttribute('data-mm2-swap'))  return mm2Swap();
+  if (el.hasAttribute('data-mm2-close')) return closeModal('modal-match');
+  if (el.hasAttribute('data-mm2-save'))  return window.addMatch();
+  if (el.hasAttribute('data-mm2-more')) {
+    const more = document.getElementById('mm2More');
+    if (!more) return;
+    const open = more.style.display !== 'none';
+    more.style.display = open ? 'none' : '';
+    el.textContent = (open ? '▾ ' : '▴ ') + 'تفاصيل إضافية (حكّام · رعاة · ملاحظات)';
+  }
+}
+function mm2OnClick(e) {
+  const el = mm2Target(e);
+  if (!el) return;
+  if (_mm2Pending) { clearTimeout(_mm2Pending); _mm2Pending = null; }
+  e.preventDefault();
+  mm2Act(el);
+}
+function mm2OnPointerUp(e) {
+  const el = mm2Target(e);
+  if (!el) return;
+  if (_mm2Pending) clearTimeout(_mm2Pending);
+  _mm2Pending = setTimeout(() => { _mm2Pending = null; mm2Act(el); }, 380);
+}
+function mm2Bind() {
+  const box = document.getElementById('modal-match');
+  if (!box || box._mm2Bound) return;
+  box._mm2Bound = true;
+  box.addEventListener('click', mm2OnClick);
+  box.addEventListener('pointerup', mm2OnPointerUp);
+  const s = document.getElementById('mm2Search');
+  if (s) s.addEventListener('input', () => { MM2.q = s.value || ''; mm2Render(); });
+  const r = document.getElementById('matchRound');
+  if (r) r.addEventListener('input', mm2Render);
+}
+window.mm2Bind = mm2Bind;
 
-  // الخانة الأولى الفارغة
-  if (!H.value) { H.value = teamId; _renderTeamPicker(); return; }
+/* ── فتح النافذة ── */
+function mm2Open(mode) {
+  MM2.mode = mode === 'crossGroup' ? 'crossGroup' : 'normal';
+  window._matchModalMode = MM2.mode;
+  MM2.home = ''; MM2.away = ''; MM2.q = '';
 
-  /* الفريق الثاني: يجب أن يكون من مجموعة الأول. الرفض هنا **قبل** الحفظ
-     أوضح من تحذير بعده — والمنظّم يعرف السبب فوراً. */
-  if (_tpSameGroupOnly()) {
-    const g1 = _groupOfTeam(H.value), g2 = _groupOfTeam(teamId);
-    if (!g1 || !g2) {
-      showToast('أحد الفريقين غير موزَّع على مجموعة — وزّعه من صفحة المجموعات', 'error');
-      return;
-    }
-    if (g1.id !== g2.id) {
-      showToast(`الفريقان من مجموعتين مختلفتين (${g1.name} و${g2.name}) — اختر من نفس المجموعة`, 'error');
-      return;
+  const el = document.getElementById('modal-match');
+  if (!el) return;
+  mm2Bind();
+
+  const s = document.getElementById('mm2Search'); if (s) s.value = '';
+  const more = document.getElementById('mm2More'); if (more) more.style.display = 'none';
+  const mb = document.querySelector('[data-mm2-more]');
+  if (mb) mb.textContent = '▾ تفاصيل إضافية (حكّام · رعاة · ملاحظات)';
+
+  const title = document.getElementById('mm2Title');
+  if (title) title.textContent = mm2CrossMode() ? '⚔️ مباراة فاصلة بين مجموعتين' : 'إضافة مباراة';
+  const cgHint = document.getElementById('mm2CgHint');
+  if (cgHint) cgHint.style.display = mm2CrossMode() ? '' : 'none';
+  const rg = document.getElementById('matchRoundGroup');
+  if (rg) rg.style.display = mm2CrossMode() ? 'none' : '';
+
+  // قيم مبدئية معقولة
+  const ms = (window.matches || []).filter(m => !m.isKnockout);
+  const rIn = document.getElementById('matchRound');
+  if (rIn) {
+    if (mm2CrossMode()) rIn.value = '1';
+    else {
+      const maxR = ms.reduce((x, m) => Math.max(x, m.round || 0), 0);
+      const n = (window.teams || []).length;
+      const inMax = ms.filter(m => (m.round || 0) === maxR).length;
+      rIn.value = maxR > 0 ? ((n >= 2 && inMax >= Math.floor(n / 2)) ? maxR + 1 : maxR) : 1;
     }
   }
-  A.value = teamId;
-  _renderTeamPicker();
-};
+  const vIn = document.getElementById('matchVenue');
+  if (vIn) {
+    const lastV = (window.matches || []).slice().reverse().map(m => (m.venue || '').trim()).find(v => v);
+    vIn.value = lastV || (window.settings && window.settings.defaultVenue) || 'ملعب الحارة';
+  }
+  const dIn = document.getElementById('matchDate');
+  if (dIn && !dIn.value) {
+    const d = new Date();
+    dIn.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
 
-function populateMatchSelects() {
-  /* 🔴 خيار فارغ في المقدّمة ضروري: `<select>` يختار أول خيار تلقائياً،
-     فكانت النافذة تفتح بفريقين **مُختارَين لم يخترهما أحد** (أول اسمين
-     أبجدياً) — وقد يحفظهما المنظّم دون أن ينتبه. الآن تفتح فارغة حتى
-     يختار بنفسه. */
-  const opts = '<option value=""></option>' + [...teams].sort(_byName)
-    .map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-  ['matchHome', 'matchAway'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    const prev = sel.value;
-    sel.innerHTML = opts;
-    sel.value = prev || '';
-  });
-  _renderTeamPicker();
+  el.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  mm2Render();
+  const bd = el.querySelector('.mm2-body'); if (bd) bd.scrollTop = 0;
 }
+window.mm2Open = mm2Open;
+
+/* توافق مع النداءات القديمة في بقية الملفات */
+window.openNormalMatchModal = function () { mm2Open('normal'); };
+window.openCrossGroupPlayoffModal = function () {
+  if (!(window.settings && window.settings.allowCrossGroupPlayoff)) {
+    showToast('⚠️ فعّل «السماح بمباراة فاصلة بين مجموعتين» من الإعدادات أولاً', 'error');
+    return;
+  }
+  mm2Open('crossGroup');
+};
+function populateMatchSelects() { mm2Render(); }
+window.populateMatchSelects = populateMatchSelects;
+window._renderTeamPicker = mm2Render;
+window._tpPick = mm2Pick;
+window._tpSwap = mm2Swap;
+window._groupOfTeam = mm2GroupOf;
+window._prefillMatchModal = mm2Render;
+
 
 
 // ══ مولّد جدول الدوري الموحّد ══
@@ -4921,285 +5105,112 @@ window.swissGenerateFixtures = async function() {
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
-window.addMatch = async function() {
-  // ✅︎ حارس الضغط المزدوج — كان الزر يبقى قابلاً للضغط طول فترة الحفظ
-  // (تحقّق + احتمال نافذة تأكيد + كتابة على Firestore)، فضغطتان سريعتان
-  // (شائعتان على الجوال) كانتا تُنشئان مباراتين مكررتين لنفس الفريقين،
-  // أو تُسقطان نافذة تأكيد الأولى بصمت (confirmDialog تمسح أي نافذة سابقة
-  // دون أن ترد على وعدها). نقفل الزر من أول سطر حتى نهاية الدالة بكل مساراتها.
-  /* 🔴 حارس الضغط المزدوج كان **يقتل الزر نهائياً** لو بقي العلم مرفوعاً:
-     كل ضغطة بعدها ترجع بصمت تام — بلا تنبيه ولا خطأ — فيبدو الزر ميتاً.
-     الآن العلم يحمل وقتاً: إن مضى عليه أكثر من ٣٠ ثانية نعتبره عالقاً
-     ونتجاهله، وإن كان حديثاً نُخبر المنظّم بدل الصمت. */
-  if (window._addMatchBusy) {
-    const _age = Date.now() - (window._addMatchBusyAt || 0);
-    if (_age < 30000) { showToast('⏳ جارٍ حفظ المباراة السابقة...', 'info'); return; }
-    console.warn('[addMatch] علم الحفظ كان عالقاً منذ', _age, 'ms — تم تجاهله');
+/* ── الحفظ ──
+   لا حوار تأكيد ولا تعطيل للزر. التحقّق تمّ حيّاً في الشريط، فهنا فقط
+   نعيد قراءته: أحمر → نُبرز الشريط ونتوقّف · ذهبي أو سليم → نحفظ. */
+window.addMatch = async function () {
+  const btn = document.getElementById('btnAddMatch');
+  if (btn && btn.dataset.busy) {
+    // حفظ جارٍ فعلاً — نُخبر بدل الصمت، ولا نقفل شيئاً
+    if (Date.now() - Number(btn.dataset.busy) < 20000) {
+      showToast('⏳ جارٍ حفظ المباراة...', 'info');
+      return;
+    }
+    delete btn.dataset.busy;             // علم عالق من محاولة سابقة — تجاهله
   }
-  window._addMatchBusy = true;
-  window._addMatchBusyAt = Date.now();
-  const _btnAM = document.getElementById('btnAddMatch');
-  const _btnAMLabel = (_btnAM && _btnAM.textContent.indexOf('جارٍ') === -1)
-    ? _btnAM.textContent : '✓ إضافة المباراة';
-  const _unlockAM = () => {
-    window._addMatchBusy = false;
-    if (_btnAM) { _btnAM.disabled = false; _btnAM.textContent = _btnAMLabel; }
-  };
-  /* 🔴 حارس أمان: لو تعلّق الحفظ (شبكة مقطوعة، أو حوار تأكيد لم يُرَ)،
-     كان الزر يبقى «⏳ جارٍ الحفظ...» للأبد ولا يقبل أي ضغطة بعدها.
-     الآن يُفتح تلقائياً بعد ٢٥ ثانية مع رسالة واضحة بدل الجمود الصامت. */
-  const _amWatchdog = setTimeout(() => {
-    if (!window._addMatchBusy) return;
-    _unlockAM();
-    showToast('⚠️ تأخّر الحفظ — تأكّد من الاتصال وحاول مرة أخرى', 'error');
-  }, 25000);
-  if (_btnAM) { _btnAM.disabled = true; _btnAM.textContent = '⏳ جارٍ الحفظ...'; }
-  console.log('[addMatch] بدأ — المضيف:', document.getElementById('matchHome')?.value,
-              '· الضيف:', document.getElementById('matchAway')?.value,
-              '· الجولة:', document.getElementById('matchRound')?.value);
-  try {
-    await _addMatchInner();
-  } catch (e) {
-    // 🔴 كان بلا catch: أي خطأ قبل كتلة الحفظ يخرج بصمت بلا رسالة للمنظّم
-    console.error('[addMatch]', e);
-    showToast('خطأ: ' + (window._trErr ? window._trErr(e) : (e && e.message) || e), 'error');
-  } finally {
-    clearTimeout(_amWatchdog);
-    _unlockAM();
-  }
-};
 
-async function _addMatchInner() {
-  const homeId = document.getElementById('matchHome')?.value;
-  const awayId = document.getElementById('matchAway')?.value;
-
-  // ✅︎ مباراة فاصلة بين مجموعتين — لا تُفعَّل إلا عبر زر مخصّص في صفحة المجموعات
-  // (openCrossGroupPlayoffModal)، وفقط إن كان الإعداد مفعّلاً فعلياً — دفاع مزدوج
-  // حتى لو بقيت الحالة عالقة من فتحة سابقة أو أُطفئ الإعداد أثناء فتح النافذة.
-  const isCrossGroupPlayoff = (window._matchModalMode === 'crossGroup')
-    && !!(window.settings && window.settings.allowCrossGroupPlayoff);
-
-  // ✅︎ تنبيهات واضحة ومحدّدة — كل خطأ له رسالته الخاصة
-  if (!homeId && !awayId) { showToast('⚠️ اختر الفريقين أولاً', 'error'); return; }
-  if (!homeId) { showToast('⚠️ اختر الفريق الأول (المضيف)', 'error'); return; }
-  if (!awayId) { showToast('⚠️ اختر الفريق الثاني (الضيف)', 'error'); return; }
-  if (homeId === awayId) {
-    const t = teams.find(x => x.id === homeId);
-    showToast(`🚫 لا يمكن إنشاء مباراة بين «${t?.name || 'الفريق'}» ونفسه — اختر فريقين مختلفين`, 'error');
+  const chk = mm2Check();
+  const missing = !MM2.home ? 'اختر الفريق المضيف أولاً'
+                : !MM2.away ? 'اختر الفريق الضيف أولاً' : '';
+  if (missing || chk.level === 'block') {
+    const msg = missing || chk.text;
+    const note = document.getElementById('mm2Notice');
+    if (note) {
+      note.className = 'mm2-notice block';
+      note.textContent = msg;
+      note.style.display = '';
+      note.classList.remove('shake');
+      void note.offsetWidth;             // إعادة تشغيل الحركة
+      note.classList.add('shake');
+      try { note.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+    }
+    showToast(msg, 'error');
     return;
   }
 
-  const homeTeam = teams.find(t => t.id === homeId);
-  const awayTeam = teams.find(t => t.id === awayId);
-  const date = document.getElementById('matchDate')?.value;
-  const time = document.getElementById('matchTime')?.value || '16:00';
-  const venue = document.getElementById('matchVenue')?.value || 'ملعب الحارة';
-  const round = parseInt(document.getElementById('matchRound')?.value || '1');
+  const hT = mm2Team(MM2.home), aT = mm2Team(MM2.away);
+  const cross = mm2CrossMode();
+  const round = cross ? 1 : (parseInt(document.getElementById('matchRound')?.value, 10) || 1);
+  const val = id => (document.getElementById(id)?.value || '').trim();
 
-  // ✅︎ رقم الجولة يُحسب رياضياً من عدد الفرق ونظام الذهاب/الإياب — لا يُختار بحرية.
-  // فريق زوجي: جولات = n-1 · فردي: جولات = n · ذهاب وإياب: × 2 (نفس صيغة groups-gate.js)
-  // (المباراة الفاصلة بين مجموعتين مستثناة — لا تتبع جدول جولات أي مجموعة)
-  if (round < 1) { showToast('⚠️ رقم الجولة يجب أن يكون 1 أو أكثر', 'error'); return; }
-  if (typeof window.gtRoundsFor === 'function' && !isCrossGroupPlayoff) {
-    const legMode = (settings && settings.legMode) || 'single';
-    let poolSize = null;
-    if (settings?.type === 'groups') {
-      const g = (window.adminGroups || []).find(x => (x.teamIds || []).includes(homeId));
-      if (g) poolSize = (g.teamIds || []).length;
-    } else if (settings?.type === 'league') {
-      poolSize = teams.length;
-    }
-    if (poolSize != null) {
-      const maxRounds = window.gtRoundsFor(poolSize, legMode);
-      if (maxRounds && round > maxRounds) {
-        showToast(`⚠️ عدد جولات ${settings?.type === 'groups' ? 'هذه المجموعة' : 'البطولة'} ${maxRounds} فقط (${poolSize} فرق · ${legMode === 'double' ? 'ذهاب وإياب' : 'ذهاب فقط'}) — لا توجد جولة ${round}`, 'error');
-        return;
-      }
-    }
+  let cgLabel = 'مباراة فاصلة بين مجموعتين';
+  if (cross) {
+    const gh = mm2GroupOf(MM2.home)?.name, ga = mm2GroupOf(MM2.away)?.name;
+    if (gh && ga) cgLabel = `⚔️ فاصلة: ${gh} × ${ga}`;
   }
+  const groupId = (!cross && (window.settings || {}).type === 'groups')
+    ? (mm2GroupOf(MM2.home)?.id || null) : null;
 
-  /* ✅︎ حارس «فريق يلعب مرتين في جولة واحدة» ──
-     من أكثر الأخطاء التي تفسد الجدول بصمت: الجولة تعني أن كل فريق يلعب
-     مباراة واحدة. لو لعب فريق مرتين في نفس الجولة اختلّ عدد مبارياته
-     مقابل بقية الفرق، فيصير الترتيب غير عادل — ولا شيء في الواجهة يشي
-     بالسبب. ننبّه بوضوح ونسمح بالمتابعة (قد يكون مقصوداً في بطولة خاصة). */
-  if (!isCrossGroupPlayoff) {
-    const _sameRound = matches.filter(m =>
-      !m.isKnockout && (m.round || 0) === round &&
-      (m.homeId === homeId || m.awayId === homeId || m.homeId === awayId || m.awayId === awayId));
-    if (_sameRound.length) {
-      const _busy = [];
-      if (_sameRound.some(m => m.homeId === homeId || m.awayId === homeId)) _busy.push(homeTeam?.name);
-      if (_sameRound.some(m => m.homeId === awayId || m.awayId === awayId)) _busy.push(awayTeam?.name);
-      const okDup = await window.confirmDialog({
-        title: '⚠️ فريق يلعب مرتين في نفس الجولة',
-        message:
-          `${_busy.filter(Boolean).join(' و')} ${_busy.length > 1 ? 'لهما' : 'له'} مباراة أخرى في الجولة ${round}.\n\n` +
-          `في الجولة الواحدة يلعب كل فريق مباراة واحدة. المتابعة تجعل عدد مبارياته ` +
-          `مختلفاً عن بقية الفرق — وجدول الترتيب يصير غير عادل بلا سبب ظاهر.\n\n` +
-          `هل تريد المتابعة؟`,
-        confirmText: 'نعم، تابع', danger: true
-      });
-      // 🔴 كان الإلغاء يخرج بصمت تام: الزر يرجع لشكله ولا شيء يحدث،
-      //    فيظنّ المنظّم أن الزر خربان. الآن يعرف أن الإضافة أُلغيت.
-      if (!okDup) { showToast('أُلغيت إضافة المباراة', 'info'); return; }
-    }
-  }
-
-  // ✅︎ تنبيه على المباراة المكررة (نفس الفريقين في نفس الجولة) — مع السماح بالمتابعة
-  /* ✅︎ حارس المجموعات — منع باتّ لمباراة بين فريقين من مجموعتين مختلفتين.
-     في نظام المجموعات، فرق المجموعة A لا تلعب ضد فرق المجموعة B إطلاقاً
-     في دور المجموعات — الالتقاء يكون في الإقصاء فقط. هذا خطأ بنيوي
-     يفسد جدول الترتيب، فنرفضه رفضاً تاماً لا مجرد تحذير. */
-  if (settings?.type === 'groups' && !isCrossGroupPlayoff) {
-    const G = window.adminGroups || [];
-    const gOf = id => G.find(g => (g.teamIds || []).includes(id));
-    const gh = gOf(homeId), ga = gOf(awayId);
-    if (gh && ga && gh.id !== ga.id) {
-      showToast(`❌︎ «${homeTeam?.name}» في المجموعة ${gh.name} و«${awayTeam?.name}» في المجموعة ${ga.name} — لا يلتقيان في دور المجموعات (فعّل «مباراة فاصلة بين مجموعتين» إن كان هذا مقصوداً)`, 'error');
-      return;
-    }
-    if (!gh || !ga) {
-      const miss = !gh ? homeTeam?.name : awayTeam?.name;
-      showToast(`❌︎ «${miss}» غير موزّع على أي مجموعة — وزّعه أولاً من صفحة المجموعات`, 'error');
-      return;
-    }
-  }
-  // ✅︎ للمباراة الفاصلة: يكفي أن يكون كل فريق موزَّعاً على أي مجموعة (لا شرط تطابقها)
-  if (settings?.type === 'groups' && isCrossGroupPlayoff) {
-    const G = window.adminGroups || [];
-    const gOf = id => G.find(g => (g.teamIds || []).includes(id));
-    if (!gOf(homeId) || !gOf(awayId)) {
-      const miss = !gOf(homeId) ? homeTeam?.name : awayTeam?.name;
-      showToast(`❌︎ «${miss}» غير موزّع على أي مجموعة — وزّعه أولاً من صفحة المجموعات`, 'error');
-      return;
-    }
-  }
-
-  /* ✅︎ فحص التكرار عبر البطولة كلها — لا داخل الجولة فقط.
-     كان يفحص نفس الجولة فقط، فيمرّ «أ ضد ب» في الجولة 1 ثم مرة أخرى
-     في الجولة 2 بصمت. وفي نظام ذهاب فقط الفريقان يلتقيان مرة واحدة
-     في البطولة كلها — والتكرار يفسد جدول الترتيب.
-     الحد المسموح: 1 للذهاب فقط · 2 للذهاب والإياب. */
-  const _legDbl = ((settings && settings.legMode) || 'single') === 'double';
-  // ✅︎ المباراة الفاصلة دائماً مباراة واحدة (قرار)، بصرف النظر عن نظام ذهاب/إياب
-  // المعتمد للمجموعات — ونفحص تكرارها مقابل مباريات الإقصاء فقط (لا مباريات المجموعات)
-  const _maxMeet = isCrossGroupPlayoff ? 1 : (_legDbl ? 2 : 1);
-  const _prev = matches.filter(m =>
-    (isCrossGroupPlayoff ? !!m.isKnockout : !m.isKnockout) &&
-    ((m.homeId === homeId && m.awayId === awayId) || (m.homeId === awayId && m.awayId === homeId)));
-
-  // ✅︎ dup: علم يسجّل إذا كانت هذه مباراة مكررة أصلاً (حتى لا نكرّر
-  // نفس التحذير مرتين — كان المتغيّر يُستخدم بالأسفل بدون تعريف
-  // (ReferenceError) فيوقف الدالة بصمت ولا تُحفظ المباراة إطلاقاً.
-  const dup = _prev.length >= _maxMeet;
-  if (dup) {
-    const rs = _prev.map(m => 'الجولة ' + (m.round || 1)).join(' و');
-    const message = isCrossGroupPlayoff
-      ? `«${homeTeam?.name}» و«${awayTeam?.name}» بينهما بالفعل مباراة فاصلة سابقة.\n\nإنشاء مباراة فاصلة ثانية بينهما نفس الفريقين — متأكد؟`
-      : `«${homeTeam?.name}» و«${awayTeam?.name}» بينهما ${_prev.length} مباراة بالفعل (${rs}).\n\n` +
-        `نظام البطولة «${_legDbl ? 'ذهاب وإياب' : 'ذهاب فقط'}» يسمح بـ ${_maxMeet} ` +
-        `${_maxMeet === 1 ? 'مباراة واحدة' : 'مباراتين'} بينهما.\n\n` +
-        `إنشاء مباراة إضافية سيُفسد جدول الترتيب. متأكد؟`;
-    const ok = await window.confirmDialog({
-      title: isCrossGroupPlayoff ? 'مباراة فاصلة مكررة' : 'مباراة مكررة',
-      message, confirmText: 'أنشئها رغم ذلك', danger: true
-    });
-    if (!ok) return;
-  }
-
-  /* 🔴 حُذف هنا حوار «⚠️ تعارض في الجولة».
-     كان يسأل **نفس سؤال** حارس «فريق يلعب مرتين في نفس الجولة» بالأعلى
-     حرفياً، فيظهر للمنظّم حوارَان متتاليان بنفس المعنى: يوافق على الأول
-     فيقفز فوراً حوار ثانٍ مطابق. على الجوال يبدو كأن الزر «رجع» ولم
-     يحدث شيء — وأي إلغاء لأحدهما يُسقط الحفظ بصمت.
-     الفحص نفسه لم يُلغَ: هو قائم بالأعلى برسالة أوضح. */
-
-  // حقول إضافية
-  const referee = document.getElementById('matchReferee')?.value.trim() || '';
-  const commentator = document.getElementById('matchCommentator')?.value.trim() || '';
-  const linesman1 = document.getElementById('matchLinesman1')?.value.trim() || '';
-  const linesman2 = document.getElementById('matchLinesman2')?.value.trim() || '';
-  const sponsor = document.getElementById('matchSponsor')?.value.trim() || '';
-  const photographer = document.getElementById('matchPhotographer')?.value.trim() || '';
-  const announcer = document.getElementById('matchAnnouncer')?.value.trim() || '';
-  const attendance = document.getElementById('matchAttendance')?.value || '';
-  const notes = document.getElementById('matchNotes')?.value.trim() || '';
-  // ✅︎ اربط المباراة بمعرّف المجموعة — نفس ما يفعله التوليد التلقائي،
-  // وإلا فحذف/إعادة توليد مباريات مجموعة معيّنة لا يراها لأنها بلا groupId
-  // (المباراة الفاصلة بين مجموعتين تبقى بلا groupId عمداً — isKnockout:true
-  //  يكفي لعزلها عن كل جداول وحسابات المجموعات، وهي أصلاً بين مجموعتين فلا معنى لربطها بواحدة)
-  const _groupId = (settings?.type === 'groups' && !isCrossGroupPlayoff)
-    ? ((window.adminGroups || []).find(g => (g.teamIds || []).includes(homeId))?.id || null)
-    : null;
-
-  // ✅︎ تسمية واضحة تظهر تلقائياً للجمهور (badge على بطاقة المباراة + تفاصيلها)
-  // لأن viewer.js يعرض knockoutRoundName مباشرة — تتضمّن اسمَي المجموعتين
-  // حتى يعرف الجمهور أنها مباراة قرار استثنائية وليست خطأ بالجدول
-  let _cgLabel = 'مباراة فاصلة بين مجموعتين';
-  if (isCrossGroupPlayoff) {
-    const G = window.adminGroups || [];
-    const gOf = id => G.find(g => (g.teamIds || []).includes(id));
-    const ghn = gOf(homeId)?.name, gan = gOf(awayId)?.name;
-    if (ghn && gan) _cgLabel = `⚔️ فاصلة: ${ghn} × ${gan}`;
-  }
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.dataset.busy = String(Date.now()); btn.textContent = '⏳ جارٍ الحفظ...'; }
+  const release = () => {
+    if (!btn) return;
+    delete btn.dataset.busy;
+    btn.textContent = label || '✓ إضافة المباراة';
+  };
+  // شبكة أمان: لو تأخّرت الشبكة، يعود الزر لحالته مع رسالة بدل الجمود
+  const watchdog = setTimeout(() => {
+    if (!btn || !btn.dataset.busy) return;
+    release(); mm2Render();
+    showToast('⚠️ تأخّر الحفظ — تأكّد من الاتصال وحاول مرة أخرى', 'error');
+  }, 20000);
 
   try {
     await addDoc(collection(db, 'leagues', LEAGUE_ID, 'matches'), _lightMatch({
-      homeId, awayId,
-      homeName: homeTeam?.name, awayName: awayTeam?.name,
-      homeLogo: homeTeam?.logo, awayLogo: awayTeam?.logo,
+      homeId: MM2.home, awayId: MM2.away,
+      homeName: hT?.name, awayName: aT?.name,
+      homeLogo: hT?.logo, awayLogo: aT?.logo,
       homeScore: null, awayScore: null,
-      date, time, venue, round,
-      /* ── دور المواجهة ──
-         🔴 كانت المباريات المضافة يدوياً **بلا حقل leg إطلاقاً** — فلا
-         تظهر عليها شارة ذهاب/إياب ولا تُصنَّف في مبدّل القسم، حتى في
-         بطولة مضبوطة على «ذهاب وإياب». نكتبه الآن: يدوياً إن اختاره
-         المنظّم، وإلا محسوباً من رقم الجولة كالدوريات الرسمية. */
-      ..._legFieldsForNewMatch(round, homeId),
-      ...(_groupId ? { groupId: _groupId } : {}),
-      ...(isCrossGroupPlayoff ? {
-        isKnockout: true,
-        knockoutRoundName: _cgLabel,
-      } : {}),
-      referee, commentator, linesman1, linesman2,
-      sponsor, photographer, announcer, attendance, notes,
+      date: document.getElementById('matchDate')?.value || null,
+      time: document.getElementById('matchTime')?.value || '16:00',
+      venue: val('matchVenue') || 'ملعب الحارة',
+      round,
+      ..._legFieldsForNewMatch(round, MM2.home),
+      ...(groupId ? { groupId } : {}),
+      ...(cross ? { isKnockout: true, knockoutRoundName: cgLabel } : {}),
+      referee: val('matchReferee'), commentator: val('matchCommentator'),
+      linesman1: val('matchLinesman1'), linesman2: val('matchLinesman2'),
+      sponsor: val('matchSponsor'), photographer: val('matchPhotographer'),
+      announcer: val('matchAnnouncer'),
+      attendance: document.getElementById('matchAttendance')?.value || '',
+      notes: val('matchNotes'),
       status: 'upcoming', createdAt: serverTimestamp()
     }));
-    closeModal('modal-match');
 
-    /* ✅︎ إظهار المباراة الجديدة فوراً بدون أي خطوة يدوية ──
-       قسم المباريات مقسّم لتبويبات (الإقصاء / المباريات / المنتهية) وكل
-       تبويب يجمع مبارياته حسب الجولة، ويطوي تلقائياً أي جولة غير
-       "الجولة الحالية". فلو كان المنظّم واقفاً على تبويب أو جولة غير التي
-       أُضيفت لها المباراة، تُحفظ فعلياً لكن لا تظهر أمامه إلا بتدخّل يدوي.
-       نجبر الانتقال لمكان المباراة الجديدة بالضبط: التبويب الصحيح، وضع
-       "بالجولة" (حتى يتطابق مفتاح المجموعة مع ما يبنيه admin-matches-tabs.js)،
-       والجولة المعنية مفتوحة. */
-    window._amtTab = isCrossGroupPlayoff ? 'ko' : 'gr';
+    clearTimeout(watchdog);
+    release();
+
+    // اجعل المباراة الجديدة مرئية فوراً في التبويب والجولة الصحيحين
+    window._amtTab = cross ? 'ko' : 'gr';
     window._amtMode = 'round';
     window._amtCollapsed = window._amtCollapsed || {};
-    const _revealKey = isCrossGroupPlayoff ? _cgLabel : ('الجولة ' + round);
-    window._amtCollapsed[_revealKey] = false;
+    window._amtCollapsed[cross ? cgLabel : ('الجولة ' + round)] = false;
 
-    /* 🔴 تصفير الفريقين بعد الحفظ ضروري: كانا يبقيان مُختارَين، فتُفتح
-       النافذة في المرة التالية بنفس المواجهة. وضغط «إضافة» فوراً يوقظ
-       حوار «بينهما مباراة بالفعل» — ولو لم ينتبه له المنظّم بدا الزر
-       معلّقاً على «جارٍ الحفظ…» بانتظار تأكيد لا يراه. */
-    ['matchHome','matchAway'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.value = '';
-    });
-    try { window._renderTeamPicker && window._renderTeamPicker(); } catch (e) {}
+    /* النافذة تبقى مفتوحة والفريقان يُصفَّران: إضافة جولة كاملة تصير
+       سلسلة ضغطات متتالية بلا إعادة فتح النافذة في كل مرة. */
+    MM2.home = ''; MM2.away = ''; MM2.q = '';
+    const s = document.getElementById('mm2Search'); if (s) s.value = '';
+    mm2Render();
+    const bd = document.querySelector('#modal-match .mm2-body'); if (bd) bd.scrollTop = 0;
+    showToast(cross ? 'تمت إضافة المباراة الفاصلة ⚔️' : `تمت إضافة ${hT?.name} × ${aT?.name} ✓`, 'success');
+  } catch (e) {
+    clearTimeout(watchdog);
+    release(); mm2Render();
+    console.error('[addMatch]', e);
+    showToast('خطأ: ' + (window._trErr ? window._trErr(e) : (e && e.message) || e), 'error');
+  }
+};
 
-    // إعادة تعيين الحقول الإضافية
-    ['matchReferee','matchCommentator','matchLinesman1','matchLinesman2','matchSponsor','matchPhotographer','matchAnnouncer','matchAttendance','matchNotes'].forEach(id => {
-      const el = document.getElementById(id); if(el) el.value = '';
-    });
-    document.getElementById('crossGroupBanner')?.remove();
-    window._matchModalMode = 'normal';
-    showToast(isCrossGroupPlayoff ? 'تمت إضافة المباراة الفاصلة ⚔️' : 'تمت إضافة المباراة ✓', 'success');
-  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
-}
 
 // ══ AUTO SCHEDULE ══
 window.autoSchedule = async function() {
@@ -6190,52 +6201,10 @@ window.toggleSwitch = function(row) {
 };
 window.openModal = function(id) {
   const el = document.getElementById(id);
-  if (!el) return;                       // ✅︎ لا تنهار لو العنصر غير موجود
-  // ✅︎ خانة الملعب تُعبَّأ تلقائياً من "الملعب الافتراضي" بالإعدادات — يفيد البطولات التي تُقام كلها على ملعب واحد
-  if (id === 'modal-match') {
-    const venueEl = document.getElementById('matchVenue');
-    if (venueEl) venueEl.value = (window.settings && window.settings.defaultVenue) || 'ملعب الحارة';
-    // ✅︎ وضع "مباراة فاصلة بين مجموعتين" — يُفعَّل فقط عبر openCrossGroupPlayoffModal()،
-    // ويُعرَّف بوضوح داخل النافذة نفسها (عنوان + شريط توضيحي) حتى لا يلتبس بالإضافة العادية
-    const isCG = window._matchModalMode === 'crossGroup';
-    const titleEl = el.querySelector('.modal-title');
-    if (titleEl) titleEl.textContent = isCG ? '⚔️ مباراة فاصلة بين مجموعتين' : '➕︎ إضافة مباراة';
-    // ✅︎ "رقم الجولة" مفهوم لا معنى له لمباراة قرار استثنائية بين مجموعتين — نخفيه ونثبّته
-    const roundGroup = document.getElementById('matchRoundGroup');
-    const roundInput = document.getElementById('matchRound');
-    if (roundGroup) roundGroup.style.display = isCG ? 'none' : '';
-    if (roundInput && isCG) roundInput.value = '1';
-    // ✅︎ في وضع الفاصلة: نُظهر اسم مجموعة كل فريق أمام اسمه في القائمة —
-    // يمنع اختيار فريقين بالغلط من نفس المجموعة أو فريق غير موزّع
-    if (isCG) {
-      const G = window.adminGroups || [];
-      ['matchHome', 'matchAway'].forEach(selId => {
-        const sel = document.getElementById(selId);
-        if (!sel) return;
-        const prev = sel.value;
-        sel.innerHTML = (window.teams || []).map(t => {
-          const g = G.find(gr => (gr.teamIds || []).includes(t.id));
-          const logoText = (t.logo && !t.logo.startsWith('data:') && !t.logo.startsWith('http')) ? t.logo : '';
-          return `<option value="${t.id}">${logoText ? logoText + ' ' : ''}${t.name}${g ? ' — ' + g.name : ' — (بلا مجموعة)'}</option>`;
-        }).join('');
-        if (prev) sel.value = prev;
-      });
-    } else if (typeof populateMatchSelects === 'function') {
-      populateMatchSelects(); // يعيد القائمة لشكلها العادي إن كانت آخر مرة بوضع الفاصلة
-    }
-    let banner = document.getElementById('crossGroupBanner');
-    if (isCG) {
-      if (!banner) {
-        banner = document.createElement('div');
-        banner.id = 'crossGroupBanner';
-        banner.style.cssText = 'background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.3);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11.5px;color:var(--gold);line-height:1.8';
-        banner.textContent = '⚔️ مباراة قرار استثنائية بين فريقين من مجموعتين مختلفتين — تقبل التعادل وركلات الترجيح تلقائياً، ولا تُحتسب في جدول ترتيب أي مجموعة.';
-        el.querySelector('.modal-body')?.prepend(banner);
-      }
-    } else {
-      banner?.remove();
-    }
-  }
+  if (!el) return;                       // لا تنهار لو العنصر غير موجود
+  /* نافذة المباراة لها مسار فتح خاص بها (mm2Open) يتولّى التهيئة والوضع
+     والرسم — فنُحوّل إليه بدل تكرار المنطق في مكانين. */
+  if (id === 'modal-match') { mm2Open(window._matchModalMode); return; }
   el.classList.add('open');
   document.body.style.overflow = 'hidden';
 };
@@ -6322,69 +6291,8 @@ window._syncMatchLeg = function() {
     : 'أضِف الفرق أولاً ليُحسب الدور تلقائياً.';
 };
 
-/* ── تهيئة ذكية للنافذة قبل فتحها ──
-   يملأ ما يمكن استنتاجه بدل أن يكتبه المنظّم في كل مباراة:
-    • رقم الجولة   ← الجولة الحالية (أعلى جولة موجودة، أو التالية إن اكتملت)
-    • الملعب       ← آخر ملعب استُعمل فعلاً في هذه البطولة
-    • التاريخ      ← اليوم
-    • الفريق الثاني ← أول فريق مختلف عن الأول (فلا يبدأ الاثنان متطابقين) */
-function _prefillMatchModal() {
-  const ms = (window.matches || []).filter(m => !m.isKnockout);
+/* تهيئة النافذة وفتحها انتقلا بالكامل إلى MM2 (mm2Open) بالأعلى. */
 
-  // رقم الجولة
-  const rIn = document.getElementById('matchRound');
-  if (rIn) {
-    const maxR = ms.reduce((a, m) => Math.max(a, m.round || 0), 0);
-    if (maxR > 0) {
-      const inMax = ms.filter(m => (m.round || 0) === maxR);
-      const teamsN = (window.teams || []).length;
-      // الجولة ممتلئة عندما تحوي نصف عدد الفرق (كل فريق يلعب مرة)
-      const full = teamsN >= 2 && inMax.length >= Math.floor(teamsN / 2);
-      rIn.value = full ? maxR + 1 : maxR;
-    } else rIn.value = 1;
-  }
-
-  // الملعب: آخر ملعب مستعمل فعلياً
-  const vIn = document.getElementById('matchVenue');
-  if (vIn) {
-    const lastV = [...(window.matches || [])].reverse()
-      .map(m => (m.venue || '').trim()).find(v => v);
-    if (lastV) vIn.value = lastV;
-  }
-
-  // التاريخ: اليوم
-  const dIn = document.getElementById('matchDate');
-  if (dIn && !dIn.value) {
-    const d = new Date();
-    dIn.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  }
-
-  /* 🔴 كان هنا كود يمنع تطابق الفريقين يستعمل `h` و`a` — وقد أُزيل
-     تعريفهما عند التحوّل للمنتقي المفتوح، فيرمي «h is not defined»
-     ويقطع بقية التهيئة (رسم المنتقي وحساب دور المواجهة). النافذة تفتح
-     بلا اختيار مسبق أصلاً، فلا حاجة لهذا الفحص. */
-
-  _renderTeamPicker();
-  window._syncMatchLeg();
-}
-window._prefillMatchModal = _prefillMatchModal;
-
-// فتح نافذة الإضافة العادية — يضمن دائماً العودة للوضع الافتراضي (وليس وضع المباراة الفاصلة)
-window.openNormalMatchModal = function() {
-  window._matchModalMode = 'normal';
-  openModal('modal-match');
-  setTimeout(() => { try { _prefillMatchModal(); } catch (e) {} }, 30);
-};
-// فتح نافذة "مباراة فاصلة بين مجموعتين" — لا تظهر إلا من الزر المخصّص في صفحة المجموعات،
-// وتتأكد من أن الإعداد مفعّل فعلاً قبل السماح (دفاع مزدوج مع الفحص في addMatch)
-window.openCrossGroupPlayoffModal = function() {
-  if (!(window.settings && window.settings.allowCrossGroupPlayoff)) {
-    showToast('⚠️ فعّل «السماح بمباراة فاصلة بين مجموعتين» من الإعدادات أولاً', 'error');
-    return;
-  }
-  window._matchModalMode = 'crossGroup';
-  openModal('modal-match');
-};
 /* ✅︎ إغلاق موحّد: يدعم نوعَي النوافذ في المنصة
    - نوافذ .modal-overlay الثابتة → إزالة كلاس open
    - نوافذ overlay المُنشأة ديناميكياً → إزالة العنصر نفسه

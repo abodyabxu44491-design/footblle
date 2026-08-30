@@ -27,11 +27,28 @@
     if (e.touches && e.touches.length > 1) e.preventDefault();
   }, { passive: false });
 
-  // 3) دبل-تاب سريع (زوم سفاري التلقائي)
+  /* 3) دبل-تاب سريع (زوم سفاري التلقائي)
+     🔴 كان هذا الحارس يبتلع ضغطات المستخدم: استدعاء preventDefault على
+     touchend يُلغي — بحكم المواصفة — أحداث الفأرة المتولّدة عنه، ومنها
+     `click` نفسه. فأي لمسة تقع خلال ٣٠٠ms من لمسة قبلها لا يصلها click
+     إطلاقاً: الزر يُظهر أثر الضغط (:active من touchstart) ثم لا يحدث شيء،
+     بلا خطأ في الـConsole ولا رسالة.
+     ظهر بوضوح في نافذة إضافة المباراة بعد تحويل اختيار الفرق إلى أزرار
+     داخل النافذة: يضغط المنظّم الفريق الأول ثم الثاني ثم «إضافة المباراة»
+     بتتابع سريع، فتقع الضغطة الأخيرة داخل النافذة الزمنية وتضيع.
+
+     الحل: نستثني كل عنصر تفاعلي. ومنع زوم الدبل-تاب مضمون أصلاً عبر
+     `touch-action:manipulation` المطبَّق بالأعلى — فهذا الحارس احتياط
+     للمساحات الفارغة فقط. */
+  var _VL_INTERACTIVE = 'button, a, input, select, textarea, label, summary,' +
+    '[onclick], [role="button"], [contenteditable="true"], .btn, .tp-item, .tp-pk-swap';
   var lastTouchEnd = 0;
   document.addEventListener('touchend', function (e) {
     var now = Date.now();
-    if (now - lastTouchEnd <= 300) e.preventDefault();
+    var t = e.target;
+    var isInteractive = false;
+    try { isInteractive = !!(t && t.closest && t.closest(_VL_INTERACTIVE)); } catch (err) {}
+    if (!isInteractive && now - lastTouchEnd <= 300) e.preventDefault();
     lastTouchEnd = now;
   }, { passive: false });
 

@@ -17,7 +17,7 @@ if('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
-<link rel="stylesheet" href="./admin.css?v=270"/>
+<link rel="stylesheet" href="./admin.css?v=271"/>
 <!-- SheetJS: لإنشاء/قراءة ملفات Excel (قالب واستيراد اللاعبين) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1329,78 +1329,52 @@ if('serviceWorker' in navigator) {
   </div>
 </div>
 
-<!-- ══════════ نافذة المباراة — إعادة بناء كاملة (MM2) ══════════
-     بطاقة مواجهة بالأعلى (المضيف × الضيف) تتحدّث مع كل اختيار، وتحتها
-     بحث وقائمة فرق كأزرار. لا حوارات تأكيد إطلاقاً: كل تحقّق يظهر في
-     شريط حيّ داخل النافذة، ونصّ زر الحفظ نفسه يعكس الحالة.
-     كل الأزرار بلا onclick — التقاطها بالتفويض في admin.js (mm2Handle). -->
+<!-- نافذة المباراة — نسخة v217 المؤكَّد عملها (أُعيدت كما هي) -->
 <div class="modal-overlay" id="modal-match">
-  <div class="modal-box mm2-box">
-    <div class="mm2-head">
-      <div class="mm2-title" id="mm2Title">إضافة مباراة</div>
-      <button type="button" class="mm2-close" data-mm2-close="1" aria-label="إغلاق">✕</button>
+  <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header"><div class="modal-title">➕︎ إضافة مباراة</div><button class="modal-close" onclick="closeModal('modal-match')">✕</button></div>
+    <div class="modal-body">
+      <!-- الفريقان -->
+      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px">⚽ الفريقان</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">الفريق الأول 🏠</label><select class="form-select" id="matchHome"></select></div>
+        <div class="form-group"><label class="form-label">الفريق الثاني ✈︎️</label><select class="form-select" id="matchAway"></select></div>
+      </div>
+      <!-- الوقت والمكان -->
+      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">📅 الوقت والمكان</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">التاريخ</label><input class="form-input" type="date" id="matchDate"/></div>
+        <div class="form-group"><label class="form-label">الوقت</label><input class="form-input" type="time" id="matchTime" value="16:00"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🏟 الملعب</label><input class="form-input" id="matchVenue" value="ملعب الحارة"/></div>
+        <div class="form-group"><label class="form-label">🎯 رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1"/></div>
+      </div>
+      <!-- طاقم المباراة -->
+      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">👔 طاقم المباراة <span style="color:var(--muted);font-weight:400">(اختياري)</span></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🏁 الحكم الرئيسي</label><input class="form-input" id="matchReferee" placeholder="اسم الحكم"/></div>
+        <div class="form-group"><label class="form-label">🎙 المعلق</label><input class="form-input" id="matchCommentator" placeholder="اسم المعلق"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🚩 حكم خط 1</label><input class="form-input" id="matchLinesman1" placeholder="الاسم"/></div>
+        <div class="form-group"><label class="form-label">🚩 حكم خط 2</label><input class="form-input" id="matchLinesman2" placeholder="الاسم"/></div>
+      </div>
+      <!-- الرعاة والإضافات -->
+      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">🏅 الرعاة والإضافات <span style="color:var(--muted);font-weight:400">(اختياري)</span></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🏅 الراعي الرئيسي</label><input class="form-input" id="matchSponsor" placeholder="اسم الراعي"/></div>
+        <div class="form-group"><label class="form-label">📸 المصور</label><input class="form-input" id="matchPhotographer" placeholder="اسم المصور"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">🎤 مذيع الملعب</label><input class="form-input" id="matchAnnouncer" placeholder="اسم المذيع"/></div>
+        <div class="form-group"><label class="form-label">👥 عدد الجمهور</label><input class="form-input" type="number" id="matchAttendance" placeholder="500"/></div>
+      </div>
+      <div class="form-group"><label class="form-label">📝 ملاحظات (تظهر للجمهور)</label><textarea class="form-input" id="matchNotes" rows="2" placeholder="أي ملاحظات إضافية..." style="resize:none"></textarea></div>
     </div>
-
-    <div class="modal-body mm2-body">
-      <!-- حقلان مخفيان للتوافق مع بقية المنصة -->
-      <select id="matchHome" style="display:none"></select>
-      <select id="matchAway" style="display:none"></select>
-
-      <div class="mm2-cg" id="mm2CgHint" style="display:none">
-        ⚔️ مباراة قرار بين فريقين من مجموعتين مختلفتين — تقبل التعادل وركلات الترجيح،
-        ولا تُحتسب في ترتيب أي مجموعة.
-      </div>
-
-      <!-- بطاقة المواجهة -->
-      <div class="mm2-vs" id="mm2Vs"></div>
-
-      <!-- شريط الحالة الحيّ -->
-      <div class="mm2-notice" id="mm2Notice" style="display:none"></div>
-
-      <!-- البحث + القائمة -->
-      <div class="mm2-searchwrap">
-        <input class="mm2-search" id="mm2Search" type="text" placeholder="ابحث عن فريق…" autocomplete="off"/>
-      </div>
-      <div class="mm2-teams" id="mm2Teams"></div>
-
-      <!-- الأساسيات -->
-      <div class="mm2-grid">
-        <div class="mm2-f"><label>📆 التاريخ</label><input type="date" id="matchDate"/></div>
-        <div class="mm2-f"><label>🕓 الوقت</label><input type="time" id="matchTime" value="16:00"/></div>
-        <div class="mm2-f mm2-wide"><label>🏟 الملعب</label><input id="matchVenue" value="ملعب الحارة"/></div>
-        <div class="mm2-f" id="matchRoundGroup"><label>🎯 الجولة</label>
-          <input type="number" id="matchRound" value="1" min="1" inputmode="numeric"/></div>
-        <div class="mm2-f" id="matchLegGroup" style="display:none"><label>🔁 الدور</label>
-          <select id="matchLeg">
-            <option value="auto">تلقائي</option>
-            <option value="1">ذهاب</option>
-            <option value="2">إياب</option>
-          </select>
-          <div id="matchLegHint" class="mm2-hint"></div>
-        </div>
-      </div>
-
-      <!-- التفاصيل الاختيارية مطوية -->
-      <button type="button" class="mm2-more" data-mm2-more="1">▾ تفاصيل إضافية (حكّام · رعاة · ملاحظات)</button>
-      <div id="mm2More" style="display:none">
-        <div class="mm2-grid">
-          <div class="mm2-f"><label>🏁 الحكم</label><input id="matchReferee" placeholder="الاسم"/></div>
-          <div class="mm2-f"><label>🎙 المعلّق</label><input id="matchCommentator" placeholder="الاسم"/></div>
-          <div class="mm2-f"><label>🚩 مساعد ١</label><input id="matchLinesman1" placeholder="الاسم"/></div>
-          <div class="mm2-f"><label>🚩 مساعد ٢</label><input id="matchLinesman2" placeholder="الاسم"/></div>
-          <div class="mm2-f"><label>🏅 الراعي</label><input id="matchSponsor" placeholder="الاسم"/></div>
-          <div class="mm2-f"><label>📸 المصوّر</label><input id="matchPhotographer" placeholder="الاسم"/></div>
-          <div class="mm2-f"><label>🎤 مذيع الملعب</label><input id="matchAnnouncer" placeholder="الاسم"/></div>
-          <div class="mm2-f"><label>👥 الجمهور</label><input type="number" id="matchAttendance" placeholder="500" inputmode="numeric"/></div>
-          <div class="mm2-f mm2-wide"><label>📝 ملاحظات (تظهر للجمهور)</label>
-            <textarea id="matchNotes" rows="2" placeholder="أي ملاحظات إضافية…"></textarea></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="mm2-foot">
-      <button type="button" class="btn mm2-cancel" data-mm2-close="1">إلغاء</button>
-      <button type="button" class="btn mm2-save" id="btnAddMatch" data-mm2-save="1">✓ إضافة المباراة</button>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-match')">إلغاء</button>
+      <button class="btn btn-gold" id="btnAddMatch" onclick="addMatch()">✓ إضافة المباراة</button>
     </div>
   </div>
 </div>
@@ -2268,14 +2242,14 @@ if('serviceWorker' in navigator) {
   };
 })();
 </script>
-<script type="module" src="./admin.js?v=270"></script>
+<script type="module" src="./admin.js?v=271"></script>
 <!-- نظام التشكيلات — Drag & Drop — يُحمّل بعد الأدمن مباشرة -->
-<script type="module" src="./admin-lineup-dragdrop.js?v=270"></script>
+<script type="module" src="./admin-lineup-dragdrop.js?v=271"></script>
 
 <!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
 
-<script src="./live-page-stats-fix.js?v=270"></script>
-<script src="./all-fixes.js?v=270"></script>
+<script src="./live-page-stats-fix.js?v=271"></script>
+<script src="./all-fixes.js?v=271"></script>
 <script>
 /* ===== timer-admin (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════
@@ -2969,8 +2943,8 @@ if('serviceWorker' in navigator) {
   console.log('[sponsor-admin] ✅︎ جاهز');
 })();
 </script>
-<script src="./cards-system.js?v=270"></script>
-<script src="./substitution-system.js?v=270"></script>
+<script src="./cards-system.js?v=271"></script>
+<script src="./substitution-system.js?v=271"></script>
 <script>
 // ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
 window.lvOpenLineupFromLive = function() {
@@ -3089,17 +3063,17 @@ window.openMatchLineup = function(matchId) {
   </div>
 </div>
 
-<script src="./timer-hotfix.js?v=270"></script>
-<script src="./tiebreak-rules.js?v=270"></script>
-<script src="./date-groups.js?v=270"></script>
-<script src="./admin-matches-tabs.js?v=270"></script>
-<script src="./groups-gate.js?v=270"></script>
-<script src="./league-logo.js?v=270"></script>
-<script src="./health-check.js?v=270"></script>
-<script src="./lock-guard.js?v=270"></script>
-<script src="./clock-sync.js?v=270"></script>
-<script src="./viewport-lock.js?v=270"></script>
-<script src="./pwa-install.js?v=270"></script>
+<script src="./timer-hotfix.js?v=271"></script>
+<script src="./tiebreak-rules.js?v=271"></script>
+<script src="./date-groups.js?v=271"></script>
+<script src="./admin-matches-tabs.js?v=271"></script>
+<script src="./groups-gate.js?v=271"></script>
+<script src="./league-logo.js?v=271"></script>
+<script src="./health-check.js?v=271"></script>
+<script src="./lock-guard.js?v=271"></script>
+<script src="./clock-sync.js?v=271"></script>
+<script src="./viewport-lock.js?v=271"></script>
+<script src="./pwa-install.js?v=271"></script>
 
 <!-- (شبكة أمان اللمس القديمة أُزيلت — النافذة الجديدة تربط أحداثها بالتفويض داخل admin.js) -->
 </body>

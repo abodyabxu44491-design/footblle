@@ -4927,8 +4927,17 @@ window.addMatch = async function() {
   // (شائعتان على الجوال) كانتا تُنشئان مباراتين مكررتين لنفس الفريقين،
   // أو تُسقطان نافذة تأكيد الأولى بصمت (confirmDialog تمسح أي نافذة سابقة
   // دون أن ترد على وعدها). نقفل الزر من أول سطر حتى نهاية الدالة بكل مساراتها.
-  if (window._addMatchBusy) return;
+  /* 🔴 حارس الضغط المزدوج كان **يقتل الزر نهائياً** لو بقي العلم مرفوعاً:
+     كل ضغطة بعدها ترجع بصمت تام — بلا تنبيه ولا خطأ — فيبدو الزر ميتاً.
+     الآن العلم يحمل وقتاً: إن مضى عليه أكثر من ٣٠ ثانية نعتبره عالقاً
+     ونتجاهله، وإن كان حديثاً نُخبر المنظّم بدل الصمت. */
+  if (window._addMatchBusy) {
+    const _age = Date.now() - (window._addMatchBusyAt || 0);
+    if (_age < 30000) { showToast('⏳ جارٍ حفظ المباراة السابقة...', 'info'); return; }
+    console.warn('[addMatch] علم الحفظ كان عالقاً منذ', _age, 'ms — تم تجاهله');
+  }
   window._addMatchBusy = true;
+  window._addMatchBusyAt = Date.now();
   const _btnAM = document.getElementById('btnAddMatch');
   const _btnAMLabel = (_btnAM && _btnAM.textContent.indexOf('جارٍ') === -1)
     ? _btnAM.textContent : '✓ إضافة المباراة';
@@ -4945,6 +4954,9 @@ window.addMatch = async function() {
     showToast('⚠️ تأخّر الحفظ — تأكّد من الاتصال وحاول مرة أخرى', 'error');
   }, 25000);
   if (_btnAM) { _btnAM.disabled = true; _btnAM.textContent = '⏳ جارٍ الحفظ...'; }
+  console.log('[addMatch] بدأ — المضيف:', document.getElementById('matchHome')?.value,
+              '· الضيف:', document.getElementById('matchAway')?.value,
+              '· الجولة:', document.getElementById('matchRound')?.value);
   try {
     await _addMatchInner();
   } catch (e) {

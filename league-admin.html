@@ -17,7 +17,7 @@ if('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
-<link rel="stylesheet" href="./admin.css"/>
+<link rel="stylesheet" href="./admin.css?v=268"/>
 <!-- SheetJS: لإنشاء/قراءة ملفات Excel (قالب واستيراد اللاعبين) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1381,7 +1381,7 @@ if('serviceWorker' in navigator) {
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-match')">إلغاء</button>
-      <button class="btn btn-gold" id="btnAddMatch" onclick="addMatch()">✓ إضافة المباراة</button>
+      <button class="btn btn-gold" id="btnAddMatch" onclick="if(typeof addMatch==='function'){addMatch();}else{alert('⚠️ ملف الإدارة admin.js لم يُحمَّل بالكامل.\nأغلق الصفحة وافتحها من جديد، أو امسح كاش المتصفح.');}">✓ إضافة المباراة</button>
     </div>
   </div>
 </div>
@@ -2249,14 +2249,14 @@ if('serviceWorker' in navigator) {
   };
 })();
 </script>
-<script type="module" src="./admin.js"></script>
+<script type="module" src="./admin.js?v=268"></script>
 <!-- نظام التشكيلات — Drag & Drop — يُحمّل بعد الأدمن مباشرة -->
-<script type="module" src="./admin-lineup-dragdrop.js"></script>
+<script type="module" src="./admin-lineup-dragdrop.js?v=268"></script>
 
 <!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
 
-<script src="./live-page-stats-fix.js"></script>
-<script src="./all-fixes.js"></script>
+<script src="./live-page-stats-fix.js?v=268"></script>
+<script src="./all-fixes.js?v=268"></script>
 <script>
 /* ===== timer-admin (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════
@@ -2950,8 +2950,8 @@ if('serviceWorker' in navigator) {
   console.log('[sponsor-admin] ✅︎ جاهز');
 })();
 </script>
-<script src="./cards-system.js"></script>
-<script src="./substitution-system.js"></script>
+<script src="./cards-system.js?v=268"></script>
+<script src="./substitution-system.js?v=268"></script>
 <script>
 // ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
 window.lvOpenLineupFromLive = function() {
@@ -3070,16 +3070,16 @@ window.openMatchLineup = function(matchId) {
   </div>
 </div>
 
-<script src="./timer-hotfix.js"></script>
-<script src="./tiebreak-rules.js"></script>
-<script src="./date-groups.js"></script>
-<script src="./admin-matches-tabs.js"></script>
-<script src="./groups-gate.js"></script>
-<script src="./league-logo.js"></script>
-<script src="./health-check.js"></script>
-<script src="./lock-guard.js"></script>
-<script src="./clock-sync.js"></script>
-<script src="./viewport-lock.js"></script>
-<script src="./pwa-install.js"></script>
+<script src="./timer-hotfix.js?v=268"></script>
+<script src="./tiebreak-rules.js?v=268"></script>
+<script src="./date-groups.js?v=268"></script>
+<script src="./admin-matches-tabs.js?v=268"></script>
+<script src="./groups-gate.js?v=268"></script>
+<script src="./league-logo.js?v=268"></script>
+<script src="./health-check.js?v=268"></script>
+<script src="./lock-guard.js?v=268"></script>
+<script src="./clock-sync.js?v=268"></script>
+<script src="./viewport-lock.js?v=268"></script>
+<script src="./pwa-install.js?v=268"></script>
 </body>
 </html>

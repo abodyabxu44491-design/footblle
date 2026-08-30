@@ -17,7 +17,7 @@ if('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
-<link rel="stylesheet" href="./admin.css?v=272"/>
+<link rel="stylesheet" href="./admin.css?v=273"/>
 <!-- SheetJS: لإنشاء/قراءة ملفات Excel (قالب واستيراد اللاعبين) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1358,8 +1358,20 @@ if('serviceWorker' in navigator) {
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">🏟 الملعب</label><input class="form-input" id="matchVenue" value="ملعب الحارة"/></div>
-        <div class="form-group" id="mmRoundGroup"><label class="form-label">🎯 رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1" inputmode="numeric"/></div>
+        <div class="form-group" id="mmRoundGroup"><label class="form-label">🎯 رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1" inputmode="numeric" oninput="mmOnRoundChange()"/></div>
       </div>
+      <!-- دور المواجهة: يظهر فقط في بطولات «ذهاب وإياب»، ويُحسب تلقائياً من رقم الجولة -->
+      <div class="form-group" id="matchLegGroup" style="display:none">
+        <label class="form-label">🔁 دور المواجهة</label>
+        <select class="form-select" id="matchLeg">
+          <option value="auto">تلقائي (حسب رقم الجولة)</option>
+          <option value="1">ذهاب</option>
+          <option value="2">إياب</option>
+        </select>
+        <div id="matchLegHint" class="mm-leghint"></div>
+      </div>
+      <!-- لوحة حالة الجولة: من له مباراة ومن ما زال فاضياً -->
+      <div class="mm-rstat" id="mmRoundStat" style="display:none"></div>
       <!-- طاقم المباراة -->
       <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">👔 طاقم المباراة <span style="color:var(--muted);font-weight:400">(اختياري)</span></div>
       <div class="form-row">
@@ -2254,14 +2266,14 @@ if('serviceWorker' in navigator) {
   };
 })();
 </script>
-<script type="module" src="./admin.js?v=272"></script>
+<script type="module" src="./admin.js?v=273"></script>
 <!-- نظام التشكيلات — Drag & Drop — يُحمّل بعد الأدمن مباشرة -->
-<script type="module" src="./admin-lineup-dragdrop.js?v=272"></script>
+<script type="module" src="./admin-lineup-dragdrop.js?v=273"></script>
 
 <!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
 
-<script src="./live-page-stats-fix.js?v=272"></script>
-<script src="./all-fixes.js?v=272"></script>
+<script src="./live-page-stats-fix.js?v=273"></script>
+<script src="./all-fixes.js?v=273"></script>
 <script>
 /* ===== timer-admin (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════
@@ -2955,8 +2967,8 @@ if('serviceWorker' in navigator) {
   console.log('[sponsor-admin] ✅︎ جاهز');
 })();
 </script>
-<script src="./cards-system.js?v=272"></script>
-<script src="./substitution-system.js?v=272"></script>
+<script src="./cards-system.js?v=273"></script>
+<script src="./substitution-system.js?v=273"></script>
 <script>
 // ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
 window.lvOpenLineupFromLive = function() {
@@ -3075,17 +3087,17 @@ window.openMatchLineup = function(matchId) {
   </div>
 </div>
 
-<script src="./timer-hotfix.js?v=272"></script>
-<script src="./tiebreak-rules.js?v=272"></script>
-<script src="./date-groups.js?v=272"></script>
-<script src="./admin-matches-tabs.js?v=272"></script>
-<script src="./groups-gate.js?v=272"></script>
-<script src="./league-logo.js?v=272"></script>
-<script src="./health-check.js?v=272"></script>
-<script src="./lock-guard.js?v=272"></script>
-<script src="./clock-sync.js?v=272"></script>
-<script src="./viewport-lock.js?v=272"></script>
-<script src="./pwa-install.js?v=272"></script>
+<script src="./timer-hotfix.js?v=273"></script>
+<script src="./tiebreak-rules.js?v=273"></script>
+<script src="./date-groups.js?v=273"></script>
+<script src="./admin-matches-tabs.js?v=273"></script>
+<script src="./groups-gate.js?v=273"></script>
+<script src="./league-logo.js?v=273"></script>
+<script src="./health-check.js?v=273"></script>
+<script src="./lock-guard.js?v=273"></script>
+<script src="./clock-sync.js?v=273"></script>
+<script src="./viewport-lock.js?v=273"></script>
+<script src="./pwa-install.js?v=273"></script>
 
 <!-- (شبكة أمان اللمس القديمة أُزيلت — النافذة الجديدة تربط أحداثها بالتفويض داخل admin.js) -->
 </body>

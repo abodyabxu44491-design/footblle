@@ -4742,6 +4742,8 @@ window.mmUpdateVs = function () {
     `<button type="button" class="mmvs-swap" onclick="mmSwapSides()" ${(h && a) ? '' : 'disabled'}
        title="تبديل الأرضية">⇄</button>` +
     _mmSide(a, 'away');
+  try { window._syncMatchLeg && window._syncMatchLeg(); } catch (e) {}
+  try { window.mmRenderRoundStat && window.mmRenderRoundStat(); } catch (e) {}
 };
 window.mmSwapSides = function () {
   const H = document.getElementById('matchHome'), A = document.getElementById('matchAway');
@@ -4760,6 +4762,62 @@ window.mmRenderAdded = function () {
   box.style.display = '';
   box.innerHTML = `<div class="mmadd-h">✓ أُضيفت في هذه الجلسة (${L.length})</div>` +
     L.slice(-6).reverse().map(x => `<div class="mmadd-i">${x}</div>`).join('');
+};
+
+/* ── لوحة حالة الجولة ──
+   الجولة تعني أن كل فريق يلعب مباراة واحدة. أن نُظهر — قبل الاختيار — من
+   حجز مباراته ومن ما زال فاضياً يمنع الخطأ بدل أن يُحذّر منه بعد وقوعه،
+   ويوضّح كم بقي لإكمال الجولة. */
+window.mmRenderRoundStat = function () {
+  const box = document.getElementById('mmRoundStat');
+  if (!box) return;
+  if (window._matchModalMode === 'crossGroup' || !(teams || []).length) {
+    box.style.display = 'none'; return;
+  }
+  const round = parseInt(document.getElementById('matchRound')?.value, 10) || 1;
+
+  /* في نظام المجموعات نعرض مجموعة الفريق المضيف المختار فقط — عرض كل
+     الفرق يخلط مجموعات لا تلتقي أصلاً. وقبل الاختيار نعرض الجميع. */
+  let pool = teams.slice();
+  let scope = '';
+  const hv = document.getElementById('matchHome')?.value || '';
+  if ((settings && settings.type) === 'groups' && hv) {
+    const g = _mmGroupOf(hv);
+    if (g) {
+      pool = (g.teamIds || []).map(id => teams.find(t => t.id === id)).filter(Boolean);
+      scope = ' · المجموعة ' + g.name;
+    }
+  }
+
+  const inRound = (matches || []).filter(m => !m.isKnockout && (m.round || 0) === round);
+  const taken = new Set();
+  inRound.forEach(m => { if (m.homeId) taken.add(m.homeId); if (m.awayId) taken.add(m.awayId); });
+
+  const busy = pool.filter(t => taken.has(t.id));
+  const free = pool.filter(t => !taken.has(t.id));
+  const need = Math.floor(pool.length / 2);
+  const have = inRound.filter(m => pool.some(t => t.id === m.homeId)).length;
+  const done = need > 0 && have >= need;
+
+  box.style.display = '';
+  box.className = 'mm-rstat' + (done ? ' full' : '');
+  box.innerHTML =
+    `<div class="mmrs-h">📋 حالة الجولة ${round}${scope}
+       <span>${have}/${need || '—'} مباراة</span></div>` +
+    (free.length
+      ? `<div class="mmrs-lbl">ما زال فاضياً (${free.length})</div>
+         <div class="mmrs-chips">${free.map(t => `<span class="mmrs-c free">${t.name}</span>`).join('')}</div>`
+      : `<div class="mmrs-ok">✓ كل فرق ${scope ? 'المجموعة' : 'البطولة'} لها مباراة في هذه الجولة</div>`) +
+    (busy.length
+      ? `<div class="mmrs-lbl">له مباراة (${busy.length})</div>
+         <div class="mmrs-chips">${busy.map(t => `<span class="mmrs-c busy">${t.name}</span>`).join('')}</div>`
+      : '');
+};
+
+/* تغيّر رقم الجولة يمسّ شيئين: دور المواجهة المحسوب، ولوحة الحالة. */
+window.mmOnRoundChange = function () {
+  try { window._syncMatchLeg && window._syncMatchLeg(); } catch (e) {}
+  try { window.mmRenderRoundStat && window.mmRenderRoundStat(); } catch (e) {}
 };
 
 // فتح نافذة الإضافة — الوضع الطبيعي دائماً
@@ -4926,6 +4984,11 @@ window.addMatch = async function() {
       homeLogo: homeTeam?.logo, awayLogo: awayTeam?.logo,
       homeScore: null, awayScore: null,
       date, time, venue, round,
+      /* دور المواجهة (ذهاب/إياب): كانت المباريات المضافة يدوياً تُحفظ بلا
+         هذا الحقل، فلا تظهر عليها شارة الدور ولا تُصنَّف في مبدّل القسم
+         حتى في بطولة مضبوطة على «ذهاب وإياب». يُكتب الآن: يدوياً إن اختاره
+         المنظّم، وإلا محسوباً من رقم الجولة كما في الدوريات الرسمية. */
+      ...(isCG ? {} : _legFieldsForNewMatch(round, homeId)),
       ...(_groupId ? { groupId: _groupId } : {}),
       ...(isCG ? { isKnockout: true, knockoutRoundName: _cgLabel } : {}),
       referee, commentator, linesman1, linesman2,
@@ -4960,6 +5023,7 @@ window.addMatch = async function() {
     window._mmAdded = window._mmAdded || [];
     window._mmAdded.push(_line);
     mmRenderAdded();
+    try { window.mmRenderRoundStat && window.mmRenderRoundStat(); } catch (e) {}
     showToast(`✓ تمت إضافة ${homeTeam?.name} × ${awayTeam?.name}`, 'success');
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
@@ -5998,6 +6062,7 @@ window.openModal = function(id) {
 
     if (typeof populateMatchSelects === 'function') populateMatchSelects();
     if (typeof mmRenderAdded === 'function') mmRenderAdded();
+    if (typeof mmOnRoundChange === 'function') mmOnRoundChange();
   }
   el.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -9619,6 +9684,11 @@ function loadGroupsAndKnockout() {
     adminGroups = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
     window.adminGroups = adminGroups;   // ✅︎ تصدير لحارس المجموعات
     window.renderGroupsAdmin();
+    /* 🔴 شجرة الإقصاء تقرأ متأهليها من المجموعات، لكن مستمع المجموعات كان
+       يعيد رسم صفحة المجموعات وحدها. فالضغط على «متأهل» يُحفظ فعلاً ولا
+       يظهر أثره في الشجرة إلا حين يوقظها حدث آخر (تعديل مباراة مثلاً) —
+       وهو ما بدا كأن التأهيل «لا يصل». نعيد رسمها هنا مباشرةً. */
+    if (typeof renderKnockoutAdmin === 'function') renderKnockoutAdmin();
     /* ✅︎ أعد فحص بوابة المجموعات مع كل تغيير توزيع */
     if (typeof window._checkForceGroupsGate === 'function') window._checkForceGroupsGate();
   }, (err) => console.error('Groups listener error:', err));
@@ -11565,34 +11635,55 @@ function renderKnockoutAdmin() {
   const _ready   = _needed > 0 && _free.length >= _needed;   // المتأهلون يكفون الدور الأول
   const _srcName = settings.type === 'swiss' ? 'جدول الترتيب' : 'المجموعات';
 
+  /* ── شريط المتأهلين — واحد فقط ──
+     🔴 كان هنا شريطان يقولان الشيء نفسه: «🎯 المتأهلون الجاهزون» بعدّاد،
+     و«⏳ متأهلون بانتظار وضعهم في الشجرة» بالأسماء. يقرآن المصدر نفسه
+     (`_getQualifiedPool` ناقص الموضوعين) ويظهران متتاليين فيبدو التكرار
+     خطأً في البيانات. دُمجا في شريط واحد: العدّاد والأسماء وشريط التقدّم
+     ومصدر التأهّل معاً. */
+  /* التقدّم يقيس **ملء الدور الأول** لا عدد المتاحين وحده: فريق وُضع في
+     الشجرة أنجز غرضه، فعدّه ناقصاً يجعل الشريط يقول «ينقص ٤» بينما الدور
+     مكتمل فعلاً — وهو ما كان يربك المنظّم. */
+  const _covered = _free.length + _placed.size;
+  const _pct  = _needed ? Math.min(100, Math.round((_covered / _needed) * 100)) : 0;
+  const _full = _needed > 0 && _placed.size >= _needed;      // كل الخانات مملوءة
+  const _tone = (_full || _ready) ? 'var(--green)' : (_covered ? 'var(--gold)' : 'var(--muted)');
+  const _srcBtn = settings.type === 'swiss'
+    ? `<button onclick="showPage('standings',null)" class="kq-src">تحديد المتأهلين من الترتيب</button>`
+    : `<button onclick="showPage('groups',null)" class="kq-src">تحديد المتأهلين من المجموعات</button>`;
+
   const drawBar = `
-    <div style="margin-bottom:14px;padding:12px 14px;background:var(--card2);
-      border:1px solid ${_ready ? 'rgba(39,174,96,.28)' : 'var(--border2)'};border-radius:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+    <div class="kq-bar" style="border-color:${_ready ? 'rgba(39,174,96,.30)' : 'var(--border2)'}">
+      <div class="kq-head">
         <div style="min-width:0">
-          <div style="font-size:12px;font-weight:800;color:var(--text)">🎯 المتأهلون الجاهزون</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:3px">
+          <div class="kq-t">🎯 المتأهلون</div>
+          <div class="kq-s">
             ${_pool.length
-              ? `${_free.length} متاح من ${_pool.length} · المصدر: ${_srcName}`
+              ? `${_free.length} بانتظار الوضع · ${_placed.size} موضوع في الشجرة · المصدر: ${_srcName}`
               : `لم يُحدَّد أي متأهل بعد — حدّدهم من ${_srcName}`}
-            ${_slots ? ` · الدور الأول يحتاج ${_needed}` : ''}
           </div>
         </div>
-        <div style="text-align:center;flex-shrink:0">
-          <div style="font-size:20px;font-weight:900;color:${_free.length >= _needed && _needed ? 'var(--green)' : 'var(--gold)'}">${_free.length}</div>
-        </div>
+        <div class="kq-n" style="color:${_tone}">${_needed ? `${_covered}<i>/${_needed}</i>` : _free.length}</div>
       </div>
-      <div style="display:flex;gap:7px;margin-top:11px">
-        ${settings.type === 'swiss' ? `<button onclick="showPage('standings',null)"
-          style="flex:1;padding:10px;border-radius:9px;font-family:Tajawal,sans-serif;font-size:11.5px;font-weight:700;
-          cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted)">
-          تحديد المتأهلين من الترتيب</button>` : `<button onclick="showPage('groups',null)"
-          style="flex:1;padding:10px;border-radius:9px;font-family:Tajawal,sans-serif;font-size:11.5px;font-weight:700;
-          cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted)">
-          تحديد المتأهلين من المجموعات</button>`}
-      </div>
-      <div style="font-size:9.5px;color:var(--muted);margin-top:8px;line-height:1.7">
-        اضغط أي خانة في الشجرة لاختيار الفريق بنفسك — القرعة يدوية بالكامل.</div>
+
+      ${_needed ? `<div class="kq-prog"><span style="width:${_pct}%;background:${_tone}"></span></div>
+      <div class="kq-note">${
+        _full  ? `✓ ${_firstRd.name} مكتمل — كل الخانات مملوءة`
+      : _ready ? `✓ العدد يكفي ${_firstRd.name} — وزّعهم على الخانات`
+               : `${_firstRd ? _firstRd.name : 'الدور الأول'} يحتاج ${_needed} فريقاً — ينقص ${Math.max(0, _needed - _covered)}`
+      }</div>` : ''}
+
+      ${_free.length
+        ? `<div class="kq-lbl">بانتظار الوضع في الشجرة</div>
+           <div class="kq-chips">${_free.map(t =>
+            `<span class="kq-chip">${t.name}${t.groupName ? `<i>${t.groupName}</i>` : ''}</span>`
+          ).join('')}</div>`
+        : (_pool.length
+            ? `<div class="kq-note">✓ كل المتأهلين (${_placed.size}) موضوعون في الشجرة</div>`
+            : '')}
+
+      <div class="kq-actions">${_srcBtn}</div>
+      <div class="kq-hint">اضغط أي خانة في الشجرة لاختيار الفريق بنفسك — القرعة يدوية بالكامل.</div>
     </div>`;
 
   // ── تفعيل مباراة تحديد المركز الثالث ──────────────────────────
@@ -11620,22 +11711,6 @@ function renderKnockoutAdmin() {
         color:${thirdOn ? '#c084fc' : 'var(--muted)'}">
         ${thirdOn ? '✓ مفعّلة' : 'تفعيل'}
       </button>
-    </div>`;
-
-  // ── مجمّع الفرق المتأهلة المتاحة (للتذكير فوق الشجرة) ──
-  const placed = _getPlacedKnockoutTeamIds();
-  const availablePool = _getQualifiedPool().filter(t => !placed.has(t.id));
-  const poolBar = `
-    <div style="margin-bottom:14px;padding:10px 14px;background:var(--card2);border:1px solid var(--border2);border-radius:12px">
-      <div style="font-size:10px;color:var(--muted2);font-weight:700;margin-bottom:6px">
-        ⏳ متأهلون بانتظار وضعهم في الشجرة (${availablePool.length})
-      </div>
-      ${availablePool.length
-        ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${availablePool.map(t =>
-            `<span style="font-size:10px;background:rgba(39,174,96,.08);border:1px solid rgba(39,174,96,.25);color:var(--green);border-radius:20px;padding:3px 10px">${t.name}</span>`
-          ).join('')}</div>`
-        : `<div style="font-size:10px;color:var(--muted)">لا يوجد — إما كلهم موضوعون، أو لسه ما اعتمدت المتأهلين من صفحة المجموعات</div>`
-      }
     </div>`;
 
   /* ── الشجرة: نفس تصميم المرايا العمودي المستخدم في صفحة الجمهور تماماً ──
@@ -11708,7 +11783,7 @@ function renderKnockoutAdmin() {
 
   const treeHtml = abTop + (abTop ? AB_DOWN : '') + abFinalHtml + (abBot ? AB_UP : '') + abBot;
 
-  el.innerHTML = publishBar + drawBar + thirdPlaceBar + poolBar + `<div class="ab-tree">${treeHtml}</div>`;
+  el.innerHTML = publishBar + drawBar + thirdPlaceBar + `<div class="ab-tree">${treeHtml}</div>`;
   // الخطوط تُرسم من المواضع الفعلية بعد دخول العناصر للصفحة
   requestAnimationFrame(() => window._abmDrawJoiners && window._abmDrawJoiners(el));
 }
@@ -11802,6 +11877,21 @@ function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round, mirror, brkA
       : (prevName ? 'فائز ' + prevName : 'بانتظار المتأهل');
     const cls   = isFirstRound ? 'ab-empty ab-pick' : 'ab-empty ab-waiting';
     const click = isFirstRound ? ` onclick="adminOpenBracketSlot('${roundId}',${slotIdx})"` : '';
+
+    /* 🔴 بطاقة النهائي أفقية (flex-direction:row) بينما هذا الفرع يبني
+       صفّين رأسيين — فكان الصفّان يصطفّان جنباً إلى جنب داخل صندوق أوسع
+       بمرّتين، فتظهر بطاقة النهائي الفارغة مشوّهة ونصّها مقصوصاً. النهائي
+       يحتاج تخطيطه الأفقي حتى وهو فارغ. */
+    if (isFinal) {
+      const side = `<div class="btf-side">
+          <span class="btf-logo">${isFirstRound ? plusIcon : crestTbd}</span>
+          <span class="btf-name ab-tbd">${label}</span>
+        </div>`;
+      return `<div class="ab-box ${cls}"${brk}${click}>
+        ${side}<div class="btf-mid"><span class="btf-vs">VS</span></div>${side}
+      </div>`;
+    }
+
     const row = `<div class="ab-team">
         <span class="ab-logo">${isFirstRound ? plusIcon : crestTbd}</span>
         <span class="ab-name ab-tbd">${label}</span>
@@ -13014,6 +13104,34 @@ function injectAdminCSS() {
     .ab-tag-pend { color:var(--gold,#C9A02B); border:1px solid rgba(201,160,43,.3); }
     .ab-tag-live { color:#C0392B; border:1px solid rgba(192,57,43,.45); }
     .ab-tag-ok   { color:var(--green,#27ae60); border:1px solid rgba(39,174,96,.35); }
+
+    /* ══ شريط المتأهلين الموحّد (بديل الشريطين المكرّرين) ══ */
+    .kq-bar { margin-bottom:14px; padding:13px 14px; background:var(--card2,#141414);
+      border:1px solid var(--border2,#2a2a2a); border-radius:12px; }
+    .kq-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .kq-t { font-size:12px; font-weight:800; color:var(--text,#eee); }
+    .kq-s { font-size:10px; color:var(--muted,#888); margin-top:3px; line-height:1.7; }
+    .kq-n { font-size:21px; font-weight:900; flex-shrink:0; line-height:1; font-variant-numeric:tabular-nums; }
+    .kq-n i { font-style:normal; font-size:12px; color:var(--muted,#888); font-weight:700; }
+    .kq-prog { height:5px; border-radius:3px; background:rgba(255,255,255,.06);
+      overflow:hidden; margin-top:11px; }
+    .kq-prog span { display:block; height:100%; border-radius:3px; transition:width .3s; }
+    .kq-note { font-size:10px; color:var(--muted,#888); margin-top:7px; line-height:1.7; }
+    .kq-lbl { font-size:9.5px; font-weight:700; color:var(--muted,#888); margin-top:11px; }
+    .kq-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+    .kq-chip { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:700;
+      background:rgba(39,174,96,.08); border:1px solid rgba(39,174,96,.25);
+      color:var(--green,#27ae60); border-radius:20px; padding:4px 10px; }
+    .kq-chip i { font-style:normal; font-size:8.5px; font-weight:800; color:var(--muted,#888); }
+    .kq-actions { display:flex; gap:7px; margin-top:11px; }
+    .kq-src { flex:1; padding:10px; border-radius:9px; font-family:Tajawal,sans-serif;
+      font-size:11.5px; font-weight:700; cursor:pointer;
+      border:1px solid var(--border,#1f1f1f); background:transparent; color:var(--muted,#888); }
+    .kq-hint { font-size:9.5px; color:var(--muted,#777); margin-top:8px; line-height:1.7; }
+
+    /* بطاقة النهائي الفارغة: تحتفظ بالتخطيط الأفقي فلا تتشوّه */
+    .abm-final-round .ab-box.ab-empty { flex-direction:row; align-items:center; }
+    .abm-final-round .ab-box.ab-empty .btf-name { white-space:normal; line-height:1.35; }
 
     /* ── Match Stats Toggle ── */
     .me-stats-toggle summary::-webkit-details-marker { display:none; }

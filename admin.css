@@ -1507,3 +1507,24 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
   .mm-vs{grid-template-columns:1fr 38px 1fr; gap:6px}
   .mmvs-side{min-height:104px}
 }
+
+/* ── دور المواجهة + لوحة حالة الجولة داخل نافذة المباراة ── */
+.mm-leghint{font-size:9.5px; color:var(--muted,#888); margin-top:6px; line-height:1.7}
+.mm-rstat{
+  margin-top:4px; padding:11px 12px; border-radius:12px;
+  border:1px solid var(--border2,#2a2a2a); background:var(--card2,#141414);
+}
+.mm-rstat.full{border-color:rgba(39,174,96,.28); background:rgba(39,174,96,.06)}
+.mmrs-h{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  font-size:11px; font-weight:800; color:var(--text,#eee); margin-bottom:8px;
+}
+.mmrs-h span{font-size:10px; font-weight:800; color:var(--gold,#C9A02B); font-variant-numeric:tabular-nums}
+.mm-rstat.full .mmrs-h span{color:var(--green,#27ae60)}
+.mmrs-lbl{font-size:9.5px; font-weight:700; color:var(--muted,#888); margin:8px 0 5px}
+.mmrs-lbl:first-of-type{margin-top:0}
+.mmrs-chips{display:flex; flex-wrap:wrap; gap:5px}
+.mmrs-c{font-size:10px; font-weight:700; border-radius:20px; padding:3px 9px; border:1px solid}
+.mmrs-c.free{background:rgba(201,160,43,.09); border-color:rgba(201,160,43,.3); color:var(--gold,#C9A02B)}
+.mmrs-c.busy{background:rgba(255,255,255,.03); border-color:var(--border2,#2a2a2a); color:var(--muted,#777)}
+.mmrs-ok{font-size:10.5px; font-weight:700; color:var(--green,#27ae60); line-height:1.8}

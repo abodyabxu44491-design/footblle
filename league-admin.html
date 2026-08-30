@@ -17,7 +17,7 @@ if('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
-<link rel="stylesheet" href="./admin.css?v=271"/>
+<link rel="stylesheet" href="./admin.css?v=272"/>
 <!-- SheetJS: لإنشاء/قراءة ملفات Excel (قالب واستيراد اللاعبين) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1334,11 +1334,21 @@ if('serviceWorker' in navigator) {
   <div class="modal-box" style="max-width:520px;max-height:90vh;overflow-y:auto">
     <div class="modal-header"><div class="modal-title">➕︎ إضافة مباراة</div><button class="modal-close" onclick="closeModal('modal-match')">✕</button></div>
     <div class="modal-body">
+      <!-- شريط وضع «المباراة الفاصلة» -->
+      <div class="mm-cghint" id="mmCgHint" style="display:none">
+        ⚔️ مباراة قرار بين فريقين من <b>مجموعتين مختلفتين</b> — تقبل التعادل وركلات الترجيح،
+        ولا تُحتسب في جدول ترتيب أي مجموعة.
+      </div>
+
       <!-- الفريقان -->
       <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px">⚽ الفريقان</div>
+      <!-- بطاقة المواجهة: عرض للقراءة فقط يعكس الاختيار أدناه -->
+      <div class="mm-vs" id="mmVs"></div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">الفريق الأول 🏠</label><select class="form-select" id="matchHome"></select></div>
-        <div class="form-group"><label class="form-label">الفريق الثاني ✈︎️</label><select class="form-select" id="matchAway"></select></div>
+        <div class="form-group"><label class="form-label">الفريق الأول 🏠</label>
+          <select class="form-select" id="matchHome" onchange="mmUpdateVs()"></select></div>
+        <div class="form-group"><label class="form-label">الفريق الثاني ✈︎️</label>
+          <select class="form-select" id="matchAway" onchange="mmUpdateVs()"></select></div>
       </div>
       <!-- الوقت والمكان -->
       <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">📅 الوقت والمكان</div>
@@ -1348,7 +1358,7 @@ if('serviceWorker' in navigator) {
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">🏟 الملعب</label><input class="form-input" id="matchVenue" value="ملعب الحارة"/></div>
-        <div class="form-group"><label class="form-label">🎯 رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1"/></div>
+        <div class="form-group" id="mmRoundGroup"><label class="form-label">🎯 رقم الجولة</label><input class="form-input" type="number" id="matchRound" value="1" min="1" inputmode="numeric"/></div>
       </div>
       <!-- طاقم المباراة -->
       <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">👔 طاقم المباراة <span style="color:var(--muted);font-weight:400">(اختياري)</span></div>
@@ -1372,8 +1382,10 @@ if('serviceWorker' in navigator) {
       </div>
       <div class="form-group"><label class="form-label">📝 ملاحظات (تظهر للجمهور)</label><textarea class="form-input" id="matchNotes" rows="2" placeholder="أي ملاحظات إضافية..." style="resize:none"></textarea></div>
     </div>
+    <!-- سجلّ ما أُضيف في هذه الجلسة — النافذة تبقى مفتوحة بعد كل إضافة -->
+    <div class="mm-added" id="mmAdded" style="display:none"></div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="closeModal('modal-match')">إلغاء</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-match')">إغلاق</button>
       <button class="btn btn-gold" id="btnAddMatch" onclick="addMatch()">✓ إضافة المباراة</button>
     </div>
   </div>
@@ -2242,14 +2254,14 @@ if('serviceWorker' in navigator) {
   };
 })();
 </script>
-<script type="module" src="./admin.js?v=271"></script>
+<script type="module" src="./admin.js?v=272"></script>
 <!-- نظام التشكيلات — Drag & Drop — يُحمّل بعد الأدمن مباشرة -->
-<script type="module" src="./admin-lineup-dragdrop.js?v=271"></script>
+<script type="module" src="./admin-lineup-dragdrop.js?v=272"></script>
 
 <!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
 
-<script src="./live-page-stats-fix.js?v=271"></script>
-<script src="./all-fixes.js?v=271"></script>
+<script src="./live-page-stats-fix.js?v=272"></script>
+<script src="./all-fixes.js?v=272"></script>
 <script>
 /* ===== timer-admin (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════
@@ -2943,8 +2955,8 @@ if('serviceWorker' in navigator) {
   console.log('[sponsor-admin] ✅︎ جاهز');
 })();
 </script>
-<script src="./cards-system.js?v=271"></script>
-<script src="./substitution-system.js?v=271"></script>
+<script src="./cards-system.js?v=272"></script>
+<script src="./substitution-system.js?v=272"></script>
 <script>
 // ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
 window.lvOpenLineupFromLive = function() {
@@ -3063,17 +3075,17 @@ window.openMatchLineup = function(matchId) {
   </div>
 </div>
 
-<script src="./timer-hotfix.js?v=271"></script>
-<script src="./tiebreak-rules.js?v=271"></script>
-<script src="./date-groups.js?v=271"></script>
-<script src="./admin-matches-tabs.js?v=271"></script>
-<script src="./groups-gate.js?v=271"></script>
-<script src="./league-logo.js?v=271"></script>
-<script src="./health-check.js?v=271"></script>
-<script src="./lock-guard.js?v=271"></script>
-<script src="./clock-sync.js?v=271"></script>
-<script src="./viewport-lock.js?v=271"></script>
-<script src="./pwa-install.js?v=271"></script>
+<script src="./timer-hotfix.js?v=272"></script>
+<script src="./tiebreak-rules.js?v=272"></script>
+<script src="./date-groups.js?v=272"></script>
+<script src="./admin-matches-tabs.js?v=272"></script>
+<script src="./groups-gate.js?v=272"></script>
+<script src="./league-logo.js?v=272"></script>
+<script src="./health-check.js?v=272"></script>
+<script src="./lock-guard.js?v=272"></script>
+<script src="./clock-sync.js?v=272"></script>
+<script src="./viewport-lock.js?v=272"></script>
+<script src="./pwa-install.js?v=272"></script>
 
 <!-- (شبكة أمان اللمس القديمة أُزيلت — النافذة الجديدة تربط أحداثها بالتفويض داخل admin.js) -->
 </body>

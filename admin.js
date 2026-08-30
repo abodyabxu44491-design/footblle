@@ -4664,116 +4664,131 @@ window.generateScorersCard = function() {
    كل ما أُضيف حوله في v267 (منتقي الفرق الجديد، حوارات التأكيد الإضافية،
    قفل الزر، غلاف حارس الحفظ) أُزيل — لأن العطل كان في تلك الطبقات لا في
    منطق الإضافة نفسه. أي تطوير قادم يُبنى فوق هذه النسخة العاملة خطوة خطوة. */
+/* ── قوائم الفرق ──
+   في نظام المجموعات تُقسَّم القائمة بـ<optgroup> حسب المجموعة، فيعرف
+   المنظّم انتماء كل فريق قبل اختياره بدل أن يبحث في قائمة مسطّحة.
+   الفرق غير الموزَّعة تُجمَع في مجموعة أخيرة صريحة بدل أن تختفي بينها.
+   خيار فارغ في المقدّمة: `<select>` يختار أول خيار تلقائياً، فكانت
+   النافذة تفتح بفريقين لم يخترهما أحد. */
+function _mmByName(a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'ar'); }
+function _mmOpt(t) {
+  const lg = (t.logo && !t.logo.startsWith('data:') && !t.logo.startsWith('http')) ? t.logo + ' ' : '';
+  const g = (window._matchModalMode === 'crossGroup') ? _mmGroupOf(t.id) : null;
+  return `<option value="${t.id}">${lg}${t.name}${g ? ' — ' + g.name : ''}</option>`;
+}
+function _mmGroupOf(id) {
+  return (window.adminGroups || []).find(g => (g.teamIds || []).includes(id)) || null;
+}
+window._mmGroupOf = _mmGroupOf;
+
 function populateMatchSelects() {
+  const G = window.adminGroups || [];
+  let html = '<option value=""></option>';
+
+  if ((settings && settings.type) === 'groups' && G.length) {
+    const seen = new Set();
+    [...G].sort(_mmByName).forEach(g => {
+      const list = (g.teamIds || []).map(id => teams.find(t => t.id === id)).filter(Boolean).sort(_mmByName);
+      if (!list.length) return;
+      list.forEach(t => seen.add(t.id));
+      html += `<optgroup label="المجموعة ${g.name}">${list.map(_mmOpt).join('')}</optgroup>`;
+    });
+    const rest = teams.filter(t => !seen.has(t.id)).sort(_mmByName);
+    if (rest.length) html += `<optgroup label="بلا مجموعة">${rest.map(_mmOpt).join('')}</optgroup>`;
+  } else {
+    html += [...teams].sort(_mmByName).map(_mmOpt).join('');
+  }
+
   ['matchHome', 'matchAway'].forEach(id => {
     const sel = document.getElementById(id);
-    if(!sel) return;
+    if (!sel) return;
     const prev = sel.value;
-    sel.innerHTML = teams.map(t => {
-     const logoText = (t.logo && !t.logo.startsWith('data:') && !t.logo.startsWith('http')) ? t.logo : '';
-     return `<option value="${t.id}">${logoText ? logoText + ' ' : ''}${t.name}</option>`;
-   }).join('');
-    if(prev) sel.value = prev;
+    sel.innerHTML = html;
+    sel.value = prev || '';
   });
+  mmUpdateVs();
 }
+
+/* ── بطاقة المواجهة ──
+   عرض للقراءة فقط فوق القائمتين: شعارا الفريقين واسماهما ومجموعة كلٍّ
+   منهما. الاختيار يبقى عبر <select> — الآلية المؤكَّد عملها — والبطاقة
+   تعكسه فقط، فيرى المنظّم المواجهة كما ستظهر للجمهور قبل الحفظ. */
+function _mmLogo(t) {
+  const lg = (t && t.logo) || '';
+  const base = 'width:44px;height:44px;border-radius:13px;flex:0 0 auto;';
+  if (/^(data:|https?:|\/)/.test(lg)) return `<img src="${lg}" style="${base}object-fit:cover">`;
+  if (lg.startsWith('#')) return `<span style="${base}background:${lg};display:block"></span>`;
+  if (lg) return `<span style="${base}display:flex;align-items:center;justify-content:center;font-size:26px">${lg}</span>`;
+  const ch = String((t && t.name) || '؟').trim().charAt(0);
+  return `<span style="${base}display:flex;align-items:center;justify-content:center;background:var(--card3,#1b1b1b);
+    border:1px solid var(--border2,#2a2a2a);font-size:18px;font-weight:900;color:var(--muted,#888)">${ch}</span>`;
+}
+function _mmSide(id, side) {
+  const t = id ? teams.find(x => x.id === id) : null;
+  const lbl = side === 'home' ? '🏠 المضيف' : '✈︎ الضيف';
+  if (!t) return `<div class="mmvs-side"><span class="mmvs-lbl">${lbl}</span>
+    <span class="mmvs-ph">لم يُختَر بعد</span></div>`;
+  const g = _mmGroupOf(t.id);
+  return `<div class="mmvs-side ${side}"><span class="mmvs-lbl">${lbl}</span>
+    ${_mmLogo(t)}<span class="mmvs-nm">${t.name}</span>
+    ${g ? `<span class="mmvs-g">المجموعة ${g.name}</span>` : ''}</div>`;
+}
+window.mmUpdateVs = function () {
+  const box = document.getElementById('mmVs');
+  if (!box) return;
+  const h = document.getElementById('matchHome')?.value || '';
+  const a = document.getElementById('matchAway')?.value || '';
+  box.innerHTML = _mmSide(h, 'home') +
+    `<button type="button" class="mmvs-swap" onclick="mmSwapSides()" ${(h && a) ? '' : 'disabled'}
+       title="تبديل الأرضية">⇄</button>` +
+    _mmSide(a, 'away');
+};
+window.mmSwapSides = function () {
+  const H = document.getElementById('matchHome'), A = document.getElementById('matchAway');
+  if (!H || !A || !H.value || !A.value) return;
+  const t = H.value; H.value = A.value; A.value = t;
+  mmUpdateVs();
+};
+
+/* عدّاد ما أُضيف في الجلسة الحالية — يظهر أسفل النافذة التي تبقى مفتوحة */
+window._mmAdded = [];
+window.mmRenderAdded = function () {
+  const box = document.getElementById('mmAdded');
+  if (!box) return;
+  const L = window._mmAdded || [];
+  if (!L.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = '';
+  box.innerHTML = `<div class="mmadd-h">✓ أُضيفت في هذه الجلسة (${L.length})</div>` +
+    L.slice(-6).reverse().map(x => `<div class="mmadd-i">${x}</div>`).join('');
+};
 
 // فتح نافذة الإضافة — الوضع الطبيعي دائماً
 window.openNormalMatchModal = function () {
   window._matchModalMode = 'normal';
+  window._mmAdded = [];
   openModal('modal-match');
 };
-// وضع «مباراة فاصلة بين مجموعتين» معطَّل مؤقتاً في هذه النسخة (كان جزءاً من طبقات v267 المُزالة)
+/* «مباراة فاصلة بين مجموعتين» — لا تُفتح إلا من زرّها المخصّص في صفحة
+   المجموعات، وفقط إن كان الإعداد مفعّلاً فعلاً. */
 window.openCrossGroupPlayoffModal = function () {
-  showToast('المباراة الفاصلة بين مجموعتين معطّلة مؤقتاً في هذه النسخة', 'error');
-};
-
-// ══ مولّد جدول الدوري الموحّد ══
-// كل فريق يلعب عدداً محدّداً من المباريات ضد خصوم مختلفين (بلا تكرار)، متوازن قدر الإمكان.
-window.swissGenerateFixtures = async function() {
-  if (settings.type !== 'swiss') { showToast('هذا الخيار للدوري الموحّد فقط', 'error'); return; }
-  const mpt = (settings.swissMatchesPerTeam) || window._wzSwissMatches || 8;
-  const ts = teams.slice();
-  const n = ts.length;
-  if (n < 2) { showToast('أضف الفرق أولاً', 'error'); return; }
-  if (mpt > n - 1) { showToast(`عدد المباريات لكل فريق (${mpt}) يتجاوز عدد الخصوم المتاحين (${n-1})`, 'error'); return; }
-
-  // تحذير إن وُجدت مباريات مسبقاً
-  const existing = matches.filter(m => !m.isKnockout).length;
-  if (existing > 0 && !confirm(`يوجد ${existing} مباراة مسبقاً. سيضيف التوليد مباريات جديدة فوقها. متابعة؟`)) return;
-
-  // خوارزمية: نبني قائمة مواجهات بحيث درجة كل فريق = mpt، بلا تكرار خصم.
-  // نستخدم مقاربة جشعة: نرتّب الفرق بالأقل مباريات ونطابقها مع خصم متاح لم تلعب معه.
-  const deg = {};      // عدد مباريات كل فريق حتى الآن
-  const played = {};   // مجموعة خصوم كل فريق
-  ts.forEach(t => { deg[t.id] = 0; played[t.id] = new Set(); });
-  const pairs = [];
-  const targetTotal = Math.floor(n * mpt / 2); // إجمالي المباريات المطلوبة
-
-  let guard = 0;
-  while (pairs.length < targetTotal && guard < targetTotal * 40) {
-    guard++;
-    // الفرق التي لم تكمل نصيبها
-    const need = ts.filter(t => deg[t.id] < mpt).sort((a,b) => deg[a.id] - deg[b.id]);
-    if (need.length < 2) break;
-    const a = need[0];
-    // خصم متاح: لم يُلعب معه، ولم يكمل نصيبه، وليس نفسه
-    const opps = need.slice(1).filter(b => !played[a.id].has(b.id));
-    if (!opps.length) {
-      // تعذّر إيجاد خصم جديد لهذا الفريق — نكسر لتفادي حلقة لا نهائية
-      // (يحدث في حالات حدّية؛ نكمل بما توفّر)
-      const anyOpp = ts.filter(b => b.id!==a.id && !played[a.id].has(b.id) && deg[b.id] < mpt);
-      if (!anyOpp.length) break;
-      opps.push(anyOpp[0]);
-    }
-    // اختر الخصم الأقل مباريات (توازن)
-    const b = opps.sort((x,y) => deg[x.id] - deg[y.id])[0];
-    pairs.push([a, b]);
-    deg[a.id]++; deg[b.id]++;
-    played[a.id].add(b.id); played[b.id].add(a.id);
+  if (!(window.settings && window.settings.allowCrossGroupPlayoff)) {
+    showToast('⚠️ فعّل «السماح بمباراة فاصلة بين مجموعتين» من الإعدادات أولاً', 'error');
+    return;
   }
-
-  if (!pairs.length) { showToast('تعذّر توليد الجدول — راجع الأعداد', 'error'); return; }
-
-  // وزّع المباريات على جولات (كل جولة: كل فريق مرة واحدة كحدّ أقصى)
-  const rounds = [];
-  pairs.forEach(([a,b]) => {
-    let placed = false;
-    for (const r of rounds) {
-      if (!r.used.has(a.id) && !r.used.has(b.id)) { r.list.push([a,b]); r.used.add(a.id); r.used.add(b.id); placed = true; break; }
-    }
-    if (!placed) rounds.push({ used: new Set([a.id,b.id]), list: [[a,b]] });
-  });
-
-  // اكتب المباريات في Firestore
-  try {
-    showToast('جاري توليد الجدول...', 'info');
-    const batch = writeBatch(db);
-    rounds.forEach((r, rIdx) => {
-      r.list.forEach(([a,b]) => {
-        const ref = doc(collection(db, 'leagues', LEAGUE_ID, 'matches'));
-        batch.set(ref, _lightMatch({
-          homeId: a.id, awayId: b.id,
-          homeName: a.name, awayName: b.name,
-          homeLogo: a.logo, awayLogo: b.logo,
-          homeScore: null, awayScore: null,
-          round: rIdx + 1,
-          status: 'upcoming', isKnockout: false,
-          date: null, time: null, venue: null,
-          createdAt: serverTimestamp(),
-        }));
-      });
-    });
-    await batch.commit();
-    showToast(`✅︎ تم توليد ${pairs.length} مباراة على ${rounds.length} جولة`, 'success');
-  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+  window._matchModalMode = 'crossGroup';
+  window._mmAdded = [];
+  openModal('modal-match');
 };
 
-/* ── الحفظ ──
-   لا حوار تأكيد ولا تعطيل للزر. التحقّق تمّ حيّاً في الشريط، فهنا فقط
-   نعيد قراءته: أحمر → نُبرز الشريط ونتوقّف · ذهبي أو سليم → نحفظ. */
 window.addMatch = async function() {
   const homeId = document.getElementById('matchHome')?.value;
   const awayId = document.getElementById('matchAway')?.value;
+
+  /* وضع «مباراة فاصلة بين مجموعتين» — لا يُفعَّل إلا عبر زرّه المخصّص،
+     وفقط إن كان الإعداد مفعّلاً فعلاً (دفاع مزدوج: قد تبقى الحالة عالقة
+     من فتحة سابقة أو يُطفأ الإعداد والنافذة مفتوحة). */
+  const isCG = (window._matchModalMode === 'crossGroup')
+    && !!(window.settings && window.settings.allowCrossGroupPlayoff);
 
   // ✅︎ تنبيهات واضحة ومحدّدة — كل خطأ له رسالته الخاصة
   if (!homeId && !awayId) { showToast('⚠️ اختر الفريقين أولاً', 'error'); return; }
@@ -4795,7 +4810,7 @@ window.addMatch = async function() {
   // ✅︎ رقم الجولة يُحسب رياضياً من عدد الفرق ونظام الذهاب/الإياب — لا يُختار بحرية.
   // فريق زوجي: جولات = n-1 · فردي: جولات = n · ذهاب وإياب: × 2 (نفس صيغة groups-gate.js)
   if (round < 1) { showToast('⚠️ رقم الجولة يجب أن يكون 1 أو أكثر', 'error'); return; }
-  if (typeof window.gtRoundsFor === 'function') {
+  if (typeof window.gtRoundsFor === 'function' && !isCG) {
     const legMode = (settings && settings.legMode) || 'single';
     let poolSize = null;
     if (settings?.type === 'groups') {
@@ -4822,8 +4837,13 @@ window.addMatch = async function() {
     const G = window.adminGroups || [];
     const gOf = id => G.find(g => (g.teamIds || []).includes(id));
     const gh = gOf(homeId), ga = gOf(awayId);
-    if (gh && ga && gh.id !== ga.id) {
-      showToast(`❌︎ «${homeTeam?.name}» في المجموعة ${gh.name} و«${awayTeam?.name}» في المجموعة ${ga.name} — لا يلتقيان في دور المجموعات`, 'error');
+    if (!isCG && gh && ga && gh.id !== ga.id) {
+      showToast(`❌︎ «${homeTeam?.name}» في المجموعة ${gh.name} و«${awayTeam?.name}» في المجموعة ${ga.name} — لا يلتقيان في دور المجموعات (استعمل زرّ «مباراة فاصلة» إن كان هذا مقصوداً)`, 'error');
+      return;
+    }
+    // في وضع الفاصلة يكفي أن يكون كلٌّ منهما موزَّعاً على مجموعة — ولو مختلفة
+    if (isCG && gh && ga && gh.id === ga.id) {
+      showToast(`❌︎ «${homeTeam?.name}» و«${awayTeam?.name}» في المجموعة ${gh.name} نفسها — الفاصلة تكون بين مجموعتين مختلفتين`, 'error');
       return;
     }
     if (!gh || !ga) {
@@ -4839,8 +4859,9 @@ window.addMatch = async function() {
      في البطولة كلها — والتكرار يفسد جدول الترتيب.
      الحد المسموح: 1 للذهاب فقط · 2 للذهاب والإياب. */
   const _legDbl = ((settings && settings.legMode) || 'single') === 'double';
-  const _maxMeet = _legDbl ? 2 : 1;
-  const _prev = matches.filter(m => !m.isKnockout &&
+  const _maxMeet = isCG ? 1 : (_legDbl ? 2 : 1);
+  const _prev = matches.filter(m =>
+    (isCG ? !!m.isKnockout : !m.isKnockout) &&
     ((m.homeId === homeId && m.awayId === awayId) || (m.homeId === awayId && m.awayId === homeId)));
 
   // ✅︎ dup: علم يسجّل إذا كانت هذه مباراة مكررة أصلاً (حتى لا نكرّر
@@ -4861,7 +4882,7 @@ window.addMatch = async function() {
   }
 
   // ✅︎ تنبيه لو الفريق يلعب مباراتين في نفس الجولة
-  const busy = matches.find(m => !m.isKnockout && (m.round || 1) === round &&
+  const busy = !isCG && matches.find(m => !m.isKnockout && (m.round || 1) === round &&
     [m.homeId, m.awayId].some(id => id === homeId || id === awayId));
   if (busy && !dup) {
     const clash = [homeId, awayId].find(id => id === busy.homeId || id === busy.awayId);
@@ -4886,9 +4907,17 @@ window.addMatch = async function() {
   const notes = document.getElementById('matchNotes')?.value.trim() || '';
   // ✅︎ اربط المباراة بمعرّف المجموعة — نفس ما يفعله التوليد التلقائي،
   // وإلا فحذف/إعادة توليد مباريات مجموعة معيّنة لا يراها لأنها بلا groupId
-  const _groupId = (settings?.type === 'groups')
+  const _groupId = (settings?.type === 'groups' && !isCG)
     ? ((window.adminGroups || []).find(g => (g.teamIds || []).includes(homeId))?.id || null)
     : null;
+
+  /* تسمية تظهر تلقائياً للجمهور — viewer.js يعرض knockoutRoundName مباشرةً،
+     فتتضمّن اسمَي المجموعتين ليعرف الجمهور أنها مباراة قرار لا خطأ بالجدول. */
+  let _cgLabel = 'مباراة فاصلة بين مجموعتين';
+  if (isCG) {
+    const gh = _mmGroupOf(homeId)?.name, ga = _mmGroupOf(awayId)?.name;
+    if (gh && ga) _cgLabel = `⚔️ فاصلة: ${gh} × ${ga}`;
+  }
 
   try {
     await addDoc(collection(db, 'leagues', LEAGUE_ID, 'matches'), _lightMatch({
@@ -4898,16 +4927,40 @@ window.addMatch = async function() {
       homeScore: null, awayScore: null,
       date, time, venue, round,
       ...(_groupId ? { groupId: _groupId } : {}),
+      ...(isCG ? { isKnockout: true, knockoutRoundName: _cgLabel } : {}),
       referee, commentator, linesman1, linesman2,
       sponsor, photographer, announcer, attendance, notes,
       status: 'upcoming', createdAt: serverTimestamp()
     }));
-    closeModal('modal-match');
-    // إعادة تعيين الحقول الإضافية
+
+    /* أظهر المباراة الجديدة في مكانها فوراً: التبويب الصحيح، وضع «بالجولة»،
+       والجولة المعنية مفتوحة — وإلا حُفظت فعلاً ولم يرَها المنظّم. */
+    window._amtTab = isCG ? 'ko' : 'gr';
+    window._amtMode = 'round';
+    window._amtCollapsed = window._amtCollapsed || {};
+    window._amtCollapsed[isCG ? _cgLabel : ('الجولة ' + round)] = false;
+
+    /* ── النافذة تبقى مفتوحة ──
+       إدخال جولة كاملة صار سلسلة اختيارات متتالية بلا إعادة فتح في كل مرة.
+       نُصفّر الفريقين فقط — التاريخ والوقت والملعب والجولة تبقى كما ضبطها
+       المنظّم لأنها مشتركة بين مباريات الجولة الواحدة عادةً.
+       التصفير ضروري أيضاً حتى لا يوقظ الضغط التالي حوار «بينهما مباراة
+       بالفعل» على نفس المواجهة. */
+    ['matchHome', 'matchAway'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    mmUpdateVs();
+    // الحقول الاختيارية تخصّ مباراة بعينها — تُصفَّر دائماً
     ['matchReferee','matchCommentator','matchLinesman1','matchLinesman2','matchSponsor','matchPhotographer','matchAnnouncer','matchAttendance','matchNotes'].forEach(id => {
       const el = document.getElementById(id); if(el) el.value = '';
     });
-    showToast('تمت إضافة المباراة ✓', 'success');
+
+    // سجلّ الجلسة داخل النافذة + تنبيه صريح بأسماء الفريقين
+    const _line = `${homeTeam?.name} × ${awayTeam?.name}` + (isCG ? ' ⚔️' : ` · الجولة ${round}`);
+    window._mmAdded = window._mmAdded || [];
+    window._mmAdded.push(_line);
+    mmRenderAdded();
+    showToast(`✓ تمت إضافة ${homeTeam?.name} × ${awayTeam?.name}`, 'success');
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
@@ -5902,9 +5955,49 @@ window.openModal = function(id) {
   const el = document.getElementById(id);
   if (!el) return;
   if (id === 'modal-match') {
+    const isCG = window._matchModalMode === 'crossGroup';
+
+    // العنوان يوضّح نوع المباراة فلا تلتبس الفاصلة بالإضافة العادية
+    const titleEl = el.querySelector('.modal-title');
+    if (titleEl) titleEl.textContent = isCG ? '⚔️ مباراة فاصلة بين مجموعتين' : '➕︎ إضافة مباراة';
+
+    // شريط توضيحي للفاصلة
+    const hint = document.getElementById('mmCgHint');
+    if (hint) hint.style.display = isCG ? '' : 'none';
+
+    /* «رقم الجولة» لا معنى له لمباراة قرار بين مجموعتين — نخفيه ونثبّته.
+       وفي الوضع العادي نقترح الجولة الحالية: أعلى جولة موجودة، أو التالية
+       إن اكتملت (كل فريق لعب مرة). */
+    const rGroup = document.getElementById('mmRoundGroup');
+    const rIn = document.getElementById('matchRound');
+    if (rGroup) rGroup.style.display = isCG ? 'none' : '';
+    if (rIn) {
+      if (isCG) rIn.value = '1';
+      else {
+        const ms = (window.matches || []).filter(m => !m.isKnockout);
+        const maxR = ms.reduce((x, m) => Math.max(x, m.round || 0), 0);
+        const n = (window.teams || []).length;
+        const inMax = ms.filter(m => (m.round || 0) === maxR).length;
+        rIn.value = maxR > 0 ? ((n >= 2 && inMax >= Math.floor(n / 2)) ? maxR + 1 : maxR) : 1;
+      }
+    }
+
+    // الملعب: آخر ملعب استُعمل فعلاً، وإلا الملعب الافتراضي من الإعدادات
     const venueEl = document.getElementById('matchVenue');
-    if (venueEl) venueEl.value = (window.settings && window.settings.defaultVenue) || 'ملعب الحارة';
+    if (venueEl) {
+      const lastV = (window.matches || []).slice().reverse()
+        .map(m => (m.venue || '').trim()).find(v => v);
+      venueEl.value = lastV || (window.settings && window.settings.defaultVenue) || 'ملعب الحارة';
+    }
+    // التاريخ: اليوم إن كان فارغاً
+    const dIn = document.getElementById('matchDate');
+    if (dIn && !dIn.value) {
+      const d = new Date();
+      dIn.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
     if (typeof populateMatchSelects === 'function') populateMatchSelects();
+    if (typeof mmRenderAdded === 'function') mmRenderAdded();
   }
   el.classList.add('open');
   document.body.style.overflow = 'hidden';

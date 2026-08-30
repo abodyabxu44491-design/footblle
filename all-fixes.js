@@ -64,10 +64,13 @@
         window._adaptAdminUIToType = function(type) {
           _orig(type);
 
-          // إخفاء صفحة الترتيب الكاملة في القائمة الجانبية والتبويبات
+          /* 🔴 كان `type === 'league'` يخفي صفحة الترتيب في **الدوري
+             الموحّد** أيضاً — وهو نظام جوهره جدول ترتيب واحد. هذا ثالث
+             موضع يستثنيه (بعد renderStandings في الإدارة والجمهور)،
+             وهو ما جعل القسم يختفي رغم إصلاح الموضعين السابقين. */
           const standingsSection = document.getElementById('page-standings');
           if (standingsSection) {
-            standingsSection.style.display = (type === 'league') ? '' : 'none';
+            standingsSection.style.display = (type === 'league' || type === 'swiss') ? '' : 'none';
           }
 
           // إظهار/إخفاء Scorers — يظهر في جميع الأنظمة
@@ -76,9 +79,10 @@
             scorersSection.style.display = '';
           }
 
-          // Zones page — فقط للدوري العادي
+          /* مناطق الترتيب تخصّ كل نظام له جدول ترتيب — والدوري الموحّد
+             منها. كان مستثنى هنا أيضاً. */
           const sbZones = document.getElementById('sb-zones');
-          if (sbZones) sbZones.style.display = (type === 'league') ? 'flex' : 'none';
+          if (sbZones) sbZones.style.display = (type === 'league' || type === 'swiss') ? 'flex' : 'none';
 
           // tiebreakCard — للدوري والمجموعات (كلاهما يحتاج حسم التعادل بالنقاط)
           const tiebreakCard = document.getElementById('tiebreakCard');

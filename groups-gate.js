@@ -49,12 +49,17 @@
     if (el) { el.style.opacity = '0'; setTimeout(function () { el.style.display = 'none'; }, 250); }
   }
 
-  /* ── الفحص الرئيسي ── */
+  /* ── الفحص الرئيسي ──
+     ⚠️ البوابة **معطّلة افتراضياً** الآن. كانت تُجبر المنظّم على توزيع كل
+     الفرق قبل السماح له بأي شيء آخر — وهو إكراه في غير محلّه: قد يريد
+     ضبط الإعدادات أولاً، أو يوزّع على دفعات، أو ينتظر اكتمال التسجيل.
+     التوزيع يبقى متاحاً ومقترَحاً من صفحة المجموعات، بلا حجز للّوحة.
+     من أرادها يضبط `settings.forceGroupsGate = true`. */
   window._checkForceGroupsGate = function () {
     var s = S();
-    // تنطبق على نظام المجموعات فقط، وبعد اكتمال الفرق
-    if (!s || s.type !== 'groups') { hide(); return; }
-    if (s.teamsSetupDone !== true)  { hide(); return; }   // بوابة الفرق أولاً
+    if (!s || s.forceGroupsGate !== true) { hide(); return; }
+    if (s.type !== 'groups') { hide(); return; }
+    if (s.teamsSetupDone !== true)  { hide(); return; }
     if (s.groupsSetupDone === true) { hide(); return; }
 
     var groups = G();

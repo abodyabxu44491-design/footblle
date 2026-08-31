@@ -17,7 +17,7 @@ if('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
-<link rel="stylesheet" href="./admin.css?v=275"/>
+<link rel="stylesheet" href="./admin.css?v=277"/>
 <!-- SheetJS: لإنشاء/قراءة ملفات Excel (قالب واستيراد اللاعبين) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1392,7 +1392,12 @@ if('serviceWorker' in navigator) {
       <!-- لوحة حالة الجولة: من له مباراة ومن ما زال فاضياً -->
       <div class="mm-rstat" id="mmRoundStat" style="display:none"></div>
       <!-- طاقم المباراة -->
-      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">👔 طاقم المباراة <span style="color:var(--muted);font-weight:400">(اختياري)</span></div>
+      <div class="mm-crewhead">
+        <span>👔 طاقم المباراة <i>(اختياري)</i></span>
+        <label class="mm-keep" title="لا تُصفَّر بعد الإضافة">
+          <input type="checkbox" id="mmKeepCrew"/><span>احتفظ بالطاقم</span>
+        </label>
+      </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">🏁 الحكم الرئيسي</label><input class="form-input" id="matchReferee" placeholder="اسم الحكم"/></div>
         <div class="form-group"><label class="form-label">🎙 المعلق</label><input class="form-input" id="matchCommentator" placeholder="اسم المعلق"/></div>
@@ -1404,13 +1409,18 @@ if('serviceWorker' in navigator) {
       <!-- الرعاة والإضافات -->
       <div style="font-size:10px;color:var(--gold);letter-spacing:1px;font-weight:700;margin-bottom:8px;margin-top:14px">🏅 الرعاة والإضافات <span style="color:var(--muted);font-weight:400">(اختياري)</span></div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">🏅 الراعي الرئيسي</label><input class="form-input" id="matchSponsor" placeholder="اسم الراعي"/></div>
+        
         <div class="form-group"><label class="form-label">📸 المصور</label><input class="form-input" id="matchPhotographer" placeholder="اسم المصور"/></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">🎤 مذيع الملعب</label><input class="form-input" id="matchAnnouncer" placeholder="اسم المذيع"/></div>
-        <div class="form-group"><label class="form-label">👥 عدد الجمهور</label><input class="form-input" type="number" id="matchAttendance" placeholder="500"/></div>
+        
       </div>
+      <!-- راعي المباراة — نفس قسم نافذة التعديل حرفياً (spSectionHtml) -->
+      <div class="mm-sechead">🏷️ راعي المباراة <i>(اختياري)</i></div>
+      <div id="mmSponsorHost"></div>
+      <div class="form-group"><label class="form-label">👥 عدد الجمهور المتوقَّع</label>
+        <input class="form-input" type="number" inputmode="numeric" min="0" id="matchAttendance" placeholder="مثال: 500"/></div>
       <div class="form-group"><label class="form-label">📝 ملاحظات (تظهر للجمهور)</label><textarea class="form-input" id="matchNotes" rows="2" placeholder="أي ملاحظات إضافية..." style="resize:none"></textarea></div>
     </div>
     <!-- سجلّ ما أُضيف في هذه الجلسة — النافذة تبقى مفتوحة بعد كل إضافة -->
@@ -2285,14 +2295,14 @@ if('serviceWorker' in navigator) {
   };
 })();
 </script>
-<script type="module" src="./admin.js?v=275"></script>
+<script type="module" src="./admin.js?v=277"></script>
 <!-- نظام التشكيلات — Drag & Drop — يُحمّل بعد الأدمن مباشرة -->
-<script type="module" src="./admin-lineup-dragdrop.js?v=275"></script>
+<script type="module" src="./admin-lineup-dragdrop.js?v=277"></script>
 
 <!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
 
-<script src="./live-page-stats-fix.js?v=275"></script>
-<script src="./all-fixes.js?v=275"></script>
+<script src="./live-page-stats-fix.js?v=277"></script>
+<script src="./all-fixes.js?v=277"></script>
 <script>
 /* ===== timer-admin (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════
@@ -2986,8 +2996,8 @@ if('serviceWorker' in navigator) {
   console.log('[sponsor-admin] ✅︎ جاهز');
 })();
 </script>
-<script src="./cards-system.js?v=275"></script>
-<script src="./substitution-system.js?v=275"></script>
+<script src="./cards-system.js?v=277"></script>
+<script src="./substitution-system.js?v=277"></script>
 <script>
 // ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
 window.lvOpenLineupFromLive = function() {
@@ -3106,17 +3116,17 @@ window.openMatchLineup = function(matchId) {
   </div>
 </div>
 
-<script src="./timer-hotfix.js?v=275"></script>
-<script src="./tiebreak-rules.js?v=275"></script>
-<script src="./date-groups.js?v=275"></script>
-<script src="./admin-matches-tabs.js?v=275"></script>
-<script src="./groups-gate.js?v=275"></script>
-<script src="./league-logo.js?v=275"></script>
-<script src="./health-check.js?v=275"></script>
-<script src="./lock-guard.js?v=275"></script>
-<script src="./clock-sync.js?v=275"></script>
-<script src="./viewport-lock.js?v=275"></script>
-<script src="./pwa-install.js?v=275"></script>
+<script src="./timer-hotfix.js?v=277"></script>
+<script src="./tiebreak-rules.js?v=277"></script>
+<script src="./date-groups.js?v=277"></script>
+<script src="./admin-matches-tabs.js?v=277"></script>
+<script src="./groups-gate.js?v=277"></script>
+<script src="./league-logo.js?v=277"></script>
+<script src="./health-check.js?v=277"></script>
+<script src="./lock-guard.js?v=277"></script>
+<script src="./clock-sync.js?v=277"></script>
+<script src="./viewport-lock.js?v=277"></script>
+<script src="./pwa-install.js?v=277"></script>
 
 <!-- (شبكة أمان اللمس القديمة أُزيلت — النافذة الجديدة تربط أحداثها بالتفويض داخل admin.js) -->
 </body>

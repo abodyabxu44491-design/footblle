@@ -6601,15 +6601,9 @@ function _matchCard(m) {
   // شارة التوقّع (مسابقة التوقّع المحلية)
   const predB = (typeof window.predBadge === 'function') ? window.predBadge(m.id) : '';
 
-  /* شارة الحالة الخاصة (مؤجلة · متأخرة · نُقل موعدها · ملغاة · نصّ خاص).
-     تُعرض على البطاقة نفسها لا داخل التفاصيل: الجمهور يقرأ القائمة ولا
-     يفتح كل مباراة، فتأجيلٌ مخبوء في الداخل لا يصل إلى أحد. */
-  const sBadge = (typeof window.vSpecialBadge === 'function') ? window.vSpecialBadge(m) : '';
-
   return `
     <div class="mc2 ${isL?'mc2-live':''} ${isF?'mc2-fin':''}" onclick="openMatchDetail('${m.id}')">
       ${roundBadge}
-      ${sBadge}
       <div class="mc2-team">
         <div class="mc2-logo">${_logo(ht.logo, 40)}</div>
         <div class="mc2-name ${hw?'mc2-win':''}">${ht.name}</div>
@@ -6622,29 +6616,6 @@ function _matchCard(m) {
       ${predB ? `<div class="mc2-pred">${predB}</div>` : ''}
     </div>`;
 }
-
-
-/* ══ الحالة الخاصة للمباراة ══
-   منفصلة عن حالة اللعب: مباراة مؤجّلة تبقى «قادمة» في كل الحسابات،
-   والتأجيل وصفٌ للموعد لا للّعب. */
-window.V_SPECIAL = {
-  postponed: { l: 'مؤجلة',       i: '📅', c: '#D35400' },
-  delayed:   { l: 'متأخرة',      i: '⏱',  c: '#E67E22' },
-  moved:     { l: 'نُقل موعدها', i: '📍', c: '#3498db' },
-  canceled:  { l: 'ملغاة',       i: '🚫', c: '#C0392B' },
-  custom:    { l: 'تنويه',       i: '✍️', c: '#8E44AD' },
-};
-window.vSpecialBadge = function (m) {
-  const k = m && m.specialStatus;
-  if (!k) return '';
-  const d = window.V_SPECIAL[k];
-  if (!d) return '';
-  const note = (m.statusNote || '').trim();
-  return `<div class="mc2-flag" style="--fc:${d.c}">
-      <span class="mc2-flag-l">${d.i} ${d.l}</span>
-      ${note ? `<span class="mc2-flag-n">${note}</span>` : ''}
-    </div>`;
-};
 
 // ══════════════════════════════════════════════════════════════
 //  renderHomeSection — الرئيسية بلا بنرات
@@ -8370,11 +8341,9 @@ function renderPitchViewer(lineup, isAway) {
         { ic:'edit',      label:'ملاحظات',          val: m.notes },
       ].filter(r => r.val);
 
-      // الشارة وحدها تستحق العرض ولو خلت التفاصيل
-      if (!rows.length) return (typeof window.vSpecialBadge === 'function') ? window.vSpecialBadge(m) : '';
+      if (!rows.length) return '';
 
-      return `${(typeof window.vSpecialBadge === 'function') ? window.vSpecialBadge(m) : ''}
-      <div class="mi-panel">
+      return `<div class="mi-panel">
         <div class="mi-panel-title">${window.Icon ? window.Icon('info', 15) : ''}<span>تفاصيل المباراة</span></div>
         <div class="mi-rows">
           ${rows.map(r => `

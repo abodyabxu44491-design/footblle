@@ -4784,106 +4784,6 @@ window.mmUndoAdded = async function (matchId) {
 };
 
 /* ════════════════════════════════════════════════════════════════════
- *  🏷️ راعي المباراة — الوحدة الناقصة
- *  ──────────────────────────────────────────────────────────────────
- *  🔴 `spHandleMatchLogo` و`spSetMatchLogo` و`spReadMatchForm` كانت
- *  **مُستدعاة في نافذة معلومات المباراة ولم تُعرَّف في أي ملف**. الأثر:
- *    · الضغط على مربّع الشعار لا يفعل شيئاً — الرفع ميّت.
- *    · والأخطر: الحفظ يكتب `sponsorData: null` في كل مرة (لأن الاستدعاء
- *      المحمي يرجع null حين تغيب الدالة)، فيمحو راعي المباراة المحفوظ
- *      بلا أن يطلب أحد ذلك.
- *  هنا تعريفها فعلياً، وتُستعمل في نافذتَي الإضافة والتعديل معاً.
- *
- *  الشعار يُصغَّر في المتصفح قبل الحفظ: صورة الهاتف قد تتجاوز ٣ ميغابايت،
- *  وحدّ مستند Firestore ١ ميغابايت — فرفعها كما هي يفشل الحفظ كاملاً.
- * ════════════════════════════════════════════════════════════════════ */
-
-window._spLogos = window._spLogos || {};
-
-/* يقبل أي مفتاح: معرّف مباراة قائمة، أو 'new' لنافذة الإضافة */
-window.spSetMatchLogo = function (key, dataUrl) {
-  if (dataUrl) window._spLogos[key] = dataUrl;
-  else delete window._spLogos[key];
-  const prev = document.getElementById('spm-prev-' + key);
-  if (prev) {
-    prev.innerHTML = dataUrl
-      ? `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:contain"/>`
-      : '<span class="sp-ph">🏷️</span>';
-  }
-  const rm = document.getElementById('spm-rm-' + key);
-  if (rm) rm.style.display = dataUrl ? '' : 'none';
-};
-
-window.spClearMatchLogo = function (key) {
-  window.spSetMatchLogo(key, null);
-  const f = document.getElementById('spm-file-' + key);
-  if (f) f.value = '';
-};
-
-window.spHandleMatchLogo = function (input, key) {
-  const file = input && input.files && input.files[0];
-  if (!file) return;
-  if (!/^image\//.test(file.type)) { showToast('اختر ملف صورة', 'error'); return; }
-
-  const reader = new FileReader();
-  reader.onerror = () => showToast('تعذّرت قراءة الصورة', 'error');
-  reader.onload = e => {
-    const img = new Image();
-    img.onerror = () => showToast('الصورة غير صالحة', 'error');
-    img.onload = () => {
-      /* تصغير مع الحفاظ على النسبة: ٢٤٠px كافية لعرض الشعار في البطاقات
-         وبطاقات المشاركة، وتُبقي حجم dataURL في حدود عشرات الكيلوبايتات. */
-      const MAX = 240;
-      let { width: w, height: h } = img;
-      if (w > MAX || h > MAX) { const r = Math.min(MAX / w, MAX / h); w = Math.round(w * r); h = Math.round(h * r); }
-      const cv = document.createElement('canvas');
-      cv.width = w; cv.height = h;
-      cv.getContext('2d').drawImage(img, 0, 0, w, h);
-      // PNG يحفظ الشفافية (شعارات الرعاة غالباً بخلفية شفافة)، وإن كبر نلجأ لـJPEG
-      let out = cv.toDataURL('image/png');
-      if (out.length > 180000) out = cv.toDataURL('image/jpeg', 0.85);
-      window.spSetMatchLogo(key, out);
-      showToast('✓ رُفع شعار الراعي', 'success');
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-};
-
-/* يرجع كائن الراعي، أو null إن كان القسم فارغاً تماماً */
-window.spReadMatchForm = function (key) {
-  const name = (document.getElementById('spm-name-' + key)?.value || '').trim();
-  const url = (document.getElementById('spm-url-' + key)?.value || '').trim();
-  const logo = window._spLogos[key] || null;
-  if (!name && !url && !logo) return null;
-  return { name, url, logo };
-};
-
-/* قالب قسم الراعي — مشترك بين نافذتَي الإضافة والتعديل حتى لا ينحرف
-   شكلهما ولا سلوكهما مع الوقت. */
-window.spSectionHtml = function (key, data) {
-  const d = data || {};
-  return `
-  <div class="sp-box">
-    <div class="sp-logo">
-      <div id="spm-prev-${key}" class="sp-drop" onclick="document.getElementById('spm-file-${key}').click()">
-        ${d.logo ? `<img src="${d.logo}" style="width:100%;height:100%;object-fit:contain"/>`
-                 : '<span class="sp-ph">🏷️</span>'}
-      </div>
-      <input type="file" id="spm-file-${key}" accept="image/*" style="display:none"
-             onchange="spHandleMatchLogo(this,'${key}')"/>
-      <button type="button" class="sp-rm" id="spm-rm-${key}"
-              style="${d.logo ? '' : 'display:none'}" onclick="spClearMatchLogo('${key}')">إزالة</button>
-    </div>
-    <div class="sp-fields">
-      <input class="mcv2-inp sp-in" id="spm-name-${key}" value="${(d.name || '').replace(/"/g, '&quot;')}" placeholder="اسم الراعي"/>
-      <input class="mcv2-inp sp-in" id="spm-url-${key}" value="${(d.url || '').replace(/"/g, '&quot;')}" placeholder="موقع أو رقم واتساب (اختياري)"/>
-      <div class="sp-hint">اضغط المربّع لرفع الشعار — يُصغَّر تلقائياً ويظهر في بطاقة المباراة.</div>
-    </div>
-  </div>`;
-};
-
-/* ════════════════════════════════════════════════════════════════════
  *  ⚡ الاختيار السريع
  *  ──────────────────────────────────────────────────────────────────
  *  اضغط فريقين: الأول مضيف، والثاني يُنشئ المباراة فوراً.
@@ -5139,91 +5039,43 @@ window.mmRenderRoundStat = function () {
     box.style.display = 'none'; return;
   }
   const round = parseInt(document.getElementById('matchRound')?.value, 10) || 1;
-  const legMode = (settings && settings.legMode) || 'single';
-  const isGroups = (settings && settings.type) === 'groups' && (window.adminGroups || []).length;
-  const ms = (matches || []).filter(m => !m.isKnockout);
 
-  /* 🔴 اللوحة كانت تحسب دائماً بمنطق الدوري: كل فرق البطولة تُقارن بجولة
-     واحدة، والمطلوب `floor(عدد الفرق ÷ ٢)`. في نظام المجموعات هذا خطأ
-     مضاعف — فرق مجموعات لا تلتقي أصلاً تُحسب معاً، وعدد الجولات الحقيقي
-     يختلف بحسب حجم كل مجموعة لا بحسب عدد فرق البطولة. الآن كل مجموعة
-     تُقاس بنفسها، وعدد الجولات يُؤخذ من `gtRoundsFor` — نفس المصدر الذي
-     يولّد به النظام الجدول، فلا يتناقض الفحص مع المولّد. */
-  const totalRounds = n => (typeof window.gtRoundsFor === 'function')
-    ? (window.gtRoundsFor(n, legMode) || 0) : 0;
-
-  /* وحدة قياس واحدة: عنوان وفرق ومباريات — تصلح للدوري (وحدة واحدة)
-     وللمجموعات (وحدة لكل مجموعة) بلا مسارين منفصلين. */
-  let units;
-  if (isGroups) {
-    units = [...(window.adminGroups || [])].sort(_mmByName).map(g => {
-      const ids = g.teamIds || [];
-      return {
-        key: g.id,
-        title: 'المجموعة ' + g.name,
-        teams: ids.map(id => teams.find(t => t.id === id)).filter(Boolean),
-        ms: ms.filter(m => m.groupId === g.id ||
-          (!m.groupId && ids.includes(m.homeId) && ids.includes(m.awayId)))
-      };
-    }).filter(u => u.teams.length);
-    // بعد اختيار المضيف نعرض مجموعته وحدها — الباقي ليس محلّ القرار الآن
-    const hv = document.getElementById('matchHome')?.value || '';
-    if (hv) {
-      const g = _mmGroupOf(hv);
-      if (g) units = units.filter(u => u.key === g.id);
+  /* في نظام المجموعات نعرض مجموعة الفريق المضيف المختار فقط — عرض كل
+     الفرق يخلط مجموعات لا تلتقي أصلاً. وقبل الاختيار نعرض الجميع. */
+  let pool = teams.slice();
+  let scope = '';
+  const hv = document.getElementById('matchHome')?.value || '';
+  if ((settings && settings.type) === 'groups' && hv) {
+    const g = _mmGroupOf(hv);
+    if (g) {
+      pool = (g.teamIds || []).map(id => teams.find(t => t.id === id)).filter(Boolean);
+      scope = ' · المجموعة ' + g.name;
     }
-  } else {
-    units = [{ key: 'all', title: 'البطولة', teams: teams.slice(), ms }];
   }
-  if (!units.length) { box.style.display = 'none'; return; }
 
-  const blocks = units.map(u => {
-    const n = u.teams.length;
-    const perRound = Math.floor(n / 2);
-    const rTotal = totalRounds(n);
-    const inRound = u.ms.filter(m => (m.round || 0) === round);
-    const taken = new Set();
-    inRound.forEach(m => { if (m.homeId) taken.add(m.homeId); if (m.awayId) taken.add(m.awayId); });
-    const free = u.teams.filter(t => !taken.has(t.id));
+  const inRound = (matches || []).filter(m => !m.isKnockout && (m.round || 0) === round);
+  const taken = new Set();
+  inRound.forEach(m => { if (m.homeId) taken.add(m.homeId); if (m.awayId) taken.add(m.awayId); });
 
-    // الاكتمال يعني الجدول كلّه لا جولة واحدة
-    const need = rTotal ? rTotal * perRound : 0;
-    const have = u.ms.length;
-    const allDone = need > 0 && have >= need;
-    const roundDone = perRound > 0 && inRound.length >= perRound;
-    const beyond = rTotal > 0 && round > rTotal;
-
-    let msg, cls;
-    if (beyond) {
-      cls = 'bad';
-      msg = `لا توجد جولة ${round} — ${u.title} ${rTotal} ${rTotal === 2 ? 'جولتان' : 'جولات'} فقط`;
-    } else if (allDone) {
-      cls = 'ok';
-      msg = `مكتملة ✓ — كل الجولات (${rTotal}) و${have} مباراة`;
-    } else if (roundDone) {
-      cls = 'ok';
-      msg = `الجولة ${round} مكتملة — يتبقّى ${Math.max(0, need - have)} مباراة لإكمال الجدول`;
-    } else {
-      cls = 'warn';
-      msg = `الجولة ${round} ناقصة — ${inRound.length} من ${perRound || '—'} مباراة`;
-    }
-
-    return `<div class="mmrs-u ${cls}">
-      <div class="mmrs-h">
-        <span class="mmrs-title">${u.title}</span>
-        <span class="mmrs-badge">${rTotal ? `جولة ${round} من ${rTotal}` : `جولة ${round}`}</span>
-      </div>
-      <div class="mmrs-msg">${msg}</div>
-      ${(!allDone && !beyond && free.length)
-        ? `<div class="mmrs-lbl">بلا مباراة في الجولة ${round} (${free.length})</div>
-           <div class="mmrs-chips">${free.map(t => `<span class="mmrs-c free">${t.name}</span>`).join('')}</div>`
-        : ''}
-    </div>`;
-  }).join('');
+  const busy = pool.filter(t => taken.has(t.id));
+  const free = pool.filter(t => !taken.has(t.id));
+  const need = Math.floor(pool.length / 2);
+  const have = inRound.filter(m => pool.some(t => t.id === m.homeId)).length;
+  const done = need > 0 && have >= need;
 
   box.style.display = '';
-  box.className = 'mm-rstat';
-  box.innerHTML = `<div class="mmrs-top">📋 حالة الجدول</div>${blocks}`;
+  box.className = 'mm-rstat' + (done ? ' full' : '');
+  box.innerHTML =
+    `<div class="mmrs-h">📋 حالة الجولة ${round}${scope}
+       <span>${have}/${need || '—'} مباراة</span></div>` +
+    (free.length
+      ? `<div class="mmrs-lbl">ما زال فاضياً (${free.length})</div>
+         <div class="mmrs-chips">${free.map(t => `<span class="mmrs-c free">${t.name}</span>`).join('')}</div>`
+      : `<div class="mmrs-ok">✓ كل فرق ${scope ? 'المجموعة' : 'البطولة'} لها مباراة في هذه الجولة</div>`) +
+    (busy.length
+      ? `<div class="mmrs-lbl">له مباراة (${busy.length})</div>
+         <div class="mmrs-chips">${busy.map(t => `<span class="mmrs-c busy">${t.name}</span>`).join('')}</div>`
+      : '');
 };
 
 /* تغيّر رقم الجولة يمسّ شيئين: دور المواجهة المحسوب، ولوحة الحالة. */
@@ -5377,7 +5229,7 @@ window.addMatch = async function() {
   const commentator = document.getElementById('matchCommentator')?.value.trim() || '';
   const linesman1 = document.getElementById('matchLinesman1')?.value.trim() || '';
   const linesman2 = document.getElementById('matchLinesman2')?.value.trim() || '';
-  // اسم الراعي صار ضمن قسم الراعي الموحّد (spReadMatchForm)
+  const sponsor = document.getElementById('matchSponsor')?.value.trim() || '';
   const photographer = document.getElementById('matchPhotographer')?.value.trim() || '';
   const announcer = document.getElementById('matchAnnouncer')?.value.trim() || '';
   const attendance = document.getElementById('matchAttendance')?.value || '';
@@ -5411,10 +5263,7 @@ window.addMatch = async function() {
       ...(_groupId ? { groupId: _groupId } : {}),
       ...(isCG ? { isKnockout: true, knockoutRoundName: _cgLabel } : {}),
       referee, commentator, linesman1, linesman2,
-      sponsor: (window.spReadMatchForm ? (window.spReadMatchForm('new')?.name || '') : sponsor),
-      ...(window.spReadMatchForm && window.spReadMatchForm('new')
-          ? { sponsorData: window.spReadMatchForm('new') } : {}),
-      photographer, announcer, attendance, notes,
+      sponsor, photographer, announcer, attendance, notes,
       status: 'upcoming', createdAt: serverTimestamp()
     }));
 
@@ -5435,25 +5284,10 @@ window.addMatch = async function() {
       const el = document.getElementById(id); if (el) el.value = '';
     });
     mmUpdateVs();
-    /* الطاقم غالباً هو نفسه في مباريات اليوم الواحد — حكم واحد ومعلّق
-       واحد وراعٍ واحد. تصفيره بعد كل إضافة كان يجبر المنظّم على إعادة
-       كتابته في كل مرة. الخانة تجعل ذلك اختياره.
-       الجمهور والملاحظات تُصفَّر دائماً: هما خاصّان بمباراة بعينها. */
-    const _keepCrew = !!document.getElementById('mmKeepCrew')?.checked;
-    const _crew = ['matchReferee','matchCommentator','matchLinesman1','matchLinesman2',
-                   'matchPhotographer','matchAnnouncer'];
-    const _always = ['matchAttendance','matchNotes'];
-    (_keepCrew ? _always : _crew.concat(_always)).forEach(id => {
+    // الحقول الاختيارية تخصّ مباراة بعينها — تُصفَّر دائماً
+    ['matchReferee','matchCommentator','matchLinesman1','matchLinesman2','matchSponsor','matchPhotographer','matchAnnouncer','matchAttendance','matchNotes'].forEach(id => {
       const el = document.getElementById(id); if(el) el.value = '';
     });
-    // الراعي يتبع نفس قاعدة الطاقم: غالباً هو نفسه في مباريات اليوم الواحد
-    if (!_keepCrew) {
-      const spHost = document.getElementById('mmSponsorHost');
-      if (spHost && window.spSectionHtml) {
-        delete window._spLogos['new'];
-        spHost.innerHTML = window.spSectionHtml('new', null);
-      }
-    }
 
     // سجلّ الجلسة داخل النافذة + تنبيه صريح بأسماء الفريقين
     const _line = `${homeTeam?.name} × ${awayTeam?.name}` + (isCG ? ' ⚔️' : ` · الجولة ${round}`);
@@ -6506,12 +6340,6 @@ window.openModal = function(id) {
     const qn = document.getElementById('qpNote'); if (qn) { qn.style.display = 'none'; qn.textContent = ''; }
     if (typeof qpBind === 'function') qpBind();
     if (typeof qpRender === 'function') qpRender();
-    /* قسم الراعي يُبنى بنفس قالب نافذة التعديل، فلا ينحرف الشكلان مع الوقت */
-    const spHost = document.getElementById('mmSponsorHost');
-    if (spHost && typeof window.spSectionHtml === 'function') {
-      window._spLogos && delete window._spLogos['new'];
-      spHost.innerHTML = window.spSectionHtml('new', null);
-    }
   }
   el.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -12131,9 +11959,7 @@ function renderKnockoutAdmin() {
             ? `<div class="kq-note">✓ كل المتأهلين (${_placed.size}) موضوعون في الشجرة</div>`
             : '')}
 
-      <div class="kq-actions">${_srcBtn}
-        <button onclick="adminOpenBracketSwap()" class="kq-src">🔄 تبديل فريقين</button>
-      </div>
+      <div class="kq-actions">${_srcBtn}</div>
       <div class="kq-hint">اضغط أي خانة في الشجرة لاختيار الفريق بنفسك — القرعة يدوية بالكامل.</div>
     </div>`;
 
@@ -12411,146 +12237,6 @@ function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round, mirror, brkA
 }
 
 // ── فتح خانة فارغة في الشجرة: يفتح مباراة موجودة، أو منتقي المتأهلين لو الدور الأول وفارغة ──
-/* ════════════════════════════════════════════════════════════════════
- *  🔄 تبديل فريقين في الشجرة
- *  ──────────────────────────────────────────────────────────────────
- *  تصحيح قرعة خاطئة كان يتطلّب مسح خانتين وإعادة اختيار أربعة فرق —
- *  مسار طويل وكل خطوة فيه فرصة خطأ جديدة. هنا: اضغط موضعين، يتبادلان.
- *
- *  الاختيار من قائمة لا من الشجرة نفسها عن قصد: خانات الشجرة صغيرة على
- *  الجوال ولها وظيفة أخرى بالضغط (فتح المباراة أو المنتقي)، فتحميلها
- *  وضعاً ثانياً يخلط السلوكين ويكسر ما يعمل.
- *
- *  والموضع قد يكون في مباراة قائمة (مضيف/ضيف) أو في خانة نصف ممتلئة
- *  (slotPick). القارئ والكاتب أدناه يتعاملان مع الحالتين بواجهة واحدة،
- *  فكل التوليفات الأربع تعمل بلا حالات خاصة.
- * ════════════════════════════════════════════════════════════════════ */
-
-/* كل المواضع المشغولة في الشجرة، مرتّبة كما تُعرض */
-function _kswPositions() {
-  const out = [];
-  [...(adminKnockoutRounds || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).forEach(r => {
-    const slots = r.slots || 1;
-    for (let i = 0; i < slots; i++) {
-      const m = (matches || []).find(x => x.knockoutRoundId === r.id && (x.knockoutSlot ?? 0) === i);
-      if (m) {
-        /* مباراة انتهت أو جارية: تبديل أطرافها يفسد نتيجة مسجَّلة —
-           نستثنيها بدل السماح بتناقض صامت بين النتيجة والفريقين. */
-        const locked = m.status === 'finished' || m.status === 'live'
-          || m.homeScore != null || m.awayScore != null;
-        if (m.homeId) out.push({ k: `m:${m.id}:home`, mId: m.id, side: 'home', rid: r.id, slot: i,
-          rName: r.name, teamId: m.homeId, teamName: m.homeName, locked });
-        if (m.awayId) out.push({ k: `m:${m.id}:away`, mId: m.id, side: 'away', rid: r.id, slot: i,
-          rName: r.name, teamId: m.awayId, teamName: m.awayName, locked });
-      } else {
-        const p = (r.slotPicks || {})[i];
-        if (p && p.teamId) out.push({ k: `p:${r.id}:${i}`, rid: r.id, slot: i, side: 'pick',
-          rName: r.name, teamId: p.teamId, teamName: p.teamName, locked: false });
-      }
-    }
-  });
-  return out;
-}
-
-/* كتابة فريق في موضع — واجهة واحدة للحالتين */
-async function _kswWrite(pos, team) {
-  const payload = { teamId: team.id, teamName: team.name, teamLogo: team.logo || '⚽' };
-  if (pos.side === 'pick') {
-    await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'knockoutRounds', pos.rid), {
-      [`slotPicks.${pos.slot}`]: payload, updatedAt: serverTimestamp()
-    });
-    return;
-  }
-  const pre = pos.side === 'home' ? 'home' : 'away';
-  await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', pos.mId), {
-    [pre + 'Id']: team.id, [pre + 'Name']: team.name, [pre + 'Logo']: team.logo || '⚽',
-    updatedAt: serverTimestamp()
-  });
-}
-
-window._kswSel = null;
-
-window.adminOpenBracketSwap = function () {
-  const list = _kswPositions();
-  const open = list.filter(p => !p.locked);
-  if (open.length < 2) {
-    // رسالتان مختلفتان: نقص فرق شيء، ومباريات محسومة شيء آخر
-    showToast(list.length >= 2
-      ? 'المواضع المتاحة أقل من اثنين — المباريات التي لها نتيجة لا تُبدَّل'
-      : 'يلزم موضعان على الأقل — ضع الفرق في الشجرة أولاً', 'error');
-    return;
-  }
-  window._kswSel = null;
-  _kswRender(list);
-};
-
-function _kswRender(list) {
-  list = list || _kswPositions();
-  let sheet = document.getElementById('kswSheet');
-  if (!sheet) { sheet = document.createElement('div'); sheet.id = 'kswSheet'; document.body.appendChild(sheet); }
-  sheet.style.cssText = 'position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.75);' +
-    'display:flex;align-items:flex-end;justify-content:center;font-family:Tajawal,sans-serif';
-
-  const sel = window._kswSel;
-  const rows = list.map(p => {
-    const isSel = sel && sel.k === p.k;
-    const dis = p.locked || (sel && sel.teamId === p.teamId && !isSel);
-    const why = p.locked ? 'مباراة لها نتيجة' : '';
-    return `<div ${dis && !isSel ? '' : `onclick="_kswPick('${p.k}')"`}
-      class="ksw-row${isSel ? ' sel' : ''}${dis && !isSel ? ' dis' : ''}">
-      <span class="ksw-side">${p.side === 'away' ? 'ضيف' : p.side === 'home' ? 'مضيف' : 'مُثبَّت'}</span>
-      <span class="ksw-nm">${p.teamName || '—'}</span>
-      <span class="ksw-rd">${p.rName}${why ? ' · ' + why : ''}</span>
-      ${isSel ? '<span class="ksw-tag">المختار</span>' : ''}
-    </div>`;
-  }).join('');
-
-  sheet.innerHTML = `
-    <div class="ksw-box">
-      <div class="ksw-head">
-        <div class="ksw-t">🔄 تبديل فريقين</div>
-        <button onclick="_kswClose()" class="ksw-x">✕</button>
-      </div>
-      <div class="ksw-step">${sel
-        ? `اختير <b>${sel.teamName}</b> — اضغط الفريق الذي تريد تبديله معه`
-        : 'اضغط الفريق الأول'}</div>
-      <div class="ksw-list">${rows}</div>
-      ${sel ? `<div class="ksw-foot"><button onclick="_kswPick('${sel.k}')" class="ksw-cancel">إلغاء الاختيار</button></div>` : ''}
-    </div>`;
-  window.bindModalDismiss(sheet, () => window._kswClose());
-}
-
-window._kswClose = function () {
-  document.getElementById('kswSheet')?.remove();
-  window._kswSel = null;
-};
-
-window._kswPick = async function (key) {
-  const list = _kswPositions();
-  const p = list.find(x => x.k === key);
-  if (!p) return;
-
-  // الضغط على المختار نفسه يلغي الاختيار
-  if (window._kswSel && window._kswSel.k === key) { window._kswSel = null; _kswRender(list); return; }
-  if (!window._kswSel) { window._kswSel = p; _kswRender(list); return; }
-
-  const a = window._kswSel, b = p;
-  if (a.teamId === b.teamId) { showToast('نفس الفريق — اختر موضعاً لفريق آخر', 'error'); return; }
-
-  const tA = teams.find(t => t.id === a.teamId);
-  const tB = teams.find(t => t.id === b.teamId);
-  if (!tA || !tB) { showToast('تعذّر العثور على أحد الفريقين', 'error'); return; }
-
-  window._kswSel = null;
-  document.getElementById('kswSheet')?.remove();
-  try {
-    await _kswWrite(a, tB);
-    await _kswWrite(b, tA);
-    showToast(`🔄 تبادل ${tA.name} و${tB.name}`, 'success');
-    if (typeof renderKnockoutAdmin === 'function') renderKnockoutAdmin();
-  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
-};
-
 window.adminOpenBracketSlot = function(roundId, slotIdx) {
   const round = adminKnockoutRounds.find(r => r.id === roundId);
   if (!round) return;
@@ -16533,35 +16219,334 @@ window.importRosterToLineup = function(teamId) {
     </div>
 
     <!-- التاريخ والملعب -->
-    <div class="mcv2-sec">📅 الموعد والمكان</div>
     <div class="mcv2-g2">
-      <div class="mcv2-fld"><label class="mcv2-lbl">التاريخ</label><input class="mcv2-inp" type="date" id="mcv2-idate-${matchId}" value="${m.date || ''}"/></div>
-      <div class="mcv2-fld"><label class="mcv2-lbl">الوقت</label><input class="mcv2-inp" type="time" id="mcv2-itime-${matchId}" value="${m.time || ''}"/></div>
+      <div class="mcv2-fld"><label class="mcv2-lbl">📅 التاريخ</label><input class="mcv2-inp" type="date" id="qr-date-${matchId}" value="${m.date || ''}"/></div>
+      <div class="mcv2-fld"><label class="mcv2-lbl">🏟️ الملعب</label><input class="mcv2-inp" id="qr-venue-${matchId}" value="${m.venue || ''}" placeholder="ملعب الحارة"/></div>
     </div>
-    <div class="mcv2-fld"><label class="mcv2-lbl">🏟️ الملعب</label><input class="mcv2-inp" id="mcv2-iven-${matchId}" value="${m.venue || ''}" placeholder="ملعب الحارة"/></div>
+
+    <!-- النتيجة -->
+    <div class="mcv2-score-board" style="background:linear-gradient(135deg,#0d1a0d,#0d0d0d);border:1px solid #27ae6033;margin-top:10px">
+      <div style="font-size:10px;color:#555;font-weight:700;letter-spacing:.5px;margin-bottom:12px">⚽ النتيجة (الوقت الأصلي)</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px">
+        <div style="flex:1;text-align:center">
+          <div style="font-size:13px;font-weight:900;color:#eee;margin-bottom:8px">${ht.name}</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+            <button class="mcv2-adj mcv2-adj-m" onclick="mcv2QAdjS('${matchId}','home',-1)">−</button>
+            <div style="font-size:44px;font-weight:900;color:#C9A02B;font-family:Tajawal,sans-serif;min-width:52px;text-align:center;line-height:1" id="qr-score-home-${matchId}">${hs}</div>
+            <button class="mcv2-adj mcv2-adj-p" onclick="mcv2QAdjS('${matchId}','home',1)">+</button>
+          </div>
+        </div>
+        <div style="font-size:22px;color:#333">—</div>
+        <div style="flex:1;text-align:center">
+          <div style="font-size:13px;font-weight:900;color:#eee;margin-bottom:8px">${at.name}</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+            <button class="mcv2-adj mcv2-adj-m" onclick="mcv2QAdjS('${matchId}','away',-1)">−</button>
+            <div style="font-size:44px;font-weight:900;color:#C9A02B;font-family:Tajawal,sans-serif;min-width:52px;text-align:center;line-height:1" id="qr-score-away-${matchId}">${as_}</div>
+            <button class="mcv2-adj mcv2-adj-p" onclick="mcv2QAdjS('${matchId}','away',1)">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- وقت إضافي / ركلات ترجيح — للإقصاء فقط -->
+    ${(_qrET || _qrPen) ? `
+    <div style="display:flex;gap:8px;margin-top:12px">
+      ${_qrET ? `<button id="qr-et-btn-${matchId}" class="mcv2-toggle-btn ${wentET?'mcv2-toggle-on':''}" onclick="mcv2QToggleET('${matchId}')" style="flex:1;padding:10px;border-radius:10px;border:1px solid #333;background:#161616;color:#ccc;font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer">⏱ احتاجت وقت إضافي؟</button>` : ''}
+      ${_qrPen ? `<button id="qr-pen-btn-${matchId}" class="mcv2-toggle-btn ${wentPen?'mcv2-toggle-on':''}" onclick="mcv2QTogglePen('${matchId}')" style="flex:1;padding:10px;border-radius:10px;border:1px solid #333;background:#161616;color:#ccc;font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer">🥅 وصلت ركلات ترجيح؟</button>` : ''}
+    </div>
+    <div style="margin-top:8px;padding:8px 12px;background:rgba(230,126,34,.07);border:1px solid rgba(230,126,34,.2);border-radius:9px;font-size:10px;color:#e67e22;text-align:center;font-weight:700">
+      ⛔ مباراة إقصائية — لا تُحفظ بالتعادل، لازم فائز (بالنتيجة أو بركلات الترجيح)
+    </div>` : `
+    <div style="margin-top:12px;padding:9px 12px;background:rgba(255,255,255,.03);border-radius:9px;font-size:10px;color:#777;text-align:center">
+      ℹ️ مباراة مجموعات — التعادل نتيجة نهائية (نقطة لكل فريق)
+    </div>`}
+    <div id="qr-et-box-${matchId}" style="display:${wentET?'block':'none'};margin-top:8px;padding:10px 12px;background:#161616;border-radius:10px;border:1px solid rgba(243,156,18,.2)">
+      <div style="font-size:10px;color:#D35400;margin-bottom:6px">⏱ النتيجة أعلاه تُعتبر بعد الوقت الإضافي (٩٠+١٥+١٥)</div>
+    </div>
+    <div id="qr-pen-box-${matchId}" style="display:${wentPen?'block':'none'};margin-top:8px;padding:10px 12px;background:#161616;border-radius:10px;border:1px solid rgba(155,89,182,.25)">
+      <div style="font-size:10px;color:#9b59b6;font-weight:700;margin-bottom:10px">🥅 ركلات الترجيح — سجّل كل ركلة</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:10px;color:#aaa;text-align:center;font-weight:700;margin-bottom:6px">${ht.name} · <span id="qr-pen-sc-home-${matchId}">0</span></div>
+          <div style="display:flex;gap:5px">
+            <button onclick="qrPenShot('${matchId}','home','goal')" style="flex:1;padding:8px;border-radius:8px;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.35);color:#2ecc71;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">✅ سجّل</button>
+            <button onclick="qrPenShot('${matchId}','home','miss')" style="flex:1;padding:8px;border-radius:8px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">❌ ضيّع</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#aaa;text-align:center;font-weight:700;margin-bottom:6px">${at.name} · <span id="qr-pen-sc-away-${matchId}">0</span></div>
+          <div style="display:flex;gap:5px">
+            <button onclick="qrPenShot('${matchId}','away','goal')" style="flex:1;padding:8px;border-radius:8px;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.35);color:#2ecc71;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">✅ سجّل</button>
+            <button onclick="qrPenShot('${matchId}','away','miss')" style="flex:1;padding:8px;border-radius:8px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">❌ ضيّع</button>
+          </div>
+        </div>
+      </div>
+      <div id="qr-pen-list-${matchId}" style="margin-top:10px">${window._qrPenListHtml(m)}</div>
+      <button onclick="qrPenUndo('${matchId}')" style="margin-top:8px;width:100%;padding:7px;border-radius:8px;background:transparent;border:1px solid #333;color:#888;font-size:10px;cursor:pointer;font-family:Tajawal,sans-serif">↩ تراجع عن آخر ركلة</button>
+    </div>
+
+    <!-- ✅︎ سجل الأهداف — يُضاف بزر (+) في لوحة النتيجة أعلاه (نفس نظام البث) -->
+    <div class="mcv2-sec" style="color:#C9A02B">⚽ سجل الأهداف</div>
+    <div id="qr-events-${matchId}" style="background:#111;border-radius:10px;padding:8px 10px">${_qrEventsHtml(m)}</div>
+    <input type="hidden" id="qr-hsc-${matchId}" value="${m.homeScorers || ''}"/>
+    <input type="hidden" id="qr-asc-${matchId}" value="${m.awayScorers || ''}"/>
+
+    <!-- 🟨 بطاقات وتبديلات -->
+    <div class="mcv2-sec" style="color:#e67e22">بطاقات وتبديلات</div>
+    <div style="background:#111;border-radius:10px;padding:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:10px;color:#888;text-align:center;font-weight:700;margin-bottom:2px">${ht.name}</div>
+          <button onclick="qrAddCard('${matchId}','home','yellow')" style="padding:8px;border-radius:9px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:#f1c40f;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#f1c40f;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة صفراء</button>
+          <button onclick="qrAddCard('${matchId}','home','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#e74c3c;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة حمراء</button>
+          <button onclick="qrAddSub('${matchId}','home')" style="padding:8px;border-radius:9px;background:rgba(52,152,219,.1);border:1px solid rgba(52,152,219,.3);color:#3498db;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">${window.Icon?window.Icon('refresh',12):''} تبديل</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:10px;color:#888;text-align:center;font-weight:700;margin-bottom:2px">${at.name}</div>
+          <button onclick="qrAddCard('${matchId}','away','yellow')" style="padding:8px;border-radius:9px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:#f1c40f;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#f1c40f;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة صفراء</button>
+          <button onclick="qrAddCard('${matchId}','away','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#e74c3c;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة حمراء</button>
+          <button onclick="qrAddSub('${matchId}','away')" style="padding:8px;border-radius:9px;background:rgba(52,152,219,.1);border:1px solid rgba(52,152,219,.3);color:#3498db;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">${window.Icon?window.Icon('refresh',12):''} تبديل</button>
+        </div>
+      </div>
+      <div id="qr-cardevents-${matchId}" style="margin-top:10px">${window._qrCardEventsHtml(m)}</div>
+    </div>
+
+    <!-- الإحصائيات الكاملة (نفس تصميم صفحة البث) -->
+    <div class="mcv2-sec" style="color:#2980B9">📊 الإحصائيات الكاملة</div>
+    <div style="background:#111;border-radius:10px;padding:8px 10px">${statsRows}</div>
+
+    <!-- رجل المباراة + ملخص -->
+    <div class="mcv2-sec" style="color:#C9A02B">🏅 رجل المباراة</div>
+    <div class="mcv2-fld" style="display:flex;gap:8px;align-items:center">
+      <input class="mcv2-inp" id="qr-mom-${matchId}" value="${m.manOfMatch || ''}" placeholder="اسم اللاعب" style="flex:1"/>
+      <button type="button" onclick="window.openMOMPickerToField('${matchId}','qr-mom-${matchId}')" style="flex-shrink:0;padding:9px 12px;border-radius:10px;background:linear-gradient(145deg,#e6c157,#b8860b);border:none;color:#1a1200;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer;white-space:nowrap">🌟 اختر</button>
+    </div>
+    <div class="mcv2-sec" style="color:#666">📝 ملخص المباراة</div>
+    <div class="mcv2-fld"><textarea class="mcv2-inp" id="qr-sum-${matchId}" rows="2" style="resize:none" placeholder="أبرز أحداث المباراة...">${m.summary || ''}</textarea></div>
+
+    <button class="mcv2-sbtn mcv2-sbtn-green" onclick="mcv2SaveQuickResult('${matchId}')">🚀 نشر النتيجة للجمهور</button>
+  </div>
+</div>`;
+  };
+
+  window.mcv2SaveQuickResult = async function(matchId) {
+    const m = _getM(matchId); if (!m) return;
+    const hs  = parseInt(document.getElementById(`qr-score-home-${matchId}`)?.textContent || '0') || 0;
+    const as_ = parseInt(document.getElementById(`qr-score-away-${matchId}`)?.textContent || '0') || 0;
+    const date  = document.getElementById(`qr-date-${matchId}`)?.value || new Date().toISOString().split('T')[0];
+    const venue = document.getElementById(`qr-venue-${matchId}`)?.value.trim() || '';
+    const hsc = document.getElementById(`qr-hsc-${matchId}`)?.value.trim() || '';
+    const asc = document.getElementById(`qr-asc-${matchId}`)?.value.trim() || '';
+    const mom = document.getElementById(`qr-mom-${matchId}`)?.value.trim() || '';
+    const sum = document.getElementById(`qr-sum-${matchId}`)?.value.trim() || '';
+
+    const wentET  = document.getElementById('qr-et-box-'+matchId)?.style.display !== 'none';
+    const wentPen = document.getElementById('qr-pen-box-'+matchId)?.style.display !== 'none';
+    // العدد: من الحقول الرقمية (qr-pen-h/a) أولاً، وإلا من تفاصيل الركلات إن وُجدت
+    const _pg = r => (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal');
+    const penObj = (wentPen && m.penalties && ((m.penalties.home||[]).length || (m.penalties.away||[]).length)) ? m.penalties : null;
+    const _penHField = parseInt(document.getElementById('qr-pen-h-'+matchId)?.value ?? '');
+    const _penAField = parseInt(document.getElementById('qr-pen-a-'+matchId)?.value ?? '');
+    let penH = null, penA = null;
+    if (wentPen) {
+      if (!isNaN(_penHField) || !isNaN(_penAField)) {
+        penH = isNaN(_penHField) ? 0 : _penHField;
+        penA = isNaN(_penAField) ? 0 : _penAField;
+      } else if (penObj) {
+        penH = (penObj.home || []).filter(_pg).length;
+        penA = (penObj.away || []).filter(_pg).length;
+      }
+    }
+
+    // ── الإحصائيات: نحفظ بالتنسيقين (Home/Away و home_/away_) حتى تتوافق مع كل مكان يقرأها ──
+    const st = window._qrStats[matchId] || {};
+    const statsObj = {};
+    QR_STATS.forEach(d => {
+      statsObj[d.k+'Home'] = st[d.k+'Home'] ?? 0;
+      statsObj[d.k+'Away'] = st[d.k+'Away'] ?? 0;
+      statsObj['home_'+d.k] = st[d.k+'Home'] ?? 0;
+      statsObj['away_'+d.k] = st[d.k+'Away'] ?? 0;
+    });
+
+    // ⛔ مباريات الإقصاء لا تقبل التعادل — لازم فائز (بالنتيجة أو بركلات الترجيح)
+    if (m.isKnockout && hs === as_) {
+      const _penDecides = (penH != null && penA != null && penH !== penA);
+      if (!_penDecides) {
+        window.showToast && window.showToast(
+          '⛔ مباراة إقصائية لا تنتهي بالتعادل — فعّل ركلات الترجيح وحدّد الفائز', 'error');
+        return;
+      }
+    }
+
+    const updateData = {
+      homeScore: hs, awayScore: as_,
+      date, venue,
+      // ✅︎ الأحداث هي المصدر — تُحفظ ليظهر الهدافون في الجمهور والإحصائيات
+      events: Array.isArray(m.events) ? m.events : [],
+      homeScorers: hsc, awayScorers: asc,
+      manOfMatch: mom, summary: sum,
+      wentToExtraTime: wentET,
+      penaltyScoreHome: penH,
+      penaltyScoreAway: penA,
+      penalties: penObj,
+      stats: statsObj,
+      status: 'finished',
+      updatedAt: serverTimestamp(),
+    };
+
+    try {
+      await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', matchId), updateData);
+      if (typeof recalcStandings === 'function') await recalcStandings();
+
+      // ✅︎ ترقية الفائز تلقائياً لو مباراة إقصاء
+      if (m.isKnockout && m.knockoutRoundId) {
+        const finalH = (wentPen && !isNaN(penH)) ? penH : hs;
+        const finalA = (wentPen && !isNaN(penA)) ? penA : as_;
+        if (finalH !== finalA && typeof _autoAdvanceWinner === 'function') {
+          await _autoAdvanceWinner(m.knockoutRoundId, matchId, finalH, finalA);
+        }
+      }
+
+      delete window._qrStats[matchId];
+      document.getElementById('mcv2-qr-ov')?.remove();
+      window.showToast && window.showToast('✅︎ تم نشر النتيجة للجمهور', 'success');
+    } catch(e) {
+      window.showToast && window.showToast('❌︎ خطأ في الحفظ: ' + window._trErr(e), 'error');
+    }
+  };
+
+  // ═══════════════════
+  //  ✅︎ ملاحظة: نظام "إدخال النتيجة" المنفصل (mcv2OpenResult) أُزيل نهائياً.
+  //  كان غير مرتبط بأي زر أصلاً (كود ميت). صفحة "📡 بث" الآن هي المكان
+  //  الوحيد لكل شيء: النتيجة، الوقت الإضافي، ركلات الترجيح، والإحصائيات
+  //  الكاملة (9 إحصائيات) — بدل تكرار نفس الوظيفة في مكانين مختلفين.
+  // ═══════════════════
+
+  // ═══════════════════
+  //  ↩️ التراجع عن المباراة — إعادتها كأنها لم تُلعب
+  //     يمسح: النتيجة، الهدافين، كل الأحداث، ركلات الترجيح، الإحصائيات،
+  //     رجل المباراة، الملخص، بيانات البث — وتعود «قادمة» قابلة للبث من جديد.
+  // ═══════════════════
+  window.mcv2UndoMatch = async function(matchId) {
+    const m = _getM(matchId); if (!m) return;
+    const LEAGUE_ID = window._getLeagueId ? window._getLeagueId() : (window.LEAGUE_ID || '');
+    if (!LEAGUE_ID) { window.showToast && window.showToast('خطأ في تحديد البطولة', 'error'); return; }
+
+    const ok = await window.confirmDialog({
+      title: '↩️ تراجع عن المباراة',
+      message: 'سيُمسح كل شيء عن هذه المباراة (النتيجة، الأهداف، من سجّلها، البطاقات، التبديلات، ركلات الترجيح، الإحصائيات) وتعود كأنها لم تُلعب — لتبثّها من جديد.\n\nمتأكد؟',
+      confirmText: 'نعم، تراجع', danger: true
+    });
+    if (!ok) return;
+
+    // إيقاف أي بث حيّ قائم لهذه المباراة
+    try {
+      const stLive = _liveMatches && _liveMatches[matchId];
+      if (stLive && stLive.timerInterval) clearInterval(stLive.timerInterval);
+      if (_liveMatches) delete _liveMatches[matchId];
+      const lp = document.getElementById('lp-' + matchId);
+      if (lp) lp.remove();
+    } catch(e) {}
+
+    // القيم التي تُعيد المباراة لحالة نظيفة تماماً
+    const cleared = {
+      homeScore: null, awayScore: null,
+      homeScorers: '', awayScorers: '',
+      events: [],
+      penaltyScoreHome: null, penaltyScoreAway: null,
+      wentToExtraTime: false,
+      manOfMatch: '', summary: '', stats: null,
+      liveData: null,
+      status: 'upcoming',
+      updatedAt: serverTimestamp(),
+    };
+
+    try {
+      await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', matchId), cleared);
+      // نظّف الحالة المحلية أيضاً
+      const lm = matches.find(x => x.id === matchId);
+      if (lm) {
+        Object.assign(lm, {
+          homeScore: null, awayScore: null, homeScorers: '', awayScorers: '',
+          events: [], penaltyScoreHome: null, penaltyScoreAway: null,
+          wentToExtraTime: false, manOfMatch: '', summary: '', stats: null,
+          liveData: null, status: 'upcoming'
+        });
+      }
+      document.getElementById('mcv2-qr-ov')?.remove();
+      document.getElementById('mcv2-info-ov')?.remove();
+      await recalcStandings();
+      if (typeof renderMatches === 'function') renderMatches();
+      window.showToast && window.showToast('↩️ رجعت المباراة — جاهزة للبث من جديد', 'success');
+    } catch(e) {
+      window.showToast && window.showToast('خطأ: ' + window._trErr(e), 'error');
+    }
+  };
+
+  // ═══════════════════
+  //  3️⃣  معلومات المباراة
+  // ═══════════════════
+  window.mcv2OpenInfo = function(matchId) {
+    const m = _getM(matchId); if (!m) return;
+    const ht = _getT(m.homeId, m.homeName, m.homeLogo);
+    const at = _getT(m.awayId, m.awayName, m.awayLogo);
+    const ovId = 'mcv2-info-ov';
+    const ov = _ov(ovId);
+    const isPending = m.status === 'pending';
+    // ✅︎ لمباراة معلّقة غير مفعّلة: الهدف من فتح هذه النافذة هو نشرها، فنرشّح "قادمة" افتراضياً
+    const effectiveStatus = isPending ? 'upcoming' : m.status;
+
+    const STATS = [
+      { k:'upcoming', l:'⏳ قادمة',   c:'#666' },
+      { k:'live',     l:'🔴 مباشر',   c:'#C0392B' },
+      { k:'halftime', l:'⏸ استراحة', c:'#D35400' },
+      { k:'finished', l:'✅︎ انتهت',   c:'#27ae60' },
+    ];
+
+    // ✅︎ حمّل شعار راعي المباراة المحفوظ حتى لا يُفقد عند الحفظ
+    if (typeof window.spSetMatchLogo === 'function') window.spSetMatchLogo(matchId, m.sponsorData?.logo || null);
+
+    ov.innerHTML = `
+<div class="mcv2-sheet" style="border-color:#C9A02B33">
+  ${_hdr('⚙︎️', `معلومات المباراة — ${ht.name} × ${at.name}`, '#C9A02B', ovId)}
+  <div class="mcv2-sbody">
+
+    ${isPending ? `<div style="background:rgba(201,160,43,.08);border:1px solid rgba(201,160,43,.25);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11px;color:#e0c060;line-height:1.7">
+      🆕 مباراة جديدة تولّدت تلقائياً من المجموعة — عبّئ التاريخ والملعب واضغط النشر لتظهر للجمهور فوراً.
+    </div>` : ''}
+
+    <div class="mcv2-g2">
+      <div class="mcv2-fld"><label class="mcv2-lbl">📅 التاريخ</label><input class="mcv2-inp" type="date" id="mcv2-idate-${matchId}" value="${m.date || ''}"/></div>
+      <div class="mcv2-fld"><label class="mcv2-lbl">⏰ الوقت</label><input class="mcv2-inp" type="time" id="mcv2-itime-${matchId}" value="${m.time || ''}"/></div>
+    </div>
     ${!m.isKnockout ? `
     <div class="mcv2-fld">
       <label class="mcv2-lbl">🔢 الجولة <span style="color:var(--muted);font-weight:400">— انقل المباراة لجولة أخرى</span></label>
       <input class="mcv2-inp" type="number" min="1" max="60" id="mcv2-iround-${matchId}" value="${m.round || 1}"/>
     </div>` : ''}
-
-    <div class="mcv2-sec">👔 الطاقم</div>
+    <div class="mcv2-fld"><label class="mcv2-lbl">🏟️ الملعب</label><input class="mcv2-inp" id="mcv2-iven-${matchId}" value="${m.venue || ''}" placeholder="ملعب الحارة"/></div>
     <div class="mcv2-g2">
       <div class="mcv2-fld"><label class="mcv2-lbl">👨‍⚖️ الحكم</label><input class="mcv2-inp" id="mcv2-iref-${matchId}" value="${m.referee || ''}" placeholder="اسم الحكم"/></div>
       <div class="mcv2-fld"><label class="mcv2-lbl">🎙️ المعلق</label><input class="mcv2-inp" id="mcv2-icom-${matchId}" value="${m.commentator || ''}" placeholder="اسم المعلق"/></div>
       <div class="mcv2-fld"><label class="mcv2-lbl">🚩 مساعد ١</label><input class="mcv2-inp" id="mcv2-ils1-${matchId}" value="${m.linesman1 || ''}" placeholder="الحكم المساعد"/></div>
       <div class="mcv2-fld"><label class="mcv2-lbl">🚩 مساعد ٢</label><input class="mcv2-inp" id="mcv2-ils2-${matchId}" value="${m.linesman2 || ''}" placeholder="الحكم المساعد"/></div>
     </div>
+    <div class="mcv2-fld"><label class="mcv2-lbl">📡 رابط البث / فيديو المباراة</label><input class="mcv2-inp" id="mcv2-istr-${matchId}" value="${m.videoUrl || m.streamUrl || ''}" placeholder="يوتيوب / تويتش / رابط مباشر — يظهر مكان البث"/></div>
+    <div class="mcv2-g2">
+      <div class="mcv2-fld"><label class="mcv2-lbl">🏷️ راعي المباراة</label><input class="mcv2-inp" id="spm-name-${matchId}" value="${(m.sponsorData?.name) || m.sponsor || ''}" placeholder="اسم الراعي"/></div>
+      <div class="mcv2-fld"><label class="mcv2-lbl">رابط الراعي</label><input class="mcv2-inp" id="spm-url-${matchId}" value="${(m.sponsorData?.url) || ''}" placeholder="موقع أو رقم واتساب"/></div>
+      <div class="mcv2-fld"><label class="mcv2-lbl">شعار الراعي</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="spm-prev-${matchId}" class="sp-drop" style="width:48px;height:48px;flex:0 0 48px" onclick="document.getElementById('spm-file-${matchId}').click()">${m.sponsorData?.logo ? `<img src="${m.sponsorData.logo}" style="width:100%;height:100%;object-fit:contain"/>` : '<span style="font-size:16px;color:var(--muted)">🏷️</span>'}</div>
+          <input type="file" id="spm-file-${matchId}" accept="image/*" style="display:none" onchange="spHandleMatchLogo(this,'${matchId}')"/>
+          <button class="btn" style="font-size:10px;padding:4px 8px" onclick="spSetMatchLogo('${matchId}',null);document.getElementById('spm-prev-${matchId}').innerHTML='<span style=\'font-size:16px;color:var(--muted)\'>🏷️</span>'">إزالة</button>
+        </div>
+      </div>
+      <div class="mcv2-fld"><label class="mcv2-lbl">👥 الجمهور</label><input class="mcv2-inp" type="number" id="mcv2-iatt-${matchId}" value="${m.attendance || ''}" placeholder="500"/></div>
+    </div>
+    <div class="mcv2-fld"><label class="mcv2-lbl">📝 ملاحظات</label><textarea class="mcv2-inp" id="mcv2-inotes-${matchId}" rows="2" style="resize:none" placeholder="أي ملاحظات للجمهور...">${m.notes || ''}</textarea></div>
 
-    <div class="mcv2-sec">🏷️ راعي المباراة</div>
-    ${window.spSectionHtml(matchId, m.sponsorData || (m.sponsor ? { name: m.sponsor } : null))}
-
-    <div class="mcv2-sec">📡 البث والحضور</div>
-    <div class="mcv2-fld"><label class="mcv2-lbl">رابط البث / فيديو المباراة</label><input class="mcv2-inp" id="mcv2-istr-${matchId}" value="${m.videoUrl || m.streamUrl || ''}" placeholder="يوتيوب / تويتش / رابط مباشر"/></div>
-    <div class="mcv2-fld"><label class="mcv2-lbl">👥 عدد الجمهور</label><input class="mcv2-inp" type="number" inputmode="numeric" min="0" id="mcv2-iatt-${matchId}" value="${m.attendance || ''}" placeholder="مثال: 500"/></div>
-    <div class="mcv2-fld"><label class="mcv2-lbl">📝 ملاحظات (تظهر للجمهور)</label><textarea class="mcv2-inp" id="mcv2-inotes-${matchId}" rows="2" style="resize:none" placeholder="أي ملاحظات للجمهور...">${m.notes || ''}</textarea></div>
-
-    <div class="mcv2-sec">🚦 حالة المباراة</div>
+    <div class="mcv2-sec" style="color:#C9A02B">🚦 حالة المباراة</div>
     <div class="mcv2-status-flex" id="mcv2-istat-${matchId}">
       ${STATS.map(s => `
         <button class="mcv2-status-opt" id="mcv2-ist-${s.k}-${matchId}"
@@ -16570,36 +16555,11 @@ window.importRosterToLineup = function(teamId) {
         </button>`).join('')}
     </div>
 
-
-    <div class="mcv2-sec">🏷️ حالة خاصة <span style="color:var(--muted);font-weight:400;font-size:10px">— تظهر على بطاقة المباراة للجمهور</span></div>
-    <div class="mst-grid" id="mst-grid-${matchId}">
-      ${MSTATES.map(f => `
-        <button type="button" class="mst-opt${(m.specialStatus || '') === f.k ? ' on' : ''}"
-          id="mst-${f.k}-${matchId}" style="--mc:${f.c}"
-          onclick="mcv2SelFlag('${matchId}','${f.k}')">${f.l}</button>`).join('')}
-    </div>
-    <div class="mcv2-fld" id="mst-note-wrap-${matchId}" style="${(m.specialStatus && m.specialStatus !== 'none') ? '' : 'display:none'}">
-      <label class="mcv2-lbl">نصّ يظهر للجمهور <span style="color:var(--muted);font-weight:400">— اتركه فارغاً لعرض اسم الحالة فقط</span></label>
-      <input class="mcv2-inp" id="mst-note-${matchId}" value="${(m.statusNote || '').replace(/"/g, '&quot;')}" placeholder="مثال: تأجلت لسوء الأحوال الجوية — الموعد الجديد يُعلن لاحقاً"/>
-    </div>
-
     <button class="mcv2-sbtn mcv2-sbtn-gold" onclick="mcv2SaveInfo('${matchId}')">${isPending ? '🚀 نشر المباراة للجمهور' : '💾 حفظ المعلومات'}</button>
   </div>
 </div>`;
 
     ov.__selStatus = effectiveStatus;
-    ov.__selFlag = m.specialStatus || 'none';
-  };
-
-  window.mcv2SelFlag = function(matchId, key) {
-    const ov = document.getElementById('mcv2-info-ov');
-    if (ov) ov.__selFlag = key;
-    ['none','postponed','delayed','moved','canceled','custom'].forEach(k => {
-      document.getElementById(`mst-${k}-${matchId}`)?.classList.toggle('on', k === key);
-    });
-    // حقل النصّ لا معنى له بلا حالة
-    const wrap = document.getElementById(`mst-note-wrap-${matchId}`);
-    if (wrap) wrap.style.display = (key && key !== 'none') ? '' : 'none';
   };
 
   window.mcv2SelStat = function(matchId, status, color) {
@@ -16616,9 +16576,6 @@ window.importRosterToLineup = function(teamId) {
   window.mcv2SaveInfo = async function(matchId) {
     const m = _getM(matchId); if (!m) return;
     const status = document.getElementById('mcv2-info-ov')?.__selStatus || m.status;
-    const _ovEl = document.getElementById('mcv2-info-ov');
-    const _flag = (_ovEl && _ovEl.__selFlag != null) ? _ovEl.__selFlag : (m.specialStatus || 'none');
-    const _note = (document.getElementById(`mst-note-${matchId}`)?.value || '').trim();
     const data = {
       date:        document.getElementById(`mcv2-idate-${matchId}`)?.value  || m.date,
       time:        document.getElementById(`mcv2-itime-${matchId}`)?.value  || m.time,
@@ -16636,9 +16593,6 @@ window.importRosterToLineup = function(teamId) {
       sponsorData: (typeof window.spReadMatchForm === 'function' ? window.spReadMatchForm(matchId) : null),
       attendance:  document.getElementById(`mcv2-iatt-${matchId}`)?.value  || '',
       notes:       document.getElementById(`mcv2-inotes-${matchId}`)?.value.trim() || '',
-      // '' بدل 'none' حتى يكون الفحص عند العرض مجرد اختبار خواء
-      specialStatus: (_flag && _flag !== 'none') ? _flag : '',
-      statusNote:    (_flag && _flag !== 'none') ? _note : '',
       status,
     };
     // ✅︎ نقل المباراة لجولة أخرى (مباريات الدوري/المجموعات فقط)

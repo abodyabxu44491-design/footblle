@@ -105,7 +105,7 @@
       if (orphan.length) {
         out.push({
           lvl: 'warn',
-          go: 'groups', t: orphan.length + ' فريق بلا مجموعة',
+          t: orphan.length + ' فريق بلا مجموعة',
           d: orphan.map(function (t) { return t.name; }).join('، '),
           fix: 'وزّعها من صفحة المجموعات'
         });
@@ -124,7 +124,7 @@
       if (cross.length) {
         out.push({
           lvl: 'err',
-          go: 'matches', t: cross.length + ' مباراة بين مجموعتين مختلفتين',
+          t: cross.length + ' مباراة بين مجموعتين مختلفتين',
           d: cross.slice(0, 3).map(function (m) {
             return nameOf(m.homeId) + ' ضد ' + nameOf(m.awayId);
           }).join('\n') + '\nفرق المجموعات لا تلتقي إلا في الإقصاء.',
@@ -151,7 +151,7 @@
     if (clash.length) {
       out.push({
         lvl: 'err',
-        go: 'matches', t: clash.length + ' فريق يلعب أكثر من مرة في جولة واحدة',
+        t: clash.length + ' فريق يلعب أكثر من مرة في جولة واحدة',
         d: clash.slice(0, 4).join('\n') + '\nكل فريق يلعب مباراة واحدة في كل جولة.',
         fix: 'امسح كل المباريات ثم ولّد من جديد'
       });
@@ -162,7 +162,7 @@
     if (noDate.length) {
       out.push({
         lvl: 'info',
-        go: 'matches', t: noDate.length + ' مباراة بلا تاريخ',
+        t: noDate.length + ' مباراة بلا تاريخ',
         d: 'لن تظهر في فواصل التواريخ عند الجمهور.',
         fix: 'أضف التاريخ من قسم المباريات'
       });
@@ -180,7 +180,7 @@
     if (orphan.length) {
       out.push({
         lvl: 'err',
-        go: 'matches', t: orphan.length + ' مباراة تشير إلى فريق محذوف',
+        t: orphan.length + ' مباراة تشير إلى فريق محذوف',
         d: 'الفريق حُذف والمباراة بقيت. النتائج تُحتسب لفريق غير موجود —\n' +
            'الترتيب والإحصائيات ستكون خاطئة بلا سبب ظاهر.',
         fix: 'احذف هذه المباريات من قسم المباريات'
@@ -228,115 +228,6 @@
           fix: 'ولّد الجدول من جديد أو أضف مباريات الإياب الناقصة'
         });
       }
-    }
-
-    /* ⑫ تعارض الملعب والوقت — خطأ صامت لا يكشفه شيء آخر
-       مباراتان في نفس الملعب واللحظة تمرّان بلا اعتراض: كل واحدة صحيحة
-       وحدها، والتناقض بينهما فقط. لا يُكتشف إلا يوم المباراة. */
-    var slots = {}, vClash = [];
-    ms.forEach(function (m) {
-      if (!m.date || !m.time || !(m.venue || '').trim()) return;
-      var k = m.date + '|' + m.time + '|' + m.venue.trim();
-      if (slots[k]) {
-        vClash.push(m.date + ' ' + m.time + ' · ' + m.venue.trim() + ' — ' +
-          nameOf(slots[k].homeId) + '×' + nameOf(slots[k].awayId) + ' و' +
-          nameOf(m.homeId) + '×' + nameOf(m.awayId));
-      } else slots[k] = m;
-    });
-    if (vClash.length) {
-      out.push({
-        lvl: 'err', go: 'matches',
-        t: vClash.length + ' تعارض في الملعب والوقت',
-        d: vClash.slice(0, 3).join('\n') + '\nمباراتان في نفس المكان واللحظة — إحداهما لن تُلعب في موعدها.',
-        fix: 'غيّر وقت إحداهما أو ملعبها'
-      });
-    }
-
-    /* ⑬ مباريات فات موعدها بلا نتيجة — الترتيب يبقى قديماً بصمت */
-    var today = new Date().toISOString().slice(0, 10);
-    var overdue = ms.filter(function (m) {
-      return m.date && m.date < today && m.status !== 'finished' &&
-             (m.homeScore == null || m.awayScore == null);
-    });
-    if (overdue.length) {
-      out.push({
-        lvl: 'warn', go: 'matches',
-        t: overdue.length + ' مباراة مرّ موعدها بلا نتيجة',
-        d: 'جدول الترتيب والهدّافون لن يعكسوا الواقع حتى تُسجَّل نتائجها.',
-        fix: 'سجّل النتائج من قسم المباريات'
-      });
-    }
-
-    /* ⑭ مباريات بلا ملعب */
-    var noVenue = ms.filter(function (m) { return !(m.venue || '').trim(); });
-    if (noVenue.length) {
-      out.push({
-        lvl: 'info', go: 'matches',
-        t: noVenue.length + ' مباراة بلا ملعب',
-        d: 'حقل الملعب فارغ — لن يعرف الجمهور أين تُقام.',
-        fix: 'أضف الملعب من قسم المباريات'
-      });
-    }
-
-    /* ⑮ فرق بلا شعار — تظهر بحرفها الأول في كل مكان */
-    var noLogo = ts.filter(function (t) { return !t.logo; });
-    if (noLogo.length) {
-      out.push({
-        lvl: 'info', go: 'teams',
-        t: noLogo.length + ' فريق بلا شعار',
-        d: noLogo.slice(0, 5).map(function (t) { return t.name; }).join('، ') +
-           (noLogo.length > 5 ? ' +' + (noLogo.length - 5) : '') +
-           '\nتظهر بحرفها الأول في البطاقات والشجرة وبطاقات المشاركة.',
-        fix: 'أضف الشعارات من قسم الفرق'
-      });
-    }
-
-    /* ⑯ نظام المجموعات: متأهلون محدَّدون بلا اعتماد ونشر
-       التحديد وحده لا يُخرج الفريق إلى الشجرة — الشرط هو النشر. */
-    if (isGroups) {
-      var unpub = gs.filter(function (g) {
-        return (g.qualifiedTeamIds || []).length && !g.qualificationPublished;
-      });
-      if (unpub.length) {
-        out.push({
-          lvl: 'warn', go: 'groups',
-          t: unpub.length + ' مجموعة بمتأهلين غير معتمدين',
-          d: 'المجموعة ' + unpub.map(function (g) { return g.name; }).join('، ') +
-             '\nحُدِّد متأهلوها ولم تُضغط «اعتماد ونشر» — فلا يظهرون في الشجرة ولا للجمهور.',
-          fix: 'اضغط «اعتماد ونشر» لكل مجموعة'
-        });
-      }
-    }
-
-    /* ⑰ متأهلون جاهزون بلا خانة في الشجرة */
-    var rds = window.adminKnockoutRounds || [];
-    if (rds.length && typeof window._getQualifiedPool === 'function') {
-      try {
-        var pool = window._getQualifiedPool() || [];
-        var placed = (typeof window._getPlacedKnockoutTeamIds === 'function')
-          ? window._getPlacedKnockoutTeamIds() : new Set();
-        var freeQ = pool.filter(function (t) { return !placed.has(t.id); });
-        if (freeQ.length) {
-          out.push({
-            lvl: 'warn', go: 'knockout',
-            t: freeQ.length + ' متأهل بلا خانة في الشجرة',
-            d: freeQ.slice(0, 5).map(function (t) { return t.name; }).join('، ') +
-               (freeQ.length > 5 ? ' +' + (freeQ.length - 5) : '') +
-               '\nمؤهَّلون فعلاً ولم يوضعوا في أي خانة.',
-            fix: 'ضعهم من صفحة الشجرة'
-          });
-        }
-      } catch (e) {}
-    }
-
-    /* ⑱ الشجرة جاهزة وغير منشورة */
-    if (rds.length && !s.bracketPublished) {
-      out.push({
-        lvl: 'info', go: 'knockout',
-        t: 'شجرة الإقصاء غير منشورة',
-        d: 'موجودة في الإدارة ولا تظهر للجمهور بعد.',
-        fix: 'انشرها من صفحة الشجرة'
-      });
     }
 
     /* ⑪ نتائج مسجّلة لمباريات لم تُفعَّل بعد */
@@ -390,13 +281,6 @@
         '</div>' +
         '<div style="font-size:11px;color:var(--muted2,#8b8f9a);line-height:1.7;white-space:pre-line">' + r.d + '</div>' +
         (r.fix ? '<div style="font-size:10px;color:' + C[r.lvl] + ';margin-top:7px;font-weight:700">← ' + r.fix + '</div>' : '') +
-        /* زرّ يأخذ المنظّم إلى مكان الخلل مباشرةً: قراءة البند شيء
-           والوصول إلى صفحته عبر القائمة الجانبية شيء آخر، وكان عليه أن
-           يتذكّر البند بعد إغلاق اللوحة. */
-        (r.go ? '<button onclick="hcGoto(\'' + r.go + '\')" style="margin-top:9px;padding:7px 13px;' +
-          'border-radius:8px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:10.5px;font-weight:800;' +
-          'background:' + C[r.lvl] + '1a;border:1px solid ' + C[r.lvl] + '4d;color:' + C[r.lvl] + '">' +
-          'الذهاب لإصلاحه ←</button>' : '') +
       '</div>';
     }).join('');
 
@@ -417,12 +301,6 @@
       '<button class="btn btn-outline" style="width:100%;margin-top:8px;padding:11px" ' +
       'onclick="document.getElementById(\'hcOverlay\').remove()">إغلاق</button>' +
     '</div>';
-  };
-
-  window.hcGoto = function (page) {
-    var ov = document.getElementById('hcOverlay');
-    if (ov) ov.remove();
-    try { window.showPage(page, null); } catch (e) {}
   };
 
   /* ── شريط الصحة في لوحة التحكم ──

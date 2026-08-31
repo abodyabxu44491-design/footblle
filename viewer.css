@@ -3220,16 +3220,3 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 /* الاسم يتقلّص قبل الشارة فلا تُزاح ولا تُقصّ */
 .std-team .std-name{flex:0 1 auto;min-width:0}
 @media (max-width:380px){ .std-tag{font-size:7.5px;padding:1px 4px} }
-
-/* ── شارة الحالة الخاصة على بطاقة المباراة العامة ── */
-.mc2-flag{
-  display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:center;
-  margin:0 0 8px;padding:6px 10px;border-radius:9px;
-  background:color-mix(in srgb, var(--fc) 13%, transparent);
-  border:1px solid color-mix(in srgb, var(--fc) 38%, transparent);
-}
-.mc2-flag-l{font-size:10px;font-weight:900;color:var(--fc);flex:0 0 auto}
-.mc2-flag-n{font-size:10px;color:var(--t2,#9aa);line-height:1.6;text-align:center}
-@supports not (background: color-mix(in srgb, red 5%, transparent)){
-  .mc2-flag{background:rgba(255,255,255,.05);border-color:var(--fc)}
-}

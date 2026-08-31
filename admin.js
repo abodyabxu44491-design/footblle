@@ -4744,6 +4744,7 @@ window.mmUpdateVs = function () {
     _mmSide(a, 'away');
   try { window._syncMatchLeg && window._syncMatchLeg(); } catch (e) {}
   try { window.mmRenderRoundStat && window.mmRenderRoundStat(); } catch (e) {}
+  try { window.qpRender && window.qpRender(); } catch (e) {}
 };
 window.mmSwapSides = function () {
   const H = document.getElementById('matchHome'), A = document.getElementById('matchAway');
@@ -4760,8 +4761,271 @@ window.mmRenderAdded = function () {
   const L = window._mmAdded || [];
   if (!L.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
   box.style.display = '';
+  /* زرّ تراجع بجانب كل سطر: الإنشاء صار بضغطتين، فاحتمال الخطأ أعلى —
+     والرجوع لصفحة المباريات لحذف مباراة أُضيفت للتوّ مسار طويل. */
   box.innerHTML = `<div class="mmadd-h">✓ أُضيفت في هذه الجلسة (${L.length})</div>` +
-    L.slice(-6).reverse().map(x => `<div class="mmadd-i">${x}</div>`).join('');
+    L.slice(-6).reverse().map(x => `<div class="mmadd-i">
+        <span>${x.line}</span>
+        ${x.id ? `<button type="button" class="mmadd-u" onclick="mmUndoAdded('${x.id}')">↩︎ تراجع</button>` : ''}
+      </div>`).join('');
+};
+
+/* حذف مباراة أُضيفت في هذه الجلسة */
+window.mmUndoAdded = async function (matchId) {
+  if (!matchId) return;
+  try {
+    await deleteDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', matchId));
+    window._mmAdded = (window._mmAdded || []).filter(x => x.id !== matchId);
+    mmRenderAdded();
+    try { window.mmRenderRoundStat && window.mmRenderRoundStat(); } catch (e) {}
+    try { window.qpRender && window.qpRender(); } catch (e) {}
+    showToast('↩︎ تم التراجع — حُذفت المباراة', 'success');
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
+/* ════════════════════════════════════════════════════════════════════
+ *  ⚡ الاختيار السريع
+ *  ──────────────────────────────────────────────────────────────────
+ *  اضغط فريقين: الأول مضيف، والثاني يُنشئ المباراة فوراً.
+ *
+ *  قاعدة السلامة التي بُني عليها كل شيء هنا:
+ *  الشبكة **لا تحفظ بنفسها ولا تلمس Firestore إطلاقاً**. كل ما تفعله أنها
+ *  تكتب في `matchHome`/`matchAway` ثم تنادي `addMatch()` نفسها — مسار
+ *  الحفظ يبقى واحداً بلا ازدواج، وأي إصلاح فيه يسري على الطريقتين معاً.
+ *
+ *  ولا تُعطَّل أي عناصر ولا تُقفَل: القفل هو ما جعل الزر يبدو ميتاً سابقاً.
+ *  المنع الوحيد للضغط المكرّر علمٌ يحمل وقته ويسقط تلقائياً بعد ٨ ثوانٍ.
+ *
+ *  والتحقّق يسبق الحفظ لا يليه: الفحص الاستشاري أدناه يمنع وصول الحالات
+ *  المشكوك فيها إلى `addMatch()` أصلاً، فلا يظهر حوار تأكيد فوق النافذة
+ *  في الاستعمال المعتاد — والحوار فوق النافذة كان أصل التعليق القديم.
+ * ════════════════════════════════════════════════════════════════════ */
+
+window._qpQ = '';
+
+/* فحص استشاري — يعكس قواعد addMatch نفسها. addMatch يبقى المرجع النهائي؛
+   هذا يمنع فقط وصول الحالات المشكوك فيها إليه.
+   block = لا حفظ · warn = يُملأ الاختيار وينتظر تأكيد المنظّم بزرّ الحفظ. */
+window.mmQuickCheck = function (h, a) {
+  const isCG = window._matchModalMode === 'crossGroup';
+  const hT = teams.find(t => t.id === h), aT = teams.find(t => t.id === a);
+  if (!hT || !aT) return { level: 'block', text: 'فريق غير معروف' };
+  if (h === a) return { level: 'block', text: 'الفريق لا يلعب ضد نفسه' };
+
+  if ((settings && settings.type) === 'groups' && (window.adminGroups || []).length) {
+    const gh = _mmGroupOf(h), ga = _mmGroupOf(a);
+    if (!gh || !ga) {
+      return { level: 'block', text: `«${(!gh ? hT : aT).name}» غير موزَّع على أي مجموعة` };
+    }
+    if (!isCG && gh.id !== ga.id)
+      return { level: 'block', text: `${gh.name} و${ga.name} لا يلتقيان في دور المجموعات` };
+    if (isCG && gh.id === ga.id)
+      return { level: 'block', text: `كلاهما في المجموعة ${gh.name} — الفاصلة بين مجموعتين مختلفتين` };
+  }
+
+  const round = parseInt(document.getElementById('matchRound')?.value, 10) || 1;
+  if (!isCG && typeof window.gtRoundsFor === 'function') {
+    const legMode = (settings && settings.legMode) || 'single';
+    let pool = null;
+    if ((settings || {}).type === 'groups') { const g = _mmGroupOf(h); if (g) pool = (g.teamIds || []).length; }
+    else if ((settings || {}).type === 'league') pool = (teams || []).length;
+    if (pool != null) {
+      const maxR = window.gtRoundsFor(pool, legMode);
+      if (maxR && round > maxR) return { level: 'block', text: `لا توجد جولة ${round} — البطولة ${maxR} جولة` };
+    }
+  }
+
+  const ms = matches || [];
+  const dbl = ((settings && settings.legMode) || 'single') === 'double';
+  const maxMeet = isCG ? 1 : (dbl ? 2 : 1);
+  const prev = ms.filter(m => (isCG ? !!m.isKnockout : !m.isKnockout) &&
+    ((m.homeId === h && m.awayId === a) || (m.homeId === a && m.awayId === h)));
+  if (prev.length >= maxMeet)
+    return { level: 'warn', text: `بينهما ${prev.length} مباراة بالفعل — النظام «${dbl ? 'ذهاب وإياب' : 'ذهاب فقط'}» يسمح بـ ${maxMeet}` };
+
+  if (!isCG) {
+    const clash = ms.filter(m => !m.isKnockout && (m.round || 0) === round &&
+      [m.homeId, m.awayId].some(id => id === h || id === a));
+    if (clash.length) {
+      const who = [];
+      if (clash.some(m => m.homeId === h || m.awayId === h)) who.push(hT.name);
+      if (clash.some(m => m.homeId === a || m.awayId === a)) who.push(aT.name);
+      return { level: 'warn', text: `${who.join(' و')} ${who.length > 1 ? 'لهما' : 'له'} مباراة أخرى في الجولة ${round}` };
+    }
+  }
+  return { level: 'ok', text: '' };
+};
+
+/* لوحة ألوان المجموعات: محدودة ورسمية، وثابتة بترتيب المجموعة فلا يتغيّر
+   لون مجموعة بين فتحة وأخرى. */
+const _QP_COLORS = ['#C9A02B', '#3B7DBF', '#27AE60', '#A855F7', '#D35400', '#16A085'];
+function _qpColor(i) { return _QP_COLORS[i % _QP_COLORS.length]; }
+
+/* حالة كل فريق في الشبكة — تُحسب مرة واحدة لكل رسم */
+function _qpState(t, h, a) {
+  if (t.id === h) return 'home';
+  if (t.id === a) return 'away';
+  if (!h) return 'idle';
+  const c = window.mmQuickCheck(h, t.id);
+  if (c.level === 'block') return 'off';   // لا يصلح خصماً للمضيف الحالي
+  if (c.level === 'warn')  return 'warn';
+  return 'idle';
+}
+
+function _qpLogo(t) {
+  const lg = t.logo || '';
+  const b = 'width:26px;height:26px;border-radius:8px;flex:0 0 auto;';
+  if (/^(data:|https?:|\/)/.test(lg)) return `<img src="${lg}" style="${b}object-fit:cover">`;
+  if (lg.startsWith('#')) return `<span style="${b}background:${lg};display:block"></span>`;
+  if (lg) return `<span style="${b}display:flex;align-items:center;justify-content:center;font-size:16px">${lg}</span>`;
+  const ch = String(t.name || '؟').trim().charAt(0);
+  return `<span style="${b}display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);
+    border:1px solid var(--border2,#2a2a2a);font-size:12px;font-weight:900;color:var(--muted,#888)">${ch}</span>`;
+}
+
+window.qpRender = function () {
+  const grid = document.getElementById('qpGrid');
+  if (!grid) return;
+  const h = document.getElementById('matchHome')?.value || '';
+  const a = document.getElementById('matchAway')?.value || '';
+  const q = (window._qpQ || '').trim();
+  const hit = t => !q || String(t.name || '').includes(q);
+
+  // خطوة الاستعمال — سطر واحد يقول للمنظّم ما المتوقَّع منه الآن
+  const step = document.getElementById('qpStep');
+  if (step) step.textContent = !h ? 'اضغط الفريق المضيف'
+    : (!a ? 'اضغط الخصم لإنشاء المباراة' : 'جاهزة — راجع التحذير أدناه');
+
+  /* الأقسام: بالمجموعات إن وُجدت.
+     كل مجموعة تأخذ **لوناً ثابتاً** من لوحة رسمية محدودة، ويُؤطَّر قسمها
+     بحدّ من لونها مع حرفها في شارة. سابقاً كان الفاصل سطر نصّ ٩px بلون
+     باهت — فتبدو المجموعتان كتلة واحدة ولا يميّز المنظّم أين تنتهي إحداهما. */
+  let secs;
+  const G = window.adminGroups || [];
+  if ((settings && settings.type) === 'groups' && G.length) {
+    const seen = new Set(); secs = [];
+    [...G].sort(_mmByName).forEach((g, gi) => {
+      const list = (g.teamIds || []).map(id => teams.find(t => t.id === id)).filter(Boolean).sort(_mmByName);
+      list.forEach(t => seen.add(t.id));
+      const shown = list.filter(hit);
+      if (shown.length) secs.push({ label: g.name, name: 'المجموعة ' + g.name, teams: shown, color: _qpColor(gi) });
+    });
+    const rest = teams.filter(t => !seen.has(t.id)).filter(hit).sort(_mmByName);
+    if (rest.length) secs.push({ label: '؟', name: 'بلا مجموعة', teams: rest, color: '#6b6b6b' });
+  } else {
+    secs = [{ name: '', teams: [...teams].sort(_mmByName).filter(hit) }];
+  }
+
+  if (!secs.length || !secs.some(x => x.teams.length)) {
+    grid.innerHTML = `<div class="qp-empty">${teams.length ? 'لا فريق يطابق البحث' : 'أضف الفرق أولاً'}</div>`;
+    return;
+  }
+
+  grid.innerHTML = secs.map(sec => {
+    const cells = sec.teams.map(t => {
+      const st = _qpState(t, h, a);
+      return `<button type="button" class="qp-c qp-${st}" data-qp="${t.id}">
+        ${_qpLogo(t)}<span class="qp-n">${t.name}</span>
+        ${st === 'home' ? '<span class="qp-b">مضيف</span>' : ''}
+        ${st === 'away' ? '<span class="qp-b away">ضيف</span>' : ''}
+      </button>`;
+    }).join('');
+
+    if (!sec.name) return `<div class="qp-row">${cells}</div>`;
+
+    /* قسم كامل خارج اللعب (كل فرقه لا تصلح خصماً للمضيف الحالي) يُعلَّم
+       صراحةً بدل تركه باهتاً بلا سبب معلن. */
+    const allOff = sec.teams.every(t => _qpState(t, h, a) === 'off');
+    return `<div class="qp-sec${allOff ? ' off' : ''}" style="--gc:${sec.color}">
+      <div class="qp-gh">
+        <span class="qp-gb">${sec.label}</span>
+        <span class="qp-gn">${sec.name}</span>
+        <span class="qp-gc">${allOff ? 'لا يلتقي مع المضيف' : sec.teams.length + ' فرق'}</span>
+      </div>
+      <div class="qp-row">${cells}</div>
+    </div>`;
+  }).join('');
+};
+
+function _qpNote(level, text) {
+  const n = document.getElementById('qpNote');
+  if (!n) return;
+  if (!text) { n.style.display = 'none'; n.textContent = ''; return; }
+  n.style.display = '';
+  n.className = 'qp-note ' + level;
+  n.textContent = text;
+}
+
+/* الضغط على فريق */
+window.qpTap = async function (teamId) {
+  const H = document.getElementById('matchHome'), A = document.getElementById('matchAway');
+  if (!H || !A) return;
+
+  /* علم يحمل وقته — لا تعطيل ولا قفل. يسقط تلقائياً بعد ٨ ثوانٍ مهما حدث،
+     فلا توجد حالة تبقى فيها الشبكة غير مستجيبة. */
+  const busyAge = Date.now() - (window._qpBusyAt || 0);
+  if (window._qpBusy && busyAge < 8000) { showToast('⏳ جارٍ حفظ المباراة السابقة...', 'info'); return; }
+  window._qpBusy = false;
+
+  // إلغاء الاختيار
+  if (H.value === teamId) { H.value = A.value; A.value = ''; _qpNote('', ''); mmUpdateVs(); qpRender(); return; }
+  if (A.value === teamId) { A.value = ''; _qpNote('', ''); mmUpdateVs(); qpRender(); return; }
+
+  // الاختيار الأول = المضيف
+  if (!H.value) { H.value = teamId; A.value = ''; _qpNote('', ''); mmUpdateVs(); qpRender(); return; }
+
+  // الاختيار الثاني
+  const chk = window.mmQuickCheck(H.value, teamId);
+  if (chk.level === 'block') {
+    _qpNote('block', chk.text);
+    showToast(chk.text, 'error');
+    return;                        // لا نملأ الخانة أصلاً — الاختيار غير صالح
+  }
+
+  A.value = teamId;
+  mmUpdateVs(); qpRender();
+
+  if (chk.level === 'warn') {
+    /* لا نحفظ تلقائياً على تحذير: المنظّم يقرّر بزرّ الحفظ بالأسفل.
+       عمداً بلا حوار فوق النافذة — الحوار كان أصل التعليق القديم. */
+    _qpNote('warn', chk.text + ' — اضغط «✓ إضافة المباراة» بالأسفل للمتابعة');
+    return;
+  }
+
+  // سليمة → أنشئها فوراً عبر نفس مسار الحفظ
+  _qpNote('', '');
+  window._qpBusy = true; window._qpBusyAt = Date.now();
+  try { await window.addMatch(); }
+  finally { window._qpBusy = false; qpRender(); }
+};
+
+/* ربط الأحداث بالتفويض على الشبكة نفسها.
+   `click` هو المسار الأساسي، و`pointerup` احتياطي مؤجّل ٣٥٠ms يُلغى فور
+   وصول click — لأن بعض الحُرّاس على الجوال تبتلع click (استدعاء
+   preventDefault على touchend يُلغي أحداث الفأرة المتولّدة عنه). */
+let _qpPending = null;
+function _qpTarget(e) {
+  const t = e.target;
+  return (t && t.closest) ? t.closest('[data-qp]') : null;
+}
+window.qpBind = function () {
+  const box = document.getElementById('qpBox');
+  if (!box || box._qpBound) return;
+  box._qpBound = true;
+  box.addEventListener('click', e => {
+    const el = _qpTarget(e); if (!el) return;
+    if (_qpPending) { clearTimeout(_qpPending); _qpPending = null; }
+    e.preventDefault();
+    qpTap(el.getAttribute('data-qp'));
+  });
+  box.addEventListener('pointerup', e => {
+    const el = _qpTarget(e); if (!el) return;
+    if (_qpPending) clearTimeout(_qpPending);
+    const id = el.getAttribute('data-qp');
+    _qpPending = setTimeout(() => { _qpPending = null; qpTap(id); }, 350);
+  });
+  const s = document.getElementById('qpSearch');
+  if (s) s.addEventListener('input', () => { window._qpQ = s.value || ''; qpRender(); });
 };
 
 /* ── لوحة حالة الجولة ──
@@ -4821,9 +5085,15 @@ window.mmOnRoundChange = function () {
 };
 
 // فتح نافذة الإضافة — الوضع الطبيعي دائماً
+function _mmResetPick() {
+  ['matchHome', 'matchAway'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+}
 window.openNormalMatchModal = function () {
   window._matchModalMode = 'normal';
   window._mmAdded = [];
+  _mmResetPick();
   openModal('modal-match');
 };
 /* «مباراة فاصلة بين مجموعتين» — لا تُفتح إلا من زرّها المخصّص في صفحة
@@ -4835,6 +5105,7 @@ window.openCrossGroupPlayoffModal = function () {
   }
   window._matchModalMode = 'crossGroup';
   window._mmAdded = [];
+  _mmResetPick();
   openModal('modal-match');
 };
 
@@ -4978,7 +5249,7 @@ window.addMatch = async function() {
   }
 
   try {
-    await addDoc(collection(db, 'leagues', LEAGUE_ID, 'matches'), _lightMatch({
+    const _newRef = await addDoc(collection(db, 'leagues', LEAGUE_ID, 'matches'), _lightMatch({
       homeId, awayId,
       homeName: homeTeam?.name, awayName: awayTeam?.name,
       homeLogo: homeTeam?.logo, awayLogo: awayTeam?.logo,
@@ -5021,8 +5292,9 @@ window.addMatch = async function() {
     // سجلّ الجلسة داخل النافذة + تنبيه صريح بأسماء الفريقين
     const _line = `${homeTeam?.name} × ${awayTeam?.name}` + (isCG ? ' ⚔️' : ` · الجولة ${round}`);
     window._mmAdded = window._mmAdded || [];
-    window._mmAdded.push(_line);
+    window._mmAdded.push({ id: _newRef && _newRef.id, line: _line });
     mmRenderAdded();
+    try { window.qpRender && window.qpRender(); } catch (e) {}
     try { window.mmRenderRoundStat && window.mmRenderRoundStat(); } catch (e) {}
     showToast(`✓ تمت إضافة ${homeTeam?.name} × ${awayTeam?.name}`, 'success');
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
@@ -6063,6 +6335,11 @@ window.openModal = function(id) {
     if (typeof populateMatchSelects === 'function') populateMatchSelects();
     if (typeof mmRenderAdded === 'function') mmRenderAdded();
     if (typeof mmOnRoundChange === 'function') mmOnRoundChange();
+    window._qpQ = '';
+    const qs = document.getElementById('qpSearch'); if (qs) qs.value = '';
+    const qn = document.getElementById('qpNote'); if (qn) { qn.style.display = 'none'; qn.textContent = ''; }
+    if (typeof qpBind === 'function') qpBind();
+    if (typeof qpRender === 'function') qpRender();
   }
   el.classList.add('open');
   document.body.style.overflow = 'hidden';

@@ -1510,24 +1510,6 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
 
 /* ── دور المواجهة + لوحة حالة الجولة داخل نافذة المباراة ── */
 .mm-leghint{font-size:9.5px; color:var(--muted,#888); margin-top:6px; line-height:1.7}
-.mm-rstat{
-  margin-top:4px; padding:11px 12px; border-radius:12px;
-  border:1px solid var(--border2,#2a2a2a); background:var(--card2,#141414);
-}
-.mm-rstat.full{border-color:rgba(39,174,96,.28); background:rgba(39,174,96,.06)}
-.mmrs-h{
-  display:flex; align-items:center; justify-content:space-between; gap:8px;
-  font-size:11px; font-weight:800; color:var(--text,#eee); margin-bottom:8px;
-}
-.mmrs-h span{font-size:10px; font-weight:800; color:var(--gold,#C9A02B); font-variant-numeric:tabular-nums}
-.mm-rstat.full .mmrs-h span{color:var(--green,#27ae60)}
-.mmrs-lbl{font-size:9.5px; font-weight:700; color:var(--muted,#888); margin:8px 0 5px}
-.mmrs-lbl:first-of-type{margin-top:0}
-.mmrs-chips{display:flex; flex-wrap:wrap; gap:5px}
-.mmrs-c{font-size:10px; font-weight:700; border-radius:20px; padding:3px 9px; border:1px solid}
-.mmrs-c.free{background:rgba(201,160,43,.09); border-color:rgba(201,160,43,.3); color:var(--gold,#C9A02B)}
-.mmrs-c.busy{background:rgba(255,255,255,.03); border-color:var(--border2,#2a2a2a); color:var(--muted,#777)}
-.mmrs-ok{font-size:10.5px; font-weight:700; color:var(--green,#27ae60); line-height:1.8}
 
 /* ══ ⚡ الاختيار السريع ══
    هوية بصرية واحدة مع باقي المنصة: أسطح داكنة مسطّحة، حدّ رفيع، ذهبي
@@ -1616,3 +1598,121 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
 @supports not (background: color-mix(in srgb, red 5%, transparent)){
   .qp-sec{background:rgba(255,255,255,.02); border-color:var(--border2,#2a2a2a)}
 }
+
+/* رأس قسم الطاقم + خانة الاحتفاظ */
+.mm-crewhead{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  margin:14px 0 8px; font-size:10px; font-weight:700; letter-spacing:1px; color:var(--gold,#C9A02B);
+}
+.mm-crewhead i{font-style:normal; font-weight:400; color:var(--muted,#888); letter-spacing:0}
+.mm-keep{
+  display:inline-flex; align-items:center; gap:6px; cursor:pointer; flex:0 0 auto;
+  font-size:10px; font-weight:700; letter-spacing:0; color:var(--muted,#888);
+  border:1px solid var(--border2,#2a2a2a); border-radius:20px; padding:5px 10px;
+}
+.mm-keep input{width:14px; height:14px; accent-color:var(--gold,#C9A02B); margin:0}
+.mm-keep:has(input:checked){border-color:rgba(201,160,43,.45); color:var(--gold,#C9A02B)}
+
+/* ══ ورقة تبديل فريقين في الشجرة ══ */
+.ksw-box{background:#111318;border-radius:18px 18px 0 0;width:100%;max-width:480px;
+  max-height:78vh;display:flex;flex-direction:column}
+.ksw-head{padding:14px 16px;border-bottom:1px solid #1f2229;display:flex;
+  justify-content:space-between;align-items:center;flex-shrink:0}
+.ksw-t{color:var(--gold,#C9A02B);font-weight:900;font-size:13px}
+.ksw-x{background:none;border:none;color:#888;font-size:18px;cursor:pointer;font-family:inherit}
+.ksw-step{padding:11px 16px;font-size:11px;color:var(--muted,#8a8a8a);
+  border-bottom:1px solid #1f2229;line-height:1.8}
+.ksw-step b{color:var(--gold,#C9A02B)}
+.ksw-list{overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ksw-row{display:flex;align-items:center;gap:9px;padding:13px 16px;
+  border-bottom:1px solid #1f2229;cursor:pointer}
+.ksw-side{flex:0 0 auto;font-size:8.5px;font-weight:900;padding:2px 7px;border-radius:6px;
+  background:rgba(255,255,255,.05);color:var(--muted,#888)}
+.ksw-nm{flex:1;min-width:0;color:#eee;font-size:12.5px;font-weight:700;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ksw-rd{flex:0 0 auto;font-size:9.5px;color:var(--muted2,#777)}
+.ksw-tag{flex:0 0 auto;font-size:8.5px;font-weight:900;padding:2px 8px;border-radius:6px;
+  background:var(--gold,#C9A02B);color:#000}
+.ksw-row.sel{background:rgba(201,160,43,.10)}
+.ksw-row.sel .ksw-nm{color:var(--gold,#C9A02B)}
+.ksw-row.dis{opacity:.34;cursor:default}
+.ksw-foot{padding:11px 16px;border-top:1px solid #1f2229;flex-shrink:0}
+.ksw-cancel{width:100%;padding:11px;border-radius:10px;cursor:pointer;font-family:inherit;
+  font-size:11.5px;font-weight:700;background:transparent;
+  border:1px solid var(--border2,#2a2a2a);color:var(--muted,#888)}
+
+/* ── لوحة حالة الجدول (تفرّق بين الدوري والمجموعات) ── */
+.mm-rstat{margin-top:4px}
+.mmrs-top{font-size:10px;font-weight:800;letter-spacing:1px;color:var(--gold,#C9A02B);margin-bottom:8px}
+.mmrs-u{border:1px solid var(--border2,#2a2a2a);background:var(--card2,#141414);
+  border-radius:12px;padding:11px 12px;margin-bottom:8px;border-inline-start:3px solid var(--border2,#2a2a2a)}
+.mmrs-u.ok{border-inline-start-color:var(--green,#27ae60);background:rgba(39,174,96,.06)}
+.mmrs-u.warn{border-inline-start-color:var(--gold,#C9A02B);background:rgba(201,160,43,.05)}
+.mmrs-u.bad{border-inline-start-color:var(--red,#C0392B);background:rgba(192,57,43,.06)}
+.mmrs-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
+.mmrs-title{font-size:11.5px;font-weight:800;color:var(--text,#eee)}
+.mmrs-badge{font-size:9px;font-weight:800;color:var(--muted,#888);
+  border:1px solid var(--border2,#2a2a2a);border-radius:20px;padding:2px 8px;flex:0 0 auto}
+.mmrs-msg{font-size:10.5px;line-height:1.8;color:var(--muted,#8a8a8a)}
+.mmrs-u.ok .mmrs-msg{color:var(--green,#27ae60)}
+.mmrs-u.bad .mmrs-msg{color:#E88C82}
+.mmrs-lbl{font-size:9.5px;font-weight:700;color:var(--muted,#888);margin:9px 0 5px}
+.mmrs-chips{display:flex;flex-wrap:wrap;gap:5px}
+.mmrs-c{font-size:10px;font-weight:700;border-radius:20px;padding:3px 9px;border:1px solid}
+.mmrs-c.free{background:rgba(201,160,43,.09);border-color:rgba(201,160,43,.3);color:var(--gold,#C9A02B)}
+
+/* ── قسم الراعي — مكتفٍ بنفسه، متطابق في نافذتَي الإضافة والتعديل ──
+   لا يعتمد على أي فئة تُحقن مع نافذة بعينها، فيظهر بالشكل نفسه أينما وُضع. */
+.sp-wrap{margin:14px 0 12px}
+.sp-head{font-size:10px;font-weight:800;letter-spacing:1px;color:var(--gold,#C9A02B);margin-bottom:9px}
+.sp-head i{font-style:normal;font-weight:400;color:var(--muted,#888);letter-spacing:0}
+.sp-in{
+  display:block;width:100%;min-width:0;box-sizing:border-box;margin-bottom:8px;
+  background:var(--card2,#141414);border:1px solid var(--border2,#2a2a2a);
+  color:var(--text,#eee);border-radius:10px;padding:12px;
+  font-family:'Tajawal',sans-serif;font-size:12.5px;outline:none;
+}
+.sp-in:focus{border-color:var(--gold,#C9A02B)}
+.sp-in::placeholder{color:var(--muted2,#666)}
+
+/* صفّ الرفع: مصغّرة · عنوان وحالة · أزرار */
+.sp-up{
+  display:flex;align-items:center;gap:11px;flex-wrap:wrap;
+  border:1px solid var(--border2,#2a2a2a);background:var(--card2,#141414);
+  border-radius:12px;padding:11px;
+}
+.sp-thumb{
+  flex:0 0 auto;width:52px;height:52px;border-radius:11px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  border:1px dashed var(--border2,#2a2a2a);background:var(--card,#0f1216);
+}
+.sp-thumb img{width:100%;height:100%;object-fit:contain;display:block}
+.sp-ph{font-size:19px;line-height:1;opacity:.5}
+.sp-meta{flex:1 1 110px;min-width:0}
+.sp-mt{font-size:11.5px;font-weight:800;color:var(--text,#eee)}
+.sp-ms{font-size:9.5px;color:var(--muted,#888);margin-top:3px;line-height:1.6}
+.sp-btns{display:flex;gap:6px;flex:0 0 auto}
+.sp-b{
+  font-family:'Tajawal',sans-serif;font-size:10.5px;font-weight:800;cursor:pointer;
+  padding:9px 15px;border-radius:9px;white-space:nowrap;
+}
+.sp-b.up{background:rgba(201,160,43,.13);border:1px solid rgba(201,160,43,.4);color:var(--gold,#C9A02B)}
+.sp-b.rm{background:transparent;border:1px solid var(--border2,#2a2a2a);color:var(--muted,#888)}
+.sp-b.rm:active{border-color:var(--red,#C0392B);color:var(--red,#C0392B)}
+.sp-hint{font-size:9.5px;color:var(--muted2,#777);line-height:1.75;margin-top:8px}
+
+/* الحقول في صفوف عمودين: بلا min-width صفر تفيض حقول date/time وتتراكب */
+.form-row > *{min-width:0}
+.form-input,.form-select{min-width:0;max-width:100%}
+@media (max-width:390px){ .form-row{grid-template-columns:1fr} }
+
+/* ── الحالة الخاصة في نافذة التعديل ── */
+.mst-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px}
+.mst-opt{min-height:42px;border-radius:10px;cursor:pointer;font-family:inherit;
+  font-size:10.5px;font-weight:800;padding:6px 4px;
+  border:1px solid var(--border2,#2a2a2a);background:transparent;color:var(--muted,#777)}
+.mst-opt.on{border-color:var(--mc);background:color-mix(in srgb,var(--mc) 14%,transparent);color:var(--mc)}
+@supports not (background: color-mix(in srgb, red 5%, transparent)){
+  .mst-opt.on{background:rgba(255,255,255,.06);color:var(--mc);border-color:var(--mc)}
+}
+@media (max-width:360px){ .mst-grid{grid-template-columns:1fr 1fr} }

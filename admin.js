@@ -4784,6 +4784,119 @@ window.mmUndoAdded = async function (matchId) {
 };
 
 /* ════════════════════════════════════════════════════════════════════
+ *  🏷️ راعي المباراة — الوحدة الناقصة
+ *  ──────────────────────────────────────────────────────────────────
+ *  🔴 `spHandleMatchLogo` و`spSetMatchLogo` و`spReadMatchForm` كانت
+ *  **مُستدعاة في نافذة معلومات المباراة ولم تُعرَّف في أي ملف**. الأثر:
+ *    · الضغط على مربّع الشعار لا يفعل شيئاً — الرفع ميّت.
+ *    · والأخطر: الحفظ يكتب `sponsorData: null` في كل مرة (لأن الاستدعاء
+ *      المحمي يرجع null حين تغيب الدالة)، فيمحو راعي المباراة المحفوظ
+ *      بلا أن يطلب أحد ذلك.
+ *  هنا تعريفها فعلياً، وتُستعمل في نافذتَي الإضافة والتعديل معاً.
+ *
+ *  الشعار يُصغَّر في المتصفح قبل الحفظ: صورة الهاتف قد تتجاوز ٣ ميغابايت،
+ *  وحدّ مستند Firestore ١ ميغابايت — فرفعها كما هي يفشل الحفظ كاملاً.
+ * ════════════════════════════════════════════════════════════════════ */
+
+window._spLogos = window._spLogos || {};
+
+/* يقبل أي مفتاح: معرّف مباراة قائمة، أو 'new' لنافذة الإضافة */
+window.spSetMatchLogo = function (key, dataUrl) {
+  if (dataUrl) window._spLogos[key] = dataUrl;
+  else delete window._spLogos[key];
+  const prev = document.getElementById('spm-prev-' + key);
+  if (prev) prev.innerHTML = dataUrl ? `<img src="${dataUrl}" alt=""/>` : '<span class="sp-ph">🖼️</span>';
+  const st = document.getElementById('spm-st-' + key);
+  if (st) st.textContent = dataUrl ? '✓ تم الرفع' : 'لم يُرفع بعد · PNG أو JPG';
+  const rm = document.getElementById('spm-rm-' + key);
+  if (rm) rm.style.display = dataUrl ? '' : 'none';
+  // نصّ زرّ الرفع يعكس الحالة: «رفع» أول مرة، و«تغيير» بعدها
+  const up = document.querySelector(`#spm-prev-${key}`)?.closest('.sp-up')?.querySelector('.sp-b.up');
+  if (up) up.textContent = dataUrl ? 'تغيير' : 'رفع';
+};
+
+window.spClearMatchLogo = function (key) {
+  window.spSetMatchLogo(key, null);
+  const f = document.getElementById('spm-file-' + key);
+  if (f) f.value = '';
+};
+
+window.spHandleMatchLogo = function (input, key) {
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  if (!/^image\//.test(file.type)) { showToast('اختر ملف صورة', 'error'); return; }
+
+  const reader = new FileReader();
+  reader.onerror = () => showToast('تعذّرت قراءة الصورة', 'error');
+  reader.onload = e => {
+    const img = new Image();
+    img.onerror = () => showToast('الصورة غير صالحة', 'error');
+    img.onload = () => {
+      /* تصغير مع الحفاظ على النسبة: ٢٤٠px كافية لعرض الشعار في البطاقات
+         وبطاقات المشاركة، وتُبقي حجم dataURL في حدود عشرات الكيلوبايتات. */
+      const MAX = 240;
+      let { width: w, height: h } = img;
+      if (w > MAX || h > MAX) { const r = Math.min(MAX / w, MAX / h); w = Math.round(w * r); h = Math.round(h * r); }
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      // PNG يحفظ الشفافية (شعارات الرعاة غالباً بخلفية شفافة)، وإن كبر نلجأ لـJPEG
+      let out = cv.toDataURL('image/png');
+      if (out.length > 180000) out = cv.toDataURL('image/jpeg', 0.85);
+      window.spSetMatchLogo(key, out);
+      showToast('✓ رُفع شعار الراعي', 'success');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+/* يرجع كائن الراعي، أو null إن كان القسم فارغاً تماماً */
+window.spReadMatchForm = function (key) {
+  const name = (document.getElementById('spm-name-' + key)?.value || '').trim();
+  const url = (document.getElementById('spm-url-' + key)?.value || '').trim();
+  const logo = window._spLogos[key] || null;
+  if (!name && !url && !logo) return null;
+  return { name, url, logo };
+};
+
+/* قالب قسم الراعي — مشترك بين نافذتَي الإضافة والتعديل حتى لا ينحرف
+   شكلهما ولا سلوكهما مع الوقت. */
+window.spSectionHtml = function (key, data) {
+  const d = data || {};
+  const esc = v => String(v || '').replace(/"/g, '&quot;');
+  /* الشعار في صفّ مستقلّ بعنوان صريح وحالة مكتوبة وأزرار ظاهرة.
+     المربّع الصامت السابق (رمز 🏷️ فقط بجانب الحقول) لم يكن يقول ما وظيفته
+     ولا ما إذا رُفع شيء، وكان يضغط الحقلين في ما تبقّى من العرض. */
+  return `
+  <div class="sp-wrap">
+    <div class="sp-head">🏷️ راعي المباراة <i>(اختياري)</i></div>
+    <input class="sp-in" id="spm-name-${key}" value="${esc(d.name)}" placeholder="اسم الراعي"/>
+    <input class="sp-in" id="spm-url-${key}" value="${esc(d.url)}" placeholder="موقع أو رقم واتساب (اختياري)"/>
+
+    <div class="sp-up">
+      <div class="sp-thumb" id="spm-prev-${key}">
+        ${d.logo ? `<img src="${d.logo}" alt=""/>` : '<span class="sp-ph">🖼️</span>'}
+      </div>
+      <div class="sp-meta">
+        <div class="sp-mt">شعار الراعي</div>
+        <div class="sp-ms" id="spm-st-${key}">${d.logo ? '✓ تم الرفع' : 'لم يُرفع بعد · PNG أو JPG'}</div>
+      </div>
+      <div class="sp-btns">
+        <button type="button" class="sp-b up" onclick="document.getElementById('spm-file-${key}').click()">
+          ${d.logo ? 'تغيير' : 'رفع'}
+        </button>
+        <button type="button" class="sp-b rm" id="spm-rm-${key}"
+                style="${d.logo ? '' : 'display:none'}" onclick="spClearMatchLogo('${key}')">إزالة</button>
+      </div>
+      <input type="file" id="spm-file-${key}" accept="image/*" style="display:none"
+             onchange="spHandleMatchLogo(this,'${key}')"/>
+    </div>
+    <div class="sp-hint">يُصغَّر تلقائياً قبل الحفظ ويظهر في بطاقة المباراة عند الجمهور.</div>
+  </div>`;
+};
+
+/* ════════════════════════════════════════════════════════════════════
  *  ⚡ الاختيار السريع
  *  ──────────────────────────────────────────────────────────────────
  *  اضغط فريقين: الأول مضيف، والثاني يُنشئ المباراة فوراً.
@@ -5039,43 +5152,91 @@ window.mmRenderRoundStat = function () {
     box.style.display = 'none'; return;
   }
   const round = parseInt(document.getElementById('matchRound')?.value, 10) || 1;
+  const legMode = (settings && settings.legMode) || 'single';
+  const isGroups = (settings && settings.type) === 'groups' && (window.adminGroups || []).length;
+  const ms = (matches || []).filter(m => !m.isKnockout);
 
-  /* في نظام المجموعات نعرض مجموعة الفريق المضيف المختار فقط — عرض كل
-     الفرق يخلط مجموعات لا تلتقي أصلاً. وقبل الاختيار نعرض الجميع. */
-  let pool = teams.slice();
-  let scope = '';
-  const hv = document.getElementById('matchHome')?.value || '';
-  if ((settings && settings.type) === 'groups' && hv) {
-    const g = _mmGroupOf(hv);
-    if (g) {
-      pool = (g.teamIds || []).map(id => teams.find(t => t.id === id)).filter(Boolean);
-      scope = ' · المجموعة ' + g.name;
+  /* 🔴 اللوحة كانت تحسب دائماً بمنطق الدوري: كل فرق البطولة تُقارن بجولة
+     واحدة، والمطلوب `floor(عدد الفرق ÷ ٢)`. في نظام المجموعات هذا خطأ
+     مضاعف — فرق مجموعات لا تلتقي أصلاً تُحسب معاً، وعدد الجولات الحقيقي
+     يختلف بحسب حجم كل مجموعة لا بحسب عدد فرق البطولة. الآن كل مجموعة
+     تُقاس بنفسها، وعدد الجولات يُؤخذ من `gtRoundsFor` — نفس المصدر الذي
+     يولّد به النظام الجدول، فلا يتناقض الفحص مع المولّد. */
+  const totalRounds = n => (typeof window.gtRoundsFor === 'function')
+    ? (window.gtRoundsFor(n, legMode) || 0) : 0;
+
+  /* وحدة قياس واحدة: عنوان وفرق ومباريات — تصلح للدوري (وحدة واحدة)
+     وللمجموعات (وحدة لكل مجموعة) بلا مسارين منفصلين. */
+  let units;
+  if (isGroups) {
+    units = [...(window.adminGroups || [])].sort(_mmByName).map(g => {
+      const ids = g.teamIds || [];
+      return {
+        key: g.id,
+        title: 'المجموعة ' + g.name,
+        teams: ids.map(id => teams.find(t => t.id === id)).filter(Boolean),
+        ms: ms.filter(m => m.groupId === g.id ||
+          (!m.groupId && ids.includes(m.homeId) && ids.includes(m.awayId)))
+      };
+    }).filter(u => u.teams.length);
+    // بعد اختيار المضيف نعرض مجموعته وحدها — الباقي ليس محلّ القرار الآن
+    const hv = document.getElementById('matchHome')?.value || '';
+    if (hv) {
+      const g = _mmGroupOf(hv);
+      if (g) units = units.filter(u => u.key === g.id);
     }
+  } else {
+    units = [{ key: 'all', title: 'البطولة', teams: teams.slice(), ms }];
   }
+  if (!units.length) { box.style.display = 'none'; return; }
 
-  const inRound = (matches || []).filter(m => !m.isKnockout && (m.round || 0) === round);
-  const taken = new Set();
-  inRound.forEach(m => { if (m.homeId) taken.add(m.homeId); if (m.awayId) taken.add(m.awayId); });
+  const blocks = units.map(u => {
+    const n = u.teams.length;
+    const perRound = Math.floor(n / 2);
+    const rTotal = totalRounds(n);
+    const inRound = u.ms.filter(m => (m.round || 0) === round);
+    const taken = new Set();
+    inRound.forEach(m => { if (m.homeId) taken.add(m.homeId); if (m.awayId) taken.add(m.awayId); });
+    const free = u.teams.filter(t => !taken.has(t.id));
 
-  const busy = pool.filter(t => taken.has(t.id));
-  const free = pool.filter(t => !taken.has(t.id));
-  const need = Math.floor(pool.length / 2);
-  const have = inRound.filter(m => pool.some(t => t.id === m.homeId)).length;
-  const done = need > 0 && have >= need;
+    // الاكتمال يعني الجدول كلّه لا جولة واحدة
+    const need = rTotal ? rTotal * perRound : 0;
+    const have = u.ms.length;
+    const allDone = need > 0 && have >= need;
+    const roundDone = perRound > 0 && inRound.length >= perRound;
+    const beyond = rTotal > 0 && round > rTotal;
+
+    let msg, cls;
+    if (beyond) {
+      cls = 'bad';
+      msg = `لا توجد جولة ${round} — ${u.title} ${rTotal} ${rTotal === 2 ? 'جولتان' : 'جولات'} فقط`;
+    } else if (allDone) {
+      cls = 'ok';
+      msg = `مكتملة ✓ — كل الجولات (${rTotal}) و${have} مباراة`;
+    } else if (roundDone) {
+      cls = 'ok';
+      msg = `الجولة ${round} مكتملة — يتبقّى ${Math.max(0, need - have)} مباراة لإكمال الجدول`;
+    } else {
+      cls = 'warn';
+      msg = `الجولة ${round} ناقصة — ${inRound.length} من ${perRound || '—'} مباراة`;
+    }
+
+    return `<div class="mmrs-u ${cls}">
+      <div class="mmrs-h">
+        <span class="mmrs-title">${u.title}</span>
+        <span class="mmrs-badge">${rTotal ? `جولة ${round} من ${rTotal}` : `جولة ${round}`}</span>
+      </div>
+      <div class="mmrs-msg">${msg}</div>
+      ${(!allDone && !beyond && free.length)
+        ? `<div class="mmrs-lbl">بلا مباراة في الجولة ${round} (${free.length})</div>
+           <div class="mmrs-chips">${free.map(t => `<span class="mmrs-c free">${t.name}</span>`).join('')}</div>`
+        : ''}
+    </div>`;
+  }).join('');
 
   box.style.display = '';
-  box.className = 'mm-rstat' + (done ? ' full' : '');
-  box.innerHTML =
-    `<div class="mmrs-h">📋 حالة الجولة ${round}${scope}
-       <span>${have}/${need || '—'} مباراة</span></div>` +
-    (free.length
-      ? `<div class="mmrs-lbl">ما زال فاضياً (${free.length})</div>
-         <div class="mmrs-chips">${free.map(t => `<span class="mmrs-c free">${t.name}</span>`).join('')}</div>`
-      : `<div class="mmrs-ok">✓ كل فرق ${scope ? 'المجموعة' : 'البطولة'} لها مباراة في هذه الجولة</div>`) +
-    (busy.length
-      ? `<div class="mmrs-lbl">له مباراة (${busy.length})</div>
-         <div class="mmrs-chips">${busy.map(t => `<span class="mmrs-c busy">${t.name}</span>`).join('')}</div>`
-      : '');
+  box.className = 'mm-rstat';
+  box.innerHTML = `<div class="mmrs-top">📋 حالة الجدول</div>${blocks}`;
 };
 
 /* تغيّر رقم الجولة يمسّ شيئين: دور المواجهة المحسوب، ولوحة الحالة. */
@@ -5229,7 +5390,7 @@ window.addMatch = async function() {
   const commentator = document.getElementById('matchCommentator')?.value.trim() || '';
   const linesman1 = document.getElementById('matchLinesman1')?.value.trim() || '';
   const linesman2 = document.getElementById('matchLinesman2')?.value.trim() || '';
-  const sponsor = document.getElementById('matchSponsor')?.value.trim() || '';
+  // اسم الراعي صار ضمن قسم الراعي الموحّد (spReadMatchForm)
   const photographer = document.getElementById('matchPhotographer')?.value.trim() || '';
   const announcer = document.getElementById('matchAnnouncer')?.value.trim() || '';
   const attendance = document.getElementById('matchAttendance')?.value || '';
@@ -5263,7 +5424,10 @@ window.addMatch = async function() {
       ...(_groupId ? { groupId: _groupId } : {}),
       ...(isCG ? { isKnockout: true, knockoutRoundName: _cgLabel } : {}),
       referee, commentator, linesman1, linesman2,
-      sponsor, photographer, announcer, attendance, notes,
+      sponsor: (window.spReadMatchForm ? (window.spReadMatchForm('new')?.name || '') : sponsor),
+      ...(window.spReadMatchForm && window.spReadMatchForm('new')
+          ? { sponsorData: window.spReadMatchForm('new') } : {}),
+      photographer, announcer, attendance, notes,
       status: 'upcoming', createdAt: serverTimestamp()
     }));
 
@@ -5284,10 +5448,25 @@ window.addMatch = async function() {
       const el = document.getElementById(id); if (el) el.value = '';
     });
     mmUpdateVs();
-    // الحقول الاختيارية تخصّ مباراة بعينها — تُصفَّر دائماً
-    ['matchReferee','matchCommentator','matchLinesman1','matchLinesman2','matchSponsor','matchPhotographer','matchAnnouncer','matchAttendance','matchNotes'].forEach(id => {
+    /* الطاقم غالباً هو نفسه في مباريات اليوم الواحد — حكم واحد ومعلّق
+       واحد وراعٍ واحد. تصفيره بعد كل إضافة كان يجبر المنظّم على إعادة
+       كتابته في كل مرة. الخانة تجعل ذلك اختياره.
+       الجمهور والملاحظات تُصفَّر دائماً: هما خاصّان بمباراة بعينها. */
+    const _keepCrew = !!document.getElementById('mmKeepCrew')?.checked;
+    const _crew = ['matchReferee','matchCommentator','matchLinesman1','matchLinesman2',
+                   'matchPhotographer','matchAnnouncer'];
+    const _always = ['matchAttendance','matchNotes'];
+    (_keepCrew ? _always : _crew.concat(_always)).forEach(id => {
       const el = document.getElementById(id); if(el) el.value = '';
     });
+    // الراعي يتبع نفس قاعدة الطاقم: غالباً هو نفسه في مباريات اليوم الواحد
+    if (!_keepCrew) {
+      const spHost = document.getElementById('mmSponsorHost');
+      if (spHost && window.spSectionHtml) {
+        delete window._spLogos['new'];
+        spHost.innerHTML = window.spSectionHtml('new', null);
+      }
+    }
 
     // سجلّ الجلسة داخل النافذة + تنبيه صريح بأسماء الفريقين
     const _line = `${homeTeam?.name} × ${awayTeam?.name}` + (isCG ? ' ⚔️' : ` · الجولة ${round}`);
@@ -6340,6 +6519,12 @@ window.openModal = function(id) {
     const qn = document.getElementById('qpNote'); if (qn) { qn.style.display = 'none'; qn.textContent = ''; }
     if (typeof qpBind === 'function') qpBind();
     if (typeof qpRender === 'function') qpRender();
+    /* قسم الراعي يُبنى بنفس قالب نافذة التعديل، فلا ينحرف الشكلان مع الوقت */
+    const spHost = document.getElementById('mmSponsorHost');
+    if (spHost && typeof window.spSectionHtml === 'function') {
+      window._spLogos && delete window._spLogos['new'];
+      spHost.innerHTML = window.spSectionHtml('new', null);
+    }
   }
   el.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -11959,7 +12144,9 @@ function renderKnockoutAdmin() {
             ? `<div class="kq-note">✓ كل المتأهلين (${_placed.size}) موضوعون في الشجرة</div>`
             : '')}
 
-      <div class="kq-actions">${_srcBtn}</div>
+      <div class="kq-actions">${_srcBtn}
+        <button onclick="adminOpenBracketSwap()" class="kq-src">🔄 تبديل فريقين</button>
+      </div>
       <div class="kq-hint">اضغط أي خانة في الشجرة لاختيار الفريق بنفسك — القرعة يدوية بالكامل.</div>
     </div>`;
 
@@ -12237,6 +12424,146 @@ function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round, mirror, brkA
 }
 
 // ── فتح خانة فارغة في الشجرة: يفتح مباراة موجودة، أو منتقي المتأهلين لو الدور الأول وفارغة ──
+/* ════════════════════════════════════════════════════════════════════
+ *  🔄 تبديل فريقين في الشجرة
+ *  ──────────────────────────────────────────────────────────────────
+ *  تصحيح قرعة خاطئة كان يتطلّب مسح خانتين وإعادة اختيار أربعة فرق —
+ *  مسار طويل وكل خطوة فيه فرصة خطأ جديدة. هنا: اضغط موضعين، يتبادلان.
+ *
+ *  الاختيار من قائمة لا من الشجرة نفسها عن قصد: خانات الشجرة صغيرة على
+ *  الجوال ولها وظيفة أخرى بالضغط (فتح المباراة أو المنتقي)، فتحميلها
+ *  وضعاً ثانياً يخلط السلوكين ويكسر ما يعمل.
+ *
+ *  والموضع قد يكون في مباراة قائمة (مضيف/ضيف) أو في خانة نصف ممتلئة
+ *  (slotPick). القارئ والكاتب أدناه يتعاملان مع الحالتين بواجهة واحدة،
+ *  فكل التوليفات الأربع تعمل بلا حالات خاصة.
+ * ════════════════════════════════════════════════════════════════════ */
+
+/* كل المواضع المشغولة في الشجرة، مرتّبة كما تُعرض */
+function _kswPositions() {
+  const out = [];
+  [...(adminKnockoutRounds || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).forEach(r => {
+    const slots = r.slots || 1;
+    for (let i = 0; i < slots; i++) {
+      const m = (matches || []).find(x => x.knockoutRoundId === r.id && (x.knockoutSlot ?? 0) === i);
+      if (m) {
+        /* مباراة انتهت أو جارية: تبديل أطرافها يفسد نتيجة مسجَّلة —
+           نستثنيها بدل السماح بتناقض صامت بين النتيجة والفريقين. */
+        const locked = m.status === 'finished' || m.status === 'live'
+          || m.homeScore != null || m.awayScore != null;
+        if (m.homeId) out.push({ k: `m:${m.id}:home`, mId: m.id, side: 'home', rid: r.id, slot: i,
+          rName: r.name, teamId: m.homeId, teamName: m.homeName, locked });
+        if (m.awayId) out.push({ k: `m:${m.id}:away`, mId: m.id, side: 'away', rid: r.id, slot: i,
+          rName: r.name, teamId: m.awayId, teamName: m.awayName, locked });
+      } else {
+        const p = (r.slotPicks || {})[i];
+        if (p && p.teamId) out.push({ k: `p:${r.id}:${i}`, rid: r.id, slot: i, side: 'pick',
+          rName: r.name, teamId: p.teamId, teamName: p.teamName, locked: false });
+      }
+    }
+  });
+  return out;
+}
+
+/* كتابة فريق في موضع — واجهة واحدة للحالتين */
+async function _kswWrite(pos, team) {
+  const payload = { teamId: team.id, teamName: team.name, teamLogo: team.logo || '⚽' };
+  if (pos.side === 'pick') {
+    await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'knockoutRounds', pos.rid), {
+      [`slotPicks.${pos.slot}`]: payload, updatedAt: serverTimestamp()
+    });
+    return;
+  }
+  const pre = pos.side === 'home' ? 'home' : 'away';
+  await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', pos.mId), {
+    [pre + 'Id']: team.id, [pre + 'Name']: team.name, [pre + 'Logo']: team.logo || '⚽',
+    updatedAt: serverTimestamp()
+  });
+}
+
+window._kswSel = null;
+
+window.adminOpenBracketSwap = function () {
+  const list = _kswPositions();
+  const open = list.filter(p => !p.locked);
+  if (open.length < 2) {
+    // رسالتان مختلفتان: نقص فرق شيء، ومباريات محسومة شيء آخر
+    showToast(list.length >= 2
+      ? 'المواضع المتاحة أقل من اثنين — المباريات التي لها نتيجة لا تُبدَّل'
+      : 'يلزم موضعان على الأقل — ضع الفرق في الشجرة أولاً', 'error');
+    return;
+  }
+  window._kswSel = null;
+  _kswRender(list);
+};
+
+function _kswRender(list) {
+  list = list || _kswPositions();
+  let sheet = document.getElementById('kswSheet');
+  if (!sheet) { sheet = document.createElement('div'); sheet.id = 'kswSheet'; document.body.appendChild(sheet); }
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.75);' +
+    'display:flex;align-items:flex-end;justify-content:center;font-family:Tajawal,sans-serif';
+
+  const sel = window._kswSel;
+  const rows = list.map(p => {
+    const isSel = sel && sel.k === p.k;
+    const dis = p.locked || (sel && sel.teamId === p.teamId && !isSel);
+    const why = p.locked ? 'مباراة لها نتيجة' : '';
+    return `<div ${dis && !isSel ? '' : `onclick="_kswPick('${p.k}')"`}
+      class="ksw-row${isSel ? ' sel' : ''}${dis && !isSel ? ' dis' : ''}">
+      <span class="ksw-side">${p.side === 'away' ? 'ضيف' : p.side === 'home' ? 'مضيف' : 'مُثبَّت'}</span>
+      <span class="ksw-nm">${p.teamName || '—'}</span>
+      <span class="ksw-rd">${p.rName}${why ? ' · ' + why : ''}</span>
+      ${isSel ? '<span class="ksw-tag">المختار</span>' : ''}
+    </div>`;
+  }).join('');
+
+  sheet.innerHTML = `
+    <div class="ksw-box">
+      <div class="ksw-head">
+        <div class="ksw-t">🔄 تبديل فريقين</div>
+        <button onclick="_kswClose()" class="ksw-x">✕</button>
+      </div>
+      <div class="ksw-step">${sel
+        ? `اختير <b>${sel.teamName}</b> — اضغط الفريق الذي تريد تبديله معه`
+        : 'اضغط الفريق الأول'}</div>
+      <div class="ksw-list">${rows}</div>
+      ${sel ? `<div class="ksw-foot"><button onclick="_kswPick('${sel.k}')" class="ksw-cancel">إلغاء الاختيار</button></div>` : ''}
+    </div>`;
+  window.bindModalDismiss(sheet, () => window._kswClose());
+}
+
+window._kswClose = function () {
+  document.getElementById('kswSheet')?.remove();
+  window._kswSel = null;
+};
+
+window._kswPick = async function (key) {
+  const list = _kswPositions();
+  const p = list.find(x => x.k === key);
+  if (!p) return;
+
+  // الضغط على المختار نفسه يلغي الاختيار
+  if (window._kswSel && window._kswSel.k === key) { window._kswSel = null; _kswRender(list); return; }
+  if (!window._kswSel) { window._kswSel = p; _kswRender(list); return; }
+
+  const a = window._kswSel, b = p;
+  if (a.teamId === b.teamId) { showToast('نفس الفريق — اختر موضعاً لفريق آخر', 'error'); return; }
+
+  const tA = teams.find(t => t.id === a.teamId);
+  const tB = teams.find(t => t.id === b.teamId);
+  if (!tA || !tB) { showToast('تعذّر العثور على أحد الفريقين', 'error'); return; }
+
+  window._kswSel = null;
+  document.getElementById('kswSheet')?.remove();
+  try {
+    await _kswWrite(a, tB);
+    await _kswWrite(b, tA);
+    showToast(`🔄 تبادل ${tA.name} و${tB.name}`, 'success');
+    if (typeof renderKnockoutAdmin === 'function') renderKnockoutAdmin();
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
 window.adminOpenBracketSlot = function(roundId, slotIdx) {
   const round = adminKnockoutRounds.find(r => r.id === roundId);
   if (!round) return;
@@ -15592,7 +15919,15 @@ window.importRosterToLineup = function(teamId) {
       .mcv2-inp:focus { border-color:#3a3a3a; }
       .mcv2-lbl  { font-size:10px;color:#666;font-weight:700;letter-spacing:.5px;margin-bottom:5px;display:block; }
       .mcv2-fld  { margin-bottom:13px; }
+      /* 🔴 عنصر الشبكة لا ينكمش تحت عرض محتواه ما لم يُصرَّح min-width صفراً.
+         وحقول date/time لها عرض داخلي كبير على الجوال، فكانت تفيض عن
+         عمودها وتركب على جارتها. */
       .mcv2-g2   { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
+      .mcv2-g2 > *,
+      .mcv2-fld  { min-width:0; }
+      .mcv2-inp  { min-width:0;max-width:100%; }
+      .mcv2-inp[type="date"], .mcv2-inp[type="time"] { -webkit-appearance:none;appearance:none; }
+      @media (max-width:390px){ .mcv2-g2 { grid-template-columns:1fr; } }
       .mcv2-sec  { font-size:10px;font-weight:900;letter-spacing:.5px;margin-bottom:8px;margin-top:14px;padding-top:10px;border-top:1px solid #1a1a1a; }
 
       .mcv2-sbtn { width:100%;padding:14px;border:none;border-radius:12px;font-family:Tajawal,sans-serif;font-size:14px;font-weight:900;cursor:pointer;margin-top:10px; }
@@ -16219,7 +16554,7 @@ window.importRosterToLineup = function(teamId) {
     </div>
 
     <!-- التاريخ والملعب -->
-    <div class="mcv2-g2">
+<div class="mcv2-g2">
       <div class="mcv2-fld"><label class="mcv2-lbl">📅 التاريخ</label><input class="mcv2-inp" type="date" id="qr-date-${matchId}" value="${m.date || ''}"/></div>
       <div class="mcv2-fld"><label class="mcv2-lbl">🏟️ الملعب</label><input class="mcv2-inp" id="qr-venue-${matchId}" value="${m.venue || ''}" placeholder="ملعب الحارة"/></div>
     </div>
@@ -16496,6 +16831,19 @@ window.importRosterToLineup = function(teamId) {
     // ✅︎ لمباراة معلّقة غير مفعّلة: الهدف من فتح هذه النافذة هو نشرها، فنرشّح "قادمة" افتراضياً
     const effectiveStatus = isPending ? 'upcoming' : m.status;
 
+    /* حالات خاصة تُعرض للجمهور فوق بطاقة المباراة.
+       منفصلة عن حالة اللعب (قادمة/مباشر/انتهت) عن قصد: مباراة مؤجّلة تبقى
+       «قادمة» في كل الحسابات، والتأجيل وصفٌ للموعد لا للّعب — فخلطهما في
+       قائمة واحدة يجبر المنظّم على اختيار أحدهما وفقدان الآخر. */
+    const MSTATES = [
+      { k:'none',      l:'— بلا —',       c:'#666'    },
+      { k:'postponed', l:'📅 مؤجلة',      c:'#D35400' },
+      { k:'delayed',   l:'⏱ متأخرة',      c:'#E67E22' },
+      { k:'moved',     l:'📍 نُقل موعدها', c:'#3498db' },
+      { k:'canceled',  l:'🚫 ملغاة',      c:'#C0392B' },
+      { k:'custom',    l:'✍️ نصّ خاص',     c:'#8E44AD' },
+    ];
+
     const STATS = [
       { k:'upcoming', l:'⏳ قادمة',   c:'#666' },
       { k:'live',     l:'🔴 مباشر',   c:'#C0392B' },
@@ -16515,38 +16863,34 @@ window.importRosterToLineup = function(teamId) {
       🆕 مباراة جديدة تولّدت تلقائياً من المجموعة — عبّئ التاريخ والملعب واضغط النشر لتظهر للجمهور فوراً.
     </div>` : ''}
 
+        <div class="mcv2-sec">📅 الموعد والمكان</div>
     <div class="mcv2-g2">
-      <div class="mcv2-fld"><label class="mcv2-lbl">📅 التاريخ</label><input class="mcv2-inp" type="date" id="mcv2-idate-${matchId}" value="${m.date || ''}"/></div>
-      <div class="mcv2-fld"><label class="mcv2-lbl">⏰ الوقت</label><input class="mcv2-inp" type="time" id="mcv2-itime-${matchId}" value="${m.time || ''}"/></div>
+      <div class="mcv2-fld"><label class="mcv2-lbl">التاريخ</label><input class="mcv2-inp" type="date" id="mcv2-idate-${matchId}" value="${m.date || ''}"/></div>
+      <div class="mcv2-fld"><label class="mcv2-lbl">الوقت</label><input class="mcv2-inp" type="time" id="mcv2-itime-${matchId}" value="${m.time || ''}"/></div>
     </div>
+    <div class="mcv2-fld"><label class="mcv2-lbl">🏟️ الملعب</label><input class="mcv2-inp" id="mcv2-iven-${matchId}" value="${m.venue || ''}" placeholder="ملعب الحارة"/></div>
     ${!m.isKnockout ? `
     <div class="mcv2-fld">
       <label class="mcv2-lbl">🔢 الجولة <span style="color:var(--muted);font-weight:400">— انقل المباراة لجولة أخرى</span></label>
       <input class="mcv2-inp" type="number" min="1" max="60" id="mcv2-iround-${matchId}" value="${m.round || 1}"/>
     </div>` : ''}
-    <div class="mcv2-fld"><label class="mcv2-lbl">🏟️ الملعب</label><input class="mcv2-inp" id="mcv2-iven-${matchId}" value="${m.venue || ''}" placeholder="ملعب الحارة"/></div>
+
+    <div class="mcv2-sec">👔 الطاقم</div>
     <div class="mcv2-g2">
       <div class="mcv2-fld"><label class="mcv2-lbl">👨‍⚖️ الحكم</label><input class="mcv2-inp" id="mcv2-iref-${matchId}" value="${m.referee || ''}" placeholder="اسم الحكم"/></div>
       <div class="mcv2-fld"><label class="mcv2-lbl">🎙️ المعلق</label><input class="mcv2-inp" id="mcv2-icom-${matchId}" value="${m.commentator || ''}" placeholder="اسم المعلق"/></div>
       <div class="mcv2-fld"><label class="mcv2-lbl">🚩 مساعد ١</label><input class="mcv2-inp" id="mcv2-ils1-${matchId}" value="${m.linesman1 || ''}" placeholder="الحكم المساعد"/></div>
       <div class="mcv2-fld"><label class="mcv2-lbl">🚩 مساعد ٢</label><input class="mcv2-inp" id="mcv2-ils2-${matchId}" value="${m.linesman2 || ''}" placeholder="الحكم المساعد"/></div>
     </div>
-    <div class="mcv2-fld"><label class="mcv2-lbl">📡 رابط البث / فيديو المباراة</label><input class="mcv2-inp" id="mcv2-istr-${matchId}" value="${m.videoUrl || m.streamUrl || ''}" placeholder="يوتيوب / تويتش / رابط مباشر — يظهر مكان البث"/></div>
-    <div class="mcv2-g2">
-      <div class="mcv2-fld"><label class="mcv2-lbl">🏷️ راعي المباراة</label><input class="mcv2-inp" id="spm-name-${matchId}" value="${(m.sponsorData?.name) || m.sponsor || ''}" placeholder="اسم الراعي"/></div>
-      <div class="mcv2-fld"><label class="mcv2-lbl">رابط الراعي</label><input class="mcv2-inp" id="spm-url-${matchId}" value="${(m.sponsorData?.url) || ''}" placeholder="موقع أو رقم واتساب"/></div>
-      <div class="mcv2-fld"><label class="mcv2-lbl">شعار الراعي</label>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div id="spm-prev-${matchId}" class="sp-drop" style="width:48px;height:48px;flex:0 0 48px" onclick="document.getElementById('spm-file-${matchId}').click()">${m.sponsorData?.logo ? `<img src="${m.sponsorData.logo}" style="width:100%;height:100%;object-fit:contain"/>` : '<span style="font-size:16px;color:var(--muted)">🏷️</span>'}</div>
-          <input type="file" id="spm-file-${matchId}" accept="image/*" style="display:none" onchange="spHandleMatchLogo(this,'${matchId}')"/>
-          <button class="btn" style="font-size:10px;padding:4px 8px" onclick="spSetMatchLogo('${matchId}',null);document.getElementById('spm-prev-${matchId}').innerHTML='<span style=\'font-size:16px;color:var(--muted)\'>🏷️</span>'">إزالة</button>
-        </div>
-      </div>
-      <div class="mcv2-fld"><label class="mcv2-lbl">👥 الجمهور</label><input class="mcv2-inp" type="number" id="mcv2-iatt-${matchId}" value="${m.attendance || ''}" placeholder="500"/></div>
-    </div>
-    <div class="mcv2-fld"><label class="mcv2-lbl">📝 ملاحظات</label><textarea class="mcv2-inp" id="mcv2-inotes-${matchId}" rows="2" style="resize:none" placeholder="أي ملاحظات للجمهور...">${m.notes || ''}</textarea></div>
 
-    <div class="mcv2-sec" style="color:#C9A02B">🚦 حالة المباراة</div>
+    ${window.spSectionHtml(matchId, m.sponsorData || (m.sponsor ? { name: m.sponsor } : null))}
+
+    <div class="mcv2-sec">📡 البث والحضور</div>
+    <div class="mcv2-fld"><label class="mcv2-lbl">رابط البث / فيديو المباراة</label><input class="mcv2-inp" id="mcv2-istr-${matchId}" value="${m.videoUrl || m.streamUrl || ''}" placeholder="يوتيوب / تويتش / رابط مباشر"/></div>
+    <div class="mcv2-fld"><label class="mcv2-lbl">👥 عدد الجمهور</label><input class="mcv2-inp" type="number" inputmode="numeric" min="0" id="mcv2-iatt-${matchId}" value="${m.attendance || ''}" placeholder="مثال: 500"/></div>
+    <div class="mcv2-fld"><label class="mcv2-lbl">📝 ملاحظات (تظهر للجمهور)</label><textarea class="mcv2-inp" id="mcv2-inotes-${matchId}" rows="2" style="resize:none" placeholder="أي ملاحظات للجمهور...">${m.notes || ''}</textarea></div>
+
+    <div class="mcv2-sec">🚦 حالة المباراة</div>
     <div class="mcv2-status-flex" id="mcv2-istat-${matchId}">
       ${STATS.map(s => `
         <button class="mcv2-status-opt" id="mcv2-ist-${s.k}-${matchId}"
@@ -16555,11 +16899,36 @@ window.importRosterToLineup = function(teamId) {
         </button>`).join('')}
     </div>
 
+
+    <div class="mcv2-sec">🏷️ حالة خاصة <span style="color:var(--muted);font-weight:400;font-size:10px">— تظهر على بطاقة المباراة للجمهور</span></div>
+    <div class="mst-grid" id="mst-grid-${matchId}">
+      ${MSTATES.map(f => `
+        <button type="button" class="mst-opt${(m.specialStatus || '') === f.k ? ' on' : ''}"
+          id="mst-${f.k}-${matchId}" style="--mc:${f.c}"
+          onclick="mcv2SelFlag('${matchId}','${f.k}')">${f.l}</button>`).join('')}
+    </div>
+    <div class="mcv2-fld" id="mst-note-wrap-${matchId}" style="${(m.specialStatus && m.specialStatus !== 'none') ? '' : 'display:none'}">
+      <label class="mcv2-lbl">نصّ يظهر للجمهور <span style="color:var(--muted);font-weight:400">— اتركه فارغاً لعرض اسم الحالة فقط</span></label>
+      <input class="mcv2-inp" id="mst-note-${matchId}" value="${(m.statusNote || '').replace(/"/g, '&quot;')}" placeholder="مثال: تأجلت لسوء الأحوال الجوية — الموعد الجديد يُعلن لاحقاً"/>
+    </div>
+
     <button class="mcv2-sbtn mcv2-sbtn-gold" onclick="mcv2SaveInfo('${matchId}')">${isPending ? '🚀 نشر المباراة للجمهور' : '💾 حفظ المعلومات'}</button>
   </div>
 </div>`;
 
     ov.__selStatus = effectiveStatus;
+    ov.__selFlag = m.specialStatus || 'none';
+  };
+
+  window.mcv2SelFlag = function(matchId, key) {
+    const ov = document.getElementById('mcv2-info-ov');
+    if (ov) ov.__selFlag = key;
+    ['none','postponed','delayed','moved','canceled','custom'].forEach(k => {
+      document.getElementById(`mst-${k}-${matchId}`)?.classList.toggle('on', k === key);
+    });
+    // حقل النصّ لا معنى له بلا حالة
+    const wrap = document.getElementById(`mst-note-wrap-${matchId}`);
+    if (wrap) wrap.style.display = (key && key !== 'none') ? '' : 'none';
   };
 
   window.mcv2SelStat = function(matchId, status, color) {
@@ -16576,6 +16945,9 @@ window.importRosterToLineup = function(teamId) {
   window.mcv2SaveInfo = async function(matchId) {
     const m = _getM(matchId); if (!m) return;
     const status = document.getElementById('mcv2-info-ov')?.__selStatus || m.status;
+    const _ovEl = document.getElementById('mcv2-info-ov');
+    const _flag = (_ovEl && _ovEl.__selFlag != null) ? _ovEl.__selFlag : (m.specialStatus || 'none');
+    const _note = (document.getElementById(`mst-note-${matchId}`)?.value || '').trim();
     const data = {
       date:        document.getElementById(`mcv2-idate-${matchId}`)?.value  || m.date,
       time:        document.getElementById(`mcv2-itime-${matchId}`)?.value  || m.time,
@@ -16593,6 +16965,9 @@ window.importRosterToLineup = function(teamId) {
       sponsorData: (typeof window.spReadMatchForm === 'function' ? window.spReadMatchForm(matchId) : null),
       attendance:  document.getElementById(`mcv2-iatt-${matchId}`)?.value  || '',
       notes:       document.getElementById(`mcv2-inotes-${matchId}`)?.value.trim() || '',
+      // '' بدل 'none' حتى يكون الفحص عند العرض مجرد اختبار خواء
+      specialStatus: (_flag && _flag !== 'none') ? _flag : '',
+      statusNote:    (_flag && _flag !== 'none') ? _note : '',
       status,
     };
     // ✅︎ نقل المباراة لجولة أخرى (مباريات الدوري/المجموعات فقط)

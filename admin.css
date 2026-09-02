@@ -1830,3 +1830,88 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
 .set-badge.neutral{background:rgba(255,255,255,.03);border-color:var(--border2,#2a2a2a);color:var(--muted,#8a8a8a)}
 .set-row-txt{flex:1;min-width:0}
 @media (max-width:360px){ .set-badge{display:none} }
+
+/* ══ لوحة فحص سلامة البطولة ══
+   رأس ثابت · منطقة تمرير واحدة · تذييل ثابت. التركيب السابق
+   (flex + align-items:center + overflow على الحاوية) كان يقصّ أعلى
+   المحتوى الطويل ويُعلّق التمرير على الجوال، فلا يصل المنظّم لآخر البنود. */
+#hcOverlay{
+  position:fixed; inset:0; z-index:900; background:rgba(0,0,0,.9);
+  display:flex; align-items:flex-end; justify-content:center;
+  padding:0; font-family:'Tajawal',sans-serif;
+}
+.hc-box{
+  width:100%; max-width:520px; max-height:92vh; display:flex; flex-direction:column;
+  background:var(--card,#121419); border:1px solid var(--border2,#23262e);
+  border-radius:18px 18px 0 0; overflow:hidden;
+}
+.hc-head{
+  flex:0 0 auto; display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+  padding:16px 18px 13px; border-bottom:1px solid var(--border,#1f2229);
+}
+.hc-title{font-size:15px; font-weight:900; color:var(--gold,#C9A02B)}
+.hc-sub{font-size:10.5px; color:var(--muted,#888); margin-top:3px; line-height:1.7}
+.hc-x{
+  flex:0 0 auto; width:32px; height:32px; border-radius:9px; cursor:pointer; font-size:14px;
+  background:transparent; border:1px solid var(--border2,#2a2a2a); color:var(--muted,#888);
+  font-family:inherit;
+}
+.hc-bar{flex:0 0 auto; padding:11px 16px; border-bottom:1px solid var(--border,#1f2229)}
+.hc-list{
+  flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain; padding:14px 16px;
+}
+.hc-foot{
+  flex:0 0 auto; padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
+  border-top:1px solid var(--border,#1f2229);
+}
+.hc-close{
+  width:100%; min-height:46px; border-radius:11px; cursor:pointer; font-family:inherit;
+  font-size:12.5px; font-weight:800; background:transparent;
+  border:1px solid var(--border2,#2a2a2a); color:var(--muted,#8a8a8a);
+}
+.hc-i{
+  background:var(--card3,#16181e); border:1px solid color-mix(in srgb, var(--hc) 26%, transparent);
+  border-inline-end:3px solid var(--hc); border-radius:11px; padding:12px 14px; margin-bottom:9px;
+}
+.hc-i-h{display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap}
+.hc-lvl{
+  flex:0 0 auto; font-size:8.5px; font-weight:900; border-radius:20px; padding:2px 8px;
+  color:var(--hc); background:color-mix(in srgb, var(--hc) 15%, transparent);
+}
+.hc-t{font-size:12.5px; font-weight:800; color:var(--text,#eee); flex:1; min-width:0}
+.hc-d{font-size:11px; color:var(--muted2,#8b8f9a); line-height:1.8; white-space:pre-line}
+.hc-fix{font-size:10px; color:var(--hc); margin-top:8px; font-weight:700; line-height:1.7}
+.hc-acts{display:flex; gap:7px; margin-top:11px; flex-wrap:wrap}
+.hc-b{
+  flex:1 1 auto; min-width:120px; min-height:38px; border-radius:9px; cursor:pointer;
+  font-family:inherit; font-size:10.5px; font-weight:800;
+}
+.hc-b.fix{background:rgba(201,160,43,.14); border:1px solid rgba(201,160,43,.42); color:var(--gold,#C9A02B)}
+.hc-b.fix.wide{width:100%; min-height:42px; font-size:11.5px}
+.hc-b.go{background:transparent; border:1px solid var(--border2,#2a2a2a); color:var(--muted,#888)}
+.hc-ok{padding:30px 12px; text-align:center; font-size:13px; color:var(--green,#2ecc71); font-weight:800}
+@supports not (background: color-mix(in srgb, red 5%, transparent)){
+  .hc-i{border-color:var(--border2,#2a2a2a)} .hc-lvl{background:rgba(255,255,255,.07)}
+}
+@media (min-width:520px){
+  #hcOverlay{align-items:center; padding:20px}
+  .hc-box{border-radius:18px; max-height:86vh}
+}
+
+/* ══ بطاقات الإعدادات: مقاسات مرنة لا تقصّ محتواها ══
+   الصفوف كانت flex بلا `min-width:0` على النصّ، فالعناوين الطويلة تدفع
+   الشارة والسهم خارج البطاقة فيختفيان. */
+.set-row{display:flex; align-items:center; gap:10px; min-width:0}
+.set-row-txt{flex:1 1 auto; min-width:0}
+.set-row-t{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.set-row-d{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.set-row-ic,.set-row-go{flex:0 0 auto}
+.card,.card-body{min-width:0}
+.card-body{overflow-wrap:anywhere}
+.toggle-row{display:flex; align-items:center; gap:10px; min-width:0}
+.toggle-info{flex:1 1 auto; min-width:0}
+.toggle-name{overflow-wrap:anywhere}
+.toggle-desc{overflow-wrap:anywhere}
+.toggle-switch{flex:0 0 auto}
+.type-card{min-width:0; overflow-wrap:anywhere}

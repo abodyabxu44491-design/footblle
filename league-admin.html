@@ -17,7 +17,7 @@ if('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
-<link rel="stylesheet" href="./admin.css?v=287"/>
+<link rel="stylesheet" href="./admin.css?v=289"/>
 <!-- SheetJS: لإنشاء/قراءة ملفات Excel (قالب واستيراد اللاعبين) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -625,7 +625,7 @@ if('serviceWorker' in navigator) {
             <span class="set-badge" data-setkey="basic"></span>
             <span class="set-row-go"><i data-ic="chevronL"></i></span>
           </div>
-          <div class="set-row" onclick="showPage('set-format',null)">
+          <div class="set-row" id="setFormatRow" onclick="showPage('set-format',null)">
             <span class="set-row-ic"><i data-ic="refresh"></i></span>
             <div class="set-row-txt">
               <div class="set-row-t">نظام المباريات</div>
@@ -643,7 +643,7 @@ if('serviceWorker' in navigator) {
             <span class="set-badge" data-setkey="playoff"></span>
             <span class="set-row-go"><i data-ic="chevronL"></i></span>
           </div>
-          <div class="set-row" onclick="showPage('set-tie',null)">
+          <div class="set-row" id="setTieRow" onclick="showPage('set-tie',null)">
             <span class="set-row-ic"><i data-ic="swords"></i></span>
             <div class="set-row-txt">
               <div class="set-row-t">الحسم عند التساوي</div>
@@ -912,7 +912,15 @@ if('serviceWorker' in navigator) {
           <div class="page-title"><span class="pt-ic" data-ic="refresh"></span>نظام المباريات</div>
           <div class="page-sub">ذهاب وإياب · أدوار الإقصاء · المباراة الفاصلة</div>
         </div>
-<div class="card" id="legModeCard" style="display:none">
+<!-- لا تُترك الصفحة فارغة أبداً: إن لم تنطبق أي بطاقة يظهر هذا بدلها -->
+        <div class="card" id="fmtEmptyCard" style="display:none"><div class="card-body" style="text-align:center;padding:24px 18px">
+          <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:7px">لا خيارات في هذا القسم</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.9;margin-bottom:14px" id="fmtEmptyMsg">
+            نظام بطولتك الحالي لا يحتوي دور دوري ولا شجرة إقصاء، فلا خيارات ذهاب وإياب هنا.
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="showPage('settings',null)">← العودة للإعدادات</button>
+        </div></div>
+        <div class="card" id="legModeCard" style="display:none">
             <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="refresh"></span><span id="legModeTitle">نظام مباريات المجموعات</span></div></div>
             <div class="card-body">
               <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.7;background:var(--card3);border-radius:8px;padding:9px 12px">
@@ -1164,6 +1172,11 @@ if('serviceWorker' in navigator) {
             <div class="dz-h"><span class="dz-ic" data-ic="lock"></span><span class="dz-t">تغيير كلمة المرور</span></div>
             <div class="dz-d">يغيّر كلمة مرور دخولك لهذه الصفحة. بعد التغيير لن تُقبل الكلمة القديمة.</div>
             <button class="dz-btn gold" onclick="openChangePassword()">تغيير كلمة المرور</button>
+          </div>
+          <div class="dz-card dz-safe">
+            <div class="dz-h"><span class="dz-ic" data-ic="refresh"></span><span class="dz-t">استعادة نوع البطولة</span></div>
+            <div class="dz-d">إن ظهرت بطولتك بنوع غير الذي أنشأتها به (مجموعات صارت دوري مثلاً)، هذه الأداة تقرأ نوعها من بياناتك الفعلية — المجموعات وأدوار الإقصاء — وتُعيده. <b>لا تُحذف أي بيانات.</b></div>
+            <button class="dz-btn gold" onclick="openTypeRepair()">فحص واستعادة النوع</button>
           </div>
           <div class="dz-card dz-safe">
             <div class="dz-h"><span class="dz-ic" data-ic="shield"></span><span class="dz-t">فحص سلامة البطولة</span></div>
@@ -2348,14 +2361,14 @@ if('serviceWorker' in navigator) {
   };
 })();
 </script>
-<script type="module" src="./admin.js?v=287"></script>
+<script type="module" src="./admin.js?v=289"></script>
 <!-- نظام التشكيلات — Drag & Drop — يُحمّل بعد الأدمن مباشرة -->
-<script type="module" src="./admin-lineup-dragdrop.js?v=287"></script>
+<script type="module" src="./admin-lineup-dragdrop.js?v=289"></script>
 
 <!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
 
-<script src="./live-page-stats-fix.js?v=287"></script>
-<script src="./all-fixes.js?v=287"></script>
+<script src="./live-page-stats-fix.js?v=289"></script>
+<script src="./all-fixes.js?v=289"></script>
 <script>
 /* ===== timer-admin (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════
@@ -3049,8 +3062,8 @@ if('serviceWorker' in navigator) {
   console.log('[sponsor-admin] ✅︎ جاهز');
 })();
 </script>
-<script src="./cards-system.js?v=287"></script>
-<script src="./substitution-system.js?v=287"></script>
+<script src="./cards-system.js?v=289"></script>
+<script src="./substitution-system.js?v=289"></script>
 <script>
 // ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
 window.lvOpenLineupFromLive = function() {
@@ -3169,19 +3182,19 @@ window.openMatchLineup = function(matchId) {
   </div>
 </div>
 
-<script src="./timer-hotfix.js?v=287"></script>
-<script src="./tiebreak-rules.js?v=287"></script>
-<script src="./date-groups.js?v=287"></script>
-<script src="./admin-matches-tabs.js?v=287"></script>
-<script src="./groups-gate.js?v=287"></script>
-<script src="./league-logo.js?v=287"></script>
-<script src="./health-check.js?v=287"></script>
-<script src="./lock-guard.js?v=287"></script>
-<script src="./clock-sync.js?v=287"></script>
-<script src="./viewport-lock.js?v=287"></script>
-<script src="./pwa-install.js?v=287"></script>
+<script src="./timer-hotfix.js?v=289"></script>
+<script src="./tiebreak-rules.js?v=289"></script>
+<script src="./date-groups.js?v=289"></script>
+<script src="./admin-matches-tabs.js?v=289"></script>
+<script src="./groups-gate.js?v=289"></script>
+<script src="./league-logo.js?v=289"></script>
+<script src="./health-check.js?v=289"></script>
+<script src="./lock-guard.js?v=289"></script>
+<script src="./clock-sync.js?v=289"></script>
+<script src="./viewport-lock.js?v=289"></script>
+<script src="./pwa-install.js?v=289"></script>
 
 <!-- (شبكة أمان اللمس القديمة أُزيلت — النافذة الجديدة تربط أحداثها بالتفويض داخل admin.js) -->
-<script src="./back-nav.js?v=287"></script>
+<script src="./back-nav.js?v=289"></script>
 </body>
 </html>

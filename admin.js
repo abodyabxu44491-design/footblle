@@ -144,6 +144,7 @@ window._firestoreWriteBatch = writeBatch;
 window._serverTimestamp     = serverTimestamp;
 window._firestoreSetDoc     = setDoc;
 window._firestoreAddDoc     = addDoc;
+window._firestoreDeleteDoc  = deleteDoc;   // يحتاجه الإصلاح التلقائي في لوحة الفحص
 
 // حفظ حقل واحد في مستند مباراة (يُستخدم لحفظ رجل المباراة من نظام البطاقات)
 window._saveMatchField = async function(matchId, fields) {
@@ -274,11 +275,16 @@ async function checkAndShowWizard() {
       // إصلاح: لو config مقفل لكن root غير مقفل — أصلح root
       if(configLocked && !rootLocked && leagueDoc.exists()) {
         const st = settingsDoc.data();
-        updateDoc(doc(db, 'leagues', LEAGUE_ID), {
-          typeLocked: true, type: st.type || 'league'
-        }).catch(() => {});
+        /* 🔴 كان يكتب `st.type || 'league'` — فيخترع نوعاً حين يغيب بدل
+           أن يترك الجذر على نوعه الصحيح. الآن لا يُكتب النوع إلا إن كان
+           معروفاً فعلاً، ويُصحَّح القفل وحده فيما عدا ذلك. */
+        const patch = { typeLocked: true };
+        if (st.type) patch.type = st.type;
+        updateDoc(doc(db, 'leagues', LEAGUE_ID), patch).catch(() => {});
       }
       _launchApp();
+      // مداواة صامتة: توحّد النوع بين الموضعين إن اختلفا، بلا اختراع نوع
+      setTimeout(() => { try { window.healTournamentType && window.healTournamentType(true); } catch (e) {} }, 2500);
       return;
     }
     // لم يتم الإعداد بعد — عرض Wizard
@@ -977,6 +983,27 @@ window.wzConfirmFinal = async function() {
     await updateDoc(doc(db, 'leagues', LEAGUE_ID), { typeLocked: true, type });
     settings.type = type;
 
+    /* تحقّق بالقراءة بعد الكتابة: النوع يُخزَّن في موضعين، وأي إخفاق صامت
+       في أحدهما (شبكة متقطّعة أو كتابة لم تصل) يترك البطولة بنوع ناقص —
+       وهي الحالة التي كانت تنقلب لاحقاً إلى «دوري». نتحقّق ونُعيد الكتابة
+       مرة واحدة قبل أن يبدأ المنظّم العمل. */
+    try {
+      const [_v1, _v2] = await Promise.all([
+        getDoc(doc(db, 'leagues', LEAGUE_ID)),
+        getDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'))
+      ]);
+      const okRoot = _v1.exists() && _v1.data().type === type;
+      const okCfg  = _v2.exists() && _v2.data().type === type;
+      if (!okRoot || !okCfg) {
+        await Promise.all([
+          okRoot ? null : updateDoc(doc(db, 'leagues', LEAGUE_ID), { type, typeLocked: true }),
+          okCfg  ? null : setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'),
+                                 { type, typeLocked: true, updatedAt: serverTimestamp() }, { merge: true })
+        ].filter(Boolean));
+        console.warn('[إنشاء البطولة] أُعيدت كتابة النوع في موضع ناقص');
+      }
+    } catch (_e) { /* غير حرج — المداواة الصامتة عند الإقلاع تلتقطه */ }
+
     let resultMsg = 'تم إنشاء البطولة';
     if (type === 'groups') {
       const r = await _wzCreateGroupsAndBracket();
@@ -1328,9 +1355,17 @@ function applySettings() {
      اختفتا معاً (نظام لا يملك دور دوري ولا شجرة) فالصفّ يقود لصفحة فارغة
      — نخفيه أيضاً بدل أن يفتح المنظّم قسماً لا شيء فيه. */
   const fmtRow = document.getElementById('setFormatRow');
-  if (fmtRow) {
-    const any = _HAS_LEAGUE_PHASE(settings.type) || _HAS_BRACKET(settings.type);
-    fmtRow.style.display = any ? '' : 'none';
+  const _anyFmt = _HAS_LEAGUE_PHASE(settings.type) || _HAS_BRACKET(settings.type);
+  if (fmtRow) fmtRow.style.display = _anyFmt ? '' : 'none';
+  /* 🔴 كانت الصفحة تُفتح فارغة تماماً حين لا تنطبق أي بطاقة — وهو ما يقع
+     أيضاً إن كان النوع مفقوداً أو تالفاً. الصفحة الفارغة تبدو عطلاً، فصار
+     لها بديل يشرح السبب ويعرض طريق العودة. */
+  const fmtEmpty = document.getElementById('fmtEmptyCard');
+  if (fmtEmpty) {
+    fmtEmpty.style.display = _anyFmt ? 'none' : 'block';
+    const msg = document.getElementById('fmtEmptyMsg');
+    if (msg && !settings.type) msg.textContent =
+      'تعذّرت قراءة نوع بطولتك. افتح «منطقة الخطر ← استعادة نوع البطولة» لاستعادته، ثم عُد إلى هنا.';
   }
   // وصفّ «الحسم عند التساوي» يخصّ الأنظمة ذات جدول ترتيب فقط
   const tieRow = document.getElementById('setTieRow');
@@ -5725,11 +5760,18 @@ window.saveSettings = async function() {
 
   try {
     if(name) await updateDoc(doc(db, 'leagues', LEAGUE_ID), { name, season, updatedAt: serverTimestamp() });
-    // النوع محفوظ كما هو — لا يُعدَّل
+    /* 🔴🔴 هنا كان أخطر خلل في المنصة:
+       التعليق يقول «النوع محفوظ كما هو» والسطر يفعل العكس —
+       `type: settings.type || 'league'`.
+       فإن كان النوع محفوظاً في وثيقة البطولة الجذرية فقط دون
+       `config/settings` (وهو حال بطولات أُنشئت بمسارات أقدم)، يكون
+       `settings.type` فارغاً، فيكتب أي حفظٍ للإعدادات «دوري» فوق النوع
+       الحقيقي. ثم يأتي مُصلِح الإقلاع فينسخ الخطأ إلى الجذر أيضاً —
+       فتتحوّل بطولة مجموعات جارية إلى دوري بضغطة «حفظ الإعدادات».
+       الحلّ: **لا يُكتب النوع من هنا مطلقاً.** له مساره الخاص عند الإنشاء
+       أو التحويل الصريح. */
     await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'), {
       rounds, winPts, drawPts, matchSettings, ...toggles,
-      type: settings.type || 'league',
-      typeLocked: true,
       zones: settings.zones,
       tiebreakOrder: settings.tiebreakOrder,
       tiebreakDisabled: settings.tiebreakDisabled || [],
@@ -5938,6 +5980,90 @@ async function _dzWipeCollection(colName) {
   }
   return ids.length;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+ *  🩹 استعادة نوع البطولة
+ *  النوع محفوظ في موضعين (وثيقة البطولة الجذرية و`config/settings`)،
+ *  وكان أي غياب في أحدهما يُملأ بـ«دوري» افتراضاً — فتنقلب بطولة مجموعات
+ *  جارية. هنا نستنتج النوع من **أدلّة فعلية** لا من افتراض:
+ *  وجود مجموعات فيها فرق ⇒ مجموعات · وجود أدوار إقصاء بلا مجموعات ⇒ إقصاء.
+ * ══════════════════════════════════════════════════════════════════ */
+window.detectTournamentType = async function () {
+  const out = { root: null, config: null, evidence: null, groups: 0, rounds: 0 };
+  try {
+    const [ld, sd, gs, ks] = await Promise.all([
+      getDoc(doc(db, 'leagues', LEAGUE_ID)),
+      getDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings')),
+      getDocs(collection(db, 'leagues', LEAGUE_ID, 'groups')),
+      getDocs(collection(db, 'leagues', LEAGUE_ID, 'knockoutRounds'))
+    ]);
+    out.root   = (ld.exists() && ld.data().type) || null;
+    out.config = (sd.exists() && sd.data().type) || null;
+    out.groups = gs.docs.filter(d => ((d.data().teamIds) || []).length).length;
+    out.rounds = ks.size;
+
+    /* دليلٌ قاطع واحد فقط: **مجموعات فيها فرق**. الدوري الخالص لا يُنشئ
+       وثائق مجموعات بأعضاء إطلاقاً، فوجودها يقطع بأن البطولة مجموعات.
+       أما وجود أدوار إقصاء فليس دليلاً على النوع: الدوري والمجموعات
+       كلاهما قد تُضاف إليه شجرة إقصاء — فالاعتماد عليه يقلب بطولات سليمة. */
+    if (out.groups >= 1) out.evidence = 'groups';
+    else if (out.rounds >= 1 && !out.root && !out.config) out.evidence = 'knockout';
+  } catch (e) {}
+  return out;
+};
+
+/* توحيد النوع. `force` يسمح للأداة اليدوية بفرض نوع يختاره المنظّم. */
+window.healTournamentType = async function (silent, force) {
+  const d = await window.detectTournamentType();
+
+  /* 🔴 الترتيب هنا هو بيت الداء: النسخة الأولى كانت تعطي الأولوية للحقل
+     المخزَّن على الدليل، فحين يكون الجذر «دوري» خطأً والمجموعات قائمة
+     كانت تنشر الخطأ إلى `config/settings` بدل إصلاحه.
+     الدليل القاطع يسبق كل حقل مخزَّن — البيانات لا تكذب. */
+  const chosen = force || d.evidence || d.config || d.root;
+  if (!chosen) return null;
+
+  const jobs = [];
+  if (d.config !== chosen) jobs.push(setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'),
+    { type: chosen, typeLocked: true, updatedAt: serverTimestamp() }, { merge: true }));
+  if (d.root !== chosen) jobs.push(updateDoc(doc(db, 'leagues', LEAGUE_ID),
+    { type: chosen, typeLocked: true }).catch(() => {}));
+
+  if (!jobs.length) {
+    if (!silent) showToast('نوع البطولة سليم — لا حاجة لإصلاح', 'success');
+    return chosen;
+  }
+  await Promise.all(jobs);
+  settings.type = chosen;
+  if (!silent) showToast('🩹 استُعيد نوع البطولة: ' + (
+    { league: 'دوري', groups: 'مجموعات', knockout: 'إقصاء', swiss: 'دوري موحّد' }[chosen] || chosen), 'success');
+  try { window._adaptAdminUIToType && window._adaptAdminUIToType(chosen); } catch (e) {}
+  return chosen;
+};
+
+/* أداة يدوية: تعرض الأدلّة، وتترك القرار للمنظّم حين تكون غامضة */
+window.openTypeRepair = async function () {
+  const d = await window.detectTournamentType();
+  const NM = { league: 'دوري', groups: 'مجموعات', knockout: 'إقصاء', swiss: 'دوري موحّد' };
+  const nm = t => NM[t] || '— غير محدَّد —';
+  const sug = d.evidence || d.config || d.root;
+
+  const ok = await window.confirmDialog({
+    title: '🩹 استعادة نوع البطولة',
+    message:
+      `النوع في وثيقة البطولة: ${nm(d.root)}\n` +
+      `النوع في الإعدادات: ${nm(d.config)}\n` +
+      `مجموعات فيها فرق: ${d.groups}\n` +
+      `أدوار إقصاء: ${d.rounds}\n\n` +
+      (d.evidence
+        ? `بياناتك تقطع بأنها بطولة ${nm(d.evidence)}.`
+        : `لا يوجد دليل قاطع؛ سيُعتمد ${nm(sug)}.`) +
+      `\n\nسيُوحَّد الموضعان على هذا النوع. لا تُحذف أي بيانات.`,
+    confirmText: 'استعادة إلى ' + nm(sug), danger: false
+  });
+  if (!ok) return;
+  await window.healTournamentType(false, sug);
+};
 
 /* ── شارات فهرس الإعدادات ──
    كان الصفّ يقول اسم القسم ووصفه فقط، فلمعرفة قيمة إعداد واحد لا بدّ من
@@ -6803,7 +6929,26 @@ window._trErr = function(e) {
   if (s.indexOf('too large') !== -1 || s.indexOf('payload') !== -1 || s.indexOf('exceeds the maximum') !== -1)
     return 'حجم البيانات كبير جداً. صغّر حجم الصورة/الشعار وحاول مرة أخرى.';
   if (s.indexOf('permission') !== -1) return 'لا تملك صلاحية لهذا الإجراء.';
-  // افتراضي: أعِد الرسالة كما هي (قد تكون بالعربية أصلاً)
+  /* أخطاء جافاسكربت الشائعة — كانت تصل للمنظّم بالإنجليزية كما هي
+     («x is not a function»)، فلا يفهمها ولا يعرف ماذا يفعل. */
+  const byText = [
+    [/is not a function|is not defined|undefined is not/, 'تعذّر تنفيذ هذا الإجراء — لم يكتمل تحميل الصفحة. حدّث الصفحة وحاول مرة أخرى.'],
+    [/cannot read propert|of undefined|of null/,          'بيانات ناقصة لهذا الإجراء. حدّث الصفحة، وإن تكرّر فافتح «منطقة الخطر ← فحص سلامة البطولة».'],
+    [/maximum call stack|out of memory/,                  'العملية أكبر من طاقة المتصفح. أغلق التبويبات الأخرى وحاول مجدداً.'],
+    [/json|unexpected token|syntax/,                      'تعذّرت قراءة البيانات — قد تكون تالفة. حدّث الصفحة وحاول مرة أخرى.'],
+    [/timeout|timed out/,                                 'انتهت مهلة العملية. تأكّد من الاتصال وحاول مجدداً.'],
+    [/aborted|abort/,                                     'أُلغيت العملية قبل اكتمالها. حاول مرة أخرى.'],
+    [/index|requires an index/,                           'تعذّر ترتيب البيانات. حاول بعد قليل.'],
+  ];
+  for (const [re, msg] of byText) { if (re.test(s)) return msg; }
+
+  /* لا نُظهر نصاً إنجليزياً للمنظّم مطلقاً: إن بقي النصّ لاتينياً بالكامل
+     نستبدله برسالة عربية عامّة، ونُبقي الأصل في الـConsole للتشخيص. */
+  const hasArabic = /[\u0600-\u06FF]/.test(raw);
+  if (!hasArabic) {
+    try { console.warn('[خطأ غير مترجَم]', raw, e); } catch (_) {}
+    return 'حدث خطأ غير متوقّع. حدّث الصفحة وحاول مرة أخرى — وإن تكرّر فافتح «منطقة الخطر ← فحص سلامة البطولة».';
+  }
   return raw;
 };
 
@@ -10809,6 +10954,21 @@ window._poSyncNav = _poSyncNav;
 
 /* صفحة الإعدادات (داخل الإعدادات) — الضبط والإنشاء وإعادة التعيين */
 window.renderPlayoffSetup = function() {
+  /* حارس: أي استثناء هنا كان يظهر للمنظّم نصاً إنجليزياً خاماً أو يترك
+     القسم فارغاً بلا تفسير. نُمسكه ونعرض رسالة عربية وطريق خروج. */
+  try { return _renderPlayoffSetup(); }
+  catch (e) {
+    console.error('[renderPlayoffSetup]', e);
+    const host = document.getElementById('playoffSetup');
+    if (host) host.innerHTML = `
+      <div class="card"><div class="card-body" style="text-align:center;padding:24px 18px">
+        <div style="font-size:13px;font-weight:800;color:var(--red);margin-bottom:7px">تعذّر عرض هذا القسم</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.9;margin-bottom:14px">${window._trErr(e)}</div>
+        <button class="btn btn-outline btn-sm" onclick="location.reload()">تحديث الصفحة</button>
+      </div></div>`;
+  }
+};
+function _renderPlayoffSetup() {
   const host = document.getElementById('playoffSetup');
   _poSyncNav();
   if (!host) return;
@@ -10835,6 +10995,21 @@ window.renderPlayoffSetup = function() {
 
 // صفحة القسم (في القائمة الجانبية) — ما تولّد فعلاً
 window.renderPlayoffPage = function() {
+  /* حارس: أي استثناء هنا كان يظهر للمنظّم نصاً إنجليزياً خاماً أو يترك
+     القسم فارغاً بلا تفسير. نُمسكه ونعرض رسالة عربية وطريق خروج. */
+  try { return _renderPlayoffPage(); }
+  catch (e) {
+    console.error('[renderPlayoffPage]', e);
+    const host = document.getElementById('playoffBody');
+    if (host) host.innerHTML = `
+      <div class="card"><div class="card-body" style="text-align:center;padding:24px 18px">
+        <div style="font-size:13px;font-weight:800;color:var(--red);margin-bottom:7px">تعذّر عرض هذا القسم</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.9;margin-bottom:14px">${window._trErr(e)}</div>
+        <button class="btn btn-outline btn-sm" onclick="location.reload()">تحديث الصفحة</button>
+      </div></div>`;
+  }
+};
+function _renderPlayoffPage() {
   const host = document.getElementById('playoffBody');
   _poSyncNav();
   if (!host) return;
@@ -14088,17 +14263,19 @@ window.saveSettings = async function () {
   // قراءة النوع من Firestore مباشرة بعد الحفظ
   try {
     const snap = await getDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'));
-    const type = snap.exists() ? (snap.data().type || 'league') : (settings.type || 'league');
-    settings.type = type;
-    window._adaptAdminUIToType(type);
+    /* 🔴 كان يسقط على 'league' حين يغيب الحقل، فيقلب نوع البطولة في
+       الذاكرة ويكيّف الواجهة على «دوري» أمام عيني المنظّم. الآن يحتفظ
+       بالنوع القائم إن لم يجد أحدث منه. */
+    const type = (snap.exists() && snap.data().type) || settings.type;
+    if (type) settings.type = type;
+    if (type) window._adaptAdminUIToType(type);
     if (type === 'groups' || type === 'knockout') {
       if (adminGroups.length === 0 && adminKnockoutRounds.length === 0) {
         loadGroupsAndKnockout();
       }
     }
   } catch(e) {
-    const type = settings.type || 'league';
-    window._adaptAdminUIToType(type);
+    if (settings.type) window._adaptAdminUIToType(settings.type);
   }
 };
 

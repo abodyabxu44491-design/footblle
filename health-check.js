@@ -70,7 +70,9 @@
            ' لقاء بين كل فريقين، والزائد يُحتسب في الترتيب فيقلب النتيجة.\n' + ex.join('\n'),
         /* 🔴 كان الحلّ المقترح «امسح كل المباريات ثم ولّد من جديد» — وهو
            يمحو نتائج مسجّلة ومواعيد وطواقم لإصلاح مباراة واحدة زائدة. */
-        fix: 'افتح المباراة الزائدة واحذفها وحدها — أبقِ الأولى بنتيجتها'
+        fix: 'افتح المباراة الزائدة واحذفها وحدها — أبقِ الأولى بنتيجتها',
+        /* الإصلاح التلقائي يحتفظ بالأقدم وبما له نتيجة، ويحذف الفائض وحده */
+        auto: { kind: 'dupMatches', keys: dups }
       });
     }
 
@@ -221,7 +223,8 @@
           d: cross.slice(0, 3).map(function (m) {
             return nameOf(m.homeId) + ' ضد ' + nameOf(m.awayId);
           }).join('\n') + '\nفرق المجموعات لا تلتقي إلا في الإقصاء.',
-          fix: 'احذف هذه المباريات، أو حوّلها إلى «مباراة فاصلة بين مجموعتين» إن كانت مقصودة'
+          fix: 'احذف هذه المباريات، أو حوّلها إلى «مباراة فاصلة بين مجموعتين» إن كانت مقصودة',
+          auto: { kind: 'crossGroup', ids: cross.map(function (x) { return x.id; }) }
         });
       }
     }
@@ -249,7 +252,8 @@
            (clash.length > 4 ? '\n+' + (clash.length - 4) + ' غيرها' : '') +
            '\nالجولة تعني أن كل فريق يلعب مرة واحدة، فيختلّ توازن الجدول.',
         // الإصلاح نقلٌ لا مسح: المباراة صحيحة ورقم جولتها هو الخطأ
-        fix: 'افتح إحدى المباراتين ← تعديل المعلومات ← غيّر «رقم الجولة»'
+        fix: 'افتح إحدى المباراتين ← تعديل المعلومات ← غيّر «رقم الجولة»',
+        auto: { kind: 'roundClash' }
       });
     }
 
@@ -279,7 +283,8 @@
         go: 'matches', t: orphan.length + ' مباراة تشير إلى فريق محذوف',
         d: 'الفريق حُذف والمباراة بقيت. النتائج تُحتسب لفريق غير موجود —\n' +
            'الترتيب والإحصائيات ستكون خاطئة بلا سبب ظاهر.',
-        fix: 'احذف هذه المباريات من قسم المباريات'
+        fix: 'احذف هذه المباريات من قسم المباريات',
+        auto: { kind: 'orphanMatches', ids: orphan.map(function (m) { return m.id; }) }
       });
     }
 
@@ -399,7 +404,8 @@
           t: unpub.length + ' مجموعة بمتأهلين غير معتمدين',
           d: 'المجموعة ' + unpub.map(function (g) { return g.name; }).join('، ') +
              '\nحُدِّد متأهلوها ولم تُضغط «اعتماد ونشر» — فلا يظهرون في الشجرة ولا للجمهور.',
-          fix: 'اضغط «اعتماد ونشر» لكل مجموعة'
+          fix: 'اضغط «اعتماد ونشر» لكل مجموعة',
+          auto: { kind: 'publishGroups', ids: unpub.map(function (g) { return g.id; }) }
         });
       }
     }
@@ -431,7 +437,8 @@
         lvl: 'info', go: 'knockout',
         t: 'شجرة الإقصاء غير منشورة',
         d: 'موجودة في الإدارة ولا تظهر للجمهور بعد.',
-        fix: 'انشرها من صفحة الشجرة'
+        fix: 'انشرها من صفحة الشجرة',
+        auto: { kind: 'publishBracket' }
       });
     }
 
@@ -486,23 +493,22 @@
     var L = { err: 'يجب إصلاحه', todo: 'لم يكتمل بعد', warn: 'يستحق المراجعة',
               info: 'اقتراح', ok: 'سليم' };
 
-    var html = res.map(function (r) {
-      return '<div style="background:var(--card3,#16181e);border:1px solid ' + C[r.lvl] + '33;' +
-        'border-right:3px solid ' + C[r.lvl] + ';border-radius:10px;padding:12px 14px;margin-bottom:8px">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
-          '<span style="font-size:9px;font-weight:900;color:' + C[r.lvl] + ';background:' + C[r.lvl] +
-          '1a;border-radius:20px;padding:2px 8px">' + L[r.lvl] + '</span>' +
-          '<span style="font-size:12.5px;font-weight:800;color:var(--text,#eee)">' + r.t + '</span>' +
+    // نحتفظ بالنتائج ليقرأها الإصلاح التلقائي بالفهرس
+    window._hcLast = res;
+
+    var html = res.map(function (r, idx) {
+      var canFix = !!r.auto && typeof window.hcAutoFix === 'function';
+      return '<div class="hc-i" style="--hc:' + C[r.lvl] + '">' +
+        '<div class="hc-i-h">' +
+          '<span class="hc-lvl">' + L[r.lvl] + '</span>' +
+          '<span class="hc-t">' + r.t + '</span>' +
         '</div>' +
-        '<div style="font-size:11px;color:var(--muted2,#8b8f9a);line-height:1.7;white-space:pre-line">' + r.d + '</div>' +
-        (r.fix ? '<div style="font-size:10px;color:' + C[r.lvl] + ';margin-top:7px;font-weight:700">← ' + r.fix + '</div>' : '') +
-        /* زرّ يأخذ المنظّم إلى مكان الخلل مباشرةً: قراءة البند شيء
-           والوصول إلى صفحته عبر القائمة الجانبية شيء آخر، وكان عليه أن
-           يتذكّر البند بعد إغلاق اللوحة. */
-        (r.go ? '<button onclick="hcGoto(\'' + r.go + '\')" style="margin-top:9px;padding:7px 13px;' +
-          'border-radius:8px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:10.5px;font-weight:800;' +
-          'background:' + C[r.lvl] + '1a;border:1px solid ' + C[r.lvl] + '4d;color:' + C[r.lvl] + '">' +
-          'الذهاب لإصلاحه ←</button>' : '') +
+        '<div class="hc-d">' + r.d + '</div>' +
+        (r.fix ? '<div class="hc-fix">← ' + r.fix + '</div>' : '') +
+        '<div class="hc-acts">' +
+          (canFix ? '<button class="hc-b fix" onclick="hcAutoFix(' + idx + ')">⚡ إصلاح تلقائي</button>' : '') +
+          (r.go ? '<button class="hc-b go" onclick="hcGoto(\'' + r.go + '\')">إصلاح يدوي ←</button>' : '') +
+        '</div>' +
       '</div>';
     }).join('');
 
@@ -510,24 +516,274 @@
     if (!ov) {
       ov = document.createElement('div');
       ov.id = 'hcOverlay';
-      ov.style.cssText = 'position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.9);' +
-        'overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:18px';
-      ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
+      ov.onclick = function (e) { if (e.target === ov) window.hcClose(); };
       document.body.appendChild(ov);
     }
-    ov.innerHTML = '<div style="max-width:480px;width:100%;background:var(--card,#121419);' +
-      'border:1px solid var(--border2,#23262e);border-radius:16px;padding:20px" onclick="event.stopPropagation()">' +
-      '<div style="font-size:16px;font-weight:900;color:var(--gold,#C9A02B);margin-bottom:4px">فحص سلامة البطولة</div>' +
-      '<div style="font-size:11px;color:var(--muted,#666);margin-bottom:16px">يكشف أخطاء البيانات قبل أن تفسد الترتيب</div>' +
-      html +
-      '<button class="btn btn-outline" style="width:100%;margin-top:8px;padding:11px" ' +
-      'onclick="document.getElementById(\'hcOverlay\').remove()">إغلاق</button>' +
-    '</div>';
+    /* 🔴 كانت اللوحة `display:flex; align-items:center` مع `overflow-y:auto`
+       على الحاوية نفسها — وهو تركيب يقصّ أعلى المحتوى الطويل ويجعل التمرير
+       يتعلّق على الجوال، فلا يصل المنظّم إلى آخر البنود ولا إلى زرّ الإغلاق.
+       الآن: رأس ثابت، ومنطقة تمرير واحدة للبنود، وتذييل ثابت — فالإغلاق
+       في متناول اليد دائماً والتمرير داخل القائمة وحدها. */
+    var errs2  = res.filter(function (x) { return x.lvl === 'err'; }).length;
+    var todos2 = res.filter(function (x) { return x.lvl === 'todo'; }).length;
+    var fixable = res.filter(function (x) { return x.auto; }).length;
+
+    ov.innerHTML =
+      '<div class="hc-box" onclick="event.stopPropagation()">' +
+        '<div class="hc-head">' +
+          '<div>' +
+            '<div class="hc-title">فحص سلامة البطولة</div>' +
+            '<div class="hc-sub">' + (res.length
+                ? res.length + ' بند · ' + errs2 + ' يجب إصلاحه · ' + todos2 + ' لم يكتمل'
+                : 'لا ملاحظات — كل شيء سليم') + '</div>' +
+          '</div>' +
+          '<button class="hc-x" onclick="hcClose()">✕</button>' +
+        '</div>' +
+        (fixable > 1 ? '<div class="hc-bar"><button class="hc-b fix wide" onclick="hcAutoFixAll()">' +
+          '⚡ إصلاح كل ما يمكن إصلاحه تلقائياً (' + fixable + ')</button></div>' : '') +
+        '<div class="hc-list">' + (html || '<div class="hc-ok">✓ لم يُعثر على أي ملاحظة</div>') + '</div>' +
+        '<div class="hc-foot"><button class="hc-close" onclick="hcClose()">إغلاق</button></div>' +
+      '</div>';
+
+    // امنع تمرير الصفحة خلف اللوحة حتى لا يتنازع التمريران
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.hcClose = function () {
+    var ov = document.getElementById('hcOverlay');
+    if (ov) ov.remove();
+    document.body.style.overflow = '';
+  };
+
+  /* ══════════════════════════════════════════════════════════════════
+   *  ⚡ الإصلاح التلقائي
+   *  كل بند مستقلّ بزرّه، ولا يُنفَّذ شيء قبل نافذة تشرح **بالضبط** ما
+   *  سيحدث: ماذا سيُحذف أو يُعدَّل، وكم عنصراً، وما الذي لن يُمسّ.
+   *  ولا يُقدَّم إصلاح تلقائي إلا حين يكون له جواب واحد لا لبس فيه —
+   *  ما عداه يبقى «إصلاح يدوي» لأن التخمين هنا يفسد بطولة.
+   * ══════════════════════════════════════════════════════════════════ */
+  function _F() { return window; }
+  function _ok() {
+    var w = _F();
+    return w._db && w._firestoreDoc && w._firestoreUpdateDoc && w._firestoreSetDoc && w._getLeagueId;
+  }
+  function _ref() {
+    var w = _F(), L = w._getLeagueId();
+    return { w: w, db: w._db, L: L, d: w._firestoreDoc, u: w._firestoreUpdateDoc,
+             sd: w._firestoreSetDoc, ts: w._serverTimestamp };
+  }
+  async function _delMatches(ids) {
+    var r = _ref(), n = 0;
+    for (var i = 0; i < ids.length; i++) {
+      try { await r.w._firestoreDeleteDoc(r.d(r.db, 'leagues', r.L, 'matches', ids[i])); n++; } catch (e) {}
+    }
+    return n;
+  }
+
+  /* يبني وصف العملية ثم ينفّذها بعد موافقة صريحة */
+  window.hcAutoFix = async function (idx, silent) {
+    var res = window._hcLast || [];
+    var item = res[idx];
+    if (!item || !item.auto) return 0;
+    if (!_ok()) { window.showToast && window.showToast('تعذّر الإصلاح التلقائي — حدّث الصفحة', 'error'); return 0; }
+    var a = item.auto, r = _ref(), plan = null;
+
+    var ms = window.matches || [], gs = window.adminGroups || [];
+
+    if (a.kind === 'dupMatches') {
+      /* نحتفظ بالمسموح به (الأقدم، ومَن له نتيجة أولاً) ونحذف الفائض */
+      var toDel = [];
+      var dbl = (window.settings || {}).legMode === 'double';
+      var maxMeet = dbl ? 2 : 1;
+      (a.keys || []).forEach(function (k) {
+        var list = ms.filter(function (m) {
+          return !m.isKnockout && [m.homeId, m.awayId].sort().join('|') === k;
+        }).sort(function (x, y) {
+          var xs = (x.homeScore != null) ? 0 : 1, ys = (y.homeScore != null) ? 0 : 1;
+          return xs - ys || String(x.date || '').localeCompare(String(y.date || ''));
+        });
+        toDel = toDel.concat(list.slice(maxMeet).map(function (m) { return m.id; }));
+      });
+      plan = {
+        title: '⚡ حذف المباريات المكررة',
+        body: 'سيُحذف ' + toDel.length + ' مباراة زائدة.\n\n' +
+              'يُحتفظ دائماً بالمباراة التي لها نتيجة، وإن تساوت فبالأقدم تاريخاً.\n' +
+              'لن تُمسّ أي مباراة أخرى ولا الفرق ولا المجموعات.',
+        run: async function () { return await _delMatches(toDel); },
+        count: toDel.length
+      };
+    }
+
+    else if (a.kind === 'orphanMatches') {
+      plan = {
+        title: '⚡ حذف مباريات الفرق المحذوفة',
+        body: 'سيُحذف ' + (a.ids || []).length + ' مباراة تشير إلى فريق لم يعد موجوداً.\n\n' +
+              'هذه المباريات تُفسد الترتيب والإحصائيات ولا يمكن إصلاحها بغير الحذف،\n' +
+              'لأن أحد طرفيها غير موجود أصلاً.',
+        run: async function () { return await _delMatches(a.ids || []); },
+        count: (a.ids || []).length
+      };
+    }
+
+    else if (a.kind === 'crossGroup') {
+      plan = {
+        title: '⚡ تحويلها إلى مباريات فاصلة',
+        body: 'سيُعلَّم ' + (a.ids || []).length + ' مباراة كـ«مباراة فاصلة بين مجموعتين».\n\n' +
+              'بذلك تخرج من حساب ترتيب المجموعات وتظهر للجمهور بوصفها الصحيح.\n' +
+              '**لا تُحذف أي مباراة** — إن كانت خطأً فاحذفها يدوياً بدل ذلك.',
+        run: async function () {
+          var n = 0;
+          for (var i = 0; i < a.ids.length; i++) {
+            try {
+              await r.u(r.d(r.db, 'leagues', r.L, 'matches', a.ids[i]),
+                { isKnockout: true, knockoutRoundName: '⚔️ مباراة فاصلة بين مجموعتين',
+                  groupId: null, updatedAt: r.ts() });
+              n++;
+            } catch (e) {}
+          }
+          return n;
+        },
+        count: (a.ids || []).length
+      };
+    }
+
+    else if (a.kind === 'publishGroups') {
+      plan = {
+        title: '⚡ اعتماد ونشر المتأهلين',
+        body: 'سيُعتمد متأهلو ' + (a.ids || []).length + ' مجموعة ويظهرون للجمهور وفي شجرة الإقصاء.\n\n' +
+              'لن يتغيّر أي اختيار — الاعتماد يُظهر ما اخترته أنت فقط.',
+        run: async function () {
+          var n = 0;
+          for (var i = 0; i < a.ids.length; i++) {
+            try {
+              await r.u(r.d(r.db, 'leagues', r.L, 'groups', a.ids[i]),
+                { qualificationPublished: true, updatedAt: r.ts() });
+              n++;
+            } catch (e) {}
+          }
+          return n;
+        },
+        count: (a.ids || []).length
+      };
+    }
+
+    else if (a.kind === 'publishBracket') {
+      plan = {
+        title: '⚡ إظهار الشجرة للجمهور',
+        body: 'ستظهر شجرة الإقصاء في صفحة الجمهور فوراً.\n\n' +
+              'يمكنك إخفاؤها متى شئت من صفحة الشجرة. لا تتغيّر أي بيانات.',
+        run: async function () {
+          await r.sd(r.d(r.db, 'leagues', r.L, 'config', 'settings'),
+            { bracketPublished: true, updatedAt: r.ts() }, { merge: true });
+          if (window.settings) window.settings.bracketPublished = true;
+          return 1;
+        },
+        count: 1
+      };
+    }
+
+    else if (a.kind === 'roundClash') {
+      /* ننقل المباراة الأحدث إلى أول جولة يخلو فيها طرفاها — لا حذف */
+      var moves = [];
+      var byRound = {};
+      ms.filter(function (m) { return !m.isKnockout; }).forEach(function (m) {
+        var rd = m.round || 1; (byRound[rd] = byRound[rd] || []).push(m);
+      });
+      Object.keys(byRound).forEach(function (rd) {
+        var seen = {};
+        byRound[rd].slice().sort(function (x, y) {
+          return String(x.date || '').localeCompare(String(y.date || ''));
+        }).forEach(function (m) {
+          var clash = seen[m.homeId] || seen[m.awayId];
+          if (clash) {
+            var target = Number(rd) + 1;
+            while (true) {
+              var busy = (byRound[target] || []).some(function (x) {
+                return x.homeId === m.homeId || x.awayId === m.homeId ||
+                       x.homeId === m.awayId || x.awayId === m.awayId;
+              });
+              if (!busy) break;
+              target++;
+              if (target > Number(rd) + 40) break;
+            }
+            moves.push({ id: m.id, from: Number(rd), to: target,
+                         label: (m.homeName || '') + ' × ' + (m.awayName || '') });
+            (byRound[target] = byRound[target] || []).push(m);
+          } else { seen[m.homeId] = 1; seen[m.awayId] = 1; }
+        });
+      });
+      plan = {
+        title: '⚡ توزيع المباريات المتزاحمة على جولات',
+        body: 'ستُنقل ' + moves.length + ' مباراة إلى أول جولة يخلو فيها فريقاها:\n\n' +
+              moves.slice(0, 5).map(function (x) {
+                return '· ' + x.label + ' — من الجولة ' + x.from + ' إلى ' + x.to;
+              }).join('\n') + (moves.length > 5 ? '\n· +' + (moves.length - 5) + ' غيرها' : '') +
+              '\n\n**لا تُحذف أي مباراة** — يتغيّر رقم الجولة فقط، والنتائج والمواعيد كما هي.',
+        run: async function () {
+          var n = 0;
+          for (var i = 0; i < moves.length; i++) {
+            try {
+              await r.u(r.d(r.db, 'leagues', r.L, 'matches', moves[i].id),
+                { round: moves[i].to, updatedAt: r.ts() });
+              n++;
+            } catch (e) {}
+          }
+          return n;
+        },
+        count: moves.length
+      };
+    }
+
+    if (!plan || !plan.count) {
+      if (!silent) window.showToast && window.showToast('لا شيء لإصلاحه في هذا البند', 'success');
+      return 0;
+    }
+
+    if (!silent) {
+      var ok = window.confirmDialog
+        ? await window.confirmDialog({ title: plan.title, message: plan.body,
+                                       confirmText: 'نفّذ الإصلاح', danger: a.kind !== 'publishBracket' })
+        : confirm(plan.title + '\n\n' + plan.body);
+      if (!ok) return 0;
+    }
+
+    var done = 0;
+    try { done = await plan.run(); }
+    catch (e) {
+      window.showToast && window.showToast('تعذّر الإصلاح: ' +
+        (window._trErr ? window._trErr(e) : 'خطأ غير متوقّع'), 'error');
+      return 0;
+    }
+    if (!silent) {
+      window.showToast && window.showToast('✓ اكتمل الإصلاح (' + done + ')', 'success');
+      setTimeout(function () { window.hcShow(); }, 700);   // أعِد الفحص ليرى الأثر
+    }
+    return done;
+  };
+
+  /* إصلاح كل ما له جواب واحد — بموافقة واحدة تشرح المجموع */
+  window.hcAutoFixAll = async function () {
+    var res = window._hcLast || [];
+    var idxs = res.map(function (r, i) { return r.auto ? i : -1; })
+                  .filter(function (i) { return i >= 0; });
+    if (!idxs.length) return;
+    var ok = window.confirmDialog
+      ? await window.confirmDialog({
+          title: '⚡ إصلاح كل ما يمكن إصلاحه',
+          message: 'سيُنفَّذ ' + idxs.length + ' إصلاحاً تلقائياً:\n\n' +
+                   idxs.map(function (i) { return '· ' + res[i].t; }).join('\n') +
+                   '\n\nلن يُمسّ أي بند يحتاج قراراً منك — تلك تبقى للإصلاح اليدوي.',
+          confirmText: 'نفّذ الكل', danger: true })
+      : true;
+    if (!ok) return;
+    var total = 0;
+    for (var i = 0; i < idxs.length; i++) total += await window.hcAutoFix(idxs[i], true);
+    window.showToast && window.showToast('✓ اكتمل ' + total + ' إصلاحاً', 'success');
+    setTimeout(function () { window.hcShow(); }, 700);
   };
 
   window.hcGoto = function (page) {
-    var ov = document.getElementById('hcOverlay');
-    if (ov) ov.remove();
+    window.hcClose();
     try { window.showPage(page, null); } catch (e) {}
   };
 

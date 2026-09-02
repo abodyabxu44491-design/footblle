@@ -1716,3 +1716,117 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
   .mst-opt.on{background:rgba(255,255,255,.06);color:var(--mc);border-color:var(--mc)}
 }
 @media (max-width:360px){ .mst-grid{grid-template-columns:1fr 1fr} }
+
+/* ── بطاقة جاهزية الملحق ── */
+.po-chk{border:1px solid var(--border2,#2a2a2a);background:var(--card2,#141414);
+  border-radius:12px;padding:12px;margin-bottom:10px}
+.po-chk-h{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:11.5px;font-weight:900;color:var(--text,#eee);margin-bottom:10px}
+.po-chk-t{font-size:9.5px;font-weight:800;color:var(--gold,#C9A02B);
+  border:1px solid rgba(201,160,43,.35);border-radius:20px;padding:2px 9px;flex:0 0 auto}
+.po-chk-i{display:flex;align-items:center;gap:9px;padding:9px 0;
+  border-top:1px solid var(--border,#1f1f1f)}
+.po-chk-i:first-of-type{border-top:none}
+.po-chk-m{flex:0 0 auto;width:19px;height:19px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900}
+.po-chk-i.ok   .po-chk-m{background:rgba(39,174,96,.14);color:var(--green,#27ae60)}
+.po-chk-i.bad  .po-chk-m{background:rgba(192,57,43,.14);color:#E88C82}
+.po-chk-i.soft .po-chk-m{background:rgba(201,160,43,.14);color:var(--gold,#C9A02B)}
+.po-chk-x{flex:1;min-width:0}
+.po-chk-x b{display:block;font-size:11.5px;font-weight:800;color:var(--text,#eee)}
+.po-chk-x i{display:block;font-style:normal;font-size:10px;color:var(--muted,#888);
+  margin-top:2px;line-height:1.7}
+.po-chk-i.ok .po-chk-x b{color:var(--muted,#9a9a9a);font-weight:700}
+.po-chk-b{flex:0 0 auto;font-family:'Tajawal',sans-serif;font-size:10px;font-weight:800;
+  cursor:pointer;padding:7px 11px;border-radius:8px;white-space:nowrap;
+  background:rgba(201,160,43,.12);border:1px solid rgba(201,160,43,.38);color:var(--gold,#C9A02B)}
+.po-sug{width:100%;margin-top:11px;padding:11px;border-radius:10px;cursor:pointer;
+  font-family:'Tajawal',sans-serif;font-size:11px;font-weight:800;line-height:1.7;
+  background:rgba(201,160,43,.10);border:1px dashed rgba(201,160,43,.4);color:var(--gold,#C9A02B)}
+.po-create{width:100%;margin-top:11px;padding:14px;font-size:13.5px}
+.po-create:disabled{opacity:.45;cursor:default}
+.po-chk-s{width:100%;margin-top:8px;padding:11px;border-radius:10px;cursor:pointer;
+  font-family:'Tajawal',sans-serif;font-size:11px;font-weight:700;
+  background:transparent;border:1px solid var(--border2,#2a2a2a);color:var(--muted,#888)}
+
+/* ══ شريط نشر الشجرة ══
+   كان صفّاً واحداً يحشر عنواناً وسطراً وثلاثة أزرار — فتنضغط الأزرار على
+   الجوال. الآن سطر حالة واضح، وأزرار الإجراءات في صفّ مستقلّ متساوٍ. */
+.kpb{border-radius:12px;padding:12px 13px;margin-bottom:14px;border:1px solid}
+.kpb.on {border-color:rgba(39,174,96,.28);background:rgba(39,174,96,.06)}
+.kpb.off{border-color:rgba(201,160,43,.28);background:rgba(201,160,43,.05)}
+.kpb-row{display:flex;align-items:center;gap:10px}
+.kpb-dot{flex:0 0 auto;width:9px;height:9px;border-radius:50%}
+.kpb.on  .kpb-dot{background:var(--green,#27ae60);box-shadow:0 0 0 3px rgba(39,174,96,.15)}
+.kpb.off .kpb-dot{background:var(--gold,#C9A02B);box-shadow:0 0 0 3px rgba(201,160,43,.13)}
+.kpb-tx{flex:1;min-width:0}
+.kpb-t{font-size:12px;font-weight:900}
+.kpb.on  .kpb-t{color:var(--green,#27ae60)}
+.kpb.off .kpb-t{color:var(--gold,#C9A02B)}
+.kpb-s{font-size:10px;color:var(--muted,#888);margin-top:2px;line-height:1.7}
+.kpb-btn{flex:0 0 auto;font-family:'Tajawal',sans-serif;font-size:11.5px;font-weight:800;
+  cursor:pointer;padding:9px 16px;border-radius:9px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border2,#2a2a2a);color:var(--text,#eee)}
+.kpb-acts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:11px}
+.kpb-a{font-family:'Tajawal',sans-serif;font-size:10.5px;font-weight:800;cursor:pointer;
+  padding:10px 6px;border-radius:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  background:transparent;border:1px solid var(--border2,#2a2a2a);color:var(--muted,#8a8a8a)}
+.kpb-a.danger{border-color:rgba(192,57,43,.3);color:#C0392B}
+@media (max-width:360px){ .kpb-acts{grid-template-columns:1fr 1fr} }
+
+/* ══ منطقة الخطر ══
+   الأدوات الآمنة معزولة عن المدمّرة، والمدمّرة مرتّبة بالشدّة ولكلٍّ منها
+   عمودان صريحان: ما يُحذف وما يبقى — فلا يُقدم المنظّم على إجراء وهو يظنّه
+   غير ما هو. */
+.dz-sec{margin-bottom:20px}
+.dz-sec-t{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  font-size:12px;font-weight:900;margin-bottom:11px;padding-inline-start:2px}
+.dz-sec-t span{font-size:10px;font-weight:600;color:var(--muted2,#777)}
+.dz-sec-t.safe{color:var(--green,#27ae60)}
+.dz-sec-t.danger{color:var(--red,#C0392B)}
+.dz-card{border-radius:13px;padding:14px;margin-bottom:10px;
+  border:1px solid var(--border2,#2a2a2a);background:var(--card2,#141414)}
+.dz-safe{border-color:var(--border2,#2a2a2a)}
+.dz-low{border-inline-start:3px solid #E8A33D}
+.dz-mid{border-inline-start:3px solid #D35400}
+.dz-max{border-inline-start:3px solid #C0392B;background:rgba(192,57,43,.05)}
+.dz-h{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.dz-ic{display:inline-flex;opacity:.75}
+.dz-t{font-size:13px;font-weight:900;color:var(--text,#eee);flex:1;min-width:0}
+.dz-lvl{font-size:8.5px;font-weight:900;border-radius:20px;padding:2px 8px;flex:0 0 auto}
+.dz-low .dz-lvl{background:rgba(232,163,61,.14);color:#E8A33D}
+.dz-mid .dz-lvl{background:rgba(211,84,0,.16);color:#E67E22}
+.dz-max .dz-lvl{background:rgba(192,57,43,.18);color:#E88C82}
+.dz-d{font-size:11px;color:var(--muted,#8a8a8a);line-height:1.85;margin-bottom:13px}
+.dz-lists{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:13px}
+.dz-col{border-radius:10px;padding:9px 10px;border:1px solid var(--border,#1f1f1f)}
+.dz-col b{display:block;font-size:9.5px;font-weight:900;letter-spacing:.5px;margin-bottom:6px}
+.dz-col span{display:block;font-size:10px;line-height:1.75;color:var(--muted,#8a8a8a);
+  padding-inline-start:10px;position:relative}
+.dz-col span::before{content:'·';position:absolute;inset-inline-start:2px}
+.dz-col.gone{background:rgba(192,57,43,.06);border-color:rgba(192,57,43,.22)}
+.dz-col.gone b{color:#E88C82}
+.dz-col.kept{background:rgba(39,174,96,.05);border-color:rgba(39,174,96,.2)}
+.dz-col.kept b{color:var(--green,#27ae60)}
+.dz-btn{width:100%;min-height:44px;border-radius:10px;cursor:pointer;
+  font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;
+  background:transparent;border:1px solid var(--border2,#2a2a2a);color:var(--muted,#8a8a8a)}
+.dz-btn.gold{background:rgba(201,160,43,.12);border-color:rgba(201,160,43,.38);color:var(--gold,#C9A02B)}
+.dz-btn.green{background:rgba(39,174,96,.12);border-color:rgba(39,174,96,.35);color:var(--green,#27ae60)}
+.dz-low-btn{border-color:rgba(232,163,61,.4);color:#E8A33D}
+.dz-mid-btn{border-color:rgba(211,84,0,.45);color:#E67E22}
+.dz-max-btn{background:rgba(192,57,43,.13);border-color:rgba(192,57,43,.45);color:#E88C82}
+@media (max-width:360px){ .dz-lists{grid-template-columns:1fr} }
+
+/* ── فهرس الإعدادات: مجموعات وشارات قيم ── */
+.set-grp{font-size:10px;font-weight:900;letter-spacing:.6px;color:var(--gold,#C9A02B);
+  margin:18px 2px 8px}
+.set-grp:first-of-type{margin-top:4px}
+.set-badge{flex:0 0 auto;font-size:9.5px;font-weight:800;border-radius:20px;padding:3px 9px;
+  white-space:nowrap;margin-inline-start:auto;border:1px solid transparent}
+.set-badge.ok{background:rgba(39,174,96,.10);border-color:rgba(39,174,96,.28);color:var(--green,#27ae60)}
+.set-badge.warn{background:rgba(201,160,43,.10);border-color:rgba(201,160,43,.3);color:var(--gold,#C9A02B)}
+.set-badge.off{background:rgba(255,255,255,.03);border-color:var(--border2,#2a2a2a);color:var(--muted2,#777)}
+.set-badge.neutral{background:rgba(255,255,255,.03);border-color:var(--border2,#2a2a2a);color:var(--muted,#8a8a8a)}
+.set-row-txt{flex:1;min-width:0}
+@media (max-width:360px){ .set-badge{display:none} }

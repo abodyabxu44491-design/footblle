@@ -3221,15 +3221,24 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .std-team .std-name{flex:0 1 auto;min-width:0}
 @media (max-width:380px){ .std-tag{font-size:7.5px;padding:1px 4px} }
 
-/* ── شارة الحالة الخاصة على بطاقة المباراة العامة ── */
-.mc2-flag{
-  display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:center;
-  margin:0 0 8px;padding:6px 10px;border-radius:9px;
-  background:color-mix(in srgb, var(--fc) 13%, transparent);
-  border:1px solid color-mix(in srgb, var(--fc) 38%, transparent);
+/* ── الحالة الخاصة ──
+   على البطاقة: شارة صغيرة داخل العمود الأوسط تحت التوقيت — لا تدخل شبكة
+   البطاقة ولا تزيح أعمدتها. وفي لوحة التفاصيل: كتلة كاملة بنصّها. */
+.mc2-sf{
+  max-width:100%;margin-top:3px;padding:2px 8px;border-radius:20px;
+  font-size:8.5px;font-weight:900;line-height:1.7;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+  color:var(--fc);border:1px solid var(--fc);
+  background:color-mix(in srgb, var(--fc) 14%, transparent);
 }
-.mc2-flag-l{font-size:10px;font-weight:900;color:var(--fc);flex:0 0 auto}
-.mc2-flag-n{font-size:10px;color:var(--t2,#9aa);line-height:1.6;text-align:center}
+.mi-flag{
+  display:flex;flex-direction:column;gap:4px;align-items:flex-start;
+  margin:0 var(--sp2) var(--sp1);padding:9px 12px;border-radius:10px;
+  background:color-mix(in srgb, var(--fc) 12%, transparent);
+  border:1px solid color-mix(in srgb, var(--fc) 40%, transparent);
+}
+.mi-flag-l{font-size:11px;font-weight:900;color:var(--fc)}
+.mi-flag-n{font-size:10.5px;color:var(--t2,#9aa);line-height:1.75}
 @supports not (background: color-mix(in srgb, red 5%, transparent)){
-  .mc2-flag{background:rgba(255,255,255,.05);border-color:var(--fc)}
+  .mc2-sf,.mi-flag{background:rgba(255,255,255,.06)}
 }

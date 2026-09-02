@@ -17,7 +17,7 @@ if('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
-<link rel="stylesheet" href="./admin.css?v=280"/>
+<link rel="stylesheet" href="./admin.css?v=287"/>
 <!-- SheetJS: لإنشاء/قراءة ملفات Excel (قالب واستيراد اللاعبين) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -609,6 +609,12 @@ if('serviceWorker' in navigator) {
           <div class="page-sub">اختر القسم الذي تريد ضبطه</div>
         </div>
 
+        <!-- ══ الإعدادات مرتّبة بترتيب الاستعمال لا اعتباطاً ══
+             كانت قائمة مسطّحة من عشرة صفوف بلا تجميع: «الاشتراك» بين
+             «الأقسام المفعّلة» و«قالب اللاعبين»، و«الملحق» في الذيل رغم أنه
+             قرار بنيوي. الآن أربع مجموعات بترتيب بناء البطولة، ولكل صفّ
+             شارة تُظهر قيمته الحالية فلا يحتاج فتحه لمعرفتها. -->
+        <div class="set-grp">① بنية البطولة</div>
         <div class="set-list">
           <div class="set-row" onclick="showPage('set-basic',null)">
             <span class="set-row-ic"><i data-ic="doc"></i></span>
@@ -616,73 +622,16 @@ if('serviceWorker' in navigator) {
               <div class="set-row-t">المعلومات الأساسية</div>
               <div class="set-row-d">الاسم · الشعار · الموسم · النقاط · الملعب</div>
             </div>
+            <span class="set-badge" data-setkey="basic"></span>
             <span class="set-row-go"><i data-ic="chevronL"></i></span>
           </div>
-          <div class="set-row" onclick="showPage('set-match',null)">
-            <span class="set-row-ic"><i data-ic="clock"></i></span>
-            <div class="set-row-txt">
-              <div class="set-row-t">إعدادات المباريات</div>
-              <div class="set-row-d">مدة الأشواط · الاستراحة · الوقت الإضافي</div>
-            </div>
-            <span class="set-row-go"><i data-ic="chevronL"></i></span>
-          </div>
-          <div class="set-row" onclick="showPage('set-squad',null)">
-            <span class="set-row-ic"><i data-ic="shirt"></i></span>
-            <div class="set-row-txt">
-              <div class="set-row-t">نظام التشكيلة</div>
-              <div class="set-row-d">عدد اللاعبين الأساسيين في المباراة</div>
-            </div>
-            <span class="set-row-go"><i data-ic="chevronL"></i></span>
-          </div>
-          <div class="set-row" id="setFormatRow" onclick="showPage('set-format',null)">
+          <div class="set-row" onclick="showPage('set-format',null)">
             <span class="set-row-ic"><i data-ic="refresh"></i></span>
             <div class="set-row-txt">
               <div class="set-row-t">نظام المباريات</div>
-              <div class="set-row-d">ذهاب وإياب · أدوار الإقصاء · المباراة الفاصلة</div>
+              <div class="set-row-d">ذهاب فقط أو ذهاب وإياب · أدوار الإقصاء</div>
             </div>
-            <span class="set-row-go"><i data-ic="chevronL"></i></span>
-          </div>
-          <div class="set-row" id="setTieRow" onclick="showPage('set-tie',null)">
-            <span class="set-row-ic"><i data-ic="swords"></i></span>
-            <div class="set-row-txt">
-              <div class="set-row-t">الحسم عند التساوي</div>
-              <div class="set-row-d">ترتيب معايير الفصل بين المتساويين</div>
-            </div>
-            <span class="set-row-go"><i data-ic="chevronL"></i></span>
-          </div>
-          <div class="set-row" onclick="showPage('set-mods',null)">
-            <span class="set-row-ic"><i data-ic="settings"></i></span>
-            <div class="set-row-txt">
-              <div class="set-row-t">الأقسام المفعّلة</div>
-              <div class="set-row-d">ما يظهر للجمهور من أقسام</div>
-            </div>
-            <span class="set-row-go"><i data-ic="chevronL"></i></span>
-          </div>
-          <div class="set-row" onclick="showPage('set-sub',null)">
-            <span class="set-row-ic"><i data-ic="key"></i></span>
-            <div class="set-row-txt">
-              <div class="set-row-t">الاشتراك</div>
-              <div class="set-row-d">حالة اشتراك البطولة ومدّته</div>
-            </div>
-            <span class="set-row-go"><i data-ic="chevronL"></i></span>
-          </div>
-          <div class="set-row" onclick="showPage('set-tpl',null)">
-            <span class="set-row-ic"><i data-ic="users"></i></span>
-            <div class="set-row-txt">
-              <div class="set-row-t">قالب اللاعبين</div>
-              <div class="set-row-d">استيراد سريع لكشوف الفرق</div>
-            </div>
-            <span class="set-row-go"><i data-ic="chevronL"></i></span>
-          </div>
-        </div>
-
-        <div class="set-list" style="margin-top:14px">
-          <div class="set-row" onclick="showPage('zones',null)">
-            <span class="set-row-ic"><i data-ic="target"></i></span>
-            <div class="set-row-txt">
-              <div class="set-row-t">مناطق الترتيب</div>
-              <div class="set-row-d">تلوين مراكز معيّنة في الجدول</div>
-            </div>
+            <span class="set-badge" data-setkey="format"></span>
             <span class="set-row-go"><i data-ic="chevronL"></i></span>
           </div>
           <div class="set-row" onclick="showPage('set-playoff',null)">
@@ -691,6 +640,82 @@ if('serviceWorker' in navigator) {
               <div class="set-row-t">الملحق</div>
               <div class="set-row-d">دور فاصل على المقاعد المتبقّية</div>
             </div>
+            <span class="set-badge" data-setkey="playoff"></span>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+          <div class="set-row" onclick="showPage('set-tie',null)">
+            <span class="set-row-ic"><i data-ic="swords"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">الحسم عند التساوي</div>
+              <div class="set-row-d">ترتيب معايير الفصل بين المتساويين</div>
+            </div>
+            <span class="set-badge" data-setkey="tie"></span>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+          <div class="set-row" onclick="showPage('zones',null)">
+            <span class="set-row-ic"><i data-ic="target"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">مناطق الترتيب</div>
+              <div class="set-row-d">تلوين مراكز معيّنة في الجدول</div>
+            </div>
+            <span class="set-badge" data-setkey="zones"></span>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+        </div>
+
+        <div class="set-grp">② المباريات واللاعبون</div>
+        <div class="set-list">
+          <div class="set-row" onclick="showPage('set-match',null)">
+            <span class="set-row-ic"><i data-ic="clock"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">إعدادات المباريات</div>
+              <div class="set-row-d">مدة الأشواط · الاستراحة · الوقت الإضافي</div>
+            </div>
+            <span class="set-badge" data-setkey="match"></span>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+          <div class="set-row" onclick="showPage('set-squad',null)">
+            <span class="set-row-ic"><i data-ic="shirt"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">نظام التشكيلة</div>
+              <div class="set-row-d">عدد اللاعبين الأساسيين في المباراة</div>
+            </div>
+            <span class="set-badge" data-setkey="squad"></span>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+          <div class="set-row" onclick="showPage('set-tpl',null)">
+            <span class="set-row-ic"><i data-ic="users"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">قالب اللاعبين</div>
+              <div class="set-row-d">استيراد سريع لكشوف الفرق</div>
+            </div>
+            <span class="set-badge" data-setkey="tpl"></span>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+        </div>
+
+        <div class="set-grp">③ ما يراه الجمهور</div>
+        <div class="set-list">
+          <div class="set-row" onclick="showPage('set-mods',null)">
+            <span class="set-row-ic"><i data-ic="settings"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">الأقسام المفعّلة</div>
+              <div class="set-row-d">ما يظهر للجمهور من أقسام وتفاصيل</div>
+            </div>
+            <span class="set-badge" data-setkey="mods"></span>
+            <span class="set-row-go"><i data-ic="chevronL"></i></span>
+          </div>
+        </div>
+
+        <div class="set-grp">④ الحساب</div>
+        <div class="set-list">
+          <div class="set-row" onclick="showPage('set-sub',null)">
+            <span class="set-row-ic"><i data-ic="key"></i></span>
+            <div class="set-row-txt">
+              <div class="set-row-t">الاشتراك</div>
+              <div class="set-row-d">حالة اشتراك البطولة ومدّته</div>
+            </div>
+            <span class="set-badge" data-setkey="sub"></span>
             <span class="set-row-go"><i data-ic="chevronL"></i></span>
           </div>
         </div>
@@ -976,17 +1001,27 @@ if('serviceWorker' in navigator) {
           <div class="page-sub">ما يظهر للجمهور من أقسام</div>
         </div>
 <div class="card">
-            <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="settings"></span>الأقسام المفعّلة</div></div>
+            <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="users"></span>ما يراه الجمهور</div></div>
             <div class="card-body">
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showLive"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="broadcast"></span>مؤشر المباشر</div><div class="toggle-desc">يظهر LIVE على المباراة الجارية</div></div><div class="toggle-switch on"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showCountdown"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="clock"></span>عداد تنازلي</div><div class="toggle-desc">يظهر للجمهور قبل المباراة</div></div><div class="toggle-switch on"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showShare"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="share"></span>مشاركة الصور</div><div class="toggle-desc">زر المشاركة على البطاقات</div></div><div class="toggle-switch on"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showStats"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="chart"></span>إحصائيات البطولة</div><div class="toggle-desc">يظهر تبويب الإحصائيات للجمهور</div></div><div class="toggle-switch on"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showScorers"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="medal"></span>جدول الهدافين</div><div class="toggle-desc">يظهر تبويب الهدافين للجمهور</div></div><div class="toggle-switch on"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showStory"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="doc"></span>قصة المباراة</div><div class="toggle-desc">سرد تلقائي لمجريات المباراة يظهر للجمهور (قابل للتعديل يدوياً لكل مباراة)</div></div><div class="toggle-switch on"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showLineups"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="shirt"></span>نظام التشكيلات</div><div class="toggle-desc">تشكيلة كل فريق على أرضية الملعب — يجب تفعيله لتظهر أدوات التشكيلة في البث وللجمهور</div></div><div class="toggle-switch"></div></div>
-                <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showAssists"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="boots"></span>صنّاع الأهداف</div><div class="toggle-desc">يظهر قسم الصنّاع للجمهور داخل الإحصائيات</div></div><div class="toggle-switch"></div></div>
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showAssistPicker"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="target"></span>اختيار الصانع مع الهدف</div><div class="toggle-desc">عند تسجيل هدف تظهر خانة «من صنعه؟» لاختيار صانع الهدف</div></div><div class="toggle-switch"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showStats"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="chart"></span>تبويب الإحصائيات</div><div class="toggle-desc">يظهر تبويب «إحصائيات» في شريط الجمهور السفلي</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showScorers"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="medal"></span>جدول الهدّافين</div><div class="toggle-desc">قسم الهدّافين داخل الإحصائيات</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showAssists"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="boots"></span>صنّاع الأهداف</div><div class="toggle-desc">قسم الصنّاع داخل الإحصائيات</div></div><div class="toggle-switch"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showLineups"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="shirt"></span>التشكيلات</div><div class="toggle-desc">تبويب التشكيلات في بطاقة المباراة — يجب تفعيله لتظهر أدوات التشكيلة في البث</div></div><div class="toggle-switch"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showStory"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="doc"></span>قصة المباراة</div><div class="toggle-desc">سرد تلقائي لمجريات المباراة، قابل للتعديل يدوياً لكل مباراة</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showLive"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="broadcast"></span>مؤشّر المباشر</div><div class="toggle-desc">إبراز المباراة الجارية على بطاقتها</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showCountdown"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="clock"></span>العدّاد التنازلي</div><div class="toggle-desc">يظهر على البطاقة قبل المباراة بأقل من ٢٤ ساعة</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showShare"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="share"></span>مشاركة الصور</div><div class="toggle-desc">زرّ المشاركة وبطاقات الصور</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showVenue"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="target"></span>الملعب على البطاقة</div><div class="toggle-desc">اسم الملعب أسفل بطاقة المباراة</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showReferee"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="doc"></span>طاقم المباراة</div><div class="toggle-desc">الحكم والمعلّق والمساعدون في تفاصيل المباراة</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showAttendance"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="users"></span>عدد الجمهور</div><div class="toggle-desc">يظهر في تفاصيل المباراة بعد انتهائها</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showSponsor"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="medal"></span>راعي المباراة</div><div class="toggle-desc">شعار الراعي واسمه على بطاقة المباراة</div></div><div class="toggle-switch on"></div></div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="settings"></span>أدوات الإدارة</div></div>
+            <div class="card-body">
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showAssistPicker"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="target"></span>اختيار الصانع مع الهدف</div><div class="toggle-desc">عند تسجيل هدف تظهر خانة «من صنعه؟»</div></div><div class="toggle-switch"></div></div>
             </div>
           </div>
 
@@ -1079,6 +1114,11 @@ if('serviceWorker' in navigator) {
       </div>
 
       <div class="section" id="page-zones">
+        <!-- زرّ العودة كان غائباً هنا وحده بين صفحات الإعدادات الفرعية،
+             فيُترك المنظّم بلا طريق واضح للرجوع إلى الإعدادات. -->
+        <div class="set-back" onclick="showPage('settings',null)">
+          <span><i data-ic="chevronR"></i></span> الإعدادات
+        </div>
         <div class="page-header">
           <div class="page-title"><span class="pt-ic" data-ic="target"></span>مناطق الترتيب</div>
           <div class="page-sub">تلوين مراكز معيّنة في الجدول — كله اختياري</div>
@@ -1111,65 +1151,79 @@ if('serviceWorker' in navigator) {
       <div class="section" id="page-danger">
         <div class="page-header">
           <div class="page-title" style="color:var(--red)">⚠️ منطقة الخطر</div>
-          <div class="page-sub">إجراءات لا يمكن التراجع عنها</div>
+          <div class="page-sub">أدوات الصيانة أولاً، ثم الإجراءات التي لا تراجع عنها</div>
         </div>
-        <div style="display:grid;gap:12px">
-          <div class="card" style="border-color:var(--gold)"><div class="card-body">
-            <div style="font-size:14px;font-weight:700;color:var(--gold);margin-bottom:6px"><span data-ic="lock" style="vertical-align:-2px;margin-inline-end:5px"></span>تغيير كلمة المرور</div>
-            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">
-              غيّر كلمة مرور دخولك لهذه الصفحة. بعد التغيير لن تُقبل كلمة المرور القديمة نهائياً.
-            </div>
-            <button class="btn btn-gold" onclick="openChangePassword()"><span data-ic="lock" style="vertical-align:-2px;margin-inline-end:5px"></span>تغيير كلمة المرور</button>
-          </div></div>
-          <div class="card"><div class="card-body">
-            <div style="font-size:14px;font-weight:700;color:var(--gold);margin-bottom:6px">فحص سلامة البطولة</div>
-            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">
-              يكشف المباريات المكررة · الجولات الخاطئة · الفرق بلا مجموعة ·
-              أي خطأ يفسد جدول الترتيب — مع سبب كل مشكلة وحلّها.
-            </div>
-            <button class="btn btn-gold" onclick="hcShow()">افحص الآن</button>
-          </div></div>
-          <div class="card" style="border-color:rgba(39,174,96,.4)"><div class="card-body">
-            <div style="font-size:14px;font-weight:700;color:#27ae60;margin-bottom:6px">🧹 تحرير مساحة (تنظيف الشعارات)</div>
-            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">
-              يُزيل صور الشعارات المكرّرة المخزّنة داخل المباريات القديمة لتحرير مساحة التخزين.
-              <b>آمن تماماً:</b> الشعارات تظل تظهر من الفرق كالمعتاد، ولا تتأثر النتائج أو الأحداث.
-              استخدمه لو ظهرت لك رسالة امتلاء المساحة.
-            </div>
-            <button class="btn" style="background:rgba(39,174,96,.15);border:1px solid rgba(39,174,96,.4);color:#27ae60" onclick="cleanupMatchLogos()">🧹 تنظيف وتحرير المساحة</button>
-          </div></div>
-          <div class="card" style="border-color:var(--red2)"><div class="card-body">
-            <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">مسح كل المباريات</div>
-            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">
-              يحذف كل المباريات المضافة (المجموعات والإقصاء) مع نتائجها وأحداثها.
-              الفرق والمجموعات تبقى كما هي — ثم تقدر تولّد المباريات من جديد.
-            </div>
-            <button class="btn btn-danger" onclick="clearAllMatches()">مسح كل المباريات</button>
-          </div></div>
-          <div class="card" style="border-color:var(--red2)"><div class="card-body">
-            <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">🔒 إغلاق البطولة</div>
-            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">يتم إغلاق الدوري وتحويله لأرشيف للعرض فقط</div>
-            <button class="btn btn-danger" onclick="closeLeague()">🔒 إغلاق البطولة</button>
-          </div></div>
-          <div class="card" style="border-color:var(--red2)"><div class="card-body">
-            <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">🔄 إعادة تعيين الترتيب</div>
-            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">حذف جميع نتائج المباريات وإعادة الترتيب من الصفر (الفرق تبقى)</div>
-            <button class="btn btn-danger" onclick="resetStandings()">🔄 إعادة ضبط الترتيب</button>
-          </div></div>
 
-          <!-- ✅︎ §13: مسح جميع البيانات -->
-          <div class="card" style="border-color:var(--red2)"><div class="card-body">
-            <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">🗑 مسح جميع البيانات</div>
-            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">حذف جميع الفرق والمباريات والأحداث والإحصائيات — مع الإبقاء على نوع البطولة وإعداداتها</div>
-            <button class="btn btn-danger" onclick="wipeAllData()">🗑 مسح جميع البيانات</button>
-          </div></div>
+        <!-- ══ أدوات آمنة ══
+             كانت مختلطة بالإجراءات المدمّرة داخل إطار أحمر واحد: تغيير كلمة
+             المرور والفحص وتنظيف الشعارات لا تحذف شيئاً، ووضعها في «منطقة
+             الخطر» يجعل المنظّم يتجنّبها — أو يعتاد الأحمر فلا يخافه حين يجب. -->
+        <div class="dz-sec">
+          <div class="dz-sec-t safe">🛠 أدوات الصيانة <span>آمنة تماماً — لا تحذف شيئاً</span></div>
+          <div class="dz-card dz-safe">
+            <div class="dz-h"><span class="dz-ic" data-ic="lock"></span><span class="dz-t">تغيير كلمة المرور</span></div>
+            <div class="dz-d">يغيّر كلمة مرور دخولك لهذه الصفحة. بعد التغيير لن تُقبل الكلمة القديمة.</div>
+            <button class="dz-btn gold" onclick="openChangePassword()">تغيير كلمة المرور</button>
+          </div>
+          <div class="dz-card dz-safe">
+            <div class="dz-h"><span class="dz-ic" data-ic="shield"></span><span class="dz-t">فحص سلامة البطولة</span></div>
+            <div class="dz-d">يكشف المواجهات المكررة والجولات الناقصة والفرق بلا مجموعة وتعارض المواعيد — مع سبب كل بند وخطوات إصلاحه.</div>
+            <button class="dz-btn gold" onclick="hcShow()">افحص الآن</button>
+          </div>
+          <div class="dz-card dz-safe">
+            <div class="dz-h"><span class="dz-ic" data-ic="refresh"></span><span class="dz-t">تحرير مساحة التخزين</span></div>
+            <div class="dz-d">يُزيل نسخ الشعارات المكرّرة داخل المباريات القديمة. الشعارات تظل تظهر من الفرق كالمعتاد، ولا تتأثر النتائج ولا الأحداث. استعمله إن ظهرت رسالة امتلاء المساحة.</div>
+            <button class="dz-btn green" onclick="cleanupMatchLogos()">تنظيف وتحرير المساحة</button>
+          </div>
+        </div>
 
-          <!-- ✅︎ §13: إعادة ضبط البطولة — رجوع لمعالج الإنشاء -->
-          <div class="card" style="border-color:var(--red2)"><div class="card-body">
-            <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px">♻️ إعادة ضبط البطولة بالكامل</div>
-            <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.7">حذف كل شيء وإرجاع البطولة لنقطة البداية — شاشة اختيار نوع البطولة ومعالج الإنشاء، وكأنها بطولة جديدة</div>
-            <button class="btn btn-danger" onclick="resetTournament()">♻️ إعادة ضبط البطولة</button>
-          </div></div>
+        <div class="dz-sec">
+          <div class="dz-sec-t danger">🔻 إجراءات لا تراجع عنها <span>مرتّبة من الأخفّ إلى الأشدّ</span></div>
+          <div class="dz-card dz-low">
+            <div class="dz-h"><span class="dz-ic" data-ic="refresh"></span><span class="dz-t">إعادة تعيين النتائج</span>
+              <span class="dz-lvl">خطر محدود</span></div>
+            <div class="dz-lists">
+              <div class="dz-col gone"><b>يُحذف</b><span>نتائج كل المباريات</span><span>أحداثها (أهداف وبطاقات)</span><span>جدول الترتيب والهدّافون</span></div>
+              <div class="dz-col kept"><b>يبقى</b><span>الفرق</span><span>المجموعات</span><span>جدول المباريات ومواعيده</span></div>
+            </div>
+            <button class="dz-btn dz-low-btn" onclick="resetStandings()">إعادة ضبط الترتيب</button>
+          </div>
+          <div class="dz-card dz-low">
+            <div class="dz-h"><span class="dz-ic" data-ic="ball"></span><span class="dz-t">مسح كل المباريات</span>
+              <span class="dz-lvl">خطر محدود</span></div>
+            <div class="dz-lists">
+              <div class="dz-col gone"><b>يُحذف</b><span>كل المباريات (دوري ومجموعات وإقصاء وملحق)</span><span>نتائجها وأحداثها</span><span>حالة «مُنشأ» للملحق</span></div>
+              <div class="dz-col kept"><b>يبقى</b><span>الفرق</span><span>المجموعات وتوزيعها</span><span>أدوار الشجرة وإعداداتها</span></div>
+            </div>
+            <button class="dz-btn dz-low-btn" onclick="clearAllMatches()">مسح كل المباريات</button>
+          </div>
+          <div class="dz-card dz-mid">
+            <div class="dz-h"><span class="dz-ic" data-ic="lock"></span><span class="dz-t">إغلاق البطولة</span>
+              <span class="dz-lvl">خطر عالٍ</span></div>
+            <div class="dz-lists">
+              <div class="dz-col gone"><b>يُحذف</b><span>إمكانية التعديل — تتحوّل لأرشيف للعرض فقط</span></div>
+              <div class="dz-col kept"><b>يبقى</b><span>كل البيانات كما هي</span><span>رابط الجمهور يعمل</span></div>
+            </div>
+            <button class="dz-btn dz-mid-btn" onclick="closeLeague()">إغلاق البطولة</button>
+          </div>
+          <div class="dz-card dz-mid">
+            <div class="dz-h"><span class="dz-ic" data-ic="users"></span><span class="dz-t">مسح جميع البيانات</span>
+              <span class="dz-lvl">خطر عالٍ</span></div>
+            <div class="dz-lists">
+              <div class="dz-col gone"><b>يُحذف</b><span>كل الفرق</span><span>كل المباريات وأحداثها</span><span>عضويّات المجموعات وقوائم المتأهلين</span><span>خانات الشجرة نصف الممتلئة</span><span>فرق الملحق</span></div>
+              <div class="dz-col kept"><b>يبقى</b><span>نوع البطولة وإعداداتها</span><span>المجموعات نفسها (فارغة)</span><span>أدوار الشجرة (فارغة)</span></div>
+            </div>
+            <button class="dz-btn dz-mid-btn" onclick="wipeAllData()">مسح جميع البيانات</button>
+          </div>
+          <div class="dz-card dz-max">
+            <div class="dz-h"><span class="dz-ic" data-ic="alert"></span><span class="dz-t">إعادة ضبط البطولة بالكامل</span>
+              <span class="dz-lvl">لا رجعة</span></div>
+            <div class="dz-lists">
+              <div class="dz-col gone"><b>يُحذف</b><span>كل شيء: الفرق والمباريات والمجموعات وأدوار الشجرة</span><span>نوع البطولة وإعداداتها المشتقّة</span><span>إعدادات الملحق</span></div>
+              <div class="dz-col kept"><b>يبقى</b><span>اسم البطولة وشعارها</span><span>حسابك وكلمة المرور</span><span>الاشتراك</span></div>
+            </div>
+            <button class="dz-btn dz-max-btn" onclick="resetTournament()">إعادة الضبط بالكامل</button>
+          </div>
         </div>
       </div>
 
@@ -2294,14 +2348,14 @@ if('serviceWorker' in navigator) {
   };
 })();
 </script>
-<script type="module" src="./admin.js?v=280"></script>
+<script type="module" src="./admin.js?v=287"></script>
 <!-- نظام التشكيلات — Drag & Drop — يُحمّل بعد الأدمن مباشرة -->
-<script type="module" src="./admin-lineup-dragdrop.js?v=280"></script>
+<script type="module" src="./admin-lineup-dragdrop.js?v=287"></script>
 
 <!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
 
-<script src="./live-page-stats-fix.js?v=280"></script>
-<script src="./all-fixes.js?v=280"></script>
+<script src="./live-page-stats-fix.js?v=287"></script>
+<script src="./all-fixes.js?v=287"></script>
 <script>
 /* ===== timer-admin (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════
@@ -2995,8 +3049,8 @@ if('serviceWorker' in navigator) {
   console.log('[sponsor-admin] ✅︎ جاهز');
 })();
 </script>
-<script src="./cards-system.js?v=280"></script>
-<script src="./substitution-system.js?v=280"></script>
+<script src="./cards-system.js?v=287"></script>
+<script src="./substitution-system.js?v=287"></script>
 <script>
 // ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
 window.lvOpenLineupFromLive = function() {
@@ -3115,18 +3169,19 @@ window.openMatchLineup = function(matchId) {
   </div>
 </div>
 
-<script src="./timer-hotfix.js?v=280"></script>
-<script src="./tiebreak-rules.js?v=280"></script>
-<script src="./date-groups.js?v=280"></script>
-<script src="./admin-matches-tabs.js?v=280"></script>
-<script src="./groups-gate.js?v=280"></script>
-<script src="./league-logo.js?v=280"></script>
-<script src="./health-check.js?v=280"></script>
-<script src="./lock-guard.js?v=280"></script>
-<script src="./clock-sync.js?v=280"></script>
-<script src="./viewport-lock.js?v=280"></script>
-<script src="./pwa-install.js?v=280"></script>
+<script src="./timer-hotfix.js?v=287"></script>
+<script src="./tiebreak-rules.js?v=287"></script>
+<script src="./date-groups.js?v=287"></script>
+<script src="./admin-matches-tabs.js?v=287"></script>
+<script src="./groups-gate.js?v=287"></script>
+<script src="./league-logo.js?v=287"></script>
+<script src="./health-check.js?v=287"></script>
+<script src="./lock-guard.js?v=287"></script>
+<script src="./clock-sync.js?v=287"></script>
+<script src="./viewport-lock.js?v=287"></script>
+<script src="./pwa-install.js?v=287"></script>
 
 <!-- (شبكة أمان اللمس القديمة أُزيلت — النافذة الجديدة تربط أحداثها بالتفويض داخل admin.js) -->
+<script src="./back-nav.js?v=287"></script>
 </body>
 </html>

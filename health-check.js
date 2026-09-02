@@ -41,7 +41,9 @@
     var out = [];
 
     if (!ms.length) {
-      return [{ lvl: 'ok', t: 'لا توجد مباريات بعد', d: 'ولّد المباريات من صفحة المجموعات' }];
+      return [{ lvl: 'todo', go: 'matches', t: 'لم تُضَف أي مباراة بعد',
+                d: 'الفحص يقارن الجدول بالنظام المختار، ولا شيء ليقارنه الآن.',
+                fix: 'ابدأ من «إضافة مباراة» أو ولّد الجدول من صفحة المجموعات' }];
     }
 
     // ① مباريات مكررة
@@ -51,21 +53,34 @@
       (pairs[k] = pairs[k] || []).push(m);
     });
     var dups = Object.keys(pairs).filter(function (k) { return pairs[k].length > maxMeet; });
+    /* 🔴 مباراة واحدة زائدة كانت تُنتج ثلاثة بنود: «مواجهة مكررة» و«مباراة
+       زائدة عن الجدول» و«جولات أكثر من اللازم» — ثلاث رسائل لسبب واحد،
+       فيظنّ المنظّم أن عنده ثلاث مشكلات ويفقد الثقة في القائمة.
+       البند الأول هو الأدقّ (يسمّي الفريقين)، فنكتفي به ونُسقط تابعيه. */
+    var hasDup = dups.length > 0;
     if (dups.length) {
       var ex = dups.slice(0, 3).map(function (k) {
         var g = pairs[k];
         return nameOf(g[0].homeId) + ' ضد ' + nameOf(g[0].awayId) + ' (' + g.length + ' مرات)';
       });
       out.push({
-        lvl: 'err',
-        t: dups.length + ' مباراة مكررة',
+        lvl: 'err', go: 'matches',
+        t: dups.length + ' مواجهة مكررة',
         d: 'نظام «' + (dbl ? 'ذهاب وإياب' : 'ذهاب فقط') + '» يسمح بـ ' + maxMeet +
-           ' لقاء بين كل فريقين. المكرر يُحسب مرتين في الترتيب.\n' + ex.join('\n'),
-        fix: 'امسح كل المباريات من منطقة الخطر ثم ولّد من جديد'
+           ' لقاء بين كل فريقين، والزائد يُحتسب في الترتيب فيقلب النتيجة.\n' + ex.join('\n'),
+        /* 🔴 كان الحلّ المقترح «امسح كل المباريات ثم ولّد من جديد» — وهو
+           يمحو نتائج مسجّلة ومواعيد وطواقم لإصلاح مباراة واحدة زائدة. */
+        fix: 'افتح المباراة الزائدة واحذفها وحدها — أبقِ الأولى بنتيجتها'
       });
     }
 
-    // ② + ③ لكل مجموعة: الجولات والمباريات مقابل الحساب الرياضي
+    /* ② + ③ لكل مجموعة: مقارنة بالجدول الكامل
+       🔴 كان الفرق عن العدد المتوقّع يُعلَن «خطأ» في الحالتين — نقصاً
+       وزيادةً. والنقص ليس خطأً: منظّم أنشأ جولتين من ثلاث لم يُخطئ، بل لم
+       يُكمل. أسوأ من ذلك أن الحلّ المقترح كان «امسح كل المباريات ثم ولّد من
+       جديد» — يمحو نتائج مسجّلة لإصلاح نقصٍ يُسدّ بإضافة مباراة.
+       الآن: النقص «لم يكتمل» مع **تسمية المواجهات الناقصة بالاسم**،
+       والزيادة «يجب إصلاحه» مع تسمية الزائد ليُحذف وحده. */
     if (isGroups && gs.length) {
       gs.forEach(function (g) {
         var gt = (g.teamIds || []).length;
@@ -77,24 +92,102 @@
         var expM = (gt * (gt - 1) / 2) * (dbl ? 2 : 1);
         var actR = new Set(gm.map(function (m) { return m.round || 1; })).size;
 
-        if (gm.length !== expM) {
+        if (gm.length < expM) {
+          // أي مواجهات لم تُجدوَل بعد؟ الإجابة أنفع من رقم مجرّد
+          var played = {};
+          gm.forEach(function (m) { played[pairKey(m)] = (played[pairKey(m)] || 0) + 1; });
+          var ids = g.teamIds || [], miss = [];
+          for (var i = 0; i < ids.length; i++) {
+            for (var j = i + 1; j < ids.length; j++) {
+              var k = [ids[i], ids[j]].sort().join('|');
+              var have = played[k] || 0;
+              for (var c = have; c < maxMeet; c++) miss.push(nameOf(ids[i]) + ' × ' + nameOf(ids[j]));
+            }
+          }
           out.push({
-            lvl: 'err',
-            t: 'المجموعة ' + g.name + ': عدد المباريات خاطئ',
-            d: gt + ' فرق × ' + (dbl ? 'ذهاب وإياب' : 'ذهاب فقط') +
-               ' = ' + expM + ' مباراة متوقّعة، الموجود ' + gm.length + '.',
-            fix: 'امسح كل المباريات ثم ولّد من جديد'
+            lvl: 'todo', go: 'matches',
+            t: 'المجموعة ' + g.name + ': باقي ' + (expM - gm.length) + ' مباراة',
+            d: 'الجدول الكامل ' + expM + ' مباراة (' + gt + ' فرق · ' +
+               (dbl ? 'ذهاب وإياب' : 'ذهاب فقط') + ')، والمُضاف ' + gm.length + '.' +
+               (miss.length ? '\nالمواجهات المتبقّية: ' + miss.slice(0, 6).join(' · ') +
+                 (miss.length > 6 ? ' +' + (miss.length - 6) : '') : ''),
+            fix: 'أضِفها من «إضافة مباراة» — لا حاجة لمسح شيء'
+          });
+        } else if (gm.length > expM && !hasDup) {
+          out.push({
+            lvl: 'err', go: 'matches',
+            t: 'المجموعة ' + g.name + ': ' + (gm.length - expM) + ' مباراة زائدة',
+            d: 'الجدول الكامل ' + expM + ' مباراة والموجود ' + gm.length +
+               '.\nالزائد يُحتسب في الترتيب فيقلب النتيجة النهائية.',
+            fix: 'احذف الزائدة وحدها من قسم المباريات — راجع بند «مباراة مكررة» أعلاه'
           });
         }
-        if (actR !== expR) {
+
+        // الجولات: نقصها تقدّم، وزيادتها خلل في التوزيع
+        if (actR < expR && gm.length >= expM) {
           out.push({
-            lvl: 'warn',
-            t: 'المجموعة ' + g.name + ': عدد الجولات خاطئ',
-            d: gt + ' فرق = ' + expR + ' جولات متوقّعة، الموجود ' + actR + '.',
-            fix: 'امسح كل المباريات ثم ولّد من جديد'
+            lvl: 'warn', go: 'matches',
+            t: 'المجموعة ' + g.name + ': المباريات مكتملة والجولات أقل',
+            d: 'الجدول الكامل ' + expR + ' جولة والموجود ' + actR +
+               '.\nبعض المباريات وُضعت في الجولة نفسها، فيلعب فريق أكثر من مرة في جولة.',
+            fix: 'عدّل «رقم الجولة» للمباريات المتزاحمة من «تعديل المعلومات»'
+          });
+        } else if (actR > expR && !hasDup) {
+          out.push({
+            lvl: 'err', go: 'matches',
+            t: 'المجموعة ' + g.name + ': جولات أكثر من اللازم',
+            d: gt + ' فرق تعني ' + expR + ' جولة، والموجود ' + actR + ' جولة.',
+            fix: 'أعد المباريات الزائدة إلى جولاتها الصحيحة من «تعديل المعلومات»'
           });
         }
       });
+    }
+
+    /* ②ب نظام الدوري: لم يكن له فحص اكتمال إطلاقاً — الفحصان أعلاه
+       مشروطان بنظام المجموعات. فبطولة دوري ناقصة نصف جدولها تمرّ سليمة،
+       ولا يعرف المنظّم كم بقي ولا ما بقي. */
+    if (!isGroups && ts.length >= 2) {
+      var expML = (ts.length * (ts.length - 1) / 2) * maxMeet;
+      var expRL = (ts.length % 2 === 0 ? ts.length - 1 : ts.length) * maxMeet;
+      var actRL = new Set(ms.map(function (m) { return m.round || 1; })).size;
+
+      if (ms.length < expML) {
+        var playedL = {};
+        ms.forEach(function (m) { playedL[pairKey(m)] = (playedL[pairKey(m)] || 0) + 1; });
+        var missL = [];
+        for (var a = 0; a < ts.length; a++) {
+          for (var b = a + 1; b < ts.length; b++) {
+            var kk = [ts[a].id, ts[b].id].sort().join('|');
+            for (var c2 = (playedL[kk] || 0); c2 < maxMeet; c2++) missL.push(ts[a].name + ' × ' + ts[b].name);
+          }
+        }
+        out.push({
+          lvl: 'todo', go: 'matches',
+          t: 'باقي ' + (expML - ms.length) + ' مباراة لإكمال الجدول',
+          d: 'الجدول الكامل ' + expML + ' مباراة في ' + expRL + ' جولة (' + ts.length + ' فريقاً · ' +
+             (dbl ? 'ذهاب وإياب' : 'ذهاب فقط') + ')، والمُضاف ' + ms.length +
+             ' مباراة في ' + actRL + ' جولة.' +
+             (missL.length ? '\nالمواجهات المتبقّية: ' + missL.slice(0, 6).join(' · ') +
+               (missL.length > 6 ? ' +' + (missL.length - 6) : '') : ''),
+          fix: 'أضِفها من «إضافة مباراة» — الاختيار السريع يختصرها إلى ضغطتين'
+        });
+      } else if (ms.length > expML && !hasDup) {
+        out.push({
+          lvl: 'err', go: 'matches',
+          t: (ms.length - expML) + ' مباراة زائدة عن الجدول',
+          d: 'الجدول الكامل ' + expML + ' مباراة والموجود ' + ms.length +
+             '.\nالزائد يُحتسب في الترتيب فيقلب النتيجة النهائية.',
+          fix: 'احذف الزائدة وحدها — راجع بند «مواجهة مكررة» أعلاه'
+        });
+      }
+      if (actRL > expRL && !hasDup) {
+        out.push({
+          lvl: 'err', go: 'matches',
+          t: 'عدد الجولات أكثر من اللازم',
+          d: ts.length + ' فريقاً تعني ' + expRL + ' جولة، والموجود ' + actRL + ' جولة.',
+          fix: 'أعد المباريات الزائدة إلى جولاتها الصحيحة من «تعديل المعلومات»'
+        });
+      }
     }
 
     // ④ فرق بلا مجموعة
@@ -128,7 +221,7 @@
           d: cross.slice(0, 3).map(function (m) {
             return nameOf(m.homeId) + ' ضد ' + nameOf(m.awayId);
           }).join('\n') + '\nفرق المجموعات لا تلتقي إلا في الإقصاء.',
-          fix: 'احذف هذه المباريات يدوياً من قسم المباريات'
+          fix: 'احذف هذه المباريات، أو حوّلها إلى «مباراة فاصلة بين مجموعتين» إن كانت مقصودة'
         });
       }
     }
@@ -152,8 +245,11 @@
       out.push({
         lvl: 'err',
         go: 'matches', t: clash.length + ' فريق يلعب أكثر من مرة في جولة واحدة',
-        d: clash.slice(0, 4).join('\n') + '\nكل فريق يلعب مباراة واحدة في كل جولة.',
-        fix: 'امسح كل المباريات ثم ولّد من جديد'
+        d: clash.slice(0, 4).join('\n') +
+           (clash.length > 4 ? '\n+' + (clash.length - 4) + ' غيرها' : '') +
+           '\nالجولة تعني أن كل فريق يلعب مرة واحدة، فيختلّ توازن الجدول.',
+        // الإصلاح نقلٌ لا مسح: المباراة صحيحة ورقم جولتها هو الخطأ
+        fix: 'افتح إحدى المباراتين ← تعديل المعلومات ← غيّر «رقم الجولة»'
       });
     }
 
@@ -369,6 +465,10 @@
     if (!out.length) {
       out.push({ lvl: 'ok', t: 'كل شيء سليم', d: ms.length + ' مباراة · لا أخطاء' });
     }
+    /* ترتيب حسب الأهمية: ما يفسد النتائج أولاً، ثم ما لم يكتمل، ثم
+       المراجعات، ثم الاقتراحات — فأول ما تقع عليه العين أخطرُه. */
+    var _rank = { err: 0, todo: 1, warn: 2, info: 3, ok: 4 };
+    out.sort(function (a, b) { return (_rank[a.lvl] ?? 9) - (_rank[b.lvl] ?? 9); });
     return out;
   }
 
@@ -377,8 +477,14 @@
   /* ── العرض ── */
   window.hcShow = function () {
     var res = run();
-    var C = { err: '#e74c3c', warn: '#f39c12', info: '#3498db', ok: '#2ecc71' };
-    var L = { err: 'خطأ', warn: 'تحذير', info: 'ملاحظة', ok: 'سليم' };
+    /* 🔴 كان المستوى «خطأ» يُطلَق على النقص أيضاً: منظّم أنشأ جولتين من
+       ثلاث يرى «عدد المباريات خاطئ» بالأحمر — وهو لم يخطئ، بل لم يُكمل
+       بعد. أُضيف مستوى «لم يكتمل» ليفصل التقدّم الطبيعي عن الخلل الفعلي،
+       فلا يفزع المنظّم من عمل سليم ولا يتجاهل خطأً حقيقياً بين تنبيهات
+       لا تعنيه. */
+    var C = { err: '#e74c3c', todo: '#C9A02B', warn: '#f39c12', info: '#3498db', ok: '#2ecc71' };
+    var L = { err: 'يجب إصلاحه', todo: 'لم يكتمل بعد', warn: 'يستحق المراجعة',
+              info: 'اقتراح', ok: 'سليم' };
 
     var html = res.map(function (r) {
       return '<div style="background:var(--card3,#16181e);border:1px solid ' + C[r.lvl] + '33;' +
@@ -437,15 +543,18 @@
 
     var res = run();
     var errs  = res.filter(function (r) { return r.lvl === 'err'; }).length;
+    var todos = res.filter(function (r) { return r.lvl === 'todo'; }).length;
     var warns = res.filter(function (r) { return r.lvl === 'warn'; }).length;
-    var clean = !errs && !warns;
+    var clean = !errs && !warns && !todos;
 
-    var col = errs ? '#e74c3c' : warns ? '#f39c12' : '#2ecc71';
+    var col = errs ? '#e74c3c' : todos ? '#C9A02B' : warns ? '#f39c12' : '#2ecc71';
     var txt = errs
-      ? errs + ' خطأ يفسد البطولة' + (warns ? ' و' + warns + ' تحذير' : '')
-      : warns ? warns + ' تحذير يستحق المراجعة'
+      ? errs + ' بند يجب إصلاحه' + (warns + todos ? ' و' + (warns + todos) + ' بند آخر' : '')
+      : todos ? todos + ' بند لم يكتمل بعد' + (warns ? ' و' + warns + ' للمراجعة' : '')
+      : warns ? warns + ' بند يستحق المراجعة'
               : 'البطولة سليمة';
-    var sub = errs ? 'اضغط لمعرفة السبب والحل'
+    var sub = errs ? 'اضغط لمعرفة السبب وخطوات الإصلاح'
+            : todos ? 'تقدّم طبيعي — اضغط لمعرفة المتبقّي'
             : warns ? 'اضغط للتفاصيل'
                     : 'لا أخطاء في البيانات';
 

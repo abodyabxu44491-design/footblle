@@ -248,7 +248,7 @@ function _ensureRosterLoaded(teamId, onLoaded) {
   }
 }
 
-let settings = { winPts:3, drawPts:1, zones:{ champion:1, qualify:2, cond:1, normal:0, playoff:1, relegate:1 }, bracketPublished: false, tiebreakOrder: ['gd','gf','h2h','wins','cards','draw'] };
+let settings = { winPts:3, drawPts:1, zones:{ champion:1, qualify:2, cond:1, normal:0, playoff:1, relegate:1 }, bracketPublished: true, tiebreakOrder: ['gd','gf','h2h','wins','cards','draw'] };
 window.settings = settings;
 let matchFilter   = 'all';
 let searchQuery   = '';
@@ -523,6 +523,7 @@ async function init() {
   window.settings = settings;
   tournamentType = settings.type || league.type || 'league';
   adaptUIToType();
+  if (typeof window.vSyncShareUI === 'function') window.vSyncShareUI();
 
   // استمع لتغيّرات الإعدادات (bracketPublished وغيرها) بشكل لحظي
   onSnapshot(doc(db,'leagues',LEAGUE_ID,'config','settings'), snap => {
@@ -530,6 +531,8 @@ async function init() {
       settings = {...settings, ...snap.data()};
       window.settings = settings;
       if (typeof window._spRender === 'function') window._spRender();
+      // الأقسام المفعّلة تُطبَّق لحظياً: إطفاء مفتاح يجب أن يختفي أثره فوراً
+      if (typeof window.vSyncShareUI === 'function') window.vSyncShareUI();
       adaptUIToType();
       renderKnockoutBracket();
       if (typeof renderStats === 'function') renderStats();
@@ -3138,7 +3141,7 @@ function renderKnockoutBracket() {
   const el = document.getElementById('bracketContent');
   if(!el) return;
 
-  if(!settings.bracketPublished) {
+  if (settings.bracketPublished === false) {
     el.innerHTML = `
       <div style="text-align:center;padding:60px 24px">
         <div style="font-size:52px;margin-bottom:14px;opacity:.4">🌳</div>
@@ -4293,10 +4296,18 @@ function adaptUIToType() {
   const gEl     = document.getElementById('tab-groups');
   const brkEl   = document.getElementById('tab-bracket');
 
-  // الشجرة تظهر للجمهور فقط إذا نشرها المدير (bracketPublished = true)
-  const bracketOK = settings.bracketPublished === true;
+  // الشجرة ظاهرة للجمهور ما لم يُخفِها المدير صراحةً
+  /* الغياب يعني «ظاهرة»: البطولات الجديدة لا تحمل الحقل، وكان غيابه
+     يخفي الشجرة عن الجمهور بلا أن يقصد المنظّم ذلك. الإخفاء قرار صريح. */
+  const bracketOK = settings.bracketPublished !== false;
   /* الملحق تبويب اختياري تماماً: لا يظهر إلا إذا فعّله المنظّم **ونشره**.
      فالبطولات التي لا ملحق فيها لا ترى الزرّ إطلاقاً. */
+  /* 🔴 مفاتيح «الأقسام المفعّلة» التالية كانت بلا أثر إطلاقاً — تُحفظ في
+     الإعدادات ولا يقرؤها أحد: showStats · showScorers · showLive ·
+     showCountdown · showShare. المنظّم يطفئها ويبقى القسم ظاهراً للجمهور،
+     فيفقد الثقة في كل المفاتيح. وُصِّلت هنا بمواضعها الفعلية.
+     الغياب يعني «مفعَّل» حتى لا تختفي أقسام من بطولات قائمة. */
+  const statsOK = !(window.settings && window.settings.showStats === false);
   const poEl = document.getElementById('tab-playoff');
   const playoffOK = (typeof _poVisible === 'function') && _poVisible();
   const poBtn = playoffOK
@@ -4311,7 +4322,7 @@ function adaptUIToType() {
       ${poBtn}
       <button class="bn-item" id="bn-matches"  onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
       <button class="bn-item" id="bn-teams"    onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
-      <button class="bn-item" id="bn-stats"    onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
+      <button class="bn-item" id="bn-stats"    onclick="switchTab('stats',null,this)" style="${statsOK ? '' : 'display:none'}"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
       <button class="bn-item" id="bn-live"     onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
     if(standEl) standEl.style.display = 'none';
     if(brkEl)   brkEl.style.display   = bracketOK ? 'block' : 'none';
@@ -4327,7 +4338,7 @@ function adaptUIToType() {
       ${poBtn}
       <button class="bn-item" id="bn-matches"  onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
       <button class="bn-item" id="bn-teams"    onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
-      <button class="bn-item" id="bn-stats"    onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
+      <button class="bn-item" id="bn-stats"    onclick="switchTab('stats',null,this)" style="${statsOK ? '' : 'display:none'}"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
       <button class="bn-item" id="bn-live"     onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
     if(standEl) standEl.style.display = 'none';
     if(gEl)     gEl.style.display     = 'block';
@@ -4345,7 +4356,7 @@ function adaptUIToType() {
       ${poBtn}
       <button class="bn-item" id="bn-matches"   onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
       <button class="bn-item" id="bn-teams"     onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
-      <button class="bn-item" id="bn-stats"     onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
+      <button class="bn-item" id="bn-stats"     onclick="switchTab('stats',null,this)" style="${statsOK ? '' : 'display:none'}"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
       <button class="bn-item" id="bn-live"      onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
     if(standEl) standEl.style.display = '';
     if(brkEl)   brkEl.style.display   = bracketOK ? 'block' : 'none';
@@ -4360,7 +4371,7 @@ function adaptUIToType() {
       ${poBtn}
       <button class="bn-item" id="bn-matches"   onclick="switchTab('matches',null,this)"><span class="bi">${window.Icon?Icon('ball',19):''}</span>المباريات</button>
       <button class="bn-item" id="bn-teams"     onclick="switchTab('teams',null,this)"><span class="bi">${window.Icon?Icon('users',19):''}</span>الفرق</button>
-      <button class="bn-item" id="bn-stats"     onclick="switchTab('stats',null,this)"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
+      <button class="bn-item" id="bn-stats"     onclick="switchTab('stats',null,this)" style="${statsOK ? '' : 'display:none'}"><span class="bi">${window.Icon?Icon('chart',19):''}</span>إحصائيات</button>
       <button class="bn-item" id="bn-live"      onclick="switchTab('live',null,this)" style="display:none"><span class="bi">${window.Icon?Icon('live',19):''}</span>مباشر</button>`;
     if(standEl) standEl.style.display = '';
   }
@@ -4595,7 +4606,22 @@ window._doCopyLink = function() {
   }
 };
 
+/* مفتاح «مشاركة الصور» كان بلا أثر: يُحفظ ولا يُقرأ، فيبقى زرّ المشاركة
+   وبطاقاته ظاهرة بعد إطفائه. تُطبَّق الحالة على زرّ الرأس عند كل تحديث
+   إعدادات، ويُمنع فتح اللوحة إن كانت مطفأة. */
+window.vShareEnabled = function () {
+  return !(window.settings && window.settings.showShare === false);
+};
+window.vSyncShareUI = function () {
+  const b = document.getElementById('headerShareBtn');
+  if (b) b.style.display = window.vShareEnabled() ? '' : 'none';
+  document.querySelectorAll('.share-card-btn, [data-share-btn]').forEach(el => {
+    el.style.display = window.vShareEnabled() ? '' : 'none';
+  });
+};
+
 window.showSharePanel = function() {
+  if (!window.vShareEnabled()) return;
   // ✅︎ لا تصمت لو البيانات لم تُحمَّل بعد — الرابط وحده كافٍ للمشاركة
   const d = _getShareData();
   if (navigator.share) {
@@ -5509,6 +5535,12 @@ function renderStats() {
   if (_sumWrap) _sumWrap.style.display = _searching ? 'none' : 'block';
   const _rosters = _collectScorerRosters();
   const scorers = _applyStatsFilter(buildScorersData());
+
+  /* قسم الهدّافين اختياري: كان المفتاح يُحفظ ولا يُقرأ، فيبقى الجدول
+     ظاهراً بعد إطفائه. الغياب يعني «مفعَّل». */
+  const _scorersOn = !(window.settings && window.settings.showScorers === false);
+  const _scSec = document.getElementById('statScorers')?.closest('.stat-section, .card, section');
+  if (_scSec) _scSec.style.display = _scorersOn ? '' : 'none';
 
   // 1) الهدّافون — أفضل 5 مع "عرض المزيد" (عند البحث تُعرض كل المطابقات)
   const sc = document.getElementById('statScorers');
@@ -6565,13 +6597,14 @@ function _matchCard(m) {
     const _within24 = _diff != null && _diff > 0 && _diff <= 86400000;
     const _verge    = _diff != null && _diff <= 5 * 60 * 1000 && _diff > -30 * 60 * 1000;
 
-    if (_verge) {
+    if (_verge && !(window.settings && window.settings.showLive === false)) {
       center = `
         <div class="mc2-mid">
           <div class="mc2-verge"><span class="mc2-verge-dot"></span>على وشك البدء</div>
           ${m.time ? `<div class="mc2-note">${formatTimeTo12H(m.time)}</div>` : ''}
         </div>`;
-    } else if (_within24) {
+    } else if (_within24 && !(window.settings && window.settings.showCountdown === false)) {
+      // العدّاد التنازلي اختياري — كان المفتاح بلا أثر
       center = `
         <div class="mc2-mid">
           <div class="mc2-cd" data-cd="${_target.getTime()}" data-mid="${m.id}">${_fmtCountdown(_diff)}</div>
@@ -6601,15 +6634,24 @@ function _matchCard(m) {
   // شارة التوقّع (مسابقة التوقّع المحلية)
   const predB = (typeof window.predBadge === 'function') ? window.predBadge(m.id) : '';
 
-  /* شارة الحالة الخاصة (مؤجلة · متأخرة · نُقل موعدها · ملغاة · نصّ خاص).
-     تُعرض على البطاقة نفسها لا داخل التفاصيل: الجمهور يقرأ القائمة ولا
-     يفتح كل مباراة، فتأجيلٌ مخبوء في الداخل لا يصل إلى أحد. */
-  const sBadge = (typeof window.vSpecialBadge === 'function') ? window.vSpecialBadge(m) : '';
+  /* شارة الحالة الخاصة (مؤجلة · متأخرة · نُقل موعدها · ملغاة · تنويه).
+     🔴 كانت تُدرَج كعنصر مستقلّ داخل `.mc2` — وهي **شبكة بثلاثة أعمدة**
+     (فريق · وسط · فريق). فأي عنصر إضافي بلا `grid-column` يحتلّ خانة في
+     الشبكة ويزيح ما بعده، فتتبعثر البطاقة كاملة.
+     الآن تُوضع داخل العمود الأوسط تحت التوقيت مباشرةً: شارة صغيرة بلون
+     الحالة، والنصّ التفصيلي يبقى في لوحة تفاصيل المباراة حتى لا يُطيل
+     عموداً ضيّقاً. */
+  // مؤشّر المباشر اختياري — كان مفتاحه بلا أثر
+  const _liveOn = !(window.settings && window.settings.showLive === false);
+  const sPill = (typeof window.vSpecialPill === 'function') ? window.vSpecialPill(m) : '';
+  if (sPill) {
+    const _i = center.lastIndexOf('</div>');
+    if (_i > -1) center = center.slice(0, _i) + sPill + center.slice(_i);
+  }
 
   return `
-    <div class="mc2 ${isL?'mc2-live':''} ${isF?'mc2-fin':''}" onclick="openMatchDetail('${m.id}')">
+    <div class="mc2 ${(isL && _liveOn)?'mc2-live':''} ${isF?'mc2-fin':''}" onclick="openMatchDetail('${m.id}')">
       ${roundBadge}
-      ${sBadge}
       <div class="mc2-team">
         <div class="mc2-logo">${_logo(ht.logo, 40)}</div>
         <div class="mc2-name ${hw?'mc2-win':''}">${ht.name}</div>
@@ -6634,15 +6676,22 @@ window.V_SPECIAL = {
   canceled:  { l: 'ملغاة',       i: '🚫', c: '#C0392B' },
   custom:    { l: 'تنويه',       i: '✍️', c: '#8E44AD' },
 };
-window.vSpecialBadge = function (m) {
-  const k = m && m.specialStatus;
-  if (!k) return '';
-  const d = window.V_SPECIAL[k];
+/* شارة مختصرة — للبطاقة: اسم الحالة فقط في سطر واحد */
+window.vSpecialPill = function (m) {
+  const d = m && m.specialStatus && window.V_SPECIAL[m.specialStatus];
   if (!d) return '';
   const note = (m.statusNote || '').trim();
-  return `<div class="mc2-flag" style="--fc:${d.c}">
-      <span class="mc2-flag-l">${d.i} ${d.l}</span>
-      ${note ? `<span class="mc2-flag-n">${note}</span>` : ''}
+  return `<div class="mc2-sf" style="--fc:${d.c}"${note ? ` title="${note.replace(/"/g, '&quot;')}"` : ''}>${d.i} ${d.l}</div>`;
+};
+
+/* كتلة كاملة — للوحة التفاصيل: الحالة ونصّها الكامل */
+window.vSpecialBadge = function (m) {
+  const d = m && m.specialStatus && window.V_SPECIAL[m.specialStatus];
+  if (!d) return '';
+  const note = (m.statusNote || '').trim();
+  return `<div class="mi-flag" style="--fc:${d.c}">
+      <span class="mi-flag-l">${d.i} ${d.l}</span>
+      ${note ? `<span class="mi-flag-n">${note}</span>` : ''}
     </div>`;
 };
 
@@ -8356,17 +8405,20 @@ function renderPitchViewer(lineup, isAway) {
     // ── لوحة معلومات المباراة — تظهر تلقائياً فقط للمباريات القادمة ──
     // (زر "المعلومات" أُلغي؛ عند القادمة تُعرض هنا كل التفاصيل مرتّبة)
     function buildInfoPanel() {
+      /* كل صفّ يحترم مفتاحه في «الأقسام المفعّلة». الغياب يعني «مفعَّل»
+         حتى لا تختفي معلومات من بطولات قائمة عند التحديث. */
+      const _on = k => !(window.settings && window.settings[k] === false);
       const rows = [
-        { ic:'stadium',   label:'الملعب',          val: m.venue },
+        { ic:'stadium',   label:'الملعب',          val: _on('showVenue')      ? m.venue        : null },
         { ic:'calendar',  label:'الجولة',          val: m.round ? `الجولة ${m.round}` : null },
-        { ic:'whistle',   label:'الحكم',            val: m.referee },
-        { ic:'mic',       label:'المعلق',           val: m.commentator },
-        { ic:'flag',      label:'حكم مساعد 1',     val: m.linesman1 },
-        { ic:'flag',      label:'حكم مساعد 2',     val: m.linesman2 },
-        { ic:'users',     label:'السعة المتوقعة',  val: m.attendance },
-        { ic:'camera',    label:'المصور',           val: m.photographer },
-        { ic:'mic',       label:'المذيع',           val: m.announcer },
-        { ic:'handshake', label:'الراعي',           val: m.sponsor },
+        { ic:'whistle',   label:'الحكم',            val: _on('showReferee')    ? m.referee      : null },
+        { ic:'mic',       label:'المعلق',           val: _on('showReferee')    ? m.commentator  : null },
+        { ic:'flag',      label:'حكم مساعد 1',     val: _on('showReferee')    ? m.linesman1    : null },
+        { ic:'flag',      label:'حكم مساعد 2',     val: _on('showReferee')    ? m.linesman2    : null },
+        { ic:'users',     label:'السعة المتوقعة',  val: _on('showAttendance') ? m.attendance   : null },
+        { ic:'camera',    label:'المصور',           val: _on('showReferee')    ? m.photographer : null },
+        { ic:'mic',       label:'المذيع',           val: _on('showReferee')    ? m.announcer    : null },
+        { ic:'handshake', label:'الراعي',           val: _on('showSponsor')    ? m.sponsor      : null },
         { ic:'edit',      label:'ملاحظات',          val: m.notes },
       ].filter(r => r.val);
 

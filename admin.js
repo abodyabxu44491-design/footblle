@@ -5880,6 +5880,14 @@ window.clearAllMatches = async function () {
       await b2.commit();
     }
     await updateDoc(doc(db, 'leagues', LEAGUE_ID), { matchesCount: 0 }).catch(() => {});
+    /* مباريات الملحق تُحذف ضمن الكل، فبقاء علم «مُنشأ» يجعل قسمه يفتح على
+       جدول فارغ بلا زرّ توليد — حالة لا مخرج منها إلا بإعادة التعيين. */
+    const _p = (window.settings && window.settings.playoff) || null;
+    if (_p && _p.created) {
+      await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'),
+        { playoff: Object.assign({}, _p, { created: false }), updatedAt: serverTimestamp() },
+        { merge: true }).catch(() => {});
+    }
     showToast(`تم حذف ${all.length} مباراة — يمكنك التوليد من جديد`, 'success');
   } catch (e) {
     showToast('خطأ في الحذف: ' + window._trErr(e), 'error');
@@ -5931,6 +5939,88 @@ async function _dzWipeCollection(colName) {
   return ids.length;
 }
 
+/* ── شارات فهرس الإعدادات ──
+   كان الصفّ يقول اسم القسم ووصفه فقط، فلمعرفة قيمة إعداد واحد لا بدّ من
+   فتحه والعودة. الشارة تُظهر القيمة الحالية في مكانها — والقيم كلها من
+   مصادرها الفعلية لا من افتراضات. */
+window.renderSettingsIndex = function () {
+  const S = window.settings || {};
+  const T = window.teams || [];
+  const G = window.adminGroups || [];
+  const set = (k, txt, tone) => {
+    document.querySelectorAll(`[data-setkey="${k}"]`).forEach(el => {
+      el.textContent = txt || '';
+      el.className = 'set-badge' + (txt ? ' ' + (tone || 'neutral') : '');
+    });
+  };
+
+  set('basic', S.name ? (S.season ? S.season : 'مضبوطة') : 'ينقص الاسم', S.name ? 'ok' : 'warn');
+
+  const legMode = S.legMode === 'double' ? 'ذهاب وإياب' : 'ذهاب فقط';
+  const typeName = { league: 'دوري', groups: 'مجموعات', knockout: 'إقصاء', swiss: 'دوري موحّد' }[S.type] || '—';
+  set('format', `${typeName} · ${legMode}`, 'ok');
+
+  const p = S.playoff || {};
+  set('playoff', !p.enabled ? 'مطفأ' : (p.created ? 'مُنشأ' : `${(p.teamIds || []).length} فريق`),
+      !p.enabled ? 'off' : (p.created ? 'ok' : 'warn'));
+
+  set('tie', `${(S.tiebreakOrder || []).length || 6} معايير`, 'neutral');
+
+  const z = S.zones || {};
+  const zn = Object.keys(z).filter(k => z[k] > 0).length;
+  set('zones', zn ? `${zn} مناطق` : 'بلا مناطق', zn ? 'ok' : 'off');
+
+  set('match', `${S.halfDuration || 45}د × شوطان`, 'neutral');
+  set('squad', `${S.squadSize || 11} لاعبين`, 'neutral');
+
+  const withRoster = T.filter(t => (t.players || []).length).length;
+  set('tpl', T.length ? `${withRoster}/${T.length} فريق بكشف` : 'لا فرق بعد',
+      !T.length ? 'off' : (withRoster === T.length ? 'ok' : 'warn'));
+
+  /* عدّ المفاتيح المفعّلة فعلاً — والغياب يعني «مفعَّل» كما في قارئها */
+  const KEYS = ['showStats','showScorers','showAssists','showLineups','showStory','showLive',
+                'showCountdown','showShare','showVenue','showReferee','showAttendance','showSponsor'];
+  const onCount = KEYS.filter(k => S[k] !== false).length;
+  set('mods', `${onCount}/${KEYS.length} مفعَّل`, onCount === KEYS.length ? 'ok' : 'neutral');
+
+  const days = window._subDaysValue;
+  set('sub', (typeof days === 'number') ? (days > 0 ? `${days} يوماً` : 'منتهٍ') : '',
+      (typeof days === 'number' && days <= 7) ? 'warn' : 'ok');
+};
+
+/* ── تنظيف الآثار المرتبطة ──
+   🔴 كان الحذف يمسّ المجموعة المستهدفة وحدها ويترك إشاراتها في مواضع
+   أخرى: تُحذف الفرق فتبقى معرّفاتها في `teamIds` و`qualifiedTeamIds`
+   للمجموعات، وفي `slotPicks` لأدوار الإقصاء، وفي `playoff.teamIds` —
+   فتظهر للمنظّم فرق «شبح» بلا وجود، ويحسب الترتيب على معرّفات ميتة.
+   هذه الدالّة تمحو الأثر أينما كان. */
+async function _dzClearTeamRefs() {
+  // المجموعات: أفرغ عضويّاتها وقوائم المتأهلين والحالات
+  const gs = await getDocs(collection(db, 'leagues', LEAGUE_ID, 'groups'));
+  if (!gs.empty) {
+    const b = writeBatch(db);
+    gs.docs.forEach(d => b.update(d.ref, {
+      teamIds: [], qualifiedTeamIds: [], eliminatedTeamIds: [],
+      teamStatus: {}, matchesGenerated: false, qualificationPublished: false
+    }));
+    await b.commit();
+  }
+  // أدوار الإقصاء: أفرغ الخانات نصف الممتلئة
+  const ks = await getDocs(collection(db, 'leagues', LEAGUE_ID, 'knockoutRounds'));
+  if (!ks.empty) {
+    const b2 = writeBatch(db);
+    ks.docs.forEach(d => b2.update(d.ref, { slotPicks: {} }));
+    await b2.commit();
+  }
+  // الملحق: فرقه ومتأهلوه وحالة إنشائه
+  const cur = (window.settings && window.settings.playoff) || null;
+  if (cur) {
+    await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'),
+      { playoff: Object.assign({}, cur, { teamIds: [], qualifiedIds: [], created: false }),
+        updatedAt: serverTimestamp() }, { merge: true });
+  }
+}
+
 /* 🔄 إعادة ضبط البطولة — ترجع لنقطة البداية: شاشة اختيار النوع + معالج الإنشاء */
 window.resetTournament = async function() {
   _showDeleteSheet(
@@ -5939,13 +6029,21 @@ window.resetTournament = async function() {
     async () => {
       try {
         showToast('⏳ جاري إعادة الضبط...', 'success');
-        for (const c of ['matches', 'teams', 'groups', 'knockout', 'events']) {
+        /* 🔴 كان يمحو مجموعة اسمها 'knockout' — وهي **غير موجودة**؛
+           الاسم الفعلي `knockoutRounds`. فتنجو شجرة الإقصاء من «إعادة
+           الضبط بالكامل» وتظهر في البطولة الجديدة كأنها لم تُمسّ. */
+        for (const c of ['matches', 'teams', 'groups', 'knockoutRounds']) {
           await _dzWipeCollection(c).catch(() => {});
         }
         // فتح القفل — يعود المعالج للظهور عند الدخول
-        await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'),
-          { typeLocked: false, type: null, setupComplete: false, updatedAt: serverTimestamp() },
-          { merge: true });
+        /* الإعدادات المشتقّة من محتوى محذوف يجب أن تعود لنقطة الصفر أيضاً،
+           وإلا فُتحت البطولة الجديدة بملحق «مُنشأ» وشجرة «منشورة» بلا محتوى. */
+        await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'), {
+          typeLocked: false, type: null, setupComplete: false,
+          playoff: { enabled: false, created: false, teamIds: [], qualifiedIds: [] },
+          bracketPublished: null, legMode: 'single',
+          updatedAt: serverTimestamp()
+        }, { merge: true });
         await updateDoc(doc(db, 'leagues', LEAGUE_ID), {
           typeLocked: false, type: null, matchesCount: 0, totalGoals: 0, updatedAt: serverTimestamp()
         }).catch(() => {});
@@ -5966,9 +6064,11 @@ window.wipeAllData = async function() {
     async () => {
       try {
         showToast('⏳ جاري المسح...', 'success');
-        for (const c of ['matches', 'teams', 'events']) {
+        for (const c of ['matches', 'teams']) {
           await _dzWipeCollection(c).catch(() => {});
         }
+        // امحُ إشارات الفرق المحذوفة من المجموعات والشجرة والملحق
+        await _dzClearTeamRefs().catch(() => {});
         await updateDoc(doc(db, 'leagues', LEAGUE_ID), {
           matchesCount: 0, totalGoals: 0, updatedAt: serverTimestamp()
         }).catch(() => {});
@@ -6671,6 +6771,8 @@ window.showPage = function(name, sb, mn) {
   if (name === 'playoff')     { try { window.renderPlayoffPage  && window.renderPlayoffPage();  } catch(e) {} }
   if (name === 'set-playoff') { try { window.renderPlayoffSetup && window.renderPlayoffSetup(); } catch(e) {} }
   if (name === 'zones')   { try { window.renderZonesEditor && window.renderZonesEditor(); } catch(e) {} }
+  // فهرس الإعدادات يعرض قيماً حيّة، فيُحدَّث مع كل فتحة
+  if (name === 'settings') { try { window.renderSettingsIndex && window.renderSettingsIndex(); } catch(e) {} }
 };
 
 let toastT;
@@ -9611,6 +9713,10 @@ async function checkSubscription() {
     });
     const sub = _allSubs[0];
     const diff = window._subDaysLeft(sub.endDate);
+    /* خزّن العدد المحسوب: فهرس الإعدادات يعرضه في شارة الاشتراك، وقراءة
+       الدالّة نفسها هناك تعطي كائن دالّة لا رقماً فتبقى الشارة فارغة. */
+    window._subDaysValue = diff;
+    if (typeof window.renderSettingsIndex === 'function') window.renderSettingsIndex();
 
     renderSubscriptionInfo(sub, diff);
 
@@ -10167,7 +10273,7 @@ function loadGroupsAndKnockout() {
       const data = snap.data();
       settings = { ...settings, ...data };
       window.settings = settings;
-      updateBracketPublishUI(data.bracketPublished === true);
+      updateBracketPublishUI(data.bracketPublished !== false);
       // ✅ زامن حالة مفاتيح الإعدادات المحفوظة مع الواجهة (كي تعكس ما اختاره المنظّم)
       try {
         document.querySelectorAll('.toggle-row[data-key]').forEach(row => {
@@ -10584,6 +10690,116 @@ window._poStandings = _poStandings;
 const _poName = id => ((window.teams || []).find(t => t.id === id) || {}).name || '؟';
 const _poLogo = id => ((window.teams || []).find(t => t.id === id) || {}).logo || '';
 
+/* ── جاهزية الملحق ──
+   🔴 صفحة الملحق كانت تقول «اضبط الملحق من الإعدادات ثم اضغط إنشاء القسم»
+   ولا تقول **ما الناقص**، وزرّ الإنشاء في الإعدادات يُعطَّل بصمت وسببه في
+   سطر رمادي ١٠px تحته. فالمنظّم يضبط كل ما يراه ثم يعود فيجد الرسالة
+   نفسها — بلا دليل على ما ينقص ولا طريق إلى إتمامه.
+
+   مصدر واحد للجاهزية يستعمله الموضعان، وكل بند يحمل سببه وزرّ إتمامه. */
+function _poReadiness() {
+  const p = _po();
+  const t = PLAYOFF_TYPES.find(f => f.key === p.type) || PLAYOFF_TYPES[0];
+  const n = p.teamIds.length;
+  const items = [];
+
+  items.push({
+    ok: p.enabled, key: 'enabled',
+    t: 'تفعيل الملحق',
+    d: p.enabled ? 'مفعَّل' : 'الملحق مطفأ — فعّله لتفتح إعداداته',
+    act: p.enabled ? null : { l: 'تفعيل', fn: 'poToggleEnabled()' }
+  });
+
+  items.push({
+    ok: n >= 2, key: 'teams',
+    t: `فرق الملحق (${n})`,
+    d: n >= 2 ? (n === 2 ? 'فريقان مضافان' : `${n} فرق مضافة`)
+              : 'يلزم فريقان على الأقل — أضِفهما من إعدادات الملحق',
+    act: n >= 2 ? null : { l: 'إضافة الفرق', fn: "showPage('set-playoff',null)" }
+  });
+
+  // شروط يفرضها نوع الملحق نفسه
+  if (p.type === 'groups') {
+    const need = p.groupsCount * 2;
+    items.push({
+      ok: n >= need, key: 'groups',
+      t: `فرق تكفي ${p.groupsCount} مجموعات`,
+      d: n >= need ? `${n} فريقاً تكفي ${p.groupsCount} مجموعات`
+                   : `يلزم ${need} فريقاً على الأقل (فريقان لكل مجموعة) — المضاف ${n}`,
+      act: n >= need ? null : { l: 'إضافة الفرق', fn: "showPage('set-playoff',null)" }
+    });
+    items.push({
+      ok: p.perGroup >= 1 && p.perGroup < Math.max(2, Math.floor(n / Math.max(1, p.groupsCount))), key: 'per',
+      t: `المتأهلون من كل مجموعة (${p.perGroup})`,
+      d: 'عدد المتأهلين يجب أن يكون أقل من عدد فرق المجموعة',
+      act: null, soft: true
+    });
+  }
+  if (p.type === 'double' && n !== 2) {
+    items.push({
+      ok: false, key: 'double',
+      t: 'ذهاب وإياب يحتاج فريقين بالضبط',
+      d: `المضاف ${n} — احذف الزائد أو غيّر نوع الملحق`,
+      act: { l: 'ضبط الفرق', fn: "showPage('set-playoff',null)" }
+    });
+  }
+  if (p.type === 'single' && n !== 2) {
+    items.push({
+      ok: false, key: 'single',
+      t: 'مباراة واحدة تحتاج فريقين بالضبط',
+      d: `المضاف ${n} — احذف الزائد أو غيّر نوع الملحق`,
+      act: { l: 'ضبط الفرق', fn: "showPage('set-playoff',null)" }
+    });
+  }
+
+  const blockers = items.filter(i => !i.ok && !i.soft);
+  return { p, t, items, ready: blockers.length === 0, blockers };
+}
+window._poReadiness = _poReadiness;
+
+/* بطاقة الجاهزية — نفس الشكل في صفحة الملحق وفي الإعدادات */
+function _poChecklistHTML(r, opts) {
+  const o = opts || {};
+  const sug = _poSuggested().filter(id => !r.p.teamIds.includes(id));
+  return `
+    <div class="po-chk">
+      <div class="po-chk-h">
+        <span>${r.ready ? '✓ كل الشروط مكتملة' : `ينقص ${r.blockers.length} شرط لإنشاء القسم`}</span>
+        <span class="po-chk-t">${r.t.label}</span>
+      </div>
+      ${r.items.map(i => `
+        <div class="po-chk-i ${i.ok ? 'ok' : (i.soft ? 'soft' : 'bad')}">
+          <span class="po-chk-m">${i.ok ? '✓' : (i.soft ? '!' : '✕')}</span>
+          <span class="po-chk-x">
+            <b>${i.t}</b>
+            <i>${i.d}</i>
+          </span>
+          ${i.act ? `<button class="po-chk-b" onclick="${i.act.fn}">${i.act.l}</button>` : ''}
+        </div>`).join('')}
+
+      ${(!r.p.teamIds.length && sug.length) ? `
+        <button class="po-sug" onclick="poAddSuggested()">
+          ⚡ أضِف الفرق المقترحة (${sug.length}) — من مناطق الملحق في الترتيب والمجموعات
+        </button>` : ''}
+
+      ${o.showCreate ? `
+        <button class="btn btn-gold po-create" onclick="poCreateSection()" ${r.ready ? '' : 'disabled'}>
+          ${r.ready ? '✓ إنشاء قسم الملحق الآن' : 'أكمل الشروط أعلاه أولاً'}
+        </button>` : ''}
+      ${o.showSettings ? `
+        <button class="po-chk-s" onclick="showPage('set-playoff',null)">فتح إعدادات الملحق ←</button>` : ''}
+    </div>`;
+}
+
+/* إضافة الفرق المقترحة دفعة واحدة — الخطوة الأكثر تكراراً وأطولها يدوياً */
+window.poAddSuggested = async function () {
+  const p = _po();
+  const sug = _poSuggested().filter(id => !p.teamIds.includes(id));
+  if (!sug.length) { showToast('لا توجد فرق مقترحة — حدّد مناطق الملحق في الترتيب أو المجموعات', 'error'); return; }
+  const ok = await _poSave({ teamIds: p.teamIds.concat(sug) });
+  if (ok) showToast(`✓ أُضيف ${sug.length} فريقاً`, 'success');
+};
+
 /* إظهار/إخفاء قسم الملحق في القائمة الجانبية — يظهر بعد الإنشاء فقط */
 function _poSyncNav() {
   const nav = document.getElementById('sb-playoff');
@@ -10643,12 +10859,18 @@ window.renderPlayoffPage = function() {
   }
 
   if (!p.created) {
+    /* 🔴 كانت الرسالة هنا مسدودة: «اضبط الملحق من الإعدادات» بلا ذكر ما
+       ينقص، وبلا زرّ إنشاء. فيضبط المنظّم كل ما يراه ثم يعود فيجد الرسالة
+       نفسها. الآن: قائمة شروط مفصّلة، وزرّ الإنشاء **هنا** فور اكتمالها —
+       فلا حاجة للتنقّل بين صفحتين لإتمام خطوة واحدة. */
+    const r = _poReadiness();
     host.innerHTML = `
-      <div class="card"><div class="card-body" style="text-align:center;padding:26px 18px">
-        <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px">لم يُنشأ القسم بعد</div>
-        <div style="font-size:11.5px;color:var(--muted);line-height:1.9;margin-bottom:16px">
-          اضبط الملحق من الإعدادات ثم اضغط «إنشاء القسم».</div>
-        <button class="btn btn-outline btn-sm" onclick="showPage('set-playoff',null)">← إعدادات الملحق</button>
+      <div class="card"><div class="card-body">
+        <div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:4px">لم يُنشأ القسم بعد</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.9;margin-bottom:14px">
+          ${r.ready ? 'كل الشروط مكتملة — اضغط الإنشاء بالأسفل.'
+                    : 'هذه الشروط يجب أن تكتمل قبل إنشاء القسم:'}</div>
+        ${_poChecklistHTML(r, { showCreate: true, showSettings: true })}
       </div></div>`;
     return;
   }
@@ -10821,13 +11043,9 @@ function _poSetupHTML(p) {
           <button class="btn btn-outline" onclick="showPage('playoff',null)" style="width:100%">
             فتح قسم الملحق ←</button>
         ` : `
-          <button class="btn btn-gold" onclick="poCreateSection()" style="width:100%;padding:14px;font-size:14px"
-            ${p.teamIds.length < 2 ? 'disabled' : ''}>
-            ${window.Icon?window.Icon('check',16,'#000'):''} إنشاء قسم الملحق</button>
-          <div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:9px;line-height:1.8">
-            ${p.teamIds.length < 2 ? 'أضِف فريقين على الأقل أولاً'
-              : `سيُنشأ القسم بـ${t.label} ويولَّد جدول مبارياته، ويظهر بجانب المجموعات والإقصاء`}
-          </div>
+          ${(() => { const r = _poReadiness(); return _poChecklistHTML(r, { showCreate: true }) +
+            (r.ready ? `<div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:9px;line-height:1.8">
+              سيُنشأ القسم بـ${t.label} ويولَّد جدول مبارياته، ويظهر بجانب المجموعات والإقصاء</div>` : ''); })()}
         `}
       </div>
     </div>
@@ -11105,7 +11323,14 @@ window.poOpenTeamPicker = function() {
    بدل أن يبحث عن زرّ توليد منفصل ثم يتساءل أين ذهب القسم. */
 window.poCreateSection = async function() {
   const p = _po();
-  if (p.teamIds.length < 2) { showToast('أضِف فريقين على الأقل', 'error'); return; }
+  const _r = _poReadiness();
+  if (!_r.ready) {
+    // اذكر أول شرط ناقص بالاسم بدل رفض مقتضب لا يدلّ على شيء
+    showToast('ينقص: ' + _r.blockers[0].t, 'error');
+    window.renderPlayoffSetup && window.renderPlayoffSetup();
+    window.renderPlayoffPage && window.renderPlayoffPage();
+    return;
+  }
   const t = PLAYOFF_TYPES.find(f => f.key === p.type) || PLAYOFF_TYPES[0];
   const ok = await window.confirmDialog({
     title: 'إنشاء قسم الملحق',
@@ -12050,44 +12275,34 @@ function renderKnockoutAdmin() {
   // ══════════════════════════════════════════════════════
   // الحالة 2: الشجرة موجودة → اعرضها بشكل شجرة عمودية تفاعلية (مطابقة لتصميم الجمهور، تدعم الجوال طولياً)
   // ══════════════════════════════════════════════════════
-  const isPublished = settings.bracketPublished === true;
+  /* 🔴 كانت الشجرة مخفية افتراضياً: الحقل غائب في البطولات الجديدة،
+     والقراءة `=== true` تجعل الغياب إخفاءً. فينشئ المنظّم الشجرة ويضع
+     الفرق ولا يراها أحد، وهو لا يدري أن ثمّة زرّ نشر أصلاً.
+     الآن الغياب يعني «ظاهرة»، والإخفاء يحتاج قراراً صريحاً — فمن أخفاها
+     عمداً يبقى إخفاؤه، ومن لم يلمس شيئاً تظهر شجرته. */
+  const isPublished = settings.bracketPublished !== false;
 
   const publishBar = `
-    <div style="margin-bottom:14px;padding:12px 14px;
-      background:${isPublished ? 'rgba(39,174,96,.07)' : 'rgba(201,160,43,.05)'};
-      border:1px solid ${isPublished ? 'rgba(39,174,96,.25)' : 'rgba(201,160,43,.2)'};
-      border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:10px">
-      <div>
-        <div style="font-size:12px;font-weight:700;color:${isPublished ? 'var(--green)' : 'var(--gold)'}">
-          ${isPublished ? '🌍 الشجرة ظاهرة للجمهور' : '🔒 الشجرة مخفية عن الجمهور'}
+    <div class="kpb ${isPublished ? 'on' : 'off'}" id="bracketPublishBar">
+      <div class="kpb-row">
+        <span class="kpb-dot"></span>
+        <div class="kpb-tx">
+          <div class="kpb-t" id="bracketPublishTitle">
+            ${isPublished ? 'الشجرة ظاهرة للجمهور' : 'الشجرة مخفية عن الجمهور'}</div>
+          <div class="kpb-s" id="bracketPublishSub">
+            ${isPublished ? 'أي تعديل يصل الجمهور مباشرةً'
+                          : 'لن يراها أحد حتى تُظهرها'}</div>
         </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">
-          ${isPublished ? 'اضغط لإخفائها مؤقتاً' : 'عبِّئ المباريات ثم انشر'}
-        </div>
+        <button class="kpb-btn" id="bracketPublishBtn" onclick="toggleBracketPublish()">
+          ${isPublished ? 'إخفاء' : 'إظهار'}</button>
       </div>
-      <div style="display:flex;gap:8px">
-        <button onclick="openKoSchedule()"
-          style="padding:9px 12px;border-radius:9px;border:1px solid rgba(201,160,43,.3);
-                 background:rgba(201,160,43,.08);color:var(--gold);font-family:Tajawal,sans-serif;
-                 font-size:11px;font-weight:800;cursor:pointer">📅 المواعيد</button>
-        <button onclick="adminResetBracket()"
-          style="padding:7px 12px;border-radius:8px;font-family:Tajawal,sans-serif;font-size:11px;cursor:pointer;
-          border:1px solid rgba(192,57,43,.3);background:rgba(192,57,43,.07);color:var(--red)">
-          🗑 إعادة بناء
-        </button>
-        <button onclick="toggleBracketPublish()"
-          style="padding:8px 16px;border-radius:9px;font-family:Tajawal,sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;
-          border:1px solid ${isPublished ? 'rgba(39,174,96,.4)' : 'rgba(201,160,43,.4)'};
-          background:${isPublished ? 'rgba(39,174,96,.12)' : 'rgba(201,160,43,.1)'};
-          color:${isPublished ? 'var(--green)' : 'var(--gold)'}">
-          ${isPublished ? '🔒 إخفاء' : '🌍 نشر للجمهور'}
-        </button>
+      <div class="kpb-acts">
+        <button class="kpb-a" onclick="openKoSchedule()">📅 المواعيد</button>
+        <button class="kpb-a" onclick="adminOpenBracketSwap()">🔄 تبديل فريقين</button>
+        <button class="kpb-a danger" onclick="adminResetBracket()">🗑 إعادة بناء</button>
       </div>
     </div>`;
 
-  /* ── شريط القرعة: حالة المتأهلين + توزيع تلقائي بضغطة ──
-     أهم تسهيل للمنظّم: بدل فتح كل خانة واختيار فريقين يدوياً (16 نقرة
-     في دور 16)، يوزّع القرعة كاملة بضغطة واحدة بنظام «الأول ضد الأخير». */
   const _pool    = _getQualifiedPool();
   const _placed  = _getPlacedKnockoutTeamIds();
   const _free    = _pool.filter(t => !_placed.has(t.id));
@@ -12144,9 +12359,7 @@ function renderKnockoutAdmin() {
             ? `<div class="kq-note">✓ كل المتأهلين (${_placed.size}) موضوعون في الشجرة</div>`
             : '')}
 
-      <div class="kq-actions">${_srcBtn}
-        <button onclick="adminOpenBracketSwap()" class="kq-src">🔄 تبديل فريقين</button>
-      </div>
+      <div class="kq-actions">${_srcBtn}</div>
       <div class="kq-hint">اضغط أي خانة في الشجرة لاختيار الفريق بنفسك — القرعة يدوية بالكامل.</div>
     </div>`;
 
@@ -12248,8 +12461,14 @@ function renderKnockoutAdmin() {
   const treeHtml = abTop + (abTop ? AB_DOWN : '') + abFinalHtml + (abBot ? AB_UP : '') + abBot;
 
   el.innerHTML = publishBar + drawBar + thirdPlaceBar + `<div class="ab-tree">${treeHtml}</div>`;
-  // الخطوط تُرسم من المواضع الفعلية بعد دخول العناصر للصفحة
-  requestAnimationFrame(() => window._abmDrawJoiners && window._abmDrawJoiners(el));
+  /* 🔴 كانت الخطوط تُرسم في الإطار التالي مباشرةً (`requestAnimationFrame`
+     واحد). لكن المواضع لا تكون نهائية بعد: الشعارات والخطوط لم تُحمَّل،
+     وقد تكون الصفحة نفسها مخفية لحظة الرسم فتُقاس الأبعاد أصفاراً.
+     ثم مع كل إعادة رسم (وقد صارت تقع مع كل تغيير في المجموعات) تُحذف
+     الخطوط ثم تُعاد — فتومض وتظهر وتختفي.
+     الآن: جدولة مؤجّلة تتحقّق من ظهور العنصر وتُعيد المحاولة إن لم يستقرّ
+     القياس، مع مراقب تغيّر حجم يعيد الرسم عند استقرار التخطيط. */
+  _abmScheduleJoiners(el);
 }
 
 
@@ -12257,14 +12476,45 @@ function renderKnockoutAdmin() {
    كل مباراتين متجاورتين يلتقي فائزاهما في مباراة واحدة، فنرسم قوساً
    يجمعهما في ساق واحدة بنقطة ذهبية عند الملتقى. الوصلة محلية داخل فراغ
    الشبكة فلا تمرّ فوق أي بطاقة إطلاقاً. */
+/* مُجدوِل الرسم: يؤجّل، ويتحقّق من الظهور، ويعيد المحاولة عند القياس الصفري */
+let _abmTimer = null, _abmTries = 0, _abmRO = null;
+function _abmScheduleJoiners(el, retry) {
+  if (!retry) _abmTries = 0;
+  clearTimeout(_abmTimer);
+  _abmTimer = setTimeout(() => {
+    const tree = el && el.querySelector('.ab-tree');
+    if (!tree) return;
+    // العنصر مخفي أو لم يأخذ عرضه بعد → أعد المحاولة بدل رسم خطوط خاطئة
+    const w = tree.getBoundingClientRect().width;
+    if ((!w || tree.offsetParent === null) && _abmTries < 20) {
+      _abmTries++; _abmScheduleJoiners(el, true); return;
+    }
+    window._abmDrawJoiners(el);
+
+    /* الشعارات والخطوط تصل بعد الرسم الأول فتتغيّر الارتفاعات — مراقب
+       الحجم يعيد الرسم مرة واحدة عند الاستقرار بدل ترك خطوط في غير محلّها. */
+    if (window.ResizeObserver) {
+      if (_abmRO) _abmRO.disconnect();
+      let _roT = null;
+      _abmRO = new ResizeObserver(() => {
+        clearTimeout(_roT);
+        _roT = setTimeout(() => window._abmDrawJoiners(el), 120);
+      });
+      _abmRO.observe(tree);
+    }
+  }, retry ? 60 : 40);
+}
+window._abmScheduleJoiners = _abmScheduleJoiners;
+
 window._abmDrawJoiners = function(root) {
   /* خطوط الشجرة — عمود فقري مركزي وفروع قصيرة (مطابق لصفحة الجمهور).
      المحاولة السابقة رسمت أقواس أزواج تنزل ساقها إلى فراغ بين الصفوف
      فتبدو معلّقة عشوائية. الآن بنية واحدة متّصلة لا تعبر فوق أي بطاقة. */
   const tree = root && root.querySelector('.ab-tree');
   if (!tree) return;
-  tree.querySelectorAll('svg.abm-lines').forEach(el => el.remove());
   tree.style.position = 'relative';
+  // لا نحذف الطبقة القديمة الآن: حذفها قبل بناء البديل يترك فراغاً مرئياً
+  // (وميضاً) بين اللحظتين. تُستبدل دفعة واحدة في نهاية الدالة.
   const wr = tree.getBoundingClientRect();
   const paths = [], nodes = [];
 
@@ -12298,7 +12548,8 @@ window._abmDrawJoiners = function(root) {
     paths.push(`M ${spineX} ${down ? jBot : jTop} L ${spineX} ${edgeOut}`);
   });
 
-  if (!paths.length) return;
+  const _old = tree.querySelectorAll('svg.abm-lines');
+  if (!paths.length) { _old.forEach(el => el.remove()); return; }
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'abm-lines');
   svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0';
@@ -12306,6 +12557,7 @@ window._abmDrawJoiners = function(root) {
     paths.map(d => `<path d="${d}" fill="none" stroke="rgba(201,160,43,.34)" stroke-width="1.5" shape-rendering="crispEdges"/>`).join('') +
     nodes.map(p => `<circle cx="${p.x}" cy="${p.y}" r="2.4" fill="rgba(201,160,43,.75)"/>`).join('');
   tree.appendChild(svg);
+  _old.forEach(el => el.remove());   // الاستبدال بعد وصول البديل
 };
 
 if (!window._abmResizeBound) {
@@ -12315,7 +12567,7 @@ if (!window._abmResizeBound) {
     clearTimeout(_t);
     _t = setTimeout(() => {
       const el = document.getElementById('knockoutAdminList');
-      if (el && el.querySelector('.ab-tree')) window._abmDrawJoiners(el);
+      if (el && el.querySelector('.ab-tree')) _abmScheduleJoiners(el);
     }, 180);
   });
 }
@@ -13146,7 +13398,7 @@ window.adminSaveKnockoutRound = async function () {
 
 // ── نشر / إخفاء الشجرة للجمهور ──
 window.toggleBracketPublish = async function () {
-  const current = settings.bracketPublished === true;
+  const current = settings.bracketPublished !== false;
   const next = !current;
   try {
     await setDoc(doc(db, 'leagues', LEAGUE_ID, 'config', 'settings'),
@@ -13158,26 +13410,19 @@ window.toggleBracketPublish = async function () {
 };
 
 function updateBracketPublishUI(published) {
-  const btn   = document.getElementById('bracketPublishBtn');
-  const sub   = document.getElementById('bracketPublishSub');
-  const bar   = document.getElementById('bracketPublishBar');
-  if(!btn) return;
-  if(published) {
-    btn.textContent = '🌍 منشورة — إخفاء';
-    btn.style.background = 'rgba(39,174,96,.12)';
-    btn.style.borderColor = 'rgba(39,174,96,.4)';
-    btn.style.color = 'var(--green)';
-    if(sub) sub.textContent = 'الشجرة ظاهرة للجمهور الآن — اضغط لإخفائها';
-    if(bar) bar.style.borderColor = 'rgba(39,174,96,.3)';
-  } else {
-    btn.textContent = '🔒 مخفية — نشر';
-    btn.style.background = 'var(--card2)';
-    btn.style.borderColor = 'var(--border2)';
-    btn.style.color = 'var(--muted)';
-    if(sub) sub.textContent = 'انشر الشجرة بعد ما تكمل إعدادها';
-    if(bar) bar.style.borderColor = 'var(--border2)';
-  }
+  const bar = document.getElementById('bracketPublishBar');
+  const btn = document.getElementById('bracketPublishBtn');
+  const t   = document.getElementById('bracketPublishTitle');
+  const sub = document.getElementById('bracketPublishSub');
+  if (!bar) return;
+  bar.classList.toggle('on',  !!published);
+  bar.classList.toggle('off', !published);
+  if (btn) btn.textContent = published ? 'إخفاء' : 'إظهار';
+  if (t)   t.textContent   = published ? 'الشجرة ظاهرة للجمهور' : 'الشجرة مخفية عن الجمهور';
+  if (sub) sub.textContent = published ? 'أي تعديل يصل الجمهور مباشرةً'
+                                       : 'لن يراها أحد حتى تُظهرها';
 }
+
 
 window.adminDeleteKnockoutRound = async function (roundId) {
   if (!(await window.confirmDialog({ title: '⚠️ تأكيد', message: 'حذف هذا الدور وكل مبارياته؟', confirmText: '🗑 نعم، احذف', danger: true }))) return;
@@ -16890,17 +17135,13 @@ window.importRosterToLineup = function(teamId) {
     <div class="mcv2-fld"><label class="mcv2-lbl">👥 عدد الجمهور</label><input class="mcv2-inp" type="number" inputmode="numeric" min="0" id="mcv2-iatt-${matchId}" value="${m.attendance || ''}" placeholder="مثال: 500"/></div>
     <div class="mcv2-fld"><label class="mcv2-lbl">📝 ملاحظات (تظهر للجمهور)</label><textarea class="mcv2-inp" id="mcv2-inotes-${matchId}" rows="2" style="resize:none" placeholder="أي ملاحظات للجمهور...">${m.notes || ''}</textarea></div>
 
-    <div class="mcv2-sec">🚦 حالة المباراة</div>
-    <div class="mcv2-status-flex" id="mcv2-istat-${matchId}">
-      ${STATS.map(s => `
-        <button class="mcv2-status-opt" id="mcv2-ist-${s.k}-${matchId}"
-          style="${effectiveStatus === s.k ? `background:${s.c}18;border-color:${s.c}44;color:${s.c}` : ''}"
-          onclick="mcv2SelStat('${matchId}','${s.k}','${s.c}')">${s.l}
-        </button>`).join('')}
-    </div>
-
-
-    <div class="mcv2-sec">🏷️ حالة خاصة <span style="color:var(--muted);font-weight:400;font-size:10px">— تظهر على بطاقة المباراة للجمهور</span></div>
+    <!-- 🔴 حُذف قسم «🚦 حالة المباراة» (قادمة · مباشر · استراحة · انتهت).
+         كان مكرراً: حالة اللعب تُضبط أصلاً من الإدخال السريع وشاشة
+         المباشر ومسار تسجيل النتيجة، فوجودها هنا مصدرٌ رابع للحقيقة
+         نفسها يتيح ضبطها من مكانين بنتيجتين مختلفتين.
+         الحالة الموجودة هنا هي «الحالة الخاصة» فقط — وهي ما يراه الجمهور
+         على البطاقة. وحقل حالة اللعب يُحفظ كما هو بلا تعديل. -->
+    <div class="mcv2-sec">🏷️ حالة المباراة للجمهور <span style="color:var(--muted);font-weight:400;font-size:10px">— تظهر على بطاقة المباراة للجمهور</span></div>
     <div class="mst-grid" id="mst-grid-${matchId}">
       ${MSTATES.map(f => `
         <button type="button" class="mst-opt${(m.specialStatus || '') === f.k ? ' on' : ''}"
@@ -16944,7 +17185,8 @@ window.importRosterToLineup = function(teamId) {
 
   window.mcv2SaveInfo = async function(matchId) {
     const m = _getM(matchId); if (!m) return;
-    const status = document.getElementById('mcv2-info-ov')?.__selStatus || m.status;
+    // حالة اللعب لم تعد تُضبط من هنا — تُحفظ كما هي
+    const status = m.status;
     const _ovEl = document.getElementById('mcv2-info-ov');
     const _flag = (_ovEl && _ovEl.__selFlag != null) ? _ovEl.__selFlag : (m.specialStatus || 'none');
     const _note = (document.getElementById(`mst-note-${matchId}`)?.value || '').trim();
@@ -17328,7 +17570,7 @@ window.importRosterToLineup = function(teamId) {
   const NAMES = [
     'addTeam', 'adminAddGroup', 'addRosterPlayer', 'savePlayerProfile',
     'saveEditTeam', 'saveZoneRules', 'saveSettings', 'saveKoSchedule',
-    'poCreateSection', 'poGenerateMatches', 'poResetAll', 'adminConfirmBracketCreate',
+    'poCreateSection', 'poGenerateMatches', 'poResetAll', 'poAddSuggested', 'adminConfirmBracketCreate',
     'saveDeduction', 'autoSchedule', 'swissGenerateFixtures',
     'saveNewPassword', 'uploadRosterPhoto', 'removeRosterPhoto'
   ];

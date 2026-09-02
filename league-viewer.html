@@ -82,7 +82,7 @@ if('serviceWorker' in navigator) {
         <button class="notif-bell" id="notifBell" onclick="toggleNotifications()" title="الإشعارات" style="background:transparent;border:1px solid var(--border2);color:var(--muted2);border-radius:8px;padding:6px 10px;font-size:16px;cursor:pointer">🔔</button>
         <button id="myPredBtn" onclick="openMyPredictions()" title="توقّعاتي"
           style="background:transparent;border:1px solid var(--border2);color:var(--muted2);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">توقّعاتي</button>
-        <button class="header-share" onclick="showSharePanel()">📤 مشاركة</button>
+        <button class="header-share" id="headerShareBtn" onclick="showSharePanel()">📤 مشاركة</button>
       </div>
     </div>
     <div class="league-hero">
@@ -1455,5 +1455,6 @@ if('serviceWorker' in navigator) {
 <script defer src="./predictions.js"></script>
 <script defer src="./viewport-lock.js"></script>
 <script defer src="./pwa-install.js"></script>
+<script src="./back-nav.js"></script>
 </body>
 </html>

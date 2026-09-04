@@ -56,6 +56,19 @@ window._fsDb = db;   // للبثّ المباشر (WebRTC receiver)
 const params   = new URLSearchParams(location.search);
 const LEAGUE_ID = params.get('id') || '';
 
+/* 🔴 كان معرّف البطولة يُحفظ **بعد** نجاح تحميلها. فمن فتح الرابط ثم ثبّت
+   التطبيق قبل اكتمال التحميل (أو على شبكة ضعيفة) لا يُحفظ له شيء.
+   نحفظه فور قراءته من الرابط، ونحتفظ بقائمة آخر البطولات لشاشة الاستعادة. */
+if (LEAGUE_ID) {
+  try {
+    localStorage.setItem('installedLeagueId', LEAGUE_ID);
+    const mru = JSON.parse(localStorage.getItem('recentLeagues') || '[]')
+      .filter(x => x && x.id !== LEAGUE_ID);
+    mru.unshift({ id: LEAGUE_ID, name: '', at: Date.now() });
+    localStorage.setItem('recentLeagues', JSON.stringify(mru.slice(0, 6)));
+  } catch (e) {}
+}
+
 // 🔗 فتح مباراة محددة من الرابط (?id=..&match=..) — مرة واحدة فقط
 let _deepLinkOpened = false;
 function _maybeOpenDeepLinkMatch() {
@@ -406,7 +419,9 @@ function _installDynamicManifest(league) {
     const name = (league && league.name) ? String(league.name) : 'بطولة';
     const base = location.pathname.replace(/[^/]*$/, '') || './';
     const startUrl = `${base}league-viewer.html?id=${encodeURIComponent(id)}&source=pwa`;
-    const scope = `${base}league-viewer.html?id=${encodeURIComponent(id)}`;
+    // النطاق (scope) يتجاهل الاستعلام بحكم المواصفة، ووضعه فيه قد يُبطل
+    // المانيفست كاملاً في بعض المتصفحات. نستعمل المجلّد كما هو.
+    const scope = base;
 
     // أيقونة التطبيق = شعار البطولة إن كان صورة، وإلا أيقونة المنصة
     const logoIsImg = league && league.logo &&
@@ -443,11 +458,36 @@ function _installDynamicManifest(league) {
       prefer_related_applications: false,
     };
 
-    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-    const url = URL.createObjectURL(blob);
+    /* 🔴🔴 جذر مشكلة الآيفون:
+       سفاري **لا يقرأ مانيفستاً بعنوان `blob:`** — يتجاهله تماماً. فيبقى
+       المانيفست الثابت هو المعتمد، و`start_url` فيه
+       `./league-viewer.html?source=pwa` **بلا معرّف بطولة**. فالتطبيق
+       المثبّت يفتح صفحة بلا `id` ← «الرابط غير صحيح» في كل مرة.
+
+       الحلّ على iOS: **نزيل وسم المانيفست بالكامل.** عندها يحفظ سفاري
+       «إضافة إلى الشاشة الرئيسية» على **عنوان الصفحة الحالي نفسه** —
+       وهو يحمل `?id=` الصحيح. والاسم والأيقونة يأخذهما من وسمَي
+       `apple-mobile-web-app-title` و`apple-touch-icon` اللذين نضبطهما
+       أدناه بشعار البطولة واسمها — فلا نخسر شيئاً. */
+    const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     let link = document.querySelector('link[rel="manifest"]');
-    if (!link) { link = document.createElement('link'); link.rel = 'manifest'; document.head.appendChild(link); }
-    link.setAttribute('href', url);
+    if (_isIOS) {
+      if (link) link.remove();
+      // أيقونة التطبيق على الآيفون = شعار البطولة
+      if (logoIsImg) {
+        document.querySelectorAll('link[rel="apple-touch-icon"]').forEach(el => el.remove());
+        const ic = document.createElement('link');
+        ic.rel = 'apple-touch-icon'; ic.href = league.logo;
+        document.head.appendChild(ic);
+      }
+    } else {
+      const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+      const url = URL.createObjectURL(blob);
+      if (!link) { link = document.createElement('link'); link.rel = 'manifest'; document.head.appendChild(link); }
+      link.setAttribute('href', url);
+    }
 
     // عنوان الصفحة أيضاً = اسم البطولة (يظهر في التطبيق وسجل المتصفح)
     document.title = name;
@@ -460,6 +500,72 @@ function _installDynamicManifest(league) {
     }
   } catch (e) { /* تجاهل بصمت — المانيفست الثابت يبقى بديلاً */ }
 }
+
+/* شاشة استعادة البطولة عند غياب المعرّف */
+function _showRecoveryScreen() {
+  let mru = [];
+  try { mru = JSON.parse(localStorage.getItem('recentLeagues') || '[]'); } catch (e) {}
+  mru = (mru || []).filter(x => x && /^[A-Za-z0-9_-]{3,}$/.test(x.id));
+
+  const host = document.body;
+  const ov = document.createElement('div');
+  ov.id = 'lgRecovery';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#080808;overflow-y:auto;' +
+    'display:flex;align-items:center;justify-content:center;padding:22px;font-family:Tajawal,sans-serif';
+  ov.innerHTML = `
+    <div style="width:100%;max-width:420px;text-align:center">
+      <div style="font-size:44px;margin-bottom:14px">🔗</div>
+      <div style="font-size:17px;font-weight:900;color:#e6c157;margin-bottom:8px">لم تُحدَّد البطولة</div>
+      <div style="font-size:12px;color:#8a8a8a;line-height:1.95;margin-bottom:22px">
+        كل بطولة لها رابطها الخاص. اختر بطولة فتحتها من هذا الجهاز،
+        أو الصق رابط البطولة الذي أرسله لك المنظّم.
+      </div>
+
+      ${mru.length ? `
+        <div style="font-size:10px;font-weight:800;color:#666;letter-spacing:.5px;text-align:start;margin-bottom:8px">
+          بطولات فُتحت من هذا الجهاز</div>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:20px">
+          ${mru.map(x => `
+            <button onclick="location.replace('league-viewer.html?id=${encodeURIComponent(x.id)}')"
+              style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;cursor:pointer;
+                     background:#131519;border:1px solid #23262e;color:#eee;font-family:inherit;text-align:start">
+              <span style="font-size:16px">🏆</span>
+              <span style="flex:1;min-width:0;font-size:12.5px;font-weight:700;overflow:hidden;
+                           text-overflow:ellipsis;white-space:nowrap">${x.name || x.id}</span>
+              <span style="font-size:11px;color:#666">فتح ←</span>
+            </button>`).join('')}
+        </div>` : ''}
+
+      <div style="font-size:10px;font-weight:800;color:#666;letter-spacing:.5px;text-align:start;margin-bottom:8px">
+        أو الصق رابط البطولة</div>
+      <input id="lgRecInput" type="text" placeholder="https://…/league-viewer.html?id=…"
+        style="width:100%;box-sizing:border-box;padding:13px;border-radius:12px;margin-bottom:9px;
+               background:#131519;border:1px solid #23262e;color:#eee;font-family:inherit;font-size:12px;
+               direction:ltr;text-align:left;outline:none"/>
+      <button onclick="_lgRecoverFromInput()"
+        style="width:100%;padding:14px;border-radius:12px;cursor:pointer;font-family:inherit;
+               font-size:13px;font-weight:900;background:#e6c157;border:none;color:#000">فتح البطولة</button>
+      <div id="lgRecErr" style="font-size:11px;color:#e88c82;margin-top:10px;min-height:16px;line-height:1.7"></div>
+    </div>`;
+  host.appendChild(ov);
+}
+
+/* يقبل الرابط كاملاً أو المعرّف وحده — الناس تلصق أيّهما */
+window._lgRecoverFromInput = function () {
+  const raw = (document.getElementById('lgRecInput')?.value || '').trim();
+  const err = document.getElementById('lgRecErr');
+  const set = t => { if (err) err.textContent = t; };
+  if (!raw) { set('الصق الرابط أولاً'); return; }
+  let id = '';
+  try {
+    const u = new URL(raw, location.href);
+    id = u.searchParams.get('id') || '';
+  } catch (e) {}
+  if (!id) { const m = raw.match(/[?&]id=([A-Za-z0-9_-]{3,})/); if (m) id = m[1]; }
+  if (!id && /^[A-Za-z0-9_-]{3,}$/.test(raw)) id = raw;   // لصق المعرّف وحده
+  if (!id) { set('لم أجد معرّف بطولة في هذا الرابط — تأكّد أنه رابط البطولة كاملاً'); return; }
+  location.replace('league-viewer.html?id=' + encodeURIComponent(id));
+};
 
 async function init() {
   if(!LEAGUE_ID) {
@@ -475,7 +581,11 @@ async function init() {
       location.replace('league-viewer.html?id=' + encodeURIComponent(_appLeague) + '&source=pwa');
       return;
     }
-    showError('رابط غير صحيح', 'لم يتم تحديد البطولة. افتح رابط البطولة الكامل من المنظّم.');
+    /* 🔴 كانت الرسالة طريقاً مسدوداً: «رابط غير صحيح» وحدها، بلا مخرج.
+       ومن يفتح التطبيق المثبّت لا يملك الرابط أصلاً ليعيد فتحه.
+       الآن شاشة استعادة: البطولات التي فُتحت من هذا الجهاز + حقل لصق
+       الرابط — فلا يبقى المستخدم عالقاً مهما كان سبب ضياع المعرّف. */
+    _showRecoveryScreen();
     return;
   }
 
@@ -504,7 +614,13 @@ async function init() {
 
   // احفظ معرّف هذه البطولة — يُستعاد داخل التطبيق المثبّت فقط لو فُتح بلا id.
   // (لا يؤثر على زوّار المتصفح لأن الاستعادة مشروطة بوضع standalone.)
-  try { localStorage.setItem('installedLeagueId', LEAGUE_ID); } catch(e){}
+  try {
+    localStorage.setItem('installedLeagueId', LEAGUE_ID);
+    // الاسم يُعرف الآن — حدّثه في القائمة ليظهر مفهوماً في شاشة الاستعادة
+    const mru = JSON.parse(localStorage.getItem('recentLeagues') || '[]');
+    const hit = mru.find(x => x && x.id === LEAGUE_ID);
+    if (hit) { hit.name = league.name || ''; localStorage.setItem('recentLeagues', JSON.stringify(mru)); }
+  } catch(e){}
 
   // فور معرفة شعار البطولة: اعرضه في شاشة التحميل بدل أيقونة المنصة العامة
   if (league.logo) {

@@ -7502,18 +7502,38 @@ function _buildLivePage(matchId, match, ht, at) {
           </div>
         </div>
 
-        <!-- أزرار الأحداث -->
-        <div class="lp-events-grid">
-          <div class="lp-eg-label">📋 أحداث</div>
-          <div class="lp-eg-btns">
-            <button class="lp-ev-btn lp-ev-goal" onclick="lpOpenEvent('${mId}','goal','⚽','هدف')">⚽ هدف</button>
-            <button class="lp-ev-btn lp-ev-yellow" onclick="lpOpenEvent('${mId}','yellow','🟡','بطاقة صفراء')">🟡 صفراء</button>
-            <button class="lp-ev-btn lp-ev-red" onclick="lpOpenEvent('${mId}','red','🔴','بطاقة حمراء')">🔴 حمراء</button>
-            <button class="lp-ev-btn lp-ev-sub" onclick="lpOpenEvent('${mId}','sub','🔄','تبديل')">${window.Icon?window.Icon('refresh',12):''} تبديل</button>
-            <button class="lp-ev-btn lp-ev-inj" onclick="lpOpenEvent('${mId}','injury','🤕','إصابة')">🤕 إصابة</button>
-            <button class="lp-ev-btn lp-ev-var" onclick="lpOpenEvent('${mId}','var','📺','VAR')">📺 VAR</button>
+        <!-- ══ أحداث كل فريق على حدة ══
+             🔴 كان هنا صفّ أزرار واحد لكلا الفريقين، ومنه زرّ «⚽ هدف» —
+             وهو **تكرار** لأزرار الهدف (+/−) الموجودة أعلاه لكل فريق
+             بخانتها الخاصة، حيث الهدف العكسي والهدف بلا اسم أيضاً.
+             فيصير للهدف مساران مختلفان بنتيجتين محتملتين.
+             وأسوأ منه أن الفريق كان يُختار من قائمة منسدلة **داخل** نافذة
+             الحدث — فيضغط المنظّم «صفراء» ثم يكتشف أنه سجّلها على الفريق
+             الخطأ. الآن: عمودان، لكل فريق أزراره، والفريق محسوم بالضغطة
+             نفسها — نفس منطق الإدخال السريع. -->
+        <div class="lp-teamev">
+          <div class="lp-teamev-col">
+            <div class="lp-teamev-h home">${ht.name}</div>
+            <div class="lp-teamev-b">
+              <button class="lp-tev yellow" onclick="lpOpenEventFor('${mId}','home','yellow','🟡','بطاقة صفراء')">🟡 صفراء</button>
+              <button class="lp-tev red"    onclick="lpOpenEventFor('${mId}','home','red','🔴','بطاقة حمراء')">🔴 حمراء</button>
+              <button class="lp-tev sub"    onclick="lpOpenEventFor('${mId}','home','sub','🔄','تبديل')">🔄 تبديل</button>
+              <button class="lp-tev inj"    onclick="lpOpenEventFor('${mId}','home','injury','🤕','إصابة')">🤕 إصابة</button>
+              <button class="lp-tev var"    onclick="lpOpenEventFor('${mId}','home','var','📺','VAR')">📺 VAR</button>
+            </div>
+          </div>
+          <div class="lp-teamev-col">
+            <div class="lp-teamev-h away">${at.name}</div>
+            <div class="lp-teamev-b">
+              <button class="lp-tev yellow" onclick="lpOpenEventFor('${mId}','away','yellow','🟡','بطاقة صفراء')">🟡 صفراء</button>
+              <button class="lp-tev red"    onclick="lpOpenEventFor('${mId}','away','red','🔴','بطاقة حمراء')">🔴 حمراء</button>
+              <button class="lp-tev sub"    onclick="lpOpenEventFor('${mId}','away','sub','🔄','تبديل')">🔄 تبديل</button>
+              <button class="lp-tev inj"    onclick="lpOpenEventFor('${mId}','away','injury','🤕','إصابة')">🤕 إصابة</button>
+              <button class="lp-tev var"    onclick="lpOpenEventFor('${mId}','away','var','📺','VAR')">📺 VAR</button>
+            </div>
           </div>
         </div>
+        <div class="lp-teamev-note">⚽ الأهداف تُسجَّل من خانة كل فريق بالأعلى (+ / −)</div>
 
         <!-- سجل الأحداث -->
         <div class="lp-events-log">
@@ -7601,13 +7621,14 @@ function _buildLivePage(matchId, match, ht, at) {
     <div class="lp-event-modal" id="lp-evmodal-${mId}" style="display:none">
       <div class="lp-evmodal-box">
         <div class="lp-evmodal-title" id="lp-evmodal-title-${mId}">تسجيل حدث</div>
-        <div class="lp-evmodal-row">
+        <div class="lp-evmodal-row" id="lp-evteamrow-${mId}">
           <label>الفريق</label>
           <select class="lp-evmodal-sel" id="lp-evteam-${mId}" onchange="window._lpOnTeamChange('${mId}')">
             <option value="home">${ht.name}</option>
             <option value="away">${at.name}</option>
           </select>
         </div>
+        <div class="lp-evteam-badge" id="lp-evteambadge-${mId}" style="display:none"></div>
         <div class="lp-evmodal-row" id="lp-evplayerrow-${mId}">
           <label>اسم اللاعب</label>
           <input class="lp-evmodal-input" id="lp-evplayer-${mId}" placeholder="اكتب اسم اللاعب..."/>
@@ -7939,6 +7960,24 @@ window.lpNoNameGoal = async function(matchId) {
   showToast('⚽ هدف بلا اسم · ' + teamName, 'success');
 };
 
+/* فتح نافذة الحدث بفريق محسوم من الزرّ نفسه — تُخفى قائمة اختيار الفريق
+   لأن القرار اتُّخذ بالضغطة، فلا يبقى مجال للخطأ. */
+window.lpOpenEventFor = function(matchId, side, type, icon, label) {
+  const sel = document.getElementById('lp-evteam-' + matchId);
+  if (sel) sel.value = side;
+  window.lpOpenEvent(matchId, type, icon, label);
+  // بعد الفتح: أخفِ صفّ اختيار الفريق واعرض اسمه بدلاً منه
+  const row = document.getElementById('lp-evteamrow-' + matchId);
+  if (row) row.style.display = 'none';
+  const m = matches.find(x => x.id === matchId) || {};
+  const nm = side === 'home'
+    ? (teams.find(t => t.id === m.homeId)?.name || m.homeName || '')
+    : (teams.find(t => t.id === m.awayId)?.name || m.awayName || '');
+  const badge = document.getElementById('lp-evteambadge-' + matchId);
+  if (badge) { badge.textContent = nm; badge.style.display = ''; }
+  try { window._lpOnTeamChange && window._lpOnTeamChange(matchId); } catch (e) {}
+};
+
 window.lpOpenEvent = function(matchId, type, icon, label) {
   window._lpCurrentEventType[matchId] = type;
   window._lpCurrentEventIcon[matchId] = icon;
@@ -7999,6 +8038,11 @@ window._lpOnTeamChange = function(matchId) {
 };
 
 window.lpCloseEventModal = function(matchId) {
+  // أعِد صفّ اختيار الفريق لحالته حتى لا يبقى مخفياً في فتحة تالية
+  try {
+    const _r = document.getElementById('lp-evteamrow-' + matchId); if (_r) _r.style.display = '';
+    const _b = document.getElementById('lp-evteambadge-' + matchId); if (_b) _b.style.display = 'none';
+  } catch (e) {}
   const modal = document.getElementById('lp-evmodal-' + matchId);
   if (modal) modal.style.display = 'none';
 };
@@ -14583,6 +14627,31 @@ function injectAdminCSS() {
     }
     .abm-third .ab-box.ab-empty{flex-direction:row}
 
+    /* ══ أحداث البثّ — عمود لكل فريق ══
+       نفس منطق الإدخال السريع: الفريق يُحسم بالضغطة لا بقائمة منسدلة. */
+    .lp-teamev{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 6px}
+    .lp-teamev-col{border:1px solid var(--border2,#2a2a2a);background:var(--card2,#141414);
+      border-radius:12px;padding:9px;min-width:0}
+    .lp-teamev-h{font-size:11px;font-weight:900;text-align:center;padding:6px 4px;
+      border-radius:8px;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .lp-teamev-h.home{background:rgba(201,160,43,.13);color:#C9A02B}
+    .lp-teamev-h.away{background:rgba(59,125,191,.13);color:#7FA9DC}
+    .lp-teamev-b{display:flex;flex-direction:column;gap:5px}
+    .lp-tev{width:100%;min-height:38px;border-radius:9px;cursor:pointer;
+      font-family:'Tajawal',sans-serif;font-size:11px;font-weight:800;
+      background:var(--card,#0f1216);border:1px solid var(--border2,#2a2a2a);color:var(--text,#ddd)}
+    .lp-tev.yellow{border-color:rgba(241,196,15,.35);color:#f1c40f}
+    .lp-tev.red{border-color:rgba(231,76,60,.35);color:#e74c3c}
+    .lp-tev.sub{border-color:rgba(46,204,113,.30);color:#2ecc71}
+    .lp-tev.inj{border-color:rgba(230,126,34,.30);color:#e67e22}
+    .lp-tev.var{border-color:rgba(155,89,182,.30);color:#9b59b6}
+    .lp-teamev-note{font-size:9.5px;color:var(--muted,#888);text-align:center;
+      line-height:1.8;margin-bottom:10px}
+    .lp-evteam-badge{font-size:12px;font-weight:900;color:var(--gold,#C9A02B);
+      text-align:center;padding:8px;border-radius:9px;margin-bottom:10px;
+      background:rgba(201,160,43,.10);border:1px solid rgba(201,160,43,.28)}
+    @media (max-width:360px){ .lp-teamev{grid-template-columns:1fr} }
+
     /* ══ شريط المتأهلين الموحّد (بديل الشريطين المكرّرين) ══ */
     .kq-bar { margin-bottom:14px; padding:13px 14px; background:var(--card2,#141414);
       border:1px solid var(--border2,#2a2a2a); border-radius:12px; }
@@ -17059,7 +17128,7 @@ window.importRosterToLineup = function(teamId) {
         </div>` : ''}
         <button onclick="qrCommitOwnGoal('${matchId}','${side}','${String(t.name).replace(/'/g,"\\'")}')"
           style="width:100%;margin-top:10px;padding:11px;border-radius:9px;border:1px solid rgba(229,83,61,.45);background:rgba(229,83,61,.12);color:#e5533d;font-family:Tajawal,sans-serif;font-weight:800;font-size:12px;cursor:pointer">⚽ هدف عكسي (بدون نسبة للاعب)</button>
-        <button onclick="qrCommitNoName('${matchId}','${side}','${(teamName||'').replace(/'/g,"\\'")}')"
+        <button onclick="qrCommitNoName('${matchId}','${side}','${String(t.name).replace(/'/g,"\\'")}')"
           style="width:100%;margin-top:7px;padding:11px;border-radius:9px;border:1px solid rgba(201,160,43,.45);background:rgba(201,160,43,.12);color:#C9A02B;font-family:Tajawal,sans-serif;font-weight:800;font-size:12px;cursor:pointer">⚽ هدف بلا اسم (لا يُنسب لأحد)</button>
         <div style="font-size:10px;color:#888;margin:10px 0 5px">الدقيقة</div>
         <input id="qrGoalMinute" type="number" min="1" max="130" value="1"

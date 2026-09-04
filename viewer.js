@@ -1261,6 +1261,22 @@ window._playerSilhouetteSVG = function() {
 // ════════════════════════════════════════
 //  PLAYER MODAL
 // ════════════════════════════════════════
+/* ── مسمّى دور المباراة ──
+   🔴 كانت تُطبع «جولة ${m.round||1}» في كل مكان — فتظهر مباراة ربع النهائي
+   بوصف «جولة 1»، وهو رقم داخلي لا معنى له في أدوار الإقصاء والملحق:
+   الشجرة تخزّن اسم الدور في `knockoutRoundName`، وترقيم الجولة فيها ثابت.
+   مصدر واحد يُستعمل في كل موضع فلا يختلف الوصف بين شاشة وأخرى. */
+window.vRoundLabel = function (m) {
+  if (!m) return '';
+  if (m.isKnockout) return m.knockoutRoundName || 'دور إقصائي';
+  if (m.isPlayoff) {
+    return (m.poGroup != null)
+      ? 'الملحق · مجموعة ' + String.fromCharCode(65 + m.poGroup)
+      : 'الملحق';
+  }
+  return m.round ? 'جولة ' + m.round : '';
+};
+
 window.openPlayerModal = function(playerName, teamId, playerId) {
   // ✅ خزّن آخر استدعاء كي يُعاد رسم النافذة بالاسم الحيّ عند تعديل الكشف
   window._lastPlayerModal = { playerName, teamId, playerId };
@@ -1273,8 +1289,19 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
   let player = null;
   if (playerId) player = data.find(p => p.playerId && p.playerId === playerId);
   if (!player && teamId) player = data.find(p => p.teamId === teamId && norm(p.name) === norm(playerName));
-  if (!player) player = data.find(p => p.name === playerName);
-  if (!player) player = data.find(p => norm(p.name) === norm(playerName));
+  /* 🔴 كان هنا سقوطان إلى **مطابقة بالاسم عبر كل الفرق**:
+       `data.find(p => p.name === playerName)` ثم النسخة المُطبَّعة منها.
+     ومصدر البيانات (`buildScorersData`) لا يضمّ إلا من له أهداف أو أحداث —
+     فلاعب التشكيلة الذي لم يسجّل لا يوجد فيه، فيسقط البحث إلى **لاعب آخر
+     يحمل اسماً مطابقاً في فريق آخر** وتُفتح بطاقته بدلاً منه.
+     والتطبيع يُزيل التشكيل والمسافات، فتتطابق أسماء متقاربة بسهولة.
+     القاعدة الآن: **لا يُقفَز فوق الفريق أبداً** متى عُرف. وإن لم نجده في
+     مصدر الهدّافين نبني سجلاً مؤقتاً للاعب الصحيح (بالأسفل) — وهو الصواب،
+     لا استعارة سجلّ لاعب غيره. */
+  if (!player && !teamId) {
+    player = data.find(p => p.name === playerName)
+          || data.find(p => norm(p.name) === norm(playerName));
+  }
   // لو ما وُجد في الهدّافين (لاعب بطاقات فقط بلا أهداف)، ابنِ سجلاً مؤقتاً بالهوية
   if (!player && (playerId || playerName)) {
     const t = (teams || []).find(x => x.id === teamId) || {};
@@ -1487,7 +1514,7 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
       return `
       <div class="pm-match-row">
         <div class="pm-match-result" style="color:${rc}">${result}</div>
-        <div class="pm-match-vs">ضد ${opp.name} · جولة ${m.round||1}</div>
+        <div class="pm-match-vs">ضد ${opp.name}${window.vRoundLabel(m) ? ' · ' + window.vRoundLabel(m) : ''}</div>
         <div style="font-size:11px;color:var(--t3)">${my}-${op}</div>
         <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
           ${roleBadge}
@@ -5985,18 +6012,23 @@ function renderMatches(filter) {
     return;
   }
 
-  // تجميع حسب الجولة
+  /* تجميع: الجولات بأرقامها، وأدوار الإقصاء والملحق بأسمائها لا برقم
+     جولة داخلي لا يعنيه شيء عند الجمهور. */
   const rounds = {};
+  const order = {};
   list.forEach(m => {
-    const r = m.round || 0;
-    if (!rounds[r]) rounds[r] = [];
-    rounds[r].push(m);
+    let key, ord;
+    if (m.isKnockout)      { key = m.knockoutRoundName || 'دور إقصائي'; ord = 9000 + (m.round || 0); }
+    else if (m.isPlayoff)  { key = window.vRoundLabel(m) || 'الملحق';    ord = 8000 + (m.poGroup || 0); }
+    else                   { key = (m.round || 0) > 0 ? 'الجولة ' + m.round : 'مباريات'; ord = m.round || 0; }
+    if (!rounds[key]) { rounds[key] = []; order[key] = ord; }
+    rounds[key].push(m);
   });
 
   let html = '';
-  Object.keys(rounds).sort((a,b) => Number(a)-Number(b)).forEach(r => {
-    html += `<div style="font-size:11px;font-weight:700;color:var(--t3);padding:10px 14px 6px;background:var(--bg)">${r>0 ? 'الجولة ' + r : 'مباريات'}</div>`;
-    html += rounds[r].map(m => _matchCard(m)).join('');
+  Object.keys(rounds).sort((a, b) => order[a] - order[b]).forEach(key => {
+    html += `<div style="font-size:11px;font-weight:700;color:var(--t3);padding:10px 14px 6px;background:var(--bg)">${key}</div>`;
+    html += rounds[key].map(m => _matchCard(m)).join('');
   });
 
   el.innerHTML = html;
@@ -8534,7 +8566,8 @@ function renderPitchViewer(lineup, isAway) {
       const _on = k => !(window.settings && window.settings[k] === false);
       const rows = [
         { ic:'stadium',   label:'الملعب',          val: _on('showVenue')      ? m.venue        : null },
-        { ic:'calendar',  label:'الجولة',          val: m.round ? `الجولة ${m.round}` : null },
+        { ic:'calendar',  label: m.isKnockout ? 'الدور' : (m.isPlayoff ? 'الملحق' : 'الجولة'),
+          val: window.vRoundLabel(m) || null },
         { ic:'whistle',   label:'الحكم',            val: _on('showReferee')    ? m.referee      : null },
         { ic:'mic',       label:'المعلق',           val: _on('showReferee')    ? m.commentator  : null },
         { ic:'flag',      label:'حكم مساعد 1',     val: _on('showReferee')    ? m.linesman1    : null },

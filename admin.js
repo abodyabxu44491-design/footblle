@@ -7484,7 +7484,11 @@ function _buildLivePage(matchId, match, ht, at) {
           </div>
         </div>
 
-        <!-- أزرار النتيجة -->
+        <!-- ══ الأهداف ══
+             الزرّان الثابتان (عكسي · بلا اسم) كانا مخبوءين داخل نافذة
+             الحدث وحدها، ولا يصلهما المنظّم إلا بخطوات — مع أنهما من أكثر
+             ما يُستعمل أثناء البثّ. صارا تحت خانة كل فريق مباشرةً،
+             والفريق محسوم بموضع الزرّ لا بقائمة تُختار. -->
         <div class="lp-score-controls">
           <div class="lp-sc-row">
             <div class="lp-sc-team">${_lpLogoHtml(ht.logo, 24)} ${ht.name}</div>
@@ -7493,12 +7497,21 @@ function _buildLivePage(matchId, match, ht, at) {
               <button class="lp-sc-minus" onclick="lpRemoveGoal('${mId}','home')">−</button>
             </div>
           </div>
-          <div class="lp-sc-row">
+          <div class="lp-gx">
+            <button class="lp-gx-b own"  onclick="lpOwnGoalFor('${mId}','home')">⚽ هدف عكسي</button>
+            <button class="lp-gx-b anon" onclick="lpNoNameGoalFor('${mId}','home')">⚽ بلا اسم</button>
+          </div>
+
+          <div class="lp-sc-row" style="margin-top:10px">
             <div class="lp-sc-team">${_lpLogoHtml(at.logo, 24)} ${at.name}</div>
             <div class="lp-sc-btns">
               <button class="lp-sc-plus" onclick="lpAddGoal('${mId}','away')">+</button>
               <button class="lp-sc-minus" onclick="lpRemoveGoal('${mId}','away')">−</button>
             </div>
+          </div>
+          <div class="lp-gx">
+            <button class="lp-gx-b own"  onclick="lpOwnGoalFor('${mId}','away')">⚽ هدف عكسي</button>
+            <button class="lp-gx-b anon" onclick="lpNoNameGoalFor('${mId}','away')">⚽ بلا اسم</button>
           </div>
         </div>
 
@@ -7631,7 +7644,13 @@ function _buildLivePage(matchId, match, ht, at) {
         <div class="lp-evteam-badge" id="lp-evteambadge-${mId}" style="display:none"></div>
         <div class="lp-evmodal-row" id="lp-evplayerrow-${mId}">
           <label>اسم اللاعب</label>
-          <input class="lp-evmodal-input" id="lp-evplayer-${mId}" placeholder="اكتب اسم اللاعب..."/>
+          <input class="lp-evmodal-input" id="lp-evplayer-${mId}" placeholder="اكتب الاسم أو اختر من القائمة"/>
+          <!-- 🔴 كانت البطاقات والإصابة وVAR تعتمد على **الكتابة اليدوية** وحدها،
+               بينما نافذة الهدف تعرض كشف الفريق للاختيار. فيكتب المنظّم الاسم
+               بصيغة مختلفة في كل مرة، فينفصل اللاعب عن سجلّه ولا تُنسب إليه
+               بطاقاته. الآن نفس كشف الفريق هنا — بنفس المساعد المستعمل في
+               نافذة الهدف، فلا يتفرّع السلوك. -->
+          <div id="lp-evroster-${mId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
         </div>
         <div class="lp-evmodal-row" id="lp-evowngoal-${mId}" style="display:none">
           <button onclick="lpOwnGoal('${mId}')" style="width:100%;padding:10px;background:rgba(229,83,61,.1);border:1px solid rgba(229,83,61,.4);border-radius:10px;color:#e5533d;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">⚽ هدف عكسي (بدون نسبة للاعب)</button>
@@ -7962,6 +7981,19 @@ window.lpNoNameGoal = async function(matchId) {
 
 /* فتح نافذة الحدث بفريق محسوم من الزرّ نفسه — تُخفى قائمة اختيار الفريق
    لأن القرار اتُّخذ بالضغطة، فلا يبقى مجال للخطأ. */
+/* الفريق يُحسم من موضع الزرّ. نضبط قائمة الفريق المخفية ثم ننادي الدالّة
+   الأصلية — فمنطق الكتابة يبقى واحداً ولا يتفرّع إلى نسختين تختلفان. */
+window.lpOwnGoalFor = function (matchId, side) {
+  const sel = document.getElementById('lp-evteam-' + matchId);
+  if (sel) sel.value = side;
+  return window.lpOwnGoal(matchId);
+};
+window.lpNoNameGoalFor = function (matchId, side) {
+  const sel = document.getElementById('lp-evteam-' + matchId);
+  if (sel) sel.value = side;
+  return window.lpNoNameGoal(matchId);
+};
+
 window.lpOpenEventFor = function(matchId, side, type, icon, label) {
   const sel = document.getElementById('lp-evteam-' + matchId);
   if (sel) sel.value = side;
@@ -7997,6 +8029,8 @@ window.lpOpenEvent = function(matchId, type, icon, label) {
   // زر الهدف العكسي — يظهر فقط عند تسجيل هدف
   const ownGoalRow = document.getElementById('lp-evowngoal-' + matchId);
   if (ownGoalRow) ownGoalRow.style.display = (type === 'goal') ? '' : 'none';
+  // حمّل كشف الفريق ليختار المنظّم بدل الكتابة اليدوية
+  try { window._lpLoadEventRoster && window._lpLoadEventRoster(matchId); } catch (e) {}
   // في التبديل: نُخفي الحقول النصية ونعرض منتقي الأساسي/الدكة
   if (playerRow)  playerRow.style.display  = isSub ? 'none' : '';
   if (player2Row) player2Row.style.display = 'none'; // لم نعد نستخدم الحقل النصّي للداخل
@@ -8027,7 +8061,34 @@ window.lpOpenEvent = function(matchId, type, icon, label) {
 };
 
 // إعادة بناء منتقي التبديل عند تغيير الفريق داخل النافذة
+/* يحمّل كشف الفريق المختار في صندوق الاختيار داخل نافذة الحدث */
+window._lpLoadEventRoster = async function (matchId) {
+  const box = document.getElementById('lp-evroster-' + matchId);
+  if (!box) return;
+  const type = window._lpCurrentEventType[matchId] || '';
+  // التبديل له منتقيه الخاص (داخل/خارج)، فلا نزاحمه بقائمة ثانية
+  if (type === 'sub') { box.innerHTML = ''; box.style.display = 'none'; return; }
+  box.style.display = '';
+  const side = document.getElementById('lp-evteam-' + matchId)?.value || 'home';
+  const m = matches.find(x => x.id === matchId) || {};
+  const teamId = side === 'home' ? m.homeId : m.awayId;
+  if (!teamId) { box.innerHTML = ''; return; }
+  box.innerHTML = '<span style="font-size:11px;color:#888">جارِ تحميل الكشف…</span>';
+  try {
+    const roster = await window._loadTeamRoster(teamId);
+    /* المطرود ببطاقة حمراء يُستبعد من البطاقات — لا يمكن أن ينال أخرى.
+       ويبقى متاحاً لـVAR والإصابة (قد تقع عليه بعد الطرد). */
+    const exclude = (type === 'yellow' || type === 'red')
+      ? window._redCardedNames(m.events, side) : null;
+    box.innerHTML = window._renderRosterPickButtons(roster, 'lp-evplayer-' + matchId, exclude);
+  } catch (e) {
+    box.innerHTML = '<span style="font-size:11px;color:#888">تعذّر تحميل الكشف — اكتب الاسم يدوياً</span>';
+  }
+};
+
 window._lpOnTeamChange = function(matchId) {
+  // الكشف يتبع الفريق المختار في كل الأحوال
+  try { window._lpLoadEventRoster(matchId); } catch (e) {}
   if (window._lpCurrentEventType[matchId] !== 'sub') return;
   const subPicker = document.getElementById('lp-evsubpicker-' + matchId);
   if (subPicker && window._subBuildPickerHtml) {
@@ -14626,6 +14687,14 @@ function injectAdminCSS() {
       border-color:rgba(176,141,87,.4);
     }
     .abm-third .ab-box.ab-empty{flex-direction:row}
+
+    /* زرّا الهدف الثابتان تحت خانة كل فريق */
+    .lp-gx{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+    .lp-gx-b{min-height:36px;border-radius:9px;cursor:pointer;
+      font-family:'Tajawal',sans-serif;font-size:10.5px;font-weight:800;
+      background:transparent;border:1px solid var(--border2,#2a2a2a)}
+    .lp-gx-b.own{border-color:rgba(229,83,61,.42);color:#e5533d;background:rgba(229,83,61,.08)}
+    .lp-gx-b.anon{border-color:rgba(201,160,43,.42);color:#C9A02B;background:rgba(201,160,43,.08)}
 
     /* ══ أحداث البثّ — عمود لكل فريق ══
        نفس منطق الإدخال السريع: الفريق يُحسم بالضغطة لا بقائمة منسدلة. */

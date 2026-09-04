@@ -1,7 +1,7 @@
 // ══ Service Worker — منصة بطولات ══
 /* ⚠️ ارفع هذا الرقم مع كل نشر، وإلا خدم الـ SW نسخة قديمة من
    admin.js / TimerCore فتنكسر الاستبدالات وتعود أخطاء الساعة. */
-const VERSION = 'batolat-v294';
+const VERSION = 'batolat-v295';
 
 // أهم ملفات صفحة الجمهور فقط (offline يخص الجمهور بشكل أساسي)
 const SHELL = [
@@ -114,14 +114,37 @@ async function cacheFirst(request) {
   } catch { return new Response('', { status: 408 }); }
 }
 
+/* 🔴 حارس ضروري: صفحة خطأ HTML مكان ملف JS.
+   حين يفشل طلب ملف JS (رفعٌ ناقص، مسار خاطئ، أو خادم يُرجع صفحة 404
+   بصيغة HTML) يستلم المتصفح `<!DOCTYPE html>` بدل الشيفرة، فيرمي
+   «Invalid or unexpected token» عند أول حرف — وهو خطأ مضلّل تماماً:
+   يشير إلى الملف وكأن فيه عطلاً وهو سليم.
+   لا نُخزّن مثل هذه الاستجابة ولا نمرّرها كأنها شيفرة. */
+function _isScriptReq(request) {
+  return request.destination === 'script' || /\.m?js(\?|$)/i.test(request.url);
+}
+function _looksLikeHtml(res) {
+  const ct = (res && res.headers && res.headers.get('content-type')) || '';
+  return /text\/html/i.test(ct);
+}
+
 async function staleWhileRevalidate(request) {
   const cache = await caches.open(VERSION);
   const cached = await cache.match(request);
+  const script = _isScriptReq(request);
   const fetchPromise = fetch(request).then(res => {
+    if (script && res && (_looksLikeHtml(res) || res.status !== 200)) {
+      // استجابة ليست شيفرة — لا تُخزَّن ولا تُسلَّم
+      console.warn('[SW] رُفضت استجابة غير برمجية لملف:', request.url, res.status);
+      return null;
+    }
     if (res && res.status === 200) cache.put(request, res.clone());
     return res;
   }).catch(() => null);
-  return cached || fetchPromise;
+
+  const out = cached || await fetchPromise;
+  if (script && out && _looksLikeHtml(out)) return null;
+  return out || fetch(request);
 }
 
 self.addEventListener('message', e => {

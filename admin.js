@@ -7614,6 +7614,7 @@ function _buildLivePage(matchId, match, ht, at) {
         </div>
         <div class="lp-evmodal-row" id="lp-evowngoal-${mId}" style="display:none">
           <button onclick="lpOwnGoal('${mId}')" style="width:100%;padding:10px;background:rgba(229,83,61,.1);border:1px solid rgba(229,83,61,.4);border-radius:10px;color:#e5533d;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">⚽ هدف عكسي (بدون نسبة للاعب)</button>
+          <button onclick="lpNoNameGoal('${mId}')" style="width:100%;margin-top:7px;padding:10px;background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.4);border-radius:10px;color:#C9A02B;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">⚽ هدف بلا اسم (لا يُنسب لأحد)</button>
         </div>
         <div id="lp-evsubpicker-${mId}" style="display:none"></div>
         <div class="lp-evmodal-row" id="lp-evplayer2row-${mId}" style="display:none">
@@ -7908,6 +7909,34 @@ window.lpOwnGoal = async function(matchId) {
   if (typeof _lpRenderEvents === 'function') _lpRenderEvents(matchId);
   try { await _lpSave(matchId); } catch(e) {}
   showToast('⚽ هدف عكسي · يُحسب لـ ' + creditName, 'success');
+};
+
+/* ══ هدف بلا اسم من صفحة البثّ ══ */
+window.lpNoNameGoal = async function(matchId) {
+  const st = _liveMatches[matchId];
+  if (!st) { showToast('المباراة غير مباشرة', 'error'); return; }
+  const side = document.getElementById('lp-evteam-' + matchId)?.value || 'home';
+  const m = matches.find(x => x.id === matchId) || {};
+  const teamName = side === 'home'
+    ? (teams.find(t => t.id === m.homeId)?.name || m.homeName || 'الأول')
+    : (teams.find(t => t.id === m.awayId)?.name || m.awayName || 'الثاني');
+
+  let minute = 1, extra = 0;
+  try { const em = window._evMinute ? window._evMinute(st) : null; if (em) { minute = em.minute; extra = em.extraMinute || 0; } } catch (e) {}
+
+  st.events.unshift({
+    id: Date.now(), type: 'goal', icon: '⚽', label: 'هدف', anon: true,
+    team: side, teamName, player: '', player2: '',
+    minute, extraMinute: extra, half: st.currentHalf,
+    time: new Date().toLocaleTimeString('ar')
+  });
+  if (side === 'home') { st.homeScore++; const el = document.getElementById('lp-sh-' + matchId); if (el) el.textContent = st.homeScore; }
+  else { st.awayScore++; const el = document.getElementById('lp-sa-' + matchId); if (el) el.textContent = st.awayScore; }
+
+  if (typeof lpCloseEventModal === 'function') lpCloseEventModal(matchId);
+  if (typeof _lpRenderEvents === 'function') _lpRenderEvents(matchId);
+  try { await _lpSave(matchId); } catch (e) {}
+  showToast('⚽ هدف بلا اسم · ' + teamName, 'success');
 };
 
 window.lpOpenEvent = function(matchId, type, icon, label) {
@@ -17030,6 +17059,8 @@ window.importRosterToLineup = function(teamId) {
         </div>` : ''}
         <button onclick="qrCommitOwnGoal('${matchId}','${side}','${String(t.name).replace(/'/g,"\\'")}')"
           style="width:100%;margin-top:10px;padding:11px;border-radius:9px;border:1px solid rgba(229,83,61,.45);background:rgba(229,83,61,.12);color:#e5533d;font-family:Tajawal,sans-serif;font-weight:800;font-size:12px;cursor:pointer">⚽ هدف عكسي (بدون نسبة للاعب)</button>
+        <button onclick="qrCommitNoName('${matchId}','${side}','${(teamName||'').replace(/'/g,"\\'")}')"
+          style="width:100%;margin-top:7px;padding:11px;border-radius:9px;border:1px solid rgba(201,160,43,.45);background:rgba(201,160,43,.12);color:#C9A02B;font-family:Tajawal,sans-serif;font-weight:800;font-size:12px;cursor:pointer">⚽ هدف بلا اسم (لا يُنسب لأحد)</button>
         <div style="font-size:10px;color:#888;margin:10px 0 5px">الدقيقة</div>
         <input id="qrGoalMinute" type="number" min="1" max="130" value="1"
           style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
@@ -17106,6 +17137,21 @@ window.importRosterToLineup = function(teamId) {
     _qrSync(m);
     window._qrRefresh(matchId);
     window.showToast && window.showToast(`⚽ هدف عكسي · ${teamName}`, 'success');
+  };
+
+  /* ⚽ هدف بلا اسم — النتيجة السريعة.
+     النوع `goal` لا نوع جديد: كل حسابات النتائج تقرأ goal/own فقط. */
+  window.qrCommitNoName = function(matchId, side, teamName) {
+    const m = _getM(matchId); if (!m) return;
+    const minute = parseInt(document.getElementById('qrGoalMinute')?.value) || 1;
+    document.getElementById('qrGoalOv')?.remove();
+    const evs = Array.isArray(m.events) ? [...m.events] : [];
+    evs.push({ minute, icon: '⚽', player: '', teamName, type: 'goal', side, label: 'هدف', anon: true });
+    evs.sort((a, b) => (a.minute || 0) - (b.minute || 0));
+    m.events = evs;
+    _qrSync(m);
+    window._qrRefresh(matchId);
+    window.showToast && window.showToast(`⚽ هدف بلا اسم · ${teamName}`, 'success');
   };
 
   window.qrDeleteGoal = function(matchId, idx) {

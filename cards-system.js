@@ -1271,46 +1271,73 @@
 
     const SAFE_W = W - 140; // أقصى عرض آمن لأي نص/عنصر على البطاقة (هامش 70 من كل جهة)
 
-    // 2) كأس + "تأهل إلى"
-    drawIcon(ctx, 'trophy', W/2, curY+55, 74, accent);
-    // ✅ حساب دقيق: مركز الكأس عند curY+55 بارتفاع 74 → قاعدته تقريباً عند curY+92.
-    //    النص يُرسم بخط 20px يمتد لأعلى عن نقطة الأساس (baseline) بمقدار الـ ascent تقريباً،
-    //    فنترك فراغاً كافياً بعد القاعدة قبل رسم النص حتى لا يتلامسا فعلياً على الشاشة.
-    curY += 128;
-    // ✅ لا تكتب "تأهّل إلى" بلا مرحلة — كانت تظهر معلّقة بلا معنى
-    if (nextStage) { drawText(ctx, 'تأهّل إلى', W/2, curY, '700 20px Tajawal,Arial', '#666', 'center'); curY += 30; }
-    else           { drawText(ctx, 'تأهّل للدور التالي', W/2, curY, '700 20px Tajawal,Arial', '#666', 'center'); curY += 30; }
+    /* ══ إعادة ترتيب رأسية دقيقة ══
+       🔴 كان اسم الفريق يُرسم على **خطّ الأساس** مباشرةً بعد الشعار
+       (`curY += ls + 22` ثم `drawText(..., curY, ...)`) — والنصّ يصعد فوق
+       خطّ الأساس بمقدار الـascent (نحو ٤٠px في خط ٥٤px)، فيغرق نصفه
+       العلوي داخل الشعار: «الشعار مدمج مع الاسم بلا محاذاة».
+       الآن كل كتلة تُحسب بارتفاعها الفعلي، ويُرسم كل نصّ من **قمّته** لا
+       من خطّ أساسه، فتتساوى الفراغات فعلياً على الشاشة.
+       والترتيب صار طبيعياً في القراءة: كأس ← شعار ← اسم ← «تأهّل إلى» ←
+       المرحلة — بدل فصل «تأهّل إلى» عن مرحلته بالشعار بينهما. */
+
+    // نصّ يُرسم من قمّته: نحوّل القمّة إلى خطّ أساس بنسبة ارتفاع الحرف
+    const CAP = 0.74;                       // نسبة تقريبية دقيقة لخط Tajawal
+    const textTop = (txt, top, size, font, color) => {
+      drawText(ctx, txt, W/2, top + size * CAP, font, color, 'center');
+      return top + size * (CAP + 0.24);     // القاعدة الفعلية بعد النزول
+    };
+
+    // 2) الكأس
+    const TROPHY = 82;
+    drawIcon(ctx, 'trophy', W/2, curY + TROPHY/2, TROPHY, accent);
+    curY += TROPHY + 40;
+
+    // 3) شعار المتأهل — دائرة نظيفة بحلقتين، والفراغ تحتها ثابت
+    const ls = 240;
+    if (wImg) {
+      ctx.strokeStyle = `rgba(${rgb},0.30)`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(W/2, curY + ls/2, ls/2 + 11, 0, Math.PI*2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.10)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(W/2, curY + ls/2, ls/2 + 3, 0, Math.PI*2); ctx.stroke();
+      ctx.save(); ctx.beginPath(); ctx.arc(W/2, curY + ls/2, ls/2, 0, Math.PI*2); ctx.clip();
+      _drawImgCover(ctx, wImg, W/2 - ls/2, curY, ls); ctx.restore();
+    } else {
+      ctx.strokeStyle = `rgba(${rgb},0.22)`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(W/2, curY + ls/2, ls/2 + 11, 0, Math.PI*2); ctx.stroke();
+      drawIcon(ctx, 'ball', W/2, curY + ls/2, 104, '#7a7a7a');
+    }
+    curY += ls + 56;                        // فراغ صريح يفصل الشعار عن الاسم
+
+    // 4) اسم المتأهل — كبير وواضح، ويُصغَّر تلقائياً إن طال
+    const qualSize = fitFontSize(ctx, qualName, SAFE_W, s2 => `bold ${s2}px Tajawal,Arial`, 64, 30, 2);
+    const fittedQualName = truncateToWidth(ctx, qualName, SAFE_W);
+    curY = textTop(fittedQualName, curY, qualSize, `bold ${qualSize}px Tajawal,Arial`, '#ffffff');
+    curY += 22;
+
+    // 5) «تأهّل إلى» ثم اسم المرحلة في شارة — متجاوران كما يُقرآن
+    const LBL = 22;
+    curY = textTop(nextStage ? 'تأهّل إلى' : 'تأهّل للدور التالي',
+                   curY, LBL, `700 ${LBL}px Tajawal,Arial`, '#8a8a8a');
+    curY += 12;
 
     if (nextStage) {
-      // ✅ اسم المرحلة يُضغط تلقائياً إذا كان طويلاً حتى لا يتجاوز حدود الشارة
-      const stageMaxW = SAFE_W - 44;
-      const stageSize = fitFontSize(ctx, nextStage, stageMaxW, s => `bold ${s}px Tajawal,Arial`, 18, 13, 1);
+      const stageMaxW = SAFE_W - 52;
+      const stageSize = fitFontSize(ctx, nextStage, stageMaxW, s2 => `bold ${s2}px Tajawal,Arial`, 26, 15, 1);
       const fittedStage = truncateToWidth(ctx, nextStage, stageMaxW);
-      const nw = Math.min(ctx.measureText(fittedStage).width + 44, SAFE_W);
-      ctx.fillStyle = `rgba(${rgb},0.1)`; ctx.strokeStyle = `rgba(${rgb},0.25)`; ctx.lineWidth = 1;
-      roundRect(ctx, W/2-nw/2, curY, nw, 36, 18); ctx.fill(); ctx.stroke();
-      drawText(ctx, fittedStage, W/2, curY+24, `bold ${stageSize}px Tajawal,Arial`, accent, 'center');
-      curY += 50;
+      ctx.font = `bold ${stageSize}px Tajawal,Arial`;
+      const bh = Math.round(stageSize * 2.0);
+      const nw = Math.min(ctx.measureText(fittedStage).width + 52, SAFE_W);
+      ctx.fillStyle = `rgba(${rgb},0.12)`; ctx.strokeStyle = `rgba(${rgb},0.34)`; ctx.lineWidth = 1.5;
+      roundRect(ctx, W/2 - nw/2, curY, nw, bh, bh/2); ctx.fill(); ctx.stroke();
+      // توسيط رأسي حقيقي داخل الشارة بدل تقدير ثابت
+      drawText(ctx, fittedStage, W/2, curY + bh/2 + stageSize * 0.35,
+               `bold ${stageSize}px Tajawal,Arial`, accent, 'center');
+      curY += bh + 6;
     }
 
-    // 3) شعار الفائز
-    const ls = 200;
-    if (wImg) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(W/2, curY+ls/2, ls/2+6, 0, Math.PI*2); ctx.stroke();
-      ctx.save(); ctx.beginPath(); ctx.arc(W/2, curY+ls/2, ls/2, 0, Math.PI*2); ctx.clip();
-      _drawImgCover(ctx, wImg, W/2-ls/2, curY, ls); ctx.restore();
-    } else {
-      drawIcon(ctx, 'ball', W/2, curY+ls/2, 100, '#888');
-    }
-    curY += ls + 22;
-
-    // 4) اسم المتأهل — يُصغَّر تلقائياً إذا كان الاسم طويلاً حتى لا يخرج عن حدود البطاقة
-    const qualSize = fitFontSize(ctx, qualName, SAFE_W, s => `bold ${s}px Tajawal,Arial`, 54, 26, 2);
-    const fittedQualName = truncateToWidth(ctx, qualName, SAFE_W);
-    drawText(ctx, fittedQualName, W/2, curY, `bold ${qualSize}px Tajawal,Arial`, '#ffffff', 'center');
-    curY += 28;
-    drawDivider(ctx, W, curY); curY += 24;
+    curY += 22;
+    drawDivider(ctx, W, curY); curY += 26;
 
     // 5) نتيجة المباراة — أسماء الفريقين + النتيجة، بخط موحّد يُقاس ويُرسم بنفس الحجم
     //    وتُصغَّر تلقائياً أو تُختصر عند الحاجة حتى لا تتراكب الكلمات فوق بعضها

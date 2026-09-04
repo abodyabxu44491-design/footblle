@@ -16,6 +16,10 @@
   'use strict';
 
   function isKO(m) { return !!(m && (m.isKnockout || m.knockoutRoundId != null)); }
+  /* 🔴 مباريات الملحق كانت تسقط في تبويب «المباريات» العام مختلطةً بمباريات
+     الدور الأول — فلا يميّزها المنظّم ولا يجدها حين يبحث عنها. لها تبويبها
+     الآن، ويظهر فقط إن وُجدت. */
+  function isPO(m) { return !!(m && m.isPlayoff === true); }
   function isFin(m) { return m && m.status === 'finished'; }
 
   function M() { return (window._amtGetMatches && window._amtGetMatches()) || []; }
@@ -27,7 +31,8 @@
     var live = all.filter(function (m) { return !isFin(m); });
     var out = [];
     if (live.some(isKO)) out.push({ id: 'ko', label: '🏆 الإقصاء' });
-    if (live.some(function (m) { return !isKO(m); })) {
+    if (live.some(isPO)) out.push({ id: 'po', label: '⚔️ الملحق' });
+    if (live.some(function (m) { return !isKO(m) && !isPO(m); })) {
       out.push({ id: 'gr', label: S().type === 'groups' ? '👥 المجموعات' : '⚽ المباريات' });
     }
     // ✅ «المنتهية» يظهر فقط لو فيه مباريات منتهية فعلاً
@@ -39,7 +44,8 @@
     var all = M();
     if (tab === 'fin') return all.filter(isFin);
     if (tab === 'ko')  return all.filter(function (m) { return !isFin(m) && isKO(m); });
-    return all.filter(function (m) { return !isFin(m) && !isKO(m); });
+    if (tab === 'po')  return all.filter(function (m) { return !isFin(m) && isPO(m); });
+    return all.filter(function (m) { return !isFin(m) && !isKO(m) && !isPO(m); });
   }
 
   window.amtSwitch = function (t) { window._amtTab = t; render(); };
@@ -111,7 +117,7 @@
 
     /* مبدّل العرض: بالجولة / بالتاريخ */
     var md = window._amtMode || 'round';
-    if (active !== 'ko') {
+    if (active !== 'ko' && active !== 'po') {
       bar += '<div class="amt-mode">' +
         '<button class="amt-m' + (md === 'round' ? ' on' : '') + '" onclick="amtMode(\'round\')">بالجولة</button>' +
         '<button class="amt-m' + (md === 'date'  ? ' on' : '') + '" onclick="amtMode(\'date\')">بالتاريخ</button>' +
@@ -136,7 +142,10 @@
     var buckets = {}, meta = {};
     list.forEach(function (m) {
       var k, sk;
-      if (active === 'ko' || (active === 'fin' && isKO(m))) {
+      if (active === 'po' || (active === 'fin' && isPO(m))) {
+        var _pg = (m.poGroup != null) ? ('مجموعة الملحق ' + String.fromCharCode(65 + m.poGroup)) : 'مباريات الملحق';
+        (groups[_pg] = groups[_pg] || []).push(m);
+      } else if (active === 'ko' || (active === 'fin' && isKO(m))) {
         k = m.knockoutRoundName || 'الإقصاء';
         /* ✅ الإقصاء يُلعب بعد المجموعات — نعطيه مفتاحه الزمني في «المنتهية»
            بدل -1 الذي كان يدفعه لأسفل القائمة. */

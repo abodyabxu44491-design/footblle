@@ -1915,3 +1915,85 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
 .toggle-desc{overflow-wrap:anywhere}
 .toggle-switch{flex:0 0 auto}
 .type-card{min-width:0; overflow-wrap:anywhere}
+
+/* ══ شريط أدوات قسم الملحق ══ */
+.po-bar{border:1px solid rgba(201,160,43,.28);background:rgba(201,160,43,.05);
+  border-radius:13px;padding:12px 13px;margin-bottom:12px}
+.po-bar-h{display:flex;align-items:center;gap:10px}
+.po-dot{flex:0 0 auto;width:9px;height:9px;border-radius:50%;background:var(--gold,#C9A02B);
+  box-shadow:0 0 0 3px rgba(201,160,43,.14)}
+.po-bar-tx{flex:1;min-width:0}
+.po-bar-t{font-size:12px;font-weight:900;color:var(--gold,#C9A02B)}
+.po-bar-s{font-size:10px;color:var(--muted,#888);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.po-bar-b{flex:0 0 auto;font-family:'Tajawal',sans-serif;font-size:11px;font-weight:800;
+  cursor:pointer;padding:8px 14px;border-radius:9px;background:rgba(255,255,255,.04);
+  border:1px solid var(--border2,#2a2a2a);color:var(--text,#eee)}
+.po-bar-acts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:11px}
+.po-a{font-family:'Tajawal',sans-serif;font-size:10px;font-weight:800;cursor:pointer;
+  padding:10px 4px;border-radius:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  background:transparent;border:1px solid var(--border2,#2a2a2a);color:var(--muted,#8a8a8a)}
+.po-a.danger{border-color:rgba(192,57,43,.3);color:#C0392B}
+@media (max-width:400px){ .po-bar-acts{grid-template-columns:1fr 1fr} }
+
+/* ══ محرّر توزيع مجموعات الملحق ══ */
+.po-need{font-size:10.5px;color:var(--muted,#8a8a8a);line-height:1.9;
+  background:rgba(255,255,255,.03);border:1px solid var(--border,#1f1f1f);
+  border-radius:10px;padding:9px 11px;margin-bottom:12px}
+.po-need b{color:var(--text,#eee)}
+.pog-count{font-size:9.5px;font-weight:800;border-radius:20px;padding:3px 9px;
+  border:1px solid var(--border2,#2a2a2a);color:var(--muted,#888)}
+.pog-count.ok{border-color:rgba(39,174,96,.35);color:var(--green,#27ae60);background:rgba(39,174,96,.08)}
+.pog-empty{font-size:11px;color:var(--muted,#888);line-height:1.9;text-align:center;padding:16px 8px}
+.pog-acts{display:grid;grid-template-columns:1.6fr 1fr;gap:7px;margin-bottom:12px}
+.pog-b{font-family:'Tajawal',sans-serif;font-size:11px;font-weight:800;cursor:pointer;
+  padding:11px 6px;border-radius:10px;background:transparent;
+  border:1px solid var(--border2,#2a2a2a);color:var(--muted,#8a8a8a)}
+.pog-b.gold{background:rgba(201,160,43,.12);border-color:rgba(201,160,43,.4);color:var(--gold,#C9A02B)}
+.pog-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.pog-g{border:1px solid var(--border2,#2a2a2a);background:var(--card2,#141414);
+  border-radius:11px;padding:9px;cursor:pointer;min-width:0}
+.pog-g.sel{border-color:var(--gold,#C9A02B);background:rgba(201,160,43,.07)}
+.pog-g.full{border-color:rgba(39,174,96,.32)}
+.pog-g-h{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:7px}
+.pog-g-t{font-size:10.5px;font-weight:900;color:var(--text,#eee)}
+.pog-g.sel .pog-g-t{color:var(--gold,#C9A02B)}
+.pog-g-n{font-size:9px;font-weight:800;color:var(--muted,#888)}
+.pog-g.full .pog-g-n{color:var(--green,#27ae60)}
+.pog-g-b{display:flex;flex-wrap:wrap;gap:5px}
+.pog-g-e{font-size:9.5px;color:var(--muted2,#666);line-height:1.7}
+.pog-chip{font-family:'Tajawal',sans-serif;font-size:10px;font-weight:700;cursor:pointer;
+  padding:5px 9px;border-radius:8px;max-width:100%;
+  background:rgba(255,255,255,.04);border:1px solid var(--border2,#2a2a2a);color:var(--text,#ddd)}
+.pog-chip.in{background:rgba(201,160,43,.11);border-color:rgba(201,160,43,.3);color:var(--gold,#C9A02B)}
+.pog-nm{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px}
+.pog-pool{border:1px dashed var(--border2,#2a2a2a);border-radius:11px;padding:10px}
+.pog-pool-h{font-size:10px;color:var(--muted,#888);line-height:1.8;margin-bottom:8px}
+.pog-pool-h b{color:var(--gold,#C9A02B)}
+.pog-pool-b{display:flex;flex-wrap:wrap;gap:5px}
+.pog-warn{margin-top:11px;font-size:10px;line-height:1.85;border-radius:10px;padding:9px 11px;
+  background:rgba(201,160,43,.08);border:1px solid rgba(201,160,43,.28);color:var(--gold,#C9A02B)}
+@media (max-width:360px){ .pog-grid{grid-template-columns:1fr} }
+
+.po-tag{flex:0 0 auto;font-size:8.5px;font-weight:900;border-radius:20px;padding:2px 8px;
+  background:rgba(201,160,43,.14);border:1px solid rgba(201,160,43,.35);color:var(--gold,#C9A02B)}
+
+/* ══ تبويبا قسم الملحق + تعبئة الدوري المصغّر ══ */
+.po-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.po-tab{font-family:"Tajawal",sans-serif;font-size:12px;font-weight:800;cursor:pointer;
+  padding:12px 6px;border-radius:11px;background:transparent;
+  border:1px solid var(--border2,#2a2a2a);color:var(--muted,#8a8a8a)}
+.po-tab.on{background:rgba(201,160,43,.12);border-color:rgba(201,160,43,.42);color:var(--gold,#C9A02B)}
+.pom-prog{height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden;margin:4px 0 9px}
+.pom-prog span{display:block;height:100%;border-radius:3px;transition:width .3s}
+.pom-note{font-size:10.5px;color:var(--muted,#8a8a8a);line-height:1.85;margin-bottom:11px}
+.pom-note b{color:var(--text,#eee)}
+.pom-list{border:1px solid var(--border,#1f1f1f);border-radius:11px;overflow:hidden}
+.pom-row{display:flex;align-items:center;gap:9px;padding:10px 11px;border-top:1px solid var(--border,#1f1f1f)}
+.pom-row:first-child{border-top:none}
+.pom-i{flex:0 0 auto;width:20px;height:20px;border-radius:6px;display:flex;align-items:center;
+  justify-content:center;font-size:9.5px;font-weight:900;background:rgba(255,255,255,.05);color:var(--muted,#888)}
+.pom-n{flex:1;min-width:0;font-size:12px;font-weight:700;color:var(--text,#eee);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pom-x{flex:0 0 auto;font-family:inherit;font-size:11px;cursor:pointer;padding:4px 9px;border-radius:7px;
+  background:transparent;border:1px solid var(--border2,#2a2a2a);color:var(--muted,#888)}

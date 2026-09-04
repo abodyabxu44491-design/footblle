@@ -2533,10 +2533,16 @@ window._spRenderSuggestions = function(names) {
   if (!el) return;
   // خيار «هدف عكسي» مميّز دائماً في المقدّمة (لكل الفرق)
   const ownBtn = `<button onclick="_spPickOwnGoal()" id="spOwnGoalChip" style="padding:5px 12px;background:rgba(229,83,61,.12);border:1px solid rgba(229,83,61,.45);border-radius:8px;color:#e5533d;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">⚽ هدف عكسي</button>`;
+  /* ⚽ «هدف بلا اسم» — زرّ ثابت كالهدف العكسي.
+     المنظّم لا يعرف المسجِّل دائماً (كرات عشوائية، ازدحام، بثّ متأخّر)،
+     وكان مضطرّاً إما لكتابة اسم يظنّه فيُفسد جدول الهدّافين، أو لتخطّي
+     الهدف فتصير النتيجة خاطئة. الآن يُحتسب الهدف للفريق وتظهر الكرة في
+     المجريات بلا نسبة لأحد. */
+  const anonBtn = `<button onclick="_spPickNoName()" id="spNoNameChip" style="padding:5px 12px;background:rgba(201,160,43,.12);border:1px solid rgba(201,160,43,.45);border-radius:8px;color:#C9A02B;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">⚽ هدف بلا اسم</button>`;
   const list = names.length
     ? names.map(n => `<button onclick="document.getElementById('scorerPickerInput').value='${n.replace(/'/g, "\\'")}';_spClearOwn()" style="padding:5px 11px;background:var(--card3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:12px;font-family:Tajawal,sans-serif;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border2)'">${n}</button>`).join('')
     : '<span style="font-size:11px;color:var(--muted);align-self:center">اكتب الاسم يدوياً</span>';
-  el.innerHTML = ownBtn + list;
+  el.innerHTML = ownBtn + anonBtn + list;
 };
 
 // اختيار «هدف عكسي» من القائمة — يضع علامة خاصة في الحقل
@@ -2546,10 +2552,26 @@ window._spPickOwnGoal = function() {
   const chip = document.getElementById('spOwnGoalChip');
   if (chip) { chip.style.background = 'rgba(229,83,61,.28)'; chip.textContent = '✓ هدف عكسي'; }
 };
-// إلغاء علامة الهدف العكسي عند اختيار لاعب عادي
+// اختيار «هدف بلا اسم»
+window._spPickNoName = function() {
+  const inp = document.getElementById('scorerPickerInput');
+  if (inp) { inp.value = '⚽ هدف بلا اسم'; inp.dataset.anon = '1'; delete inp.dataset.own;
+             inp.readOnly = true; inp.style.color = '#C9A02B'; inp.style.fontWeight = '800'; }
+  const chip = document.getElementById('spNoNameChip');
+  if (chip) { chip.style.background = 'rgba(201,160,43,.28)'; chip.textContent = '✓ هدف بلا اسم'; }
+  const own = document.getElementById('spOwnGoalChip');
+  if (own) { own.style.background = 'rgba(229,83,61,.12)'; own.textContent = '⚽ هدف عكسي'; }
+};
+
+// إلغاء العلامات الخاصة عند اختيار لاعب عادي
 window._spClearOwn = function() {
   const inp = document.getElementById('scorerPickerInput');
-  if (inp) { delete inp.dataset.own; inp.readOnly = false; inp.style.color = ''; inp.style.fontWeight = ''; }
+  if (inp) { delete inp.dataset.own; delete inp.dataset.anon;
+             inp.readOnly = false; inp.style.color = ''; inp.style.fontWeight = ''; }
+  const chip = document.getElementById('spNoNameChip');
+  if (chip) { chip.style.background = 'rgba(201,160,43,.12)'; chip.textContent = '⚽ هدف بلا اسم'; }
+  const own = document.getElementById('spOwnGoalChip');
+  if (own) { own.style.background = 'rgba(229,83,61,.12)'; own.textContent = '⚽ هدف عكسي'; }
 };
 
 // ══ هدف عكسي: يُحسب للفريق الخصم بلا نسبة للاعب ══
@@ -2605,11 +2627,76 @@ window._spOwnGoal = async function(matchId, side) {
   } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
+/* ══ هدف بلا اسم: يُحسب للفريق ولا يُنسب للاعب ══
+   نوعه `goal` لا نوع جديد: كل ما يحسب النتائج في المنصة والجمهور يقرأ
+   `goal` و`own` فقط — فإحداث نوع ثالث كان سيُسقط الهدف من كل تلك
+   الحسابات بصمت. الفارق أن `player` فارغ، وجداول الهدّافين تتخطّى
+   الأحداث بلا اسم أصلاً، فلا يدخل جدول الهدّافين. */
+window._spNoNameGoal = async function(matchId, side, count) {
+  document.getElementById('scorerPickerOverlay')?.remove();
+  const m = matches.find(x => x.id === matchId);
+  if (!m) return;
+  const n = Math.max(1, parseInt(count, 10) || 1);
+  const ht = teams.find(t => t.id === m.homeId) || {};
+  const at = teams.find(t => t.id === m.awayId) || {};
+  const teamName = side === 'home' ? (ht.name || m.homeName || 'الأول') : (at.name || m.awayName || 'الثاني');
+
+  const st = window._liveMatches && window._liveMatches[matchId];
+
+  if (st) {
+    // ── صفحة البث ──
+    let minute = 1, extra = 0;
+    try { const em = window._evMinute(st); if (em) { minute = em.minute; extra = em.extraMinute || 0; } } catch (e) {}
+    for (let i = 0; i < n; i++) {
+      st.events.unshift({
+        id: Date.now() + i, type: 'goal', icon: '⚽', label: 'هدف', anon: true,
+        team: side, teamName, player: '', player2: '',
+        minute, extraMinute: extra, half: st.currentHalf,
+        time: new Date().toLocaleTimeString('ar')
+      });
+      if (side === 'home') st.homeScore++; else st.awayScore++;
+    }
+    const el = document.getElementById((side === 'home' ? 'lp-sh-' : 'lp-sa-') + matchId);
+    if (el) el.textContent = side === 'home' ? st.homeScore : st.awayScore;
+    if (typeof _lpRenderEvents === 'function') _lpRenderEvents(matchId);
+    try { await _lpSave(matchId); } catch (e) {}
+    showToast(`⚽ ${n > 1 ? n + ' أهداف' : 'هدف'} بلا اسم · ${teamName}`, 'success');
+    return;
+  }
+
+  // ── الإدخال السريع ──
+  const evs = Array.isArray(m.events) ? m.events.slice() : [];
+  for (let i = 0; i < n; i++) {
+    evs.push({
+      id: Date.now() + i, type: 'goal', icon: '⚽', label: 'هدف', anon: true,
+      player: '', teamName, side, team: side,
+      minute: 1, time: new Date().toLocaleTimeString('ar')
+    });
+  }
+  evs.sort((a, b) => (a.minute || 0) - (b.minute || 0));
+  m.events = evs;
+  const recount = sd => evs.filter(e => (e.type === 'goal' || e.type === 'own') && (e.side || e.team) === sd).length;
+  m.homeScore = recount('home');
+  m.awayScore = recount('away');
+  try {
+    await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', matchId), {
+      events: evs, homeScore: m.homeScore, awayScore: m.awayScore, updatedAt: serverTimestamp(),
+    });
+    if (typeof _qeRefresh === 'function') _qeRefresh(matchId);
+    showToast(`⚽ ${n > 1 ? n + ' أهداف' : 'هدف'} بلا اسم · ${teamName}`, 'success');
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
 window._spConfirm = function(matchId, side) {
   const inp = document.getElementById('scorerPickerInput');
   // ⚽ إذا اختار «هدف عكسي» من القائمة → سجّله كهدف عكسي ولا تنسبه للاعب
   if (inp && inp.dataset && inp.dataset.own === '1') {
     _spOwnGoal(matchId, side);
+    return;
+  }
+  // ⚽ «هدف بلا اسم» — يحترم عدّاد التكرار كالأهداف المسمّاة
+  if (inp && inp.dataset && inp.dataset.anon === '1') {
+    _spNoNameGoal(matchId, side, document.getElementById('scorerPickerCount')?.value);
     return;
   }
   const name = (inp?.value || '').trim();
@@ -10757,6 +10844,15 @@ function _po() {
     slots:        parseInt(p.slots, 10) > 0 ? parseInt(p.slots, 10) : 1,
     groupsCount:  parseInt(p.groupsCount, 10) > 0 ? parseInt(p.groupsCount, 10) : 2,
     perGroup:     parseInt(p.perGroup, 10) > 0 ? parseInt(p.perGroup, 10) : 1,
+    /* حجم المجموعة الواحدة: المنظّم يحدّده صراحةً بدل أن يُقسَّم العدد آلياً */
+    groupSize:    parseInt(p.groupSize, 10) > 0 ? parseInt(p.groupSize, 10) : 4,
+    /* عدد فرق الدوري المصغّر — يحدّده المنظّم بدل تركه لعدد ما أضافه صدفةً */
+    miniSize:     parseInt(p.miniSize, 10) > 0 ? parseInt(p.miniSize, 10) : 4,
+    /* توزيع صريح { teamId: رقم المجموعة }.
+       🔴 كانت المجموعات تُشتقّ بتقطيع `teamIds` تسلسلياً — فترتيب الإضافة
+          هو من يقرّر من يواجه من، ولا يملك المنظّم قراراً في القرعة.
+       الغياب يعني الرجوع للتقطيع القديم، فلا تنكسر بطولات قائمة. */
+    groupAssign:  (p.groupAssign && typeof p.groupAssign === 'object') ? p.groupAssign : {},
     teamIds:      Array.isArray(p.teamIds) ? p.teamIds : [],
     qualifiedIds: Array.isArray(p.qualifiedIds) ? p.qualifiedIds : [],
     published:    !!p.published,
@@ -10790,6 +10886,199 @@ function _poMatches() {
     .sort((a, b) => (a.poGroup ?? 0) - (b.poGroup ?? 0) || (a.playoffOrder ?? 0) - (b.playoffOrder ?? 0));
 }
 window._poMatches = _poMatches;
+
+/* مجموعات الملحق كما ستُلعب فعلاً: التوزيع الصريح إن وُجد، وإلا التقطيع
+   التسلسلي القديم. مصدر واحد يستعمله المحرّر والتوليد وصفحة القسم معاً،
+   فيستحيل أن يعرض أحدها توزيعاً ويولّد الآخر غيره. */
+/* ── محرّر توزيع المجموعات ──
+   شبكة بطاقات: بطاقة لكل مجموعة بفرقها، وأسفلها الفرق غير الموزَّعة.
+   الضغط على فريق في البطاقة يُخرجه، والضغط عليه في المخزن يضعه في
+   المجموعة المفتوحة. توزيع صريح بيد المنظّم بدل تقطيع تسلسلي أعمى. */
+window._poAssignTarget = 0;
+/* ── تعبئة الدوري المصغّر ──
+   جدولٌ واحد يلعب فيه الجميع ضد الجميع. المطلوب معرفة **كم فريقاً** —
+   وكان العدد يُستنتج مما أُضيف صدفةً، فلا يعرف المنظّم هل اكتمل أم لا،
+   ولا كم مباراة ستُولَّد. */
+function _poMiniHTML(p) {
+  const n = p.teamIds.length, need = p.miniSize;
+  const pct = need ? Math.min(100, Math.round((n / need) * 100)) : 0;
+  const matches = need >= 2 ? (need * (need - 1) / 2) : 0;
+  const tone = n === need ? 'var(--green)' : (n > need ? '#C0392B' : 'var(--gold)');
+
+  return `
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header">
+      <div class="card-title">جدول الدوري المصغّر</div>
+      <span class="pog-count ${n === need ? 'ok' : ''}">${n}/${need} فريق</span>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">عدد فرق الجدول</label>
+        <input class="form-input" type="number" min="3" max="16" value="${need}" inputmode="numeric"
+          onchange="poSet('miniSize', this.value)" style="text-align:center"/>
+      </div>
+
+      <div class="pom-prog"><span style="width:${pct}%;background:${tone}"></span></div>
+      <div class="pom-note">
+        ${n === need
+          ? `✓ الجدول مكتمل — ستُولَّد <b>${matches}</b> مباراة (كل فريق ضد الجميع)`
+          : n < need
+            ? `أضِف <b>${need - n}</b> فريقاً — الجدول الكامل <b>${matches}</b> مباراة`
+            : `<b>${n - need}</b> فريقاً زائداً عن العدد المحدّد — احذفها أو ارفع العدد`}
+      </div>
+
+      ${n ? `<div class="pom-list">
+        ${p.teamIds.map((id, i) => `
+          <div class="pom-row">
+            <span class="pom-i">${i + 1}</span>
+            <span class="pom-n">${_poName(id)}</span>
+            <button class="pom-x" onclick="poRemoveTeam('${id}')">✕</button>
+          </div>`).join('')}
+      </div>` : `<div class="pog-empty">لم يُضَف أي فريق بعد.</div>`}
+
+      <button class="pog-b gold" style="width:100%;margin-top:10px" onclick="poOpenTeamPicker()">
+        ＋ إضافة فريق للجدول</button>
+    </div>
+  </div>`;
+}
+window._poMiniHTML = _poMiniHTML;
+
+function _poAssignHTML(p) {
+  const gs = _poGroups(p);
+  const free = _poUnassigned(p);
+  const need = p.groupsCount * p.groupSize;
+  const assigned = gs.reduce((a, g) => a + g.length, 0);
+  const target = Math.min(window._poAssignTarget || 0, p.groupsCount - 1);
+
+  const chip = (id, act, cls) =>
+    `<button type="button" class="pog-chip ${cls || ''}" onclick="${act}">
+       <span class="pog-nm">${_poName(id)}</span></button>`;
+
+  return `
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header">
+      <div class="card-title">توزيع المجموعات</div>
+      <span class="pog-count ${assigned === p.teamIds.length && p.teamIds.length ? 'ok' : ''}">
+        ${assigned}/${p.teamIds.length || 0} موزَّع</span>
+    </div>
+    <div class="card-body">
+      ${!p.teamIds.length ? `
+        <div class="pog-empty">أضِف فرق الملحق أولاً من البطاقة أعلاه، ثم وزّعها هنا.</div>` : `
+
+      <div class="pog-acts">
+        <button class="pog-b gold" onclick="poAutoAssign()">⚡ توزيع تلقائي متوازن</button>
+        <button class="pog-b" onclick="poClearAssign()">مسح التوزيع</button>
+      </div>
+
+      <div class="pog-grid">
+        ${gs.map((ids, gi) => `
+          <div class="pog-g ${gi === target ? 'sel' : ''} ${ids.length === p.groupSize ? 'full' : ''}"
+               onclick="_poAssignPick(${gi})">
+            <div class="pog-g-h">
+              <span class="pog-g-t">المجموعة ${_poGroupLetter(gi)}</span>
+              <span class="pog-g-n">${ids.length}/${p.groupSize}</span>
+            </div>
+            <div class="pog-g-b">
+              ${ids.length
+                ? ids.map(id => chip(id, `event.stopPropagation();poAssign('${id}',null)`, 'in')).join('')
+                : '<span class="pog-g-e">فارغة — اضغطها ثم اختر فريقاً</span>'}
+            </div>
+          </div>`).join('')}
+      </div>
+
+      <div class="pog-pool">
+        <div class="pog-pool-h">
+          ${free.length
+            ? `فرق بلا مجموعة (${free.length}) — اضغط فريقاً ليدخل <b>المجموعة ${_poGroupLetter(target)}</b>`
+            : '✓ كل الفرق موزَّعة'}
+        </div>
+        ${free.length ? `<div class="pog-pool-b">
+          ${free.map(id => chip(id, `poAssign('${id}',${target})`)).join('')}
+        </div>` : ''}
+      </div>
+
+      ${p.teamIds.length !== need ? `
+        <div class="pog-warn">
+          المطلوب ${need} فريقاً (${p.groupsCount}×${p.groupSize}) والمضاف ${p.teamIds.length}
+          — ${p.teamIds.length < need ? 'أضِف ' + (need - p.teamIds.length) : 'احذف ' + (p.teamIds.length - need)} فريقاً،
+          أو غيّر الأعداد بالأعلى.
+        </div>` : ''}
+      `}
+    </div>
+  </div>`;
+}
+window._poAssignHTML = _poAssignHTML;
+
+/* اختيار المجموعة الهدف — لا يُحفظ في قاعدة البيانات، حالة عرض فقط */
+window._poAssignPick = function (gi) {
+  window._poAssignTarget = gi;
+  window.renderPlayoffSetup && window.renderPlayoffSetup();
+};
+
+function _poGroups(p) {
+  p = p || _po();
+  const n = Math.max(1, p.groupsCount);
+  const out = Array.from({ length: n }, () => []);
+  const has = Object.keys(p.groupAssign || {}).length > 0;
+  if (has) {
+    p.teamIds.forEach(id => {
+      const gi = p.groupAssign[id];
+      if (gi != null && gi >= 0 && gi < n) out[gi].push(id);
+    });
+  } else {
+    const per = Math.ceil(p.teamIds.length / n) || 1;
+    p.teamIds.forEach((id, i) => { const gi = Math.min(n - 1, Math.floor(i / per)); out[gi].push(id); });
+  }
+  return out;
+}
+window._poGroups = _poGroups;
+
+/* الفرق المضافة ولمّا تُوزَّع بعد */
+function _poUnassigned(p) {
+  p = p || _po();
+  if (!Object.keys(p.groupAssign || {}).length) return [];
+  return p.teamIds.filter(id => p.groupAssign[id] == null);
+}
+window._poUnassigned = _poUnassigned;
+
+/* نقل فريق إلى مجموعة (أو إخراجه بتمرير null) */
+window.poAssign = async function (teamId, gi) {
+  const p = _po();
+  const map = Object.assign({}, p.groupAssign);
+  if (gi == null) delete map[teamId]; else map[teamId] = gi;
+  await _poSave({ groupAssign: map });
+};
+
+/* توزيع تلقائي متوازن — يوزّع غير الموزَّعين بالتناوب فلا تمتلئ مجموعة
+   ويبقى غيرها فارغاً، ولا يمسّ من وزّعه المنظّم بنفسه. */
+window.poAutoAssign = async function () {
+  const p = _po();
+  const n = Math.max(1, p.groupsCount);
+  const groups = _poGroups(p);
+  const map = Object.assign({}, p.groupAssign);
+  const left = p.teamIds.filter(id => map[id] == null);
+  if (!left.length) { showToast('كل الفرق موزَّعة بالفعل', 'success'); return; }
+  const counts = groups.map(g => g.length);
+  left.forEach(id => {
+    let best = 0;
+    for (let i = 1; i < n; i++) if (counts[i] < counts[best]) best = i;
+    map[id] = best; counts[best]++;
+  });
+  const ok = await _poSave({ groupAssign: map });
+  if (ok) showToast(`✓ وُزِّع ${left.length} فريقاً على ${n} مجموعات`, 'success');
+};
+
+/* مسح التوزيع بالكامل للبدء من جديد */
+window.poClearAssign = async function () {
+  const ok = await window.confirmDialog({
+    title: 'مسح توزيع المجموعات',
+    message: 'ستعود كل فرق الملحق غير موزَّعة، وتبقى في القسم كما هي.\nلا تُحذف أي مباراة أُنشئت سابقاً.',
+    confirmText: 'مسح التوزيع', danger: true
+  });
+  if (!ok) return;
+  await _poSave({ groupAssign: {} });
+  showToast('أُفرغ التوزيع', 'success');
+};
 
 function _poSuggested() {
   const out = new Set();
@@ -11050,16 +11339,43 @@ function _renderPlayoffPage() {
     return;
   }
   const ms = _poMatches();
+  /* شريط أدوات كامل: كل ما يخصّ الملحق في متناول اليد بدل إحالة للإعدادات */
+  const _t = PLAYOFF_TYPES.find(x => x.key === p.type) || PLAYOFF_TYPES[0];
   const bar = `
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-body" style="display:flex;align-items:center;gap:10px">
-        <div style="flex:1;min-width:0;font-size:11px;color:var(--muted);line-height:1.7">
-          لتعديل الإعدادات أو إعادة التعيين، افتح إعدادات الملحق.</div>
-        <button class="btn btn-outline btn-sm" onclick="showPage('set-playoff',null)" style="flex-shrink:0">
-          ${window.Icon?window.Icon('settings',13):''} الإعدادات</button>
+    <div class="po-bar">
+      <div class="po-bar-h">
+        <span class="po-dot"></span>
+        <div class="po-bar-tx">
+          <div class="po-bar-t">قسم الملحق مفعَّل</div>
+          <div class="po-bar-s">${_t.label} · ${p.teamIds.length} فريق · ${p.slots} مقعد</div>
+        </div>
+        <button class="po-bar-b" onclick="poTab('setup')">الإعدادات</button>
+      </div>
+      <div class="po-bar-acts">
+        <button class="po-a" onclick="showPage('matches',null);window._amtTab='po'">⚔️ مبارياته</button>
+        <button class="po-a" onclick="openNormalMatchModal()">➕ إضافة مباراة</button>
+        <button class="po-a" onclick="poGenerateMatches()">🔁 إعادة التوليد</button>
+        <button class="po-a danger" onclick="poResetAll()">🗑 إعادة تعيين</button>
       </div>
     </div>`;
-  host.innerHTML = bar + _poSectionHTML(p, ms);
+  /* كل إدارة الملحق في قسمه: تبويب «القسم» للجداول والمباريات، وتبويب
+     «الإعدادات» بمحتوى صفحة الإعدادات نفسها — فلا يتنقّل المنظّم بين
+     صفحتين لإدارة شيء واحد. صفحة الإعدادات المستقلّة تبقى كما هي لمن
+     يصلها من فهرس الإعدادات. */
+  const tab = window._poTab === 'setup' ? 'setup' : 'section';
+  const tabs = `
+    <div class="po-tabs">
+      <button class="po-tab ${tab === 'section' ? 'on' : ''}" onclick="poTab('section')">📋 القسم</button>
+      <button class="po-tab ${tab === 'setup'   ? 'on' : ''}" onclick="poTab('setup')">⚙︎ الإعدادات</button>
+    </div>`;
+
+  host.innerHTML = bar + tabs +
+    (tab === 'setup' ? _poSetupHTML(p) : _poSectionHTML(p, ms));
+};
+
+window.poTab = function (t) {
+  window._poTab = t;
+  window.renderPlayoffPage && window.renderPlayoffPage();
 };
 
 // ══ تبويب الإعدادات ══
@@ -11116,21 +11432,32 @@ function _poSetupHTML(p) {
         </div>
 
         ${p.type === 'groups' ? `
-        <div class="form-row">
+        <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
           <div class="form-group">
             <label class="form-label">عدد المجموعات</label>
             <input class="form-input" type="number" min="2" max="8" value="${p.groupsCount}" inputmode="numeric"
               onchange="poSet('groupsCount', this.value)" style="text-align:center"/>
           </div>
           <div class="form-group">
-            <label class="form-label">يتأهل من كل مجموعة</label>
+            <label class="form-label">فرق كل مجموعة</label>
+            <input class="form-input" type="number" min="2" max="12" value="${p.groupSize}" inputmode="numeric"
+              onchange="poSet('groupSize', this.value)" style="text-align:center"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">يتأهل من كلٍّ</label>
             <input class="form-input" type="number" min="1" max="4" value="${p.perGroup}" inputmode="numeric"
               onchange="poSet('perGroup', this.value)" style="text-align:center"/>
           </div>
+        </div>
+        <div class="po-need">
+          المطلوب <b>${p.groupsCount * p.groupSize}</b> فريقاً
+          (${p.groupsCount} مجموعات × ${p.groupSize})،
+          والمضاف <b style="color:${p.teamIds.length === p.groupsCount * p.groupSize ? 'var(--green)' : 'var(--gold)'}">${p.teamIds.length}</b>.
+          ويتأهل <b>${p.groupsCount * p.perGroup}</b> فريقاً إلى الشجرة.
         </div>` : `
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">عدد المقاعد المتاحة</label>
+            <label class="form-label">${p.type === 'mini' ? 'عدد المتأهلين من الجدول' : 'عدد المقاعد المتاحة'}</label>
             <input class="form-input" type="number" min="1" max="16" value="${p.slots}" inputmode="numeric"
               onchange="poSet('slots', this.value)" style="text-align:center"/>
           </div>
@@ -11203,6 +11530,8 @@ function _poSetupHTML(p) {
       </div>
     </div>
 
+    ${p.type === 'groups' ? _poAssignHTML(p) : (p.type === 'mini' ? _poMiniHTML(p) : '')}
+
     <!-- الإنشاء -->
     <div class="card" style="margin-bottom:12px;${p.created?'':'border-color:rgba(201,160,43,.35)'}">
       <div class="card-body">
@@ -11243,15 +11572,31 @@ function _poSetupHTML(p) {
 // ══ تبويب القسم ══
 function _poSectionHTML(p, ms) {
   if (!ms.length) {
+    /* 🔴 كانت هذه الشاشة مسدودة كسابقتها: «لم يُولَّد شيء بعد» وزرّ يُرسلك
+       إلى الإعدادات لتبحث عن زرّ التوليد. القسم أُنشئ وفرقه جاهزة —
+       فالخطوة الوحيدة الباقية زرّ واحد، مكانه هنا. */
+    const t = PLAYOFF_TYPES.find(x => x.key === p.type) || PLAYOFF_TYPES[0];
+    const n = p.teamIds.length;
+    const expect = p.type === 'groups'
+      ? `${p.groupsCount} مجموعات من ${n} فريقاً`
+      : p.type === 'mini' ? `دوري مصغّر بين ${n} فرق`
+      : p.type === 'double' ? 'مباراتان (ذهاب وإياب)' : 'مباراة واحدة';
     return `
       <div class="card">
-        <div class="card-body" style="text-align:center;padding:30px 18px">
-          <div style="margin-bottom:11px;display:flex;justify-content:center">
-            ${window.Icon ? window.Icon('clock', 30, 'var(--muted)') : ''}</div>
-          <div style="font-size:12.5px;font-weight:800;color:var(--text);margin-bottom:6px">لم يُولَّد شيء بعد</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.9;margin-bottom:16px">
-            اضبط التفاصيل في تبويب الإعدادات ثم اضغط «توليد».</div>
-          <button class="btn btn-outline btn-sm" onclick="showPage('set-playoff',null)">← الإعدادات</button>
+        <div class="card-body" style="padding:22px 18px">
+          <div style="text-align:center;margin-bottom:16px">
+            <div style="font-size:13.5px;font-weight:900;color:var(--text);margin-bottom:6px">
+              القسم جاهز — لم تُولَّد المباريات بعد</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.9">
+              سيُنشأ <b style="color:var(--gold)">${expect}</b> بنظام «${t.label}»،<br>
+              وتظهر مبارياته في تبويب <b>⚔️ الملحق</b> داخل قسم المباريات.</div>
+          </div>
+          <button class="btn btn-gold" onclick="poGenerateMatches()" style="width:100%;padding:14px;font-size:13.5px">
+            ⚡ توليد مباريات الملحق الآن</button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px">
+            <button class="btn btn-outline btn-sm" onclick="showPage('set-playoff',null)">تعديل الإعدادات</button>
+            <button class="btn btn-outline btn-sm" onclick="poResetAll()" style="border-color:rgba(192,57,43,.35);color:#C0392B">إعادة تعيين</button>
+          </div>
         </div>
       </div>`;
   }
@@ -11277,9 +11622,9 @@ function _poSectionHTML(p, ms) {
   if (p.type === 'mini') {
     tables = _poTableHTML('ترتيب الملحق', _poStandings(p.teamIds), p);
   } else if (p.type === 'groups') {
-    const per = Math.ceil(p.teamIds.length / p.groupsCount);
+    const _gs = _poGroups(p);
     for (let g = 0; g < p.groupsCount; g++) {
-      const ids = p.teamIds.slice(g * per, (g + 1) * per);
+      const ids = _gs[g] || [];
       if (ids.length) tables += _poTableHTML('المجموعة ' + _poGroupLetter(g), _poStandings(ids, g), p, g);
     }
   }
@@ -11458,10 +11803,26 @@ window.poTogglePublish = async function() {
     showToast(!p.published ? '📢 نُشر الملحق للجمهور' : 'أُلغي النشر', 'success');
 };
 
+/* عرض «كل الفرق» في المنتقي — حالة عرض فقط، الافتراضي: المرشَّحون وحدهم */
+window._poPickAll = false;
+window.poPickToggleAll = function () {
+  window._poPickAll = !window._poPickAll;
+  window.poOpenTeamPicker();
+};
+
 window.poOpenTeamPicker = function() {
   const p = _po();
-  const avail = (window.teams || []).filter(t => !p.teamIds.includes(t.id));
-  if (!avail.length) { showToast('كل الفرق مضافة بالفعل', 'error'); return; }
+  /* 🔴 كان المنتقي يعرض **كل فرق البطولة** — فيبحث المنظّم بين عشرات
+     الأسماء عن الفرق التي حدّد حالتها «ملحق» بنفسه، وقد يضيف فريقاً لا
+     يخصّ الملحق أصلاً. الافتراضي الآن: المرشَّحون فقط (من حدّد حالته
+     «ملحق» في المجموعات أو وقع في منطقة ملحق بالترتيب)، مع زرّ صريح
+     لعرض الباقي عند الحاجة. */
+  const sugIds = _poSuggested();
+  const notIn = (window.teams || []).filter(t => !p.teamIds.includes(t.id));
+  const sugAvail = notIn.filter(t => sugIds.includes(t.id));
+  const showAll = window._poPickAll || !sugAvail.length;
+  const avail = showAll ? notIn : sugAvail;
+  if (!notIn.length) { showToast('كل الفرق مضافة بالفعل', 'error'); return; }
   document.getElementById('poPickOv')?.remove();
   const ov = document.createElement('div');
   ov.id = 'poPickOv';
@@ -11472,7 +11833,12 @@ window.poOpenTeamPicker = function() {
                 font-family:Tajawal,sans-serif">
       <div style="flex-shrink:0;padding:15px 16px;border-bottom:1px solid var(--border);
                   display:flex;align-items:center;justify-content:space-between">
-        <div style="font-size:13.5px;font-weight:900;color:var(--gold)">اختر فرق الملحق</div>
+        <div style="min-width:0">
+          <div style="font-size:13.5px;font-weight:900;color:var(--gold)">اختر فرق الملحق</div>
+          <div style="font-size:9.5px;color:var(--muted);margin-top:3px;line-height:1.7">
+            ${showAll ? `كل الفرق (${avail.length})` : `المرشَّحون للملحق (${avail.length}) — من حدّدت حالتهم «ملحق»`}
+          </div>
+        </div>
         <button onclick="document.getElementById('poPickOv').remove()"
           style="background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;display:flex">
           ${window.Icon ? window.Icon('close', 18) : '✕'}</button>
@@ -11484,9 +11850,20 @@ window.poOpenTeamPicker = function() {
                    background:var(--card3);border:1px solid var(--border2);border-radius:10px">
             <span>${(window.logoHtml||(l=>''))(t.logo, 24, 6)}</span>
             <span style="flex:1;font-size:12.5px;font-weight:700">${t.name}</span>
+            ${sugIds.includes(t.id) ? '<span class="po-tag">ملحق</span>' : ''}
             <span style="font-size:10px;color:var(--muted)">${t.pts||0} ن</span>
           </div>`).join('')}
+        ${(!avail.length) ? `<div style="padding:22px 10px;text-align:center;font-size:11px;color:var(--muted);line-height:1.9">
+            لا يوجد مرشَّحون بعد.<br>حدّد حالة الفرق «ملحق» من صفحة المجموعات، أو اعرض كل الفرق.</div>` : ''}
       </div>
+      ${(sugAvail.length && notIn.length > sugAvail.length) ? `
+      <div style="flex-shrink:0;padding:11px 16px;border-top:1px solid var(--border)">
+        <button onclick="poPickToggleAll()" style="width:100%;padding:11px;border-radius:10px;cursor:pointer;
+          font-family:Tajawal,sans-serif;font-size:11px;font-weight:800;background:transparent;
+          border:1px solid var(--border2);color:var(--muted)">
+          ${showAll ? `عرض المرشَّحين فقط (${sugAvail.length})` : `عرض كل الفرق (${notIn.length})`}
+        </button>
+      </div>` : ''}
     </div>`;
   document.body.appendChild(ov);
   window.bindModalDismiss && window.bindModalDismiss(ov);
@@ -11541,7 +11918,8 @@ async function _poBuildMatches(p) {
   } else if (p.type === 'groups') {
     const per = Math.ceil(ids.length / p.groupsCount);
     for (let g = 0; g < p.groupsCount; g++) {
-      const gi = ids.slice(g * per, (g + 1) * per);
+      // التوزيع الصريح للمنظّم لا التقطيع التسلسلي
+      const gi = (_poGroups(p)[g] || []);
       for (let i = 0; i < gi.length; i++)
         for (let j = i + 1; j < gi.length; j++) pairs.push([gi[i], gi[j], g]);
     }
@@ -12569,7 +12947,15 @@ function renderKnockoutAdmin() {
      المسار الأول فوق ← النهائي في القلب ← المسار الثاني تحت (مرآة).
      تمرير طولي فقط، وكل البطاقات بمقاس واحد. توحيد التصميم بين الإدارة
      والجمهور وبطاقة المشاركة يعني أن ما يراه المنظّم هو ما يراه الجمهور. */
-  const roundsSorted = [...adminKnockoutRounds].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  /* 🔴 دور «تحديد المركز الثالث» ترتيبه `النهائي + 0.5`، فيأتي **آخر**
+     الأدوار — والراسم يعتبر آخر دور هو النهائي. فكانت بطاقة المركز الثالث
+     تأخذ تنسيق النهائي (الإطار الذهبي والتخطيط الأفقي والتاج)، ويفقده
+     النهائي الحقيقي فيُرسم كدور عادي.
+     يُفصَل هنا عن التسلسل تماماً ويُرسم في مكانه المخصّص أسفل الشجرة. */
+  const _thirdRd = adminKnockoutRounds.find(_isThirdPlaceRound) || null;
+  const roundsSorted = [...adminKnockoutRounds]
+    .filter(r => !_isThirdPlaceRound(r))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const firstOrder = roundsSorted.length ? (roundsSorted[0].order ?? 0) : 0;
 
   // ① جهّز بيانات كل دور مرة واحدة (خاناته ومبارياته وعدّاد المنتهية)
@@ -12633,7 +13019,26 @@ function renderKnockoutAdmin() {
       </div>
     </div>` : '';
 
-  const treeHtml = abTop + (abTop ? AB_DOWN : '') + abFinalHtml + (abBot ? AB_UP : '') + abBot;
+  /* مباراة المركز الثالث في بطاقة برونزية مستقلّة أسفل الشجرة — مكان
+     مخصّص لا يزاحم النهائي ولا يُربك قراءة التسلسل، كما تعرضها التطبيقات. */
+  let thirdHtml = '';
+  if (_thirdRd) {
+    const tm = matches.find(m => m.knockoutRoundId === _thirdRd.id) || null;
+    const semi = abPre.length ? abPre[abPre.length - 1].round.name : 'نصف النهائي';
+    thirdHtml = `
+      <div class="abm-third">
+        <div class="abm-third-h">
+          <span class="abm-third-m">🥉</span>
+          <span class="abm-third-t">تحديد المركز الثالث</span>
+          <span class="abm-third-s">${tm && tm.status === 'finished' ? 'انتهت' : 'خاسرا ' + semi}</span>
+        </div>
+        <div class="abm-grid">
+          ${_adminBracketBox(tm, _thirdRd.id, 0, false, _thirdRd, false, 'third-s0', semi, false)}
+        </div>
+      </div>`;
+  }
+
+  const treeHtml = abTop + (abTop ? AB_DOWN : '') + abFinalHtml + (abBot ? AB_UP : '') + abBot + thirdHtml;
 
   el.innerHTML = publishBar + drawBar + thirdPlaceBar + `<div class="ab-tree">${treeHtml}</div>`;
   /* 🔴 كانت الخطوط تُرسم في الإطار التالي مباشرةً (`requestAnimationFrame`
@@ -14128,6 +14533,26 @@ function injectAdminCSS() {
     .ab-tag-pend { color:var(--gold,#C9A02B); border:1px solid rgba(201,160,43,.3); }
     .ab-tag-live { color:#C0392B; border:1px solid rgba(192,57,43,.45); }
     .ab-tag-ok   { color:var(--green,#27ae60); border:1px solid rgba(39,174,96,.35); }
+
+    /* ══ مباراة تحديد المركز الثالث ══
+       بطاقة برونزية مستقلّة أسفل الشجرة: لا تدخل تسلسل الأدوار ولا تنازع
+       النهائي على تنسيقه، ويبقى مكانها ثابتاً معروفاً. */
+    .abm-third{
+      margin:22px auto 6px; max-width:340px; padding:12px;
+      border:1px solid rgba(176,141,87,.34); border-radius:14px;
+      background:rgba(176,141,87,.07);
+    }
+    .abm-third-h{display:flex;align-items:center;gap:7px;margin-bottom:10px;justify-content:center}
+    .abm-third-m{font-size:15px;line-height:1}
+    .abm-third-t{font-size:11px;font-weight:900;color:#C69B62}
+    .abm-third-s{font-size:9px;font-weight:700;color:var(--muted,#888);
+      border:1px solid var(--border2,#2a2a2a);border-radius:20px;padding:2px 8px}
+    .abm-third .abm-grid{display:flex;justify-content:center}
+    .abm-third .ab-box{
+      width:100%;max-width:300px;flex-direction:row;align-items:center;
+      border-color:rgba(176,141,87,.4);
+    }
+    .abm-third .ab-box.ab-empty{flex-direction:row}
 
     /* ══ شريط المتأهلين الموحّد (بديل الشريطين المكرّرين) ══ */
     .kq-bar { margin-bottom:14px; padding:13px 14px; background:var(--card2,#141414);
@@ -17747,7 +18172,8 @@ window.importRosterToLineup = function(teamId) {
   const NAMES = [
     'addTeam', 'adminAddGroup', 'addRosterPlayer', 'savePlayerProfile',
     'saveEditTeam', 'saveZoneRules', 'saveSettings', 'saveKoSchedule',
-    'poCreateSection', 'poGenerateMatches', 'poResetAll', 'poAddSuggested', 'adminConfirmBracketCreate',
+    'poCreateSection', 'poGenerateMatches', 'poResetAll', 'poAddSuggested',
+    'poAutoAssign', 'poClearAssign', 'poAssign', 'poPickToggleAll', 'poTab', 'adminConfirmBracketCreate',
     'saveDeduction', 'autoSchedule', 'swissGenerateFixtures',
     'saveNewPassword', 'uploadRosterPhoto', 'removeRosterPhoto'
   ];

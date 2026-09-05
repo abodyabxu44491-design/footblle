@@ -17,7 +17,7 @@ if('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
-<link rel="stylesheet" href="./admin.css?v=299"/>
+<link rel="stylesheet" href="./admin.css?v=306"/>
 <!-- SheetJS: لإنشاء/قراءة ملفات Excel (قالب واستيراد اللاعبين) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1011,7 +1011,7 @@ if('serviceWorker' in navigator) {
 <div class="card">
             <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="users"></span>ما يراه الجمهور</div></div>
             <div class="card-body">
-              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showStats"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="chart"></span>تبويب الإحصائيات</div><div class="toggle-desc">يظهر تبويب «إحصائيات» في شريط الجمهور السفلي</div></div><div class="toggle-switch on"></div></div>
+              <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showStats"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="chart"></span>تبويب الإحصائيات</div><div class="toggle-desc">تبويب الإحصائيات للجمهور، وإحصائيات كل مباراة (استحواذ · تسديدات · ركنيات …) في البثّ والإدخال السريع وتفاصيل المباراة</div></div><div class="toggle-switch on"></div></div>
               <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showScorers"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="medal"></span>جدول الهدّافين</div><div class="toggle-desc">قسم الهدّافين داخل الإحصائيات</div></div><div class="toggle-switch on"></div></div>
               <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showAssists"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="boots"></span>صنّاع الأهداف</div><div class="toggle-desc">قسم الصنّاع داخل الإحصائيات</div></div><div class="toggle-switch"></div></div>
               <div class="toggle-row" onclick="toggleSwitch(this)" data-key="showLineups"><div class="toggle-info"><div class="toggle-name"><span class="tg-ic" data-ic="shirt"></span>التشكيلات</div><div class="toggle-desc">تبويب التشكيلات في بطاقة المباراة — يجب تفعيله لتظهر أدوات التشكيلة في البث</div></div><div class="toggle-switch"></div></div>
@@ -2180,6 +2180,11 @@ if('serviceWorker' in navigator) {
 
   /* ── خريطة الإيموجي → الأيقونة ── */
   var MAP = {
+    '🌊':'shield', '🏔':'shield', '🌹':'shield', '🦄':'shield', '🐉':'shield', '🎭':'shield', '🌴':'shield', '🍀':'shield', '🌺':'shield', '📥':'download', '📍':'target', '🛈':'info', '🏔️':'shield', '🥶':'shield', '🧊':'shield',
+
+    // ── توسعة: رموز كانت تظهر نصّاً خاماً (✅ وحده في 415 موضعاً) ──
+    '✅':'check', '✔':'check', '☑':'check', '❌':'close', '✘':'close', '✖':'close', '🚫':'close', '⛔':'lock', '👟':'boots', '✏':'edit', '✍':'edit', '➕':'plus', '➖':'minus', '⚙':'settings', '⚖':'ruler', '⬇':'download', '⬆':'upload', '☀':'sun', '☁':'cloudRain', '🧹':'refresh', '✈':'plane', '⭐':'star', '👔':'user', '📖':'doc', '🎖':'medal', '🎥':'camera', '➡':'chevronL', '⬅':'chevronR', '🩹':'injury', '⚷':'key', '🦅':'shield', '🦁':'shield', '🐯':'shield', '🐻':'shield', '🦊':'shield', '🐺':'shield', '🦈':'shield', '🐬':'shield', '🦉':'shield', '🦋':'shield',
+
     '\uD83D\uDC54':'shirt', '\u267B\uFE0F':'refresh', '\u267B':'refresh',
     '\uD83E\uDDD1\u200D\uD83D\uDCBC':'user',
     '✅︎':'check','✓':'check','☑️':'check','❌︎':'close','✕':'close','✖️':'close',
@@ -2252,8 +2257,8 @@ if('serviceWorker' in navigator) {
   /* النطاقات مرتّبة تصاعدياً (وإلا: Range out of order)،
      والأزواج البديلة (surrogate pairs) في فرع منفصل. */
   var RE = new RegExp(
-    '[\u2190-\u21FF\u2600-\u27BF\u2B00-\u2BFF]\uFE0F?' +
-    '|[\uD83C-\uD83E][\uDC00-\uDFFF]\uFE0F?', 'g');
+    '[\u2190-\u21FF\u2600-\u27BF\u2B00-\u2BFF][\uFE0E\uFE0F]?' +
+    '|[\uD83C-\uD83E][\uDC00-\uDFFF][\uFE0E\uFE0F]?', 'g');
 
   var SKIP = { INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1, SCRIPT:1, STYLE:1 };
 
@@ -2361,14 +2366,14 @@ if('serviceWorker' in navigator) {
   };
 })();
 </script>
-<script type="module" src="./admin.js?v=299"></script>
+<script type="module" src="./admin.js?v=306"></script>
 <!-- نظام التشكيلات — Drag & Drop — يُحمّل بعد الأدمن مباشرة -->
-<script type="module" src="./admin-lineup-dragdrop.js?v=299"></script>
+<script type="module" src="./admin-lineup-dragdrop.js?v=306"></script>
 
 <!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
 
-<script src="./live-page-stats-fix.js?v=299"></script>
-<script src="./all-fixes.js?v=299"></script>
+<script src="./live-page-stats-fix.js?v=306"></script>
+<script src="./all-fixes.js?v=306"></script>
 <script>
 /* ===== timer-admin (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════
@@ -3062,8 +3067,8 @@ if('serviceWorker' in navigator) {
   console.log('[sponsor-admin] ✅︎ جاهز');
 })();
 </script>
-<script src="./cards-system.js?v=299"></script>
-<script src="./substitution-system.js?v=299"></script>
+<script src="./cards-system.js?v=306"></script>
+<script src="./substitution-system.js?v=306"></script>
 <script>
 // ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
 window.lvOpenLineupFromLive = function() {
@@ -3182,19 +3187,19 @@ window.openMatchLineup = function(matchId) {
   </div>
 </div>
 
-<script src="./timer-hotfix.js?v=299"></script>
-<script src="./tiebreak-rules.js?v=299"></script>
-<script src="./date-groups.js?v=299"></script>
-<script src="./admin-matches-tabs.js?v=299"></script>
-<script src="./groups-gate.js?v=299"></script>
-<script src="./league-logo.js?v=299"></script>
-<script src="./health-check.js?v=299"></script>
-<script src="./lock-guard.js?v=299"></script>
-<script src="./clock-sync.js?v=299"></script>
-<script src="./viewport-lock.js?v=299"></script>
-<script src="./pwa-install.js?v=299"></script>
+<script src="./timer-hotfix.js?v=306"></script>
+<script src="./tiebreak-rules.js?v=306"></script>
+<script src="./date-groups.js?v=306"></script>
+<script src="./admin-matches-tabs.js?v=306"></script>
+<script src="./groups-gate.js?v=306"></script>
+<script src="./league-logo.js?v=306"></script>
+<script src="./health-check.js?v=306"></script>
+<script src="./lock-guard.js?v=306"></script>
+<script src="./clock-sync.js?v=306"></script>
+<script src="./viewport-lock.js?v=306"></script>
+<script src="./pwa-install.js?v=306"></script>
 
 <!-- (شبكة أمان اللمس القديمة أُزيلت — النافذة الجديدة تربط أحداثها بالتفويض داخل admin.js) -->
-<script src="./back-nav.js?v=299"></script>
+<script src="./back-nav.js?v=306"></script>
 </body>
 </html>

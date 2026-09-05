@@ -1971,22 +1971,44 @@ window._renderRosterPickButtons = function(players, inputId, excludeNames) {
     return `<div style="font-size:11px;color:var(--muted,#888);padding:2px">${msg}</div>`;
   }
 
+  /* ── صفّ لاعب ──
+     🔴 كانت القائمة أزراراً صغيرة متلاصقة تلتفّ في سطور غير منتظمة، بلا
+     صور ولا محاذاة — فالبحث بالعين بطيء، والضغط على الاسم الصحيح صعب على
+     الجوال. الآن **صفوف رأسية منتظمة**: صورة اللاعب (أو ظلّ حين تغيب)،
+     ثمّ رقم قميصه واسمه ومركزه، وكامل الصفّ منطقة ضغط واحدة. */
+  const avatar = (p) => {
+    const base = 'width:30px;height:30px;border-radius:50%;flex:0 0 auto;overflow:hidden;' +
+                 'display:flex;align-items:center;justify-content:center;';
+    if (p.photo) {
+      return `<span style="${base}background:var(--card,#0f1216)">
+        <img src="${p.photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover"></span>`;
+    }
+    // ظلّ لاعب — أوضح من حرف مجرّد، ويمنع اللبس بين المتشابهين بالاسم
+    return `<span style="${base}background:rgba(255,255,255,.05);border:1px solid var(--border2,#2a2a2a)">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="8" r="3.6" fill="#6b7280"/>
+        <path d="M4.5 20c0-4 3.4-6.4 7.5-6.4s7.5 2.4 7.5 6.4" fill="#6b7280"/>
+      </svg></span>`;
+  };
+
   const btns = visible.map(p => {
     const nm = (p.name || '').replace(/'/g, "\\'");
     const posLabel = window._rosterPosLabel(p.position);
-    const numTag = (p.number !== undefined && p.number !== null && p.number !== '') ? ('#' + p.number + ' · ') : '';
+    const num = (p.number !== undefined && p.number !== null && p.number !== '') ? p.number : null;
     const flagged = p.status === 'injured' || p.status === 'suspended';
     let stMeta = null;
     try { if (typeof ROSTER_STATUS !== 'undefined') stMeta = ROSTER_STATUS[p.status] || null; } catch (e) {}
-    const warnIcon = flagged ? ` <span title="${stMeta?.label || ''}">${stMeta?.icon || '⚠️'}</span>` : '';
-    const dimStyle = flagged ? 'opacity:.55;border-style:dashed;' : '';
-    // مفتاح البحث: الاسم + الرقم معاً — فيمكن الفلترة برقم القميص أيضاً
+    const dimStyle = flagged ? 'opacity:.6;' : '';
     const key = window._rpickNorm((p.name || '') + ' ' + (p.number ?? ''));
-    return `<button type="button" data-rpick-key="${key}"
-      onclick="window._rpickChoose('${inputId}','${nm}')"
-      style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 10px;background:var(--card3,#1a1a1a);border:1px solid var(--border2,#2a2a2a);border-radius:9px;color:var(--text,#eee);font-family:Tajawal,sans-serif;cursor:pointer;text-align:right;${dimStyle}">
-      <span style="font-size:12px;font-weight:800">${numTag}${p.name || ''}${warnIcon}</span>
-      ${posLabel ? `<span style="font-size:9px;color:var(--muted,#888)">${posLabel}${flagged && stMeta ? ' · ' + stMeta.label : ''}</span>` : (flagged && stMeta ? `<span style="font-size:9px;color:var(--muted,#888)">${stMeta.label}</span>` : '')}
+    const meta = [posLabel, flagged && stMeta ? stMeta.label : null].filter(Boolean).join(' · ');
+    return `<button type="button" data-rpick-key="${key}" class="rpick-row"
+      onclick="window._rpickChoose('${inputId}','${nm}')" style="${dimStyle}">
+      ${avatar(p)}
+      <span class="rpick-tx">
+        <span class="rpick-nm">${p.name || ''}${flagged && stMeta ? ` <span title="${stMeta.label}">${stMeta.icon || '⚠️'}</span>` : ''}</span>
+        ${meta ? `<span class="rpick-meta">${meta}</span>` : ''}
+      </span>
+      ${num !== null ? `<span class="rpick-num">${num}</span>` : ''}
     </button>`;
   }).join('');
 
@@ -1999,11 +2021,7 @@ window._renderRosterPickButtons = function(players, inputId, excludeNames) {
         <span style="font-size:9.5px;color:var(--muted,#888)">اضغط اسماً أو اكتبه للبحث</span>
         <span id="rpick-count-${inputId}" style="margin-inline-start:auto;font-size:9.5px;font-weight:800;color:var(--gold,#C9A02B)">${visible.length} لاعب</span>
       </div>
-      <div id="rpick-box-${inputId}" data-rpick-for="${inputId}"
-        style="display:flex;flex-wrap:wrap;gap:6px;max-height:34vh;overflow-y:auto;
-               -webkit-overflow-scrolling:touch;padding:2px;
-               border:1px solid var(--border2,#2a2a2a);border-radius:10px;
-               background:rgba(255,255,255,.015)">${btns}</div>
+      <div id="rpick-box-${inputId}" data-rpick-for="${inputId}" class="rpick-box">${btns}</div>
       <div id="rpick-none-${inputId}" style="display:none;font-size:11px;color:var(--muted,#888);padding:8px 2px">
         لا يوجد لاعب بهذا الاسم — يمكنك كتابته يدوياً وسيُحفظ كما هو.
       </div>
@@ -2775,6 +2793,13 @@ function _qeInitStats(m) {
   };
 }
 
+/* مصدر واحد لتفعيل الإحصائيات في كل المنصة: إعداد البطولة
+   «الأقسام المفعّلة ← الإحصائيات». الغياب يعني مفعَّلة، فلا تختفي من
+   بطولات قائمة عند التحديث. */
+window.statsEnabledNow = function () {
+  return !(window.settings && window.settings.showStats === false);
+};
+
 // ── زيادة / تخفيض إحصائية في البطاقة السريعة ──
 window.qeStatAdj = function(matchId, field, delta) {
   if (!window._qeStats[matchId]) window._qeStats[matchId] = {};
@@ -2942,7 +2967,7 @@ function renderQuickEntry() {
       </div>`;
   }).join('');
 
-  const statsHtml = `
+  const statsHtml = !window.statsEnabledNow() ? '' : `
     <div style="background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:12px;margin-bottom:10px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px">📊 الإحصائيات</div>
@@ -7490,29 +7515,17 @@ function _buildLivePage(matchId, match, ht, at) {
              ما يُستعمل أثناء البثّ. صارا تحت خانة كل فريق مباشرةً،
              والفريق محسوم بموضع الزرّ لا بقائمة تُختار. -->
         <div class="lp-score-controls">
-          <div class="lp-sc-row">
-            <div class="lp-sc-team">${_lpLogoHtml(ht.logo, 24)} ${ht.name}</div>
-            <div class="lp-sc-btns">
-              <button class="lp-sc-plus" onclick="lpAddGoal('${mId}','home')">+</button>
-              <button class="lp-sc-minus" onclick="lpRemoveGoal('${mId}','home')">−</button>
+          ${[['home', ht], ['away', at]].map(([sd, tm]) => `
+          <div class="lp-gcard ${sd}">
+            <div class="lp-gcard-h">${_lpLogoHtml(tm.logo, 22)}<span>${tm.name}</span></div>
+            <div class="lp-gcard-b">
+              <button class="lp-goal" onclick="lpAddGoal('${mId}','${sd}')">⚽ هدف</button>
+              <button class="lp-gs own" onclick="lpOpenOwnGoal('${mId}','${sd}')" title="هدف عكسي">
+                <span class="lp-gs-ic">⚽</span><span class="lp-gs-tx">عكسي</span></button>
+              <button class="lp-gs del" onclick="lpRemoveGoal('${mId}','${sd}')" title="حذف آخر هدف">
+                <span class="lp-gs-ic">−</span><span class="lp-gs-tx">حذف</span></button>
             </div>
-          </div>
-          <div class="lp-gx">
-            <button class="lp-gx-b own"  onclick="lpOwnGoalFor('${mId}','home')">⚽ هدف عكسي</button>
-            <button class="lp-gx-b anon" onclick="lpNoNameGoalFor('${mId}','home')">⚽ بلا اسم</button>
-          </div>
-
-          <div class="lp-sc-row" style="margin-top:10px">
-            <div class="lp-sc-team">${_lpLogoHtml(at.logo, 24)} ${at.name}</div>
-            <div class="lp-sc-btns">
-              <button class="lp-sc-plus" onclick="lpAddGoal('${mId}','away')">+</button>
-              <button class="lp-sc-minus" onclick="lpRemoveGoal('${mId}','away')">−</button>
-            </div>
-          </div>
-          <div class="lp-gx">
-            <button class="lp-gx-b own"  onclick="lpOwnGoalFor('${mId}','away')">⚽ هدف عكسي</button>
-            <button class="lp-gx-b anon" onclick="lpNoNameGoalFor('${mId}','away')">⚽ بلا اسم</button>
-          </div>
+          </div>`).join('')}
         </div>
 
         <!-- ══ أحداث كل فريق على حدة ══
@@ -7652,9 +7665,10 @@ function _buildLivePage(matchId, match, ht, at) {
                نافذة الهدف، فلا يتفرّع السلوك. -->
           <div id="lp-evroster-${mId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
         </div>
+        <!-- «بلا اسم» خيار داخل نافذة الهدف لا زرّ مستقلّ: هو نفس الهدف
+             وقد جُهل مسجّله، فمكانه هنا. والعكسي له نافذته المستقلّة. -->
         <div class="lp-evmodal-row" id="lp-evowngoal-${mId}" style="display:none">
-          <button onclick="lpOwnGoal('${mId}')" style="width:100%;padding:10px;background:rgba(229,83,61,.1);border:1px solid rgba(229,83,61,.4);border-radius:10px;color:#e5533d;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">⚽ هدف عكسي (بدون نسبة للاعب)</button>
-          <button onclick="lpNoNameGoal('${mId}')" style="width:100%;margin-top:7px;padding:10px;background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.4);border-radius:10px;color:#C9A02B;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">⚽ هدف بلا اسم (لا يُنسب لأحد)</button>
+          <button onclick="lpNoNameGoal('${mId}')" style="width:100%;padding:10px;background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.4);border-radius:10px;color:#C9A02B;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">⚽ سجّله بلا اسم لاعب</button>
         </div>
         <div id="lp-evsubpicker-${mId}" style="display:none"></div>
         <div class="lp-evmodal-row" id="lp-evplayer2row-${mId}" style="display:none">
@@ -7804,8 +7818,14 @@ async function _lpOpenScorerPicker(matchId, side, teamName, teamId) {
           <span style="font-size:11px;color:var(--muted)">جارِ تحميل قائمة اللاعبين...</span>
         </div>
       </div>
+      <!-- 🔴 كان هنا زرّ «تخطي» ينادي lpRemoveGoalNoScorer — وهي تزيد
+           النتيجة **بلا إنشاء حدث**. فيرتفع الرقم ولا يظهر شيء في مجريات
+           المباراة، وهو نفس صنف الخلل الذي أُصلح في زرّ الحذف.
+           استُبدل بزرّ صريح «⚽ هدف بلا اسم» يُنشئ حدثاً حقيقياً بلا نسبة
+           لأحد — فالنتيجة والمجريات لا يفترقان. -->
       <div style="display:flex;gap:8px">
-        <button onclick="document.getElementById('lp-scorer-overlay-${matchId}')?.remove();lpRemoveGoalNoScorer?.('${matchId}','${side}')" style="flex:1;padding:12px;background:var(--card3);border:1px solid var(--border2);border-radius:12px;color:var(--muted);font-size:12px;font-family:Tajawal,sans-serif;cursor:pointer">تخطي</button>
+        <button onclick="document.getElementById('lp-scorer-overlay-${matchId}')?.remove();lpNoNameGoalFor('${matchId}','${side}')"
+          style="flex:1;padding:12px;background:rgba(201,160,43,.12);border:1px solid rgba(201,160,43,.42);border-radius:12px;color:#C9A02B;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">⚽ بلا اسم</button>
         <button onclick="_lpConfirmGoal('${matchId}','${side}')" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--gold2),var(--gold));border:none;border-radius:12px;color:#000;font-size:13px;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer">✅︎ هدف!</button>
       </div>
     </div>`;
@@ -7902,17 +7922,53 @@ async function _lpCommitGoal(matchId, side, playerName, count, assistName) {
   showToast('⚽ هدف!' + (playerName ? ' · ' + playerName : ''), 'success');
 }
 
+/* ══ حذف هدف — من كل مكان ══
+   🔴 كانت الدالّة **تنقص النتيجة فقط ولا تحذف الحدث**. فيبقى الهدف في
+   مجريات المباراة، وفي سجلّ اللاعب، وفي إحصائيات التشكيلة، وفي جدول
+   الهدّافين — بينما النتيجة تقول غير ذلك. تناقض صامت لا يكتشفه المنظّم
+   إلا حين يقارن، وقد فات الأوان.
+   الآن: يُحذف **الحدث نفسه**، ثم تُعاد النتيجة حسابياً من الأحداث
+   الباقية — فالنتيجة نتيجةُ ما وقع لا رقماً مستقلاً يُزاد ويُنقص. */
 window.lpRemoveGoal = async function(matchId, side) {
   const st = _liveMatches[matchId];
   if (!st) return;
-  if (side === 'home' && st.homeScore > 0) st.homeScore--;
-  else if (side === 'away' && st.awayScore > 0) st.awayScore--;
+  const evs = st.events || [];
+  const isGoalOf = e => e && (e.type === 'goal' || e.type === 'own') && (e.team || e.side) === side;
+  // الأحدث أولاً: القائمة مرتّبة بالإضافة العكسية (unshift)
+  const idx = evs.findIndex(isGoalOf);
+  if (idx === -1) { showToast('لا يوجد هدف لحذفه لهذا الفريق', 'error'); return; }
+
+  const ev = evs[idx];
+  const who = ev.type === 'own'
+    ? ('هدف عكسي' + (ev.player ? ' · ' + ev.player : ''))
+    : (ev.player ? ev.player : 'هدف بلا اسم');
+  const min = ev.minute ? ` (د ${ev.minute})` : '';
+  const ok = await window.confirmDialog({
+    title: '🗑 حذف هدف',
+    message: `سيُحذف: ${who}${min}\n\nويختفي من: مجريات المباراة · سجلّ اللاعب · جدول الهدّافين · إحصائيات التشكيلة.\nوتُعاد النتيجة حسابياً من الأهداف الباقية.`,
+    confirmText: 'حذف الهدف', danger: true
+  });
+  if (!ok) return;
+
+  evs.splice(idx, 1);
+  // النتيجة من الأحداث — لا زيادة ولا نقصان يدوي
+  st.homeScore = evs.filter(e => isGoalSide(e, 'home')).length;
+  st.awayScore = evs.filter(e => isGoalSide(e, 'away')).length;
   const shEl = document.getElementById('lp-sh-' + matchId);
   const saEl = document.getElementById('lp-sa-' + matchId);
   if (shEl) shEl.textContent = st.homeScore;
   if (saEl) saEl.textContent = st.awayScore;
+  if (typeof _lpRenderEvents === 'function') _lpRenderEvents(matchId);
   await _lpSave(matchId);
+  showToast('🗑 حُذف الهدف وأُعيد حساب النتيجة', 'success');
 };
+
+/* معيار واحد لعدّ أهداف فريق — يستعمله الحذف والحفظ وأي إعادة حساب،
+   فلا تختلف النتيجة باختلاف الموضع الذي حسبها. */
+function isGoalSide(e, side) {
+  return !!e && (e.type === 'goal' || e.type === 'own') && (e.team || e.side) === side;
+}
+window._isGoalSide = isGoalSide;
 
 // ─────────────────────────────────────────────────────────────────
 // EVENTS
@@ -7983,6 +8039,118 @@ window.lpNoNameGoal = async function(matchId) {
    لأن القرار اتُّخذ بالضغطة، فلا يبقى مجال للخطأ. */
 /* الفريق يُحسم من موضع الزرّ. نضبط قائمة الفريق المخفية ثم ننادي الدالّة
    الأصلية — فمنطق الكتابة يبقى واحداً ولا يتفرّع إلى نسختين تختلفان. */
+/* ══ نافذة الهدف العكسي ══
+   الهدف العكسي يسجّله **لاعب الفريق الخصم** في مرماه. كان يُحفظ بلا اسم
+   إطلاقاً، فلا يُعرف صاحبه ولا يظهر في سجلّه — والتطبيقات الكبيرة تنسبه
+   إليه وتميّزه بكرة حمراء. هنا نعرض كشف الفريق الخصم للاختيار، ويبقى
+   «بلا اسم» خياراً ثابتاً لمن لا يعرف المسجِّل. */
+window.lpOpenOwnGoal = async function (matchId, side) {
+  const m = matches.find(x => x.id === matchId) || {};
+  const ht = teams.find(t => t.id === m.homeId) || {};
+  const at = teams.find(t => t.id === m.awayId) || {};
+  const creditName = side === 'home' ? (ht.name || m.homeName || 'الأول') : (at.name || m.awayName || 'الثاني');
+  // المسجِّل من الفريق الآخر — هو من أدخلها في مرماه
+  const scorerSide = side === 'home' ? 'away' : 'home';
+  const scorerTeam = scorerSide === 'home' ? ht : at;
+  const scorerTeamId = scorerSide === 'home' ? m.homeId : m.awayId;
+
+  document.getElementById('ogOv')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'ogOv';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,.82);' +
+    'display:flex;align-items:flex-end;justify-content:center;font-family:Tajawal,sans-serif';
+  ov.innerHTML = `
+    <div class="og-box" onclick="event.stopPropagation()">
+      <div class="og-head">
+        <div>
+          <div class="og-t">⚽ هدف عكسي</div>
+          <div class="og-s">يُحتسب لـ <b>${creditName}</b> · سجّله لاعب من ${scorerTeam.name || '—'}</div>
+        </div>
+        <button class="og-x" onclick="document.getElementById('ogOv').remove()">✕</button>
+      </div>
+      <div class="og-body">
+        <input class="og-in" id="ogPlayer" placeholder="اسم من سجّل الهدف العكسي (اختياري)"/>
+        <div id="ogRoster" style="margin-top:9px"></div>
+      </div>
+      <div class="og-foot">
+        <button class="og-b anon" onclick="lpCommitOwnGoal('${matchId}','${side}',true)">بلا اسم</button>
+        <button class="og-b ok"   onclick="lpCommitOwnGoal('${matchId}','${side}',false)">تسجيل الهدف العكسي</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+
+  const box = document.getElementById('ogRoster');
+  if (box && scorerTeamId) {
+    box.innerHTML = '<span style="font-size:11px;color:#888">جارِ تحميل كشف ' + (scorerTeam.name || '') + '…</span>';
+    try {
+      const roster = await window._loadTeamRoster(scorerTeamId);
+      box.innerHTML = window._renderRosterPickButtons(roster, 'ogPlayer', null);
+    } catch (e) {
+      box.innerHTML = '<span style="font-size:11px;color:#888">تعذّر تحميل الكشف — اكتب الاسم يدوياً</span>';
+    }
+  }
+};
+
+/* الكتابة — مسار واحد لكلتا الحالتين (باسم أو بلا اسم) */
+window.lpCommitOwnGoal = async function (matchId, side, anon) {
+  const nameRaw = anon ? '' : (document.getElementById('ogPlayer')?.value || '').trim();
+  document.getElementById('ogOv')?.remove();
+  const m = matches.find(x => x.id === matchId) || {};
+  const ht = teams.find(t => t.id === m.homeId) || {};
+  const at = teams.find(t => t.id === m.awayId) || {};
+  const creditName = side === 'home' ? (ht.name || m.homeName || 'الأول') : (at.name || m.awayName || 'الثاني');
+  const scorerSide = side === 'home' ? 'away' : 'home';
+  const scorerTeamId = scorerSide === 'home' ? m.homeId : m.awayId;
+
+  // اربط المسجِّل بهويته ليظهر الهدف العكسي في سجلّه كما في التطبيقات
+  let idInfo = {};
+  if (nameRaw && window._resolvePlayerId) {
+    try { idInfo = window._resolvePlayerId(scorerTeamId, nameRaw, matchId, scorerSide) || {}; } catch (e) {}
+  }
+
+  const st = window._liveMatches && window._liveMatches[matchId];
+  const ev = {
+    id: Date.now(), type: 'own', icon: '⚽', label: 'هدف عكسي',
+    team: side, teamName: creditName, side,
+    player: nameRaw, playerId: idInfo.playerId || null,
+    playerNumber: idInfo.number != null ? idInfo.number : null,
+    ownScorerSide: scorerSide, ownScorerTeamId: scorerTeamId || null,
+    player2: ''
+  };
+
+  if (st) {
+    let minute = 1, extra = 0;
+    try { const em = window._evMinute(st); if (em) { minute = em.minute; extra = em.extraMinute || 0; } } catch (e) {}
+    Object.assign(ev, { minute, extraMinute: extra, half: st.currentHalf,
+                        time: new Date().toLocaleTimeString('ar') });
+    st.events.unshift(ev);
+    if (side === 'home') st.homeScore++; else st.awayScore++;
+    const el = document.getElementById((side === 'home' ? 'lp-sh-' : 'lp-sa-') + matchId);
+    if (el) el.textContent = side === 'home' ? st.homeScore : st.awayScore;
+    if (typeof _lpRenderEvents === 'function') _lpRenderEvents(matchId);
+    try { await _lpSave(matchId); } catch (e) {}
+    showToast('⚽ هدف عكسي · يُحسب لـ ' + creditName + (nameRaw ? ' · ' + nameRaw : ''), 'success');
+    return;
+  }
+
+  const evs = Array.isArray(m.events) ? m.events.slice() : [];
+  Object.assign(ev, { minute: 1, time: new Date().toLocaleTimeString('ar') });
+  evs.push(ev);
+  evs.sort((a, b) => (a.minute || 0) - (b.minute || 0));
+  m.events = evs;
+  const recount = sd => evs.filter(e => (e.type === 'goal' || e.type === 'own') && (e.side || e.team) === sd).length;
+  m.homeScore = recount('home'); m.awayScore = recount('away');
+  try {
+    await updateDoc(doc(db, 'leagues', LEAGUE_ID, 'matches', matchId), {
+      events: evs, homeScore: m.homeScore, awayScore: m.awayScore, updatedAt: serverTimestamp(),
+    });
+    if (typeof _qeRefresh === 'function') _qeRefresh(matchId);
+    if (typeof window._qrRefresh === 'function') window._qrRefresh(matchId);
+    showToast('⚽ هدف عكسي · يُحسب لـ ' + creditName + (nameRaw ? ' · ' + nameRaw : ''), 'success');
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
 window.lpOwnGoalFor = function (matchId, side) {
   const sel = document.getElementById('lp-evteam-' + matchId);
   if (sel) sel.value = side;
@@ -8229,9 +8397,12 @@ window.lpEditEvent = function(matchId, id) {
        <input id="lp-ee-in" value="${(ev.playerIn||ev.player2||'').replace(/"/g,'&quot;')}" style="width:100%;margin:4px 0 12px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
        <label style="font-size:11px;color:#888">الخارج ▼</label>
        <input id="lp-ee-out" value="${(ev.playerOut||ev.player||'').replace(/"/g,'&quot;')}" style="width:100%;margin:4px 0 12px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>`
-    : isOwn
-      ? `<div style="font-size:12px;color:#e5533d;margin-bottom:12px">هدف عكسي — لا يُنسب للاعب</div>`
-      : `<label style="font-size:11px;color:#888">${ev.type==='goal'||ev.type==='penalty'?'صاحب الهدف':'اسم اللاعب'}</label>
+    /* 🔴 كانت نافذة التعديل تقول للهدف العكسي «لا يُنسب للاعب» وتُخفي
+       الحقل — فلا سبيل لتصحيح اسم من سجّله. صار يُنسب فعلاً، فيُعرض حقله
+       كغيره مع توضيح أن المسجِّل من الفريق الآخر. */
+    : `<label style="font-size:11px;color:#888">${
+          isOwn ? 'من سجّل الهدف العكسي (من الفريق الآخر)'
+        : (ev.type==='goal'||ev.type==='penalty') ? 'صاحب الهدف' : 'اسم اللاعب'}</label>
          <input id="lp-ee-player" value="${(ev.player||'').replace(/"/g,'&quot;')}" placeholder="اكتب أو اختر من القائمة" style="width:100%;margin:4px 0 8px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
          <div id="lp-ee-roster" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;max-height:170px;overflow-y:auto">
            <span style="font-size:11px;color:#666">جارِ تحميل لاعبي الفريق...</span>
@@ -8255,10 +8426,16 @@ window.lpEditEvent = function(matchId, id) {
   ov.onclick = () => ov.remove();
   document.body.appendChild(ov);
 
-  // ✅︎ حمّل كشف الفريق في المنتقي (للأهداف/البطاقات) — اختيار صاحب الهدف
-  if (!isSub && !isOwn && _evTeamId) {
+  /* حمّل كشف الفريق في المنتقي.
+     🔴 الهدف العكسي كان مستثنى (`!isOwn`). ومسجّله من **الفريق الآخر** —
+     فلو حمّلنا كشف الفريق صاحب الحدث لعرضنا لاعبين لا علاقة لهم به.
+     نقلب الجهة له خاصّةً. */
+  const _pickTeamId = isOwn
+    ? ((ev.team === 'home' || ev.side === 'home') ? st.awayId : st.homeId)
+    : _evTeamId;
+  if (!isSub && _pickTeamId) {
     (async () => {
-      const roster = await window._loadTeamRoster(_evTeamId);
+      const roster = await window._loadTeamRoster(_pickTeamId);
       const box = document.getElementById('lp-ee-roster');
       const inp = document.getElementById('lp-ee-player');
       if (!box || !inp) return;
@@ -8266,16 +8443,10 @@ window.lpEditEvent = function(matchId, id) {
         box.innerHTML = '<span style="font-size:11px;color:#666">لا يوجد كشف لاعبين لهذا الفريق</span>';
         return;
       }
-      box.innerHTML = roster.map(p => {
-        const nm = (p.name || '').replace(/'/g, "\\'").replace(/"/g,'&quot;');
-        const num = (p.number != null && p.number !== '') ? `<span style="opacity:.6;font-size:10px">${p.number}</span> ` : '';
-        const active = ((p.name||'').trim() === (ev.player||'').trim());
-        return `<button type="button" onclick="_lpEePick('${p.id}','${nm}')"
-          style="padding:7px 11px;border-radius:9px;border:1px solid ${active?'#C9A02B':'#333'};
-          background:${active?'rgba(201,160,43,.15)':'#1a1a1a'};color:${active?'#C9A02B':'#ccc'};
-          font-family:Tajawal,sans-serif;font-size:12px;font-weight:700;cursor:pointer">${num}${p.name||'؟'}</button>`;
-      }).join('');
-      inp.addEventListener('input', () => { inp.dataset.pid = ''; });
+      // القائمة الموحّدة نفسها (صور · صفوف · عمودان) بدل أزرار قديمة مختلفة
+      box.className = '';
+      box.style.cssText = 'margin-bottom:6px';
+      box.innerHTML = window._renderRosterPickButtons(roster, 'lp-ee-player', null);
     })();
   }
 };
@@ -8305,9 +8476,27 @@ window.lpSaveEditEvent = async function(matchId, id) {
 
   if (ev.type === 'sub') {
     const inEl = document.getElementById('lp-ee-in'), outEl = document.getElementById('lp-ee-out');
-    if (inEl)  { ev.playerIn  = inEl.value.trim();  ev.player2 = ev.playerIn; }
-    if (outEl) { ev.playerOut = outEl.value.trim(); ev.player  = ev.playerOut; }
-  } else if (ev.type !== 'own') {
+    /* الاسم وحده لا يكفي: حساب المشاركات يعتمد الهوية متى توفّرت. فتغيير
+       الاسم بلا تحديث الهوية يُبقي المشاركة مسجّلة على اللاعب القديم. */
+    const _sTeam = (ev.team === 'home' || ev.side === 'home') ? st.homeId : st.awayId;
+    const _rid = (nm) => {
+      if (!nm || !window._resolvePlayerId) return {};
+      try { return window._resolvePlayerId(_sTeam, nm, matchId, ev.team || ev.side) || {}; }
+      catch (e) { return {}; }
+    };
+    if (inEl)  {
+      ev.playerIn = inEl.value.trim(); ev.player2 = ev.playerIn;
+      const r = _rid(ev.playerIn); ev.playerInId = r.playerId || null;
+    }
+    if (outEl) {
+      ev.playerOut = outEl.value.trim(); ev.player = ev.playerOut;
+      const r = _rid(ev.playerOut); ev.playerOutId = r.playerId || null;
+    }
+    if (!ev.teamId) ev.teamId = _sTeam || null;
+  } else {
+    /* 🔴 كان الهدف العكسي مستثنى من التعديل (`ev.type !== 'own'`) لأنه كان
+       يُحفظ بلا مسجّل أصلاً. صار له مسجّل الآن، فيجب أن يقبل التصحيح
+       كغيره — وإلا بقي اسم خاطئ في سجلّ لاعب بلا طريق لإزالته. */
     const pEl = document.getElementById('lp-ee-player');
     if (pEl) {
       const newName = pEl.value.trim();
@@ -8337,25 +8526,75 @@ window.lpSaveEditEvent = async function(matchId, id) {
   }
   // إعادة الترتيب حسب الدقيقة
   st.events.sort((a, b) => (a.minute || 0) - (b.minute || 0));
+
+  /* بعد أي تعديل: النتيجة من الأحداث، والمرايا النصية (homeScorers /
+     awayScorers) تُعاد كتابتها — وإلا بقي الاسم القديم في البطاقات
+     وفي الواجهات التي تقرأ النصّ لا الأحداث، فيظهر الهدف منسوباً
+     للاعبين معاً: القديم في المرآة والجديد في المجريات. */
+  _lpRescore(matchId);
+  try {
+    const _m = matches.find(x => x.id === matchId);
+    if (_m) {
+      _m.events = st.events;
+      const _names = sd => (st.events || [])
+        .filter(e => e.type === 'goal' && (e.team || e.side) === sd)
+        .map(e => e.player || '؟').join(', ');
+      _m.homeScorers = _names('home');
+      _m.awayScorers = _names('away');
+    }
+  } catch (e) {}
+
   document.getElementById('lp-editev-ov')?.remove();
   _lpRenderEvents(matchId);
   await _lpSave(matchId);
-  showToast('✅︎ تم تعديل الحدث', 'success');
+  showToast('✅︎ تم تعديل الحدث — حُدِّث في المجريات والإحصائيات', 'success');
 };
+
+/* 🔴 كان حذف حدث من المجريات يُزيله ولا يمسّ النتيجة — فيختفي الهدف من
+   السجلّ وتبقى النتيجة تعدّه. وهو الوجه المقابل لخلل زرّ الحذف.
+   النتيجة تُحسب من الأحداث بعد كل حذف، فالمصدر واحد لا مصدران. */
+function _lpRescore(matchId) {
+  const st = _liveMatches[matchId];
+  if (!st) return;
+  st.homeScore = (st.events || []).filter(e => isGoalSide(e, 'home')).length;
+  st.awayScore = (st.events || []).filter(e => isGoalSide(e, 'away')).length;
+  const shEl = document.getElementById('lp-sh-' + matchId);
+  const saEl = document.getElementById('lp-sa-' + matchId);
+  if (shEl) shEl.textContent = st.homeScore;
+  if (saEl) saEl.textContent = st.awayScore;
+}
+window._lpRescore = _lpRescore;
 
 window.lpDeleteEvent = async function(matchId, id) {
   const st = _liveMatches[matchId];
   if (!st) return;
+  const ev = (st.events || []).find(e => e.id === id);
+  // حذف هدف يغيّر النتيجة — نؤكّد كي لا تُحذف نتيجة بضغطة عابرة
+  if (ev && (ev.type === 'goal' || ev.type === 'own')) {
+    const who = ev.type === 'own' ? ('هدف عكسي' + (ev.player ? ' · ' + ev.player : ''))
+                                  : (ev.player || 'هدف بلا اسم');
+    const ok = await window.confirmDialog({
+      title: '🗑 حذف هدف',
+      message: `سيُحذف: ${who}${ev.minute ? ' (د ' + ev.minute + ')' : ''}\n\nوتُعاد النتيجة حسابياً، ويختفي من سجلّ اللاعب وجدول الهدّافين.`,
+      confirmText: 'حذف', danger: true
+    });
+    if (!ok) return;
+  }
   st.events = st.events.filter(e => e.id !== id);
+  _lpRescore(matchId);
   _lpRenderEvents(matchId);
   await _lpSave(matchId);
 };
 
 window.lpClearEvents = async function(matchId) {
-  if (!(await window.confirmDialog({ title: '⚠️ تأكيد', message: 'مسح كل الأحداث؟', confirmText: '🗑 نعم، احذف', danger: true }))) return;
+  if (!(await window.confirmDialog({
+    title: '⚠️ مسح كل الأحداث',
+    message: 'ستُحذف كل الأهداف والبطاقات والتبديلات، وتعود النتيجة إلى 0 - 0.\nلا يمكن التراجع.',
+    confirmText: '🗑 نعم، احذف', danger: true }))) return;
   const st = _liveMatches[matchId];
   if (!st) return;
   st.events = [];
+  _lpRescore(matchId);
   _lpRenderEvents(matchId);
   await _lpSave(matchId);
 };
@@ -8387,6 +8626,24 @@ window._lpSetSaveState = function(matchId, state, text) {
 async function _lpSave(matchId) {
   const st = _liveMatches[matchId];
   if (!st || !LEAGUE_ID) return;
+
+  /* حارس اتّساق قبل كل حفظ: النتيجة يجب أن تساوي عدد أهداف الأحداث.
+     أي مسار يزيد رقماً بلا حدث (أو العكس) يُصحَّح هنا قبل أن يصل الخادم —
+     فلا يُنشر تناقض بين ما يراه الجمهور في النتيجة وما يراه في المجريات. */
+  try {
+    const _h = (st.events || []).filter(e => isGoalSide(e, 'home')).length;
+    const _a = (st.events || []).filter(e => isGoalSide(e, 'away')).length;
+    if (_h !== st.homeScore || _a !== st.awayScore) {
+      console.warn('[بثّ] النتيجة لا تطابق الأحداث — صُحّحت:',
+        st.homeScore + '-' + st.awayScore, '→', _h + '-' + _a);
+      st.homeScore = _h; st.awayScore = _a;
+      const shEl = document.getElementById('lp-sh-' + matchId);
+      const saEl = document.getElementById('lp-sa-' + matchId);
+      if (shEl) shEl.textContent = _h;
+      if (saEl) saEl.textContent = _a;
+    }
+  } catch (e) {}
+
   window._lpSetSaveState(matchId, 'saving');
 
   const liveData = {
@@ -8620,8 +8877,6 @@ setInterval(() => {
     .lp-sc-row:last-child { border-bottom: none; }
     .lp-sc-team { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--text,#eee); flex: 1; }
     .lp-sc-btns { display: flex; gap: 8px; }
-    .lp-sc-plus { width: 40px; height: 40px; background: linear-gradient(135deg,rgba(39,174,96,.2),rgba(39,174,96,.1)); border: 1px solid rgba(39,174,96,.4); border-radius: 10px; color: #27ae60; font-size: 20px; font-weight: 900; cursor: pointer; }
-    .lp-sc-minus { width: 40px; height: 40px; background: rgba(220,50,50,.1); border: 1px solid rgba(220,50,50,.3); border-radius: 10px; color: #C0392B; font-size: 20px; cursor: pointer; }
 
     /* Events grid */
     .lp-events-grid { background: var(--card,#111); border: 1px solid var(--border2,#2a2a2a); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
@@ -13164,10 +13419,10 @@ function renderKnockoutAdmin() {
         <div class="abm-third-h">
           <span class="abm-third-m">🥉</span>
           <span class="abm-third-t">تحديد المركز الثالث</span>
-          <span class="abm-third-s">${tm && tm.status === 'finished' ? 'انتهت' : 'خاسرا ' + semi}</span>
+          <span class="abm-third-s">${tm && tm.status === 'finished' ? 'انتهت' : 'بين خاسرَي ' + semi}</span>
         </div>
         <div class="abm-grid">
-          ${_adminBracketBox(tm, _thirdRd.id, 0, false, _thirdRd, false, 'third-s0', semi, false)}
+          ${_adminBracketBox(tm, _thirdRd.id, 0, false, _thirdRd, false, 'third-s0', semi, false, 'loser')}
         </div>
       </div>`;
   }
@@ -13287,7 +13542,12 @@ if (!window._abmResizeBound) {
 }
 
 // ── صندوق مباراة واحد في الشجرة التفاعلية ──
-function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round, mirror, brkAttr, prevName, isFinal) {
+/* `feeds`: من يملأ هذه الخانة — 'winner' افتراضاً، و'loser' لمباراة
+   تحديد المركز الثالث. 🔴 كانت الخانة تقول «فائز نصف النهائي» في كل
+   الأحوال، ومباراة المركز الثالث يلعبها **خاسرا** نصف النهائي لا
+   فائزاه — فالنصّ كان يقول عكس الحقيقة تماماً. */
+function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round, mirror, brkAttr, prevName, isFinal, feeds) {
+  const _fw = (feeds === 'loser') ? 'خاسر ' : 'فائز ';
   const brk = brkAttr ? ` data-brk="${brkAttr}"` : '';
   // ✅︎ خانة نصف مكتملة: فريق واحد اختير فعلاً وظهر للجمهور، بانتظار الفريق الثاني
   const pick = !m && round && round.slotPicks && round.slotPicks[slotIdx];
@@ -13304,7 +13564,7 @@ function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round, mirror, brkA
        في الدور الأول دعوة للاختيار، وبعده اسم الدور المغذّي صراحةً. */
     const label = isFirstRound
       ? 'اضغط لاختيار فريق'
-      : (prevName ? 'فائز ' + prevName : 'بانتظار المتأهل');
+      : (prevName ? _fw + prevName : 'بانتظار المتأهل');
     const cls   = isFirstRound ? 'ab-empty ab-pick' : 'ab-empty ab-waiting';
     const click = isFirstRound ? ` onclick="adminOpenBracketSlot('${roundId}',${slotIdx})"` : '';
 
@@ -13331,7 +13591,7 @@ function _adminBracketBox(m, roundId, slotIdx, isFirstRound, round, mirror, brkA
 
   const virtual = !m; // نصف مكتملة — لا توجد مباراة فعلية بعد
   // الطرف الثاني هنا هو **الخصم** المنتظَر، لا «متأهل» عام
-  const _TBD = virtual ? 'بانتظار الخصم' : (prevName ? 'فائز ' + prevName : 'بانتظار المتأهل');
+  const _TBD = virtual ? 'بانتظار الخصم' : (prevName ? _fw + prevName : 'بانتظار المتأهل');
   const ht = virtual
     ? { name: pick.teamName || _TBD, logo: pick.teamLogo || '' }
     : (teams.find(t => t.id === m.homeId) || { name: m.homeName || _TBD, logo: '' });
@@ -14688,13 +14948,71 @@ function injectAdminCSS() {
     }
     .abm-third .ab-box.ab-empty{flex-direction:row}
 
+    /* ══ قائمة اللاعبين المشتركة — صفوف بصور ══ */
+    .rpick-box{display:grid;grid-template-columns:1fr 1fr;gap:5px;max-height:36vh;overflow-y:auto;
+      -webkit-overflow-scrolling:touch;padding:5px;border:1px solid var(--border2,#2a2a2a);
+      border-radius:11px;background:rgba(255,255,255,.015)}
+    .rpick-row{display:flex;align-items:center;gap:8px;width:100%;min-width:0;padding:7px 8px;
+      border-radius:10px;cursor:pointer;text-align:start;font-family:'Tajawal',sans-serif;
+      background:var(--card3,#1a1a1a);border:1px solid var(--border2,#2a2a2a);color:var(--text,#eee)}
+    .rpick-row:active{border-color:var(--gold,#C9A02B);background:rgba(201,160,43,.08)}
+    .rpick-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .rpick-nm{font-size:11.5px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .rpick-meta{font-size:9px;color:var(--muted,#888);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    @media (max-width:340px){ .rpick-box{grid-template-columns:1fr} }
+    .rpick-num{flex:0 0 auto;min-width:22px;height:22px;border-radius:6px;
+      display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;
+      background:rgba(255,255,255,.05);color:var(--muted,#9a9a9a)}
+
+    /* ══ نافذة الهدف العكسي ══ */
+    .og-box{width:100%;max-width:460px;max-height:86vh;display:flex;flex-direction:column;
+      background:#111318;border:1px solid #23262e;border-radius:18px 18px 0 0;overflow:hidden}
+    .og-head{flex:0 0 auto;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+      padding:15px 17px 12px;border-bottom:1px solid #1f2229}
+    .og-t{font-size:14px;font-weight:900;color:#e5533d}
+    .og-s{font-size:10.5px;color:#8a8a8a;margin-top:3px;line-height:1.7}
+    .og-s b{color:#eee}
+    .og-x{flex:0 0 auto;width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:13px;
+      background:transparent;border:1px solid #2a2a2a;color:#888;font-family:inherit}
+    .og-body{flex:1 1 auto;overflow-y:auto;padding:13px 16px}
+    .og-in{width:100%;box-sizing:border-box;padding:11px;border-radius:10px;
+      background:#0f1216;border:1px solid #2a2a2a;color:#eee;
+      font-family:'Tajawal',sans-serif;font-size:12.5px;outline:none}
+    .og-foot{flex:0 0 auto;display:grid;grid-template-columns:1fr 1.7fr;gap:7px;
+      padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #1f2229}
+    .og-b{min-height:46px;border-radius:11px;cursor:pointer;font-family:'Tajawal',sans-serif;
+      font-size:12px;font-weight:800}
+    .og-b.anon{background:rgba(201,160,43,.12);border:1px solid rgba(201,160,43,.4);color:#C9A02B}
+    .og-b.ok{background:rgba(229,83,61,.15);border:1px solid rgba(229,83,61,.5);color:#e5533d}
+    @media (min-width:520px){ #ogOv{align-items:center!important;padding:20px}
+      .og-box{border-radius:18px} }
+
     /* زرّا الهدف الثابتان تحت خانة كل فريق */
-    .lp-gx{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
-    .lp-gx-b{min-height:36px;border-radius:9px;cursor:pointer;
-      font-family:'Tajawal',sans-serif;font-size:10.5px;font-weight:800;
-      background:transparent;border:1px solid var(--border2,#2a2a2a)}
-    .lp-gx-b.own{border-color:rgba(229,83,61,.42);color:#e5533d;background:rgba(229,83,61,.08)}
-    .lp-gx-b.anon{border-color:rgba(201,160,43,.42);color:#C9A02B;background:rgba(201,160,43,.08)}
+    /* ══ بطاقة أهداف كل فريق ══
+       صفّ واحد بثلاثة أزرار: «⚽ هدف» يأخذ المساحة الباقية فهو الأبرز،
+       و«عكسي» و«حذف» **مربّعان متساويان** على طرفه — فالأولوية ظاهرة
+       بالحجم، والثانويان لا يزاحمانه ولا يختلف أحدهما عن الآخر. */
+    .lp-gcard{border:1px solid var(--border2,#2a2a2a);background:var(--card2,#141414);
+      border-radius:13px;padding:11px;margin-bottom:9px}
+    .lp-gcard.home{border-inline-start:3px solid var(--gold,#C9A02B)}
+    .lp-gcard.away{border-inline-start:3px solid #3B7DBF}
+    .lp-gcard-h{display:flex;align-items:center;gap:7px;margin-bottom:10px;min-width:0}
+    .lp-gcard-h span{font-size:12.5px;font-weight:900;color:var(--text,#eee);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .lp-gcard-b{display:flex;align-items:stretch;gap:7px}
+    .lp-goal{flex:1 1 auto;min-width:0;height:56px;border-radius:12px;cursor:pointer;
+      font-family:'Tajawal',sans-serif;font-size:16px;font-weight:900;letter-spacing:.3px;
+      background:rgba(39,174,96,.16);border:1px solid rgba(39,174,96,.45);color:#2ecc71}
+    .lp-goal:active{background:rgba(39,174,96,.3)}
+    .lp-gs{flex:0 0 60px;width:60px;height:56px;border-radius:12px;cursor:pointer;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+      font-family:'Tajawal',sans-serif;background:transparent}
+    .lp-gs-ic{font-size:15px;line-height:1}
+    .lp-gs-tx{font-size:9px;font-weight:800;line-height:1}
+    .lp-gs.own{border:1px solid rgba(229,83,61,.45);color:#e5533d;background:rgba(229,83,61,.07)}
+    .lp-gs.del{border:1px solid var(--border2,#2a2a2a);color:var(--muted,#8a8a8a)}
+    .lp-gs:active{opacity:.75}
+    @media (max-width:340px){ .lp-gs{flex:0 0 52px;width:52px} .lp-goal{font-size:14px} }
 
     /* ══ أحداث البثّ — عمود لكل فريق ══
        نفس منطق الإدخال السريع: الفريق يُحسم بالضغطة لا بقائمة منسدلة. */
@@ -17755,7 +18073,9 @@ window.importRosterToLineup = function(teamId) {
       penaltyScoreHome: penH,
       penaltyScoreAway: penA,
       penalties: penObj,
+      // نفس القيم في الموضعين — الجمهور يقرأ liveData.stats أولاً
       stats: statsObj,
+      'liveData.stats': statsObj,
       status: 'finished',
       updatedAt: serverTimestamp(),
     };

@@ -3242,3 +3242,33 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 @supports not (background: color-mix(in srgb, red 5%, transparent)){
   .mc2-sf,.mi-flag{background:rgba(255,255,255,.06)}
 }
+
+/* ── الهدف العكسي: كرة حمراء واسم مسجّله ── */
+.vt-dot-goal.vt-dot-own{background:rgba(192,57,43,.16)!important;border-color:rgba(192,57,43,.55)!important}
+.vt-dot-goal.vt-dot-own svg,.vt-dot-goal.vt-dot-own path,.vt-dot-goal.vt-dot-own circle{fill:#C0392B!important;stroke:#C0392B!important}
+.vt-goal-name.vt-goal-own{color:#E88C82}
+.vt-og{font-size:9px;font-weight:800;color:#C0392B;background:rgba(192,57,43,.13);
+  border:1px solid rgba(192,57,43,.3);border-radius:20px;padding:1px 7px;margin-inline-start:5px;
+  white-space:nowrap}
+
+/* ══ بطاقة الطرد على شعار الفريق ══
+   بطاقة حمراء صغيرة مائلة قليلاً عند حافّة الشعار، كما تعرضها التطبيقات
+   الكبيرة. تعدّد الطرد يُعرض برقم داخلها لا بتكرارها — فلا تتزاحم ولا
+   تخرج عن حدود البطاقة مهما بلغ العدد. */
+.mc2-logo{position:relative}
+.mc2-red{
+  position:absolute; inset-inline-end:-5px; bottom:-3px;
+  display:inline-flex; align-items:center; gap:2px;
+  padding:1px 3px 1px 2px; border-radius:5px;
+  background:#15171c; box-shadow:0 0 0 1.5px #15171c;
+}
+.mc2-red-c{
+  display:block; width:9px; height:12.5px; border-radius:1.8px;
+  background:linear-gradient(160deg,#E74C3C,#B0281C);
+  transform:rotate(-11deg);
+  box-shadow:0 1px 2px rgba(0,0,0,.5);
+}
+.mc2-red-n{
+  font-size:8.5px; font-weight:900; color:#E88C82; line-height:1;
+  padding-inline-end:1px; font-variant-numeric:tabular-nums;
+}

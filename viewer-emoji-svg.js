@@ -30,10 +30,13 @@
     '\\u{2100}-\\u{214F}';      // رموز شبيهة بالحروف (ℹ️ …)
 
   var EMOJI_BASE  = '[' + EMOJI_CHAR + ']';
-  var EMOJI_TEST  = new RegExp('(?:' + EMOJI_BASE + '|\\u{FE0F})', 'u');
+  /* 🔴 المحدّد كان يعرف FE0F وحدها. لكن معظم رموز المشروع مكتوبة بـ
+     «✅︎» أي بـ **FE0E** (طلب العرض النصّي) — فيُستبدل الرمز وتبقى علامة
+     التنويع معلّقة في النصّ. نقبل الاثنتين. */
+  var EMOJI_TEST  = new RegExp('(?:' + EMOJI_BASE + '|[\\u{FE0E}\\u{FE0F}])', 'u');
   // يلتقط رمزاً مفرداً أو تسلسل ZWJ كامل (مع علامات التنويع الاختيارية) ككتلة واحدة
   var EMOJI_SPLIT = new RegExp(
-    '(' + EMOJI_BASE + '\\u{FE0F}?(?:\\u{200D}' + EMOJI_BASE + '\\u{FE0F}?)*' +
+    '(' + EMOJI_BASE + '[\\u{FE0E}\\u{FE0F}]?(?:\\u{200D}' + EMOJI_BASE + '[\\u{FE0E}\\u{FE0F}]?)*' +
     '|[\\u{1F1E6}-\\u{1F1FF}]{2})', 'gu'
   );
 

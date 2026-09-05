@@ -24,6 +24,10 @@ function injectCSS() {
   var s = document.createElement('style');
   s.id = '_lpsf3_css';
   s.textContent = `
+  .lpsf3-note{font-size:10px;color:#8a8a8a;line-height:1.85;text-align:center;
+    padding:9px 11px;margin-top:10px;border-radius:9px;
+    background:rgba(255,255,255,.03);border:1px dashed #2a2a2a}
+  .lpsf3-note b{color:#C9A02B}
   /* §1 — إلغاء العمود الجانبي */
   .lp-col-side  { display: none !important; }
   .lp-body      { display: block !important; }
@@ -186,7 +190,14 @@ function loadFromFirebase(matchId, callback) {
 // ══════════════════════════════════════════════════════════════════
 // §3 — بناء بطاقة الإحصائيات
 // ══════════════════════════════════════════════════════════════════
+function _statsOn() {
+  // مصدر واحد: إعداد البطولة. الغياب يعني مفعَّلة.
+  return !(window.settings && window.settings.showStats === false);
+}
+
 function buildCard(matchId, savedStats, statsEnabled) {
+  // مطفأة من الإعدادات → لا تُبنى البطاقة أصلاً في صفحة البثّ
+  if (!_statsOn()) { cleanPage(matchId); return; }
   // منع التكرار
   if (document.getElementById('lpsf3-card-' + matchId)) {
     _syncStateFromSaved(matchId, savedStats, statsEnabled);
@@ -248,14 +259,14 @@ function buildCard(matchId, savedStats, statsEnabled) {
       + '</div>';
   });
 
-  // زر التفعيل/إيقاف للجمهور
-  var isEnabled = st.statsEnabled !== false;
-  html += '<button class="lpsf3-toggle-btn ' + (isEnabled ? 'enabled' : 'disabled') + '" '
-    + 'id="lpsf3-toggle-' + matchId + '" '
-    + 'onclick="lpsf3ToggleStats(\'' + matchId + '\')">'
-    + (isEnabled ? '✅ الإحصائيات مفعّلة للجمهور — اضغط لإيقافها'
-                 : '⭕ الإحصائيات مخفية عن الجمهور — اضغط لتفعيلها')
-    + '</button>';
+  /* 🔴 كان هنا زرّ تفعيل/إيقاف **لكل مباراة** يكتب `statsEnabled` في
+     `liveData`. فصار للتفعيل مصدران: إعداد البطولة وعلم المباراة —
+     يُطفئ المنظّم الإعداد فتبقى الإحصائيات ظاهرة في مباريات ضُبط علمها
+     سابقاً، ويُشغّله فتختفي في أخرى. تعارض لا يفسّره شيء لمن يستعمله.
+     الآن الإعداد وحده يحكم، ومكان الزرّ سطر يدلّ عليه. */
+  html += '<div class="lpsf3-note">'
+    + 'ظهور الإحصائيات للجمهور يُضبط من: <b>الإعدادات ← الأقسام المفعّلة ← الإحصائيات</b>'
+    + '</div>';
 
   card.innerHTML = html;
 
@@ -365,18 +376,14 @@ function _change(matchId, key, side, delta) {
 // ══════════════════════════════════════════════════════════════════
 // §4 — تفعيل / إيقاف الإحصائيات للجمهور
 // ══════════════════════════════════════════════════════════════════
-window.lpsf3ToggleStats = async function(matchId) {
-  var st = window._liveMatches && window._liveMatches[matchId];
-  if (!st) return;
-  st.statsEnabled = !(st.statsEnabled === true);
-  _updateToggleBtn(matchId);
-  await _doSave(matchId);
+/* أُبقيت الدالّة لأن نداءات قديمة قد تصل إليها من كاش المتصفح، لكنها
+   لم تعد تكتب علماً لكل مباراة — توجّه إلى الإعداد الواحد بدل إحداث
+   تعارض بينه وبين علم المباراة. */
+window.lpsf3ToggleStats = function() {
   if (window.showToast) {
-    window.showToast(
-      st.statsEnabled ? '✅ الإحصائيات مفعّلة للجمهور' : '⭕ الإحصائيات أُخفيت عن الجمهور',
-      'success'
-    );
+    window.showToast('ظهور الإحصائيات يُضبط من: الإعدادات ← الأقسام المفعّلة ← الإحصائيات', 'info');
   }
+  try { window.showPage && window.showPage('set-mods', null); } catch (e) {}
 };
 
 // ══════════════════════════════════════════════════════════════════
@@ -425,20 +432,19 @@ async function _doSave(matchId) {
     }
   });
 
-  // ✅ إصلاح: تُفعَّل تلقائياً عند وجود أي قيمة
-  if (hasAnyVal && st.statsEnabled !== false) {
-    st.statsEnabled = true;
-    _updateToggleBtn(matchId);
-  }
-
   var saveEl = document.getElementById('lp-save-' + matchId);
   if (saveEl) saveEl.textContent = '⏳';
 
   try {
     var ref     = docFn(db, 'leagues', LEAGUE_ID, 'matches', matchId);
+    /* 🔴 كانت الإحصائيات تُكتب في `liveData.stats` وحدها، بينما مسار
+       «إنهاء المباراة» في الإدخال السريع يكتبها في `stats`. موضعان لنفس
+       البيانات: يقرأ الجمهور الأول فيرى قيم البثّ القديمة بعد أن حُدّثت
+       من الإدخال السريع — تعارض صامت.
+       الكتابة الآن في الموضعين معاً في عملية واحدة، فيستحيل افتراقهما. */
     var payload = {
-      'liveData.stats':        statsObj,
-      'liveData.statsEnabled': st.statsEnabled !== false,
+      'liveData.stats': statsObj,
+      stats:            statsObj,
     };
     if (srvTs) payload.updatedAt = srvTs();
     await updateDoc(ref, payload);

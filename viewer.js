@@ -60,6 +60,21 @@ const LEAGUE_ID = params.get('id') || '';
    التطبيق قبل اكتمال التحميل (أو على شبكة ضعيفة) لا يُحفظ له شيء.
    نحفظه فور قراءته من الرابط، ونحتفظ بقائمة آخر البطولات لشاشة الاستعادة. */
 if (LEAGUE_ID) {
+  /* 🔴 اسم التطبيق على الآيفون كان يظهر «منصة بطولات» بدل اسم البطولة:
+     سفاري يقرأ `apple-mobile-web-app-title` **لحظة** فتح قائمة المشاركة،
+     واسم البطولة لا يُعرف إلا بعد رحلة شبكة كاملة. فمن يضغط «مشاركة» بسرعة
+     — وهو الغالب — يلتقط الاسم العام الثابت.
+     الحلّ: نحفظ اسم البطولة محلياً، ونضعه **فوراً عند بدء التحميل** قبل أي
+     طلب شبكة. فالزيارة الثانية فصاعداً تحمل الاسم الصحيح منذ اللحظة الأولى. */
+  try {
+    const cached = localStorage.getItem('leagueName:' + LEAGUE_ID);
+    if (cached) {
+      document.title = cached;
+      let mt = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+      if (!mt) { mt = document.createElement('meta'); mt.name = 'apple-mobile-web-app-title'; document.head.appendChild(mt); }
+      mt.setAttribute('content', cached);
+    }
+  } catch (e) {}
   try {
     localStorage.setItem('installedLeagueId', LEAGUE_ID);
     const mru = JSON.parse(localStorage.getItem('recentLeagues') || '[]')
@@ -502,6 +517,46 @@ function _installDynamicManifest(league) {
 }
 
 /* شاشة استعادة البطولة عند غياب المعرّف */
+/* دليل تثبيت مبسّط للآيفون — خطوتان بالصور بدل شرح نصّي */
+window.showIOSInstall = function () {
+  const nm = document.title || 'البطولة';
+  document.getElementById('iosInstallOv')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'iosInstallOv';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.86);' +
+    'display:flex;align-items:flex-end;justify-content:center;font-family:Tajawal,sans-serif';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `
+    <div style="width:100%;max-width:440px;background:#111318;border:1px solid #23262e;
+                border-radius:18px 18px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom,0px))">
+      <div style="text-align:center;margin-bottom:18px">
+        <div style="font-size:34px;margin-bottom:8px">📲</div>
+        <div style="font-size:15px;font-weight:900;color:#e6c157">أضِف «${nm}» لشاشتك</div>
+        <div style="font-size:11px;color:#8a8a8a;line-height:1.9;margin-top:6px">
+          خطوتان فقط — وستفتح البطولة مباشرةً في كل مرة</div>
+      </div>
+      ${[['1','اضغط زرّ المشاركة','أسفل الشاشة في سفاري — المربّع بالسهم لأعلى ⬆︎'],
+         ['2','اختر «إضافة إلى الشاشة الرئيسية»','ثم «إضافة» في الأعلى']]
+        .map(([n,t,d]) => `
+        <div style="display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:12px;
+                    background:#16181e;border:1px solid #23262e;margin-bottom:9px">
+          <span style="flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#e6c157;color:#000;
+                       display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900">${n}</span>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-size:12.5px;font-weight:800;color:#eee">${t}</span>
+            <span style="display:block;font-size:10.5px;color:#8a8a8a;margin-top:3px;line-height:1.75">${d}</span>
+          </span>
+        </div>`).join('')}
+      <div style="font-size:10px;color:#666;line-height:1.85;margin:12px 2px 14px">
+        ملاحظة: إن كانت لديك أيقونة قديمة لا تفتح البطولة، احذفها أولاً ثم أعِد الخطوتين من هذه الصفحة.
+      </div>
+      <button onclick="document.getElementById('iosInstallOv').remove()"
+        style="width:100%;padding:14px;border-radius:12px;cursor:pointer;font-family:inherit;
+               font-size:13px;font-weight:900;background:#e6c157;border:none;color:#000">فهمت</button>
+    </div>`;
+  document.body.appendChild(ov);
+};
+
 function _showRecoveryScreen() {
   let mru = [];
   try { mru = JSON.parse(localStorage.getItem('recentLeagues') || '[]'); } catch (e) {}
@@ -620,6 +675,8 @@ async function init() {
     const mru = JSON.parse(localStorage.getItem('recentLeagues') || '[]');
     const hit = mru.find(x => x && x.id === LEAGUE_ID);
     if (hit) { hit.name = league.name || ''; localStorage.setItem('recentLeagues', JSON.stringify(mru)); }
+    // اسم البطولة للزيارة القادمة — يُضبط عنوان التطبيق قبل أي طلب شبكة
+    if (league.name) localStorage.setItem('leagueName:' + LEAGUE_ID, league.name);
   } catch(e){}
 
   // فور معرفة شعار البطولة: اعرضه في شاشة التحميل بدل أيقونة المنصة العامة
@@ -6182,9 +6239,17 @@ function _onPush(payload) {
 }
 
 // ── إحصائيات موحّدة للمباراة (تُستخدم في تفاصيل المباراة) ──
+/* مصدر واحد لتفعيل الإحصائيات: إعداد البطولة «الأقسام المفعّلة ← الإحصائيات».
+   🔴 كان التفعيل موزّعاً على مصدرين: `settings.showStats` للتبويب العام،
+   و`liveData.statsEnabled` لكل مباراة — فيُطفئ المنظّم الإعداد وتبقى
+   الإحصائيات ظاهرة في مباريات، ويُشغّله فتختفي في أخرى. الآن الإعداد
+   وحده يحكم، والعلم القديم يبقى مقروءاً للتوافق ولا يُكتب بعده. */
+window.vStatsOn = function () {
+  return !(window.settings && window.settings.showStats === false);
+};
+
 function _buildUnifiedStatsHtml(d, ht, at, shareBtnHtml) {
-  // تحقق من statsEnabled — إذا كان false بشكل صريح، لا تعرض
-  if (d && d.statsEnabled === false) return '';
+  if (!window.vStatsOn()) return '';
 
   // اقرأ الإحصائيات من liveData.stats أو مباشرة من d
   const stats = (d && d.stats) || {};
@@ -6211,7 +6276,9 @@ function _buildUnifiedStatsHtml(d, ht, at, shareBtnHtml) {
   const rows = SFIELDS.map(f => {
     const hv = gv(f.lh, f.fh);
     const av = gv(f.la, f.fa);
-    if (hv === null && av === null) return '';
+    /* 🔴 كان الصفّ يُحذف إن غابت قيمتاه — فيرى الجمهور جدولاً ناقص
+       الصفوف يختلف من مباراة لأخرى، ويظنّ أن الإحصائية غير موجودة أصلاً.
+       تظهر كل الحقول دائماً، والغائب صفر — فالجدول ثابت الشكل. */
     const h = hv ?? 0, a = av ?? 0;
     const tot = h + a || 1;
     const hPct = f.pct ? h : Math.round(h / tot * 100);
@@ -6805,22 +6872,53 @@ function _matchCard(m) {
     if (_i > -1) center = center.slice(0, _i) + sPill + center.slice(_i);
   }
 
+  /* 🔴 الطرد لم يكن يظهر على البطاقة إطلاقاً — يراه الجمهور فقط إن فتح
+     المباراة وقرأ المجريات. وهو أهم ما يفسّر مجرى المباراة ونتيجتها.
+     التطبيقات الكبيرة تضع بطاقة حمراء صغيرة عند شعار الفريق المتضرّر،
+     وتُظهر عددها إن تعدّدت — فيُقرأ الوضع من القائمة بلا فتح شيء. */
+  const _reds = (typeof window.vRedCount === 'function') ? window.vRedCount(m) : { home: 0, away: 0 };
+  const _redBadge = (n) => n > 0
+    ? `<span class="mc2-red" title="${n === 1 ? 'طرد' : n + ' حالات طرد'}">
+         <span class="mc2-red-c"></span>${n > 1 ? `<span class="mc2-red-n">${n}</span>` : ''}
+       </span>` : '';
+
   return `
     <div class="mc2 ${(isL && _liveOn)?'mc2-live':''} ${isF?'mc2-fin':''}" onclick="openMatchDetail('${m.id}')">
       ${roundBadge}
       <div class="mc2-team">
-        <div class="mc2-logo">${_logo(ht.logo, 40)}</div>
+        <div class="mc2-logo">${_logo(ht.logo, 40)}${_redBadge(_reds.home)}</div>
         <div class="mc2-name ${hw?'mc2-win':''}">${ht.name}</div>
       </div>
       ${center}
       <div class="mc2-team">
-        <div class="mc2-logo">${_logo(at.logo, 40)}</div>
+        <div class="mc2-logo">${_logo(at.logo, 40)}${_redBadge(_reds.away)}</div>
         <div class="mc2-name ${aw?'mc2-win':''}">${at.name}</div>
       </div>
       ${predB ? `<div class="mc2-pred">${predB}</div>` : ''}
     </div>`;
 }
 
+
+/* ══ عدّ حالات الطرد لكل فريق ══
+   الأحداث تُقرأ من `liveData.events` أثناء البثّ ومن `m.events` بعد
+   الانتهاء — نقرأ الاثنين بترتيب ثابت فلا يختلف العدد بين الحالتين.
+   وتشمل الطرد المباشر والطرد بصفراوين إن سُجّل بنوعه. */
+window.vRedCount = function (m) {
+  const out = { home: 0, away: 0 };
+  if (!m) return out;
+  const evs = (m.liveData && Array.isArray(m.liveData.events) && m.liveData.events.length)
+    ? m.liveData.events
+    : (Array.isArray(m.events) ? m.events : []);
+  evs.forEach(e => {
+    if (!e) return;
+    const t = String(e.type || '').toLowerCase();
+    if (t !== 'red' && t !== 'redcard' && t !== 'secondyellow') return;
+    const sd = e.team || e.side;
+    if (sd === 'home') out.home++;
+    else if (sd === 'away') out.away++;
+  });
+  return out;
+};
 
 /* ══ الحالة الخاصة للمباراة ══
    منفصلة عن حالة اللعب: مباراة مؤجّلة تبقى «قادمة» في كل الحسابات،
@@ -7866,7 +7964,10 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
     // يتحوّل تلقائياً إلى "مجريات المباراة" (الخط الزمني الفعلي للأحداث).
     const tabs = [];
     tabs.push({id:'events', label: isUpcoming ? 'الأحداث' : 'مجريات المباراة'});
-    if (!isUpcoming) tabs.push({id:'stats', label:'الإحصائيات'});
+    /* 🔴 التبويب كان يُضاف بمجرد بدء المباراة بلا النظر إلى الإعداد —
+       فإن أُطفئت الإحصائيات ظهر التبويب وفتحه يعطي فراغاً. الآن يتبع
+       الإعداد نفسه، فلا يُعرض ما لا محتوى له. */
+    if (!isUpcoming && window.vStatsOn()) tabs.push({id:'stats', label:'الإحصائيات'});
     /* نظام التشكيلات قسم اختياري: لا يظهر تبويبه للجمهور إلا إذا فعّله
        المنظّم من «الأقسام المفعّلة» — كبقية الأقسام الاختيارية. */
     if (window.settings && window.settings.showLineups === true) tabs.push({id:'lineup', label:'التشكيلات'});
@@ -7888,7 +7989,8 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
         // للمباريات المنتهية: نعرض دائماً بغض النظر عن statsEnabled
         // للمباريات المباشرة: نحترم statsEnabled
         const statsData = _statsLive || _statsFin || {};
-        const mergedD   = { stats: statsData, statsEnabled: isF ? true : (d ? d.statsEnabled : true) };
+        // التفعيل من إعداد البطولة وحده — لا من علم المباراة
+        const mergedD   = { stats: statsData };
         // خزّن بيانات إحصائية المباراة لهذه المباراة (يقرأها زر المشاركة)
         window._shMatchStatsData = window._shMatchStatsData || {};
         window._shMatchStatsData[matchId] = { statsData, ht, at, m };
@@ -8052,7 +8154,15 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
             const side = _evSide(ev) === 'away' ? 'left' : 'right';
             const isOwn = ev.type === 'own';
             const _goalTeamId = _evSide(ev) === 'away' ? at.id : ht.id;
-            const goalName = isOwn ? 'هدف عكسي' : (_liveEventPlayerName(ev, _goalTeamId) || '—');
+            /* 🔴 الهدف العكسي كان يُعرض بكلمة «هدف عكسي» وحدها بلا اسم — ولو
+               عُرف مسجّله. التطبيقات الكبيرة تنسبه إليه وتميّزه بكرة حمراء،
+               فيرى الجمهور من أدخلها في مرماه ويبقى الفرق واضحاً عن الهدف
+               العادي. المسجِّل من الفريق **الآخر**، فنبحث عن اسمه في كشفه. */
+            const _ownTeamId = _evSide(ev) === 'away' ? ht.id : at.id;
+            const _ownScorer = isOwn ? (ev.player || _liveEventPlayerName(ev, _ownTeamId) || '') : '';
+            const goalName = isOwn
+              ? (_ownScorer ? `${_ownScorer} <span class="vt-og">(ضد فريقه)</span>` : 'هدف عكسي')
+              : (_liveEventPlayerName(ev, _goalTeamId) || '—');
             /* ✅︎ صانع الهدف — سطر ثانوي تحت اسم الهدّاف تماماً كالتطبيقات الرسمية */
             const _asNm = (!isOwn && _assistsPublic()) ? _liveAssistName(ev, _goalTeamId) : '';
             const _asHtml = _asNm
@@ -8060,14 +8170,14 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
               : '';
             const content = `<div class="vt-goalw">
               <div class="vt-goal">
-                <span class="vt-goal-name"${isOwn?' style="color:var(--t3);font-style:italic"':''}>${goalName}</span>
+                <span class="vt-goal-name${isOwn ? ' vt-goal-own' : ''}">${goalName}</span>
                 <span class="vt-goal-min">${minLabel(ev)}</span>
               </div>
               ${_asHtml}
             </div>`;
             return `<div class="vt-row vt-row-${side}">
               <div class="vt-side vt-side-left">${side === 'left' ? content : ''}</div>
-              <div class="vt-marker"><span class="vt-dot vt-dot-goal">${window.Icon ? window.Icon('ball', 12) : ''}</span></div>
+              <div class="vt-marker"><span class="vt-dot vt-dot-goal${isOwn ? ' vt-dot-own' : ''}">${window.Icon ? window.Icon('ball', 12) : ''}</span></div>
               <div class="vt-side vt-side-right">${side === 'right' ? content : ''}</div>
             </div>`;
           }

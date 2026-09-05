@@ -167,14 +167,16 @@
         /* في «المنتهية» تُطرح إزاحة كبيرة من مفتاح أدوار الإقصاء فتقع
            دائماً **بعد** جولات المجموعات مهما كان تاريخها — لأن الإقصاء
            خاتمة البطولة فمكانه الأسفل. ويبقى ترتيبها بينها زمنياً صحيحاً. */
-        sk = (active === 'fin' && byDate && DG) ? (DG.sortKey(m.date) || 0) - 1e12
-                                                : (m.knockoutOrder || m.round || 0);
+        sk = (active === 'fin' && DG) ? (DG.sortKey(m.date) || 0)
+                                      : (m.knockoutOrder || m.round || 0);
       } else if (byDate) {
         k = DG.label(m.date); sk = DG.sortKey(m.date);
       } else {
         k = 'الجولة ' + (m.round || 1); sk = m.round || 1;
       }
       if (!buckets[k]) { buckets[k] = []; meta[k] = { sk: sk, d: m.date }; }
+      // أحدث مباراة في المجموعة هي مفتاح ترتيبها — فآخر ما لُعب يعلو القائمة
+      else if (sk > meta[k].sk) { meta[k].sk = sk; meta[k].d = m.date; }
       buckets[k].push(m);
     });
     /* 🔴 المنتهية كانت مرتّبة تصاعدياً (الأقدم فوق) إلا حين التجميع

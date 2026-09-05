@@ -372,6 +372,23 @@
   function getLeagueName() {
     return _state.leagueNameOverride || getLeague().name || getSettings().leagueName || 'البطولة';
   }
+  /* ══ مسمّى دور المباراة ══
+     🔴 قائمة اختيار المباراة كانت تطبع «الجولة N» **ثم** اسم الدور معاً،
+     فتظهر مباراة نصف النهائي بوصف «الجولة 1 · نصف النهائي». ورقم الجولة
+     في الإقصاء رقم داخلي ثابت لا معنى له.
+     مسمّى واحد يُستعمل في كل مواضع البطاقات — نفس قاعدة صفحة الجمهور. */
+  function _csRound(m) {
+    if (!m) return '';
+    if (m.isKnockout || m.knockoutRoundId != null || m.knockoutRoundName)
+      return m.knockoutRoundName || 'دور إقصائي';
+    if (m.isPlayoff)
+      return (m.poGroup != null)
+        ? 'الملحق · مجموعة ' + String.fromCharCode(65 + m.poGroup)
+        : 'الملحق';
+    if (m.groupName) return m.groupName + (m.round ? ' · الجولة ' + m.round : '');
+    return m.round ? 'الجولة ' + m.round : '';
+  }
+
   function fmt12(t) {
     if (!t) return '';
     if (typeof window.formatTimeTo12H === 'function') return window.formatTimeTo12H(t);
@@ -925,7 +942,7 @@
     let   curY   = ID_TOP + idH + 16;
 
     // ─ 2) شارة المرحلة
-    const stage = extras.stage || m.knockoutRoundName || (m.groupName ? (m.groupName + (m.round ? ' · الجولة ' + m.round : '')) : (m.round ? `الجولة ${m.round}` : ''));
+    const stage = extras.stage || _csRound(m);
     const stH   = drawStageBar(ctx, W, curY, stage);
     curY += stH + (stH ? 18 : 0);
 
@@ -985,7 +1002,7 @@
     let curY     = ID_TOP + idH + 12;
 
     // ─ 2) شارة نهاية المباراة + المرحلة
-    const stage    = extras.stage || m.knockoutRoundName || (m.groupName ? (m.groupName + (m.round ? ' · الجولة ' + m.round : '')) : (m.round ? `الجولة ${m.round}` : ''));
+    const stage    = extras.stage || _csRound(m);
     const endLabel = stage ? `نهاية المباراة  ·  ${stage}` : 'نهاية المباراة';
     drawIconText(ctx, 'finish', endLabel, W/2, curY+16, '700 17px Tajawal,Arial', '#666', 'center');
     curY += 38;
@@ -1462,8 +1479,7 @@
                 <div class="cs-match-meta">
                   ${histBadge}
                   ${m.date?`📅 ${m.date}`:''}
-                  ${m.round?` · الجولة ${m.round}`:''}
-                  ${m.knockoutRoundName?` · ${m.knockoutRoundName}`:''}
+                  ${_csRound(m)?` · ${_csRound(m)}`:''}
                 </div>
               </div>
               ${scoreHtml}
@@ -1583,10 +1599,10 @@
           <div class="cs-form-group"><label>🧑‍⚖️ الحكم <span style="color:#444">(اختياري)</span></label><input id="cs-f-referee" value="${m.referee||''}" placeholder="اسم الحكم"></div>
           <div class="cs-form-group"><label>🎙️ المعلق <span style="color:#444">(اختياري)</span></label><input id="cs-f-commentator" value="${m.commentator||''}" placeholder="اسم المعلق"></div>
         </div>
-        <div class="cs-form-group"><label>🏆 المرحلة <span style="color:#444">(اختياري)</span></label><input id="cs-f-stage" value="${m.knockoutRoundName||(m.round?`الجولة ${m.round}`:'')}" placeholder="مثال: ربع النهائي"></div>`;
+        <div class="cs-form-group"><label>🏆 المرحلة <span style="color:#444">(اختياري)</span></label><input id="cs-f-stage" value="${_csRound(m)}" placeholder="مثال: ربع النهائي"></div>`;
     } else if (type === 'postmatch') {
       extraFields = `
-        <div class="cs-form-group"><label>🏆 المرحلة <span style="color:#444">(اختياري)</span></label><input id="cs-f-stage" value="${m.knockoutRoundName||(m.round?`الجولة ${m.round}`:'')}" placeholder="مثال: نصف النهائي"></div>
+        <div class="cs-form-group"><label>🏆 المرحلة <span style="color:#444">(اختياري)</span></label><input id="cs-f-stage" value="${_csRound(m)}" placeholder="مثال: نصف النهائي"></div>
         <div class="cs-form-group"><label>🌟 رجل المباراة <span style="color:#444">(اختياري)</span></label><input id="cs-f-mom" value="${m.manOfMatch||''}" placeholder="اسم اللاعب"></div>`;
     } else if (type === 'mom') {
       const players = _getMatchPlayers(m);
@@ -1737,7 +1753,7 @@
 
     const head = () => {
       let h = '🏆 *' + name + '*' + (S.season ? ' · ' + S.season : '');
-      const stage = ex.stage || m.knockoutRoundName || (m.groupName ? (m.groupName + (m.round ? ' · الجولة ' + m.round : '')) : (m.round ? 'الجولة ' + m.round : ''));
+      const stage = ex.stage || _csRound(m);
       if (stage) h += '\n' + stage;
       return h;
     };

@@ -4216,7 +4216,8 @@ function _adminStatRow(s, i, unit, color) {
          ${s.teamLogo ? `<div style="position:absolute;bottom:-2px;left:-2px;width:17px;height:17px;border-radius:50%;overflow:hidden;background:var(--card);border:1.5px solid var(--card);display:flex;align-items:center;justify-content:center">${logoHtml(s.teamLogo,14,3)}</div>` : ''}
        </div>`
     : '';
-  return `<div class="astat-row">
+  return `<div class="astat-row astat-click"
+    onclick="adminOpenPlayerCard('${s.teamId||''}','${s.playerId||''}','${safeName}')">
     <div class="astat-rank" style="background:${medalBg};color:${medalCol}">${i+1}</div>
     ${avatar}
     <div style="flex:1;min-width:0">
@@ -4224,7 +4225,7 @@ function _adminStatRow(s, i, unit, color) {
       <div style="font-size:10px;color:var(--muted);margin-top:2px">${photo ? '' : logoHtml(s.teamLogo,14,3)+' '}${s.teamName||'—'}</div>
     </div>
     <div class="astat-val"><b style="color:${color}">${s.count}</b><span>${unit}</span></div>
-    <button class="astat-edit" title="تعديل اسم اللاعب" onclick="scorerEditPlayer('${s.teamId||''}','${s.playerId||''}','${safeName}')">
+    <button class="astat-edit" title="تعديل اسم اللاعب" onclick="event.stopPropagation();scorerEditPlayer('${s.teamId||''}','${s.playerId||''}','${safeName}')">
       ${window.Icon ? window.Icon('edit',15) : '✏️'}
     </button>
   </div>`;
@@ -4259,8 +4260,167 @@ window._adminToggleStatMore = function(elId) {
   if (typeof renderAdminStats === 'function') renderAdminStats();
 };
 
+/* ══════════════════════════════════════════════════════════════════
+ *  👤 بطاقة اللاعب في صفحة الإدارة
+ *  ──────────────────────────────────────────────────────────────────
+ *  🔴 كانت صفوف الإحصائيات في الإدارة **غير قابلة للضغط**: يرى المنظّم
+ *  رقماً مجرّداً ولا يعرف من أي مباريات جاء، ولا يستطيع التحقّق حين يشكّ
+ *  في رقم — فيضطر لفتح المباريات واحدة واحدة.
+ *  هذه البطاقة تعرض ما تعرضه بطاقة الجمهور: الصورة، والفريق، والأرقام
+ *  الأربعة، وسجلّ المباريات حدثاً حدثاً.
+ *
+ *  والأهمّ: تُبنى من **نفس مصدر الإحصائيات** (الأحداث + الكشف) بنفس قواعد
+ *  المطابقة — فلا يختلف رقم البطاقة عن رقم الصفّ الذي فُتحت منه.
+ * ══════════════════════════════════════════════════════════════════ */
+
+/* مطابقة لاعب بحدث: الهوية متى توفّرت عند الطرفين، وإلا الاسم المطبَّع.
+   نفس قاعدة `_plMatch` في صفحة الجمهور — توحيدها يمنع اختلاف الأرقام. */
+function _apcMatch(ev, teamId, playerId, name, field, idField) {
+  const nm = _adminStatNorm(ev && ev[field || 'player']);
+  const evId = ev && (ev[idField || 'playerId'] || null);
+  if (playerId && evId) return String(evId) === String(playerId);
+  return !!nm && nm === _adminStatNorm(name);
+}
+
+window.adminOpenPlayerCard = async function (teamId, playerId, name) {
+  const team = (teams || []).find(t => t.id === teamId) || {};
+  // الكشف مصدر الصورة والرقم والمركز — قد لا يكون محمَّلاً بعد
+  let roster = rosterCache[teamId] || [];
+  if (!roster.length) {
+    try { roster = await window._loadTeamRoster(teamId) || []; rosterCache[teamId] = roster; } catch (e) {}
+  }
+  const p = (playerId ? roster.find(x => x && String(x.id) === String(playerId)) : null)
+         || roster.filter(x => x && _adminStatNorm(x.name) === _adminStatNorm(name))[0]
+         || null;
+  const liveName = (p && p.name) || name;
+
+  /* المرور على المباريات المنتهية وجمع أحداث اللاعب — نفس مصدر الصفّ */
+  let g = 0, a = 0, y = 0, r = 0, pkG = 0, pkM = 0, own = 0, apps = 0;
+  const rows = [];
+  (matches || []).filter(m => m.status === 'finished').forEach(m => {
+    const evs = Array.isArray(m.events) ? m.events
+              : (m.liveData && Array.isArray(m.liveData.events) ? m.liveData.events : []);
+    const sideOf = ev => ev.side || ev.team || 'home';
+    const teamOf = ev => ev.teamId || (sideOf(ev) === 'home' ? m.homeId : m.awayId);
+    const mine = [];
+    evs.forEach(ev => {
+      if (!ev || ev.isShootout || ev.shootout) return;
+      const tid = teamOf(ev);
+      if (ev.type === 'goal' && tid === teamId && _apcMatch(ev, tid, playerId, name)) {
+        g++; if (ev.penalty) pkG++; mine.push({ t: 'goal', ev });
+      } else if (ev.type === 'goal' && ev.assist && tid === teamId
+                 && _apcMatch(ev, tid, playerId, name, 'assist', 'assistPlayerId')) {
+        a++; mine.push({ t: 'assist', ev });
+      } else if (ev.type === 'penaltyMiss' && tid === teamId && _apcMatch(ev, tid, playerId, name)) {
+        pkM++; mine.push({ t: 'pkmiss', ev });
+      } else if (ev.type === 'yellow' && tid === teamId && _apcMatch(ev, tid, playerId, name)) {
+        y++; mine.push({ t: 'yellow', ev });
+      } else if ((ev.type === 'red' || ev.type === 'redCard') && tid === teamId
+                 && _apcMatch(ev, tid, playerId, name)) {
+        r++; mine.push({ t: 'red', ev });
+      } else if (ev.type === 'own' && tid !== teamId && _apcMatch(ev, tid, playerId, name)) {
+        // العكسي يُنسب للفريق الآخر، ومسجّله من فريقنا
+        own++; mine.push({ t: 'own', ev });
+      }
+    });
+    if (!mine.length) return;
+    apps++;
+    const opp = (teams || []).find(t => t.id === (m.homeId === teamId ? m.awayId : m.homeId)) || {};
+    rows.push({ m, opp, mine });
+  });
+
+  const ICO = {
+    goal: '<span class="apc-i apc-i-goal"></span>',
+    own: '<span class="apc-i apc-i-own"></span>',
+    assist: '<span class="apc-i apc-i-as"></span>',
+    yellow: '<span class="apc-c apc-c-y"></span>',
+    red: '<span class="apc-c apc-c-r"></span>',
+    pkmiss: '<span class="apc-i apc-i-pkm"></span>',
+  };
+  const minOf = ev => (ev && ev.minute) ? ev.minute + "'" : '';
+
+  document.getElementById('apcOv')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'apcOv';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `
+    <div class="apc-box" onclick="event.stopPropagation()">
+      <div class="apc-head">
+        <div class="apc-av">${p && p.photo
+          ? `<img src="${p.photo}" alt="">`
+          : `<span class="apc-av-ph">${window.Icon ? window.Icon('user', 26) : ''}</span>`}</div>
+        <div class="apc-id">
+          <div class="apc-nm">${liveName || '—'}</div>
+          <div class="apc-tm">${logoHtml(team.logo, 14, 3)} ${team.name || '—'}${
+            p && p.number != null && p.number !== '' ? ` · رقم ${p.number}` : ''}${
+            p && p.position ? ` · ${window._rosterPosLabel ? window._rosterPosLabel(p.position) : p.position}` : ''}</div>
+        </div>
+        <button class="apc-x" onclick="document.getElementById('apcOv').remove()">✕</button>
+      </div>
+
+      <div class="apc-nums">
+        ${[['أهداف', g, 'var(--gold,#C9A02B)'], ['صناعة', a, '#27ae60'],
+           ['صفراء', y, '#F1C40F'], ['حمراء', r, '#C0392B']]
+          .map(([l, v, c]) => `<div class="apc-n"><b style="color:${c}">${v}</b><span>${l}</span></div>`).join('')}
+      </div>
+      ${(pkG || pkM || own) ? `<div class="apc-extra">
+        ${pkG ? `<span>من ركلة جزاء: <b>${pkG}</b></span>` : ''}
+        ${pkM ? `<span>ركلات ضائعة: <b>${pkM}</b></span>` : ''}
+        ${own ? `<span>أهداف عكسية: <b>${own}</b></span>` : ''}
+      </div>` : ''}
+      <div class="apc-apps">شارك في <b>${apps}</b> ${apps === 1 ? 'مباراة' : 'مباريات'} سجّل فيها أحداثاً</div>
+
+      <div class="apc-list">
+        ${rows.length ? rows.map(rw => `
+          <div class="apc-row">
+            <div class="apc-row-h">
+              <span class="apc-opp">${logoHtml(rw.opp.logo, 14, 3)} ضد ${rw.opp.name || '—'}</span>
+              <span class="apc-dt">${rw.m.date || ''}</span>
+            </div>
+            <div class="apc-evs">
+              ${rw.mine.map(x => `<span class="apc-ev">${ICO[x.t] || ''}<i>${minOf(x.ev)}</i></span>`).join('')}
+            </div>
+          </div>`).join('')
+        : '<div class="apc-empty">لا أحداث مسجّلة لهذا اللاعب بعد</div>'}
+      </div>
+
+      <div class="apc-foot">
+        <button class="apc-b" onclick="event.stopPropagation();document.getElementById('apcOv').remove();scorerEditPlayer('${teamId||''}','${playerId||''}','${String(liveName||'').replace(/'/g,"\\\\'")}')">
+          تعديل اسم اللاعب</button>
+        <button class="apc-b close" onclick="document.getElementById('apcOv').remove()">إغلاق</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+};
+
+/* ══ تحميل كشوف كل الفرق قبل بناء الإحصائيات ══
+   🔴 `rosterCache` لا يُملأ إلا حين يفتح المنظّم كشف فريق بعينه. وصفحة
+   الإحصائيات تقرأ منه: الصور، والأسماء الحيّة بعد التعديل، وفصل المتشابهين
+   بالهوية. فبلا كشوف تعمل الصفحة عمياء: لا صور إطلاقاً، وتبقى الأسماء
+   القديمة المحفوظة في الأحداث كما هي، ويُدمج لاعبان مختلفان بنفس الاسم.
+   نحمّلها مرة واحدة عند فتح الصفحة ثم نعيد البناء. */
+window._adminStatsRostersReady = false;
+window._adminPreloadRosters = async function () {
+  if (window._adminStatsRostersReady) return;
+  const ids = (window.teams || []).map(t => t.id).filter(Boolean);
+  if (!ids.length) return;
+  try {
+    await Promise.all(ids.map(async id => {
+      if (rosterCache[id] && rosterCache[id].length) return;
+      const list = await window._loadTeamRoster(id);
+      if (list && list.length) rosterCache[id] = list;
+    }));
+  } catch (e) {}
+  window._adminStatsRostersReady = true;
+  try { renderAdminStats(); } catch (e) {}
+};
+
 // ── الدالة الرئيسية: تبني كل أقسام إحصائيات الإدارة ──
 function renderAdminStats() {
+  // أول فتحة: حمّل الكشوف ثم أعِد البناء (لا تُعيق العرض الأول)
+  if (!window._adminStatsRostersReady) {
+    setTimeout(() => { try { window._adminPreloadRosters(); } catch (e) {} }, 0);
+  }
   // الهدّافون
   const scorers = _adminBuildStat(ev => ev.type==='goal' && !ev.isShootout && !ev.shootout
     ? { name: ev.player, playerId: ev.playerId||null } : null);
@@ -13566,7 +13726,7 @@ function renderKnockoutAdmin() {
         <div class="abm-third-h">
           <span class="abm-third-m">🥉</span>
           <span class="abm-third-t">تحديد المركز الثالث</span>
-          <span class="abm-third-s">${tm && tm.status === 'finished' ? 'انتهت' : 'بين خاسرَي ' + semi}</span>
+          ${tm && tm.status === 'finished' ? '<span class="abm-third-s">انتهت</span>' : ''}
         </div>
         <div class="abm-grid">
           ${_adminBracketBox(tm, _thirdRd.id, 0, false, _thirdRd, false, 'third-s0', semi, 'third', 'loser')}
@@ -18765,7 +18925,7 @@ window.importRosterToLineup = function(teamId) {
     'saveEditTeam', 'saveZoneRules', 'saveSettings', 'saveKoSchedule',
     'poCreateSection', 'poGenerateMatches', 'poResetAll', 'poAddSuggested',
     'poAutoAssign', 'poClearAssign', 'poAssign', 'poPickToggleAll', 'poTab',
-    'pkOpen', 'pkCommit', 'adminConfirmBracketCreate',
+    'pkOpen', 'pkCommit', 'adminOpenPlayerCard', 'adminConfirmBracketCreate',
     'saveDeduction', 'autoSchedule', 'swissGenerateFixtures',
     'saveNewPassword', 'uploadRosterPhoto', 'removeRosterPhoto'
   ];

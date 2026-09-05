@@ -8260,6 +8260,14 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
               </div>
               ${_asHtml}
             </div>`;
+            /* 🔴 الرمز كان داخل العمود الأوسط — مهما مال بقي في الحيّز
+               الفاصل، فيبدو مشتركاً بين الفريقين ولا يُقرأ انتماؤه.
+               الآن يُوضع **داخل جهة فريقه** ملاصقاً لاسم اللاعب، والعمود
+               الأوسط يحمل الدقيقة والخطّ الفاصل وحدهما. فيصير الفصل
+               بصرياً تاماً: رمز يمين لفريق ورمز يسار للآخر. */
+            /* الرمز **على العمود** كما كان، لكنه يزيح نصف عرضه نحو جهة
+               فريقه فيبدو مستنداً إلى الخطّ من ناحيته — والعمود يبقى
+               فاصلاً لا حاوياً. والمحتوى لا يُزاح عن مكانه. */
             return `<div class="vt-row vt-row-${side}">
               <div class="vt-side vt-side-left">${side === 'left' ? content : ''}</div>
               <div class="vt-marker">
@@ -8306,7 +8314,13 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
                     '<i class="vt-pkx">✕</i></span>';
           } else if (ev.type === 'sub') {
             _dot = 'vt-dot-sub';
-            _icon = window.Icon ? window.Icon('refresh', 12) : '⇄';
+            /* أيقونة تبديل صريحة: سهم نازل أحمر للخارج وصاعد أخضر للداخل —
+               تقول ما جرى بلا نصّ. رمز «التحديث» الدائري السابق يعني
+               الإعادة لا التبديل، فلا يفهمه القارئ من أول نظرة. */
+            _icon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true">' +
+              '<path d="M8.4 4.6v12.2M8.4 19.4l-3.4-3.6M8.4 19.4l3.4-3.6" stroke="#D64541" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>' +
+              '<path d="M15.6 19.4V7.2M15.6 4.6l-3.4 3.6M15.6 4.6l3.4 3.6" stroke="#2E9E5B" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>' +
+              '</svg>';
             const _in = _liveSubName(ev, _tid, 'in') || ev.playerIn || ev.player2 || '';
             if (_in) _sub = '<span class="vt-goal-sub2">' +
               (window.Icon ? window.Icon('upload', 9) : '▲') + ' ' + _in + '</span>';

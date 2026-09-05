@@ -2841,12 +2841,19 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 }
 .vt-row{ position:relative; display:flex; align-items:center; min-height:38px; margin-bottom:4px }
 .vt-side{ flex:1; display:flex; min-width:0 }
-.vt-row-left  .vt-side-left{  justify-content:flex-end;  padding-inline-end:14px }
-.vt-row-right .vt-side-right{ justify-content:flex-start; padding-inline-start:14px }
+/* 🔴 قاعدتان من التصميم القديم كانتا تُلصقان محتوى كل جانب **بالعمود
+   الأوسط** (flex-end لليسار وflex-start لليمين) — وهو عكس المطلوب الآن:
+   الرمز صار داخل الجانب، فالتصاقه بالوسط يعيده إلى الحيّز الفاصل نفسه
+   الذي أخرجناه منه. وأعلى تخصيصاً من القواعد الجديدة فتغلبها.
+   كلٌّ يلتصق بحافّته الخارجية، والخطّ الأوسط يفصل بينهما. */
+.vt-row-left  .vt-side-left{  justify-content:flex-end }
+.vt-row-right .vt-side-right{ justify-content:flex-start }
 .vt-marker{ width:24px; flex:0 0 auto; display:flex; align-items:center; justify-content:center; z-index:1 }
+/* 🔴 قاعدة من التصميم القديم كانت تعيد الدائرة والحدّ لرمز الهدف وحده،
+   فيبقى محاطاً بإطار بينما بقيّة الرموز عارية. حُيِّدت خلفيتها وحدّها. */
 .vt-dot-goal{
-  width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  background:var(--bg); border:2px solid var(--gold); color:var(--gold); box-shadow:none;
+  width:22px; height:22px; display:flex; align-items:center; justify-content:center;
+  background:transparent; border:none; color:var(--gold); box-shadow:none;
 }
 .vt-goal{ display:flex; align-items:baseline; gap:6px; direction:rtl }
 .vt-goal-name{ font-size:12px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
@@ -3246,7 +3253,7 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 /* ── الهدف العكسي: كرة حمراء واسم مسجّله ── */
 .vt-dot-goal.vt-dot-own{background:rgba(192,57,43,.16)!important;border-color:rgba(192,57,43,.55)!important}
 .vt-dot-goal.vt-dot-own svg,.vt-dot-goal.vt-dot-own path,.vt-dot-goal.vt-dot-own circle{fill:#C0392B!important;stroke:#C0392B!important}
-.vt-goal-name.vt-goal-own{color:#E88C82}
+.vt-goal-name.vt-goal-own{color:var(--red,#D64541)}
 .vt-og{font-size:9px;font-weight:800;color:#C0392B;background:rgba(192,57,43,.13);
   border:1px solid rgba(192,57,43,.3);border-radius:20px;padding:1px 7px;margin-inline-start:5px;
   white-space:nowrap}
@@ -3303,77 +3310,90 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
    لأحد، ويصعب ربطه بصاحبه حين يتلاحق حدثان من فريقين.
    الآن يميل **نحو جهة فريقه** داخل العمود، والخطّ الرأسي يبقى في المنتصف
    تماماً — فيُقرأ الانتماء من موضع الرمز وحده. */
-.vt-row{display:grid;grid-template-columns:1fr 62px 1fr;align-items:center;
-  gap:4px;padding:7px 0;position:relative}
+.vt-row{display:grid;grid-template-columns:1fr 30px 1fr;align-items:center;
+  gap:0;padding:8px 0;position:relative}
 .vt-row::before{content:'';position:absolute;top:0;bottom:0;left:50%;width:1.5px;
   transform:translateX(-50%);background:rgba(255,255,255,.06);z-index:0}
 .vt-side{min-width:0}
-.vt-side-left{text-align:left;padding-inline-end:4px}
-.vt-side-right{text-align:right;padding-inline-start:4px}
+.vt-side-left{text-align:left}
+.vt-side-right{text-align:right}
 .vt-marker{position:relative;z-index:1;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:3px}
-/* 🔴 كتبتُها على أساس أن الصفحة RTL — لكن حاوية المجريات نفسها
-   `direction:ltr` (لتثبيت يمين/يسار بصرف النظر عن اتجاه الصفحة).
-   فانعكست القاعدتان وبدت الرموز باتجاه واحد.
-   في LTR: flex-end = يمين (المضيف) · flex-start = يسار (الضيف). */
-.vt-row-right .vt-marker{align-items:flex-end}
-.vt-row-left  .vt-marker{align-items:flex-start}
-.vt-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;position:relative;
-  background:#15171c;border:1.5px solid rgba(255,255,255,.12);flex:0 0 auto}
+/* ══ الدقيقة على الخطّ · الرمز بجانبه نحو فريقه ══
+   العمود الأوسط ضيّق بعرض الدقيقة وحدها فتقع **على الخطّ تماماً**،
+   والرمز يخرج منه بموضع مطلق إلى الجهة الملاصقة لفريقه — فيصطفّ الرمزان
+   على خطّين رأسيين ثابتين يمين الخطّ ويساره، والدقائق كلها على الخطّ. */
+.vt-side{display:flex;align-items:center;min-width:0}
+.vt-side-left{justify-content:flex-end;padding-inline-end:40px}
+.vt-side-right{justify-content:flex-start;padding-inline-start:40px}
+.vt-marker{position:relative;overflow:visible}
+/* الحاوية LTR: left:100% = حافّة العمود اليمنى (المضيف) */
+.vt-row-right .vt-dot{left:100%;margin-left:5px}
+.vt-row-left  .vt-dot{right:100%;margin-right:5px}
+.vt-min{position:relative;z-index:2;background:var(--s1,#111);padding:1px 3px;border-radius:5px}
+/* 🔴 كانت قاعدة الموضع المطلق مكتوبة قبل هذه القاعدة، وهذه تعيد
+   `position:relative` فتُلغيها — فيبقى الرمز داخل العمود ولا يخرج بجانبه.
+   دُمجتا في تعريف واحد فلا يتعارضان. */
+/* 🔴 كانت الرموز داخل دوائر ملوّنة بخلفية وحدّ — فتبدو أزراراً لا أحداثاً،
+   وتزاحم الأسماء بحجمها، ويضيع شكل الكرة والبطاقة داخل الإطار.
+   الآن الرمز عارٍ كما هو: كرة كرة، وبطاقة بطاقة، وسهما تبديل. */
+.vt-dot{width:22px;height:22px;display:flex;align-items:center;
+  justify-content:center;position:absolute;top:50%;margin-top:-11px;
+  background:transparent;border:none;flex:0 0 auto}
 .vt-min{font-size:9.5px;font-weight:800;color:var(--t3,#777);
   font-variant-numeric:tabular-nums;line-height:1}
 
-/* ألوان النقاط بحسب نوع الحدث */
-.vt-dot-goal{background:rgba(201,160,43,.16);border-color:rgba(201,160,43,.55)}
-.vt-dot-goal.vt-dot-own{background:rgba(192,57,43,.16)!important;border-color:rgba(192,57,43,.6)!important}
-.vt-dot-goal.vt-dot-own svg,.vt-dot-goal.vt-dot-own path,.vt-dot-goal.vt-dot-own circle{fill:#C0392B!important;stroke:#C0392B!important}
-.vt-dot-pkgoal{border-color:rgba(155,89,182,.6)}
-.vt-dot-y{background:rgba(241,196,15,.14);border-color:rgba(241,196,15,.5)}
-.vt-dot-r{background:rgba(231,76,60,.14);border-color:rgba(231,76,60,.55)}
-.vt-dot-sy{background:rgba(231,76,60,.14);border-color:rgba(231,76,60,.55)}
-.vt-dot-pkmiss{background:rgba(155,89,182,.14);border-color:rgba(155,89,182,.55)}
-.vt-dot-sub{background:rgba(46,204,113,.13);border-color:rgba(46,204,113,.45)}
-.vt-dot-inj{background:rgba(230,126,34,.13);border-color:rgba(230,126,34,.45)}
-.vt-dot-var{background:rgba(155,89,182,.13);border-color:rgba(155,89,182,.45)}
-.vt-dot-ev{background:rgba(255,255,255,.05)}
+/* ══ تلوين الرموز ══
+   لا خلفية ولا حدّ — اللون على الرسم نفسه، من لوحة المنصة. */
+.vt-dot-goal svg,.vt-dot-goal path,.vt-dot-goal circle{fill:var(--gold,#C9A02B);stroke:var(--gold,#C9A02B)}
+.vt-dot-goal.vt-dot-own svg,.vt-dot-goal.vt-dot-own path,.vt-dot-goal.vt-dot-own circle{fill:var(--red,#D64541)!important;stroke:var(--red,#D64541)!important}
+.vt-dot-inj svg,.vt-dot-inj path{fill:var(--orange,#C4761E);stroke:var(--orange,#C4761E)}
+.vt-dot-var svg,.vt-dot-var path{fill:var(--blue,#3B7DBF);stroke:var(--blue,#3B7DBF)}
+.vt-dot-pkmiss svg,.vt-dot-pkmiss path{fill:#9B59B6;stroke:#9B59B6}
+.vt-dot svg{display:block}
 
 /* علامتا ركلة الجزاء: صحّ على الهدف، إكس على الضائعة */
-.vt-pkok{position:absolute;bottom:-3px;inset-inline-end:-4px;width:13px;height:13px;
-  border-radius:50%;background:#2ecc71;color:#08130c;font-size:9px;font-weight:900;
+.vt-pkok{position:absolute;bottom:-4px;inset-inline-end:-5px;width:12px;height:12px;
+  border-radius:50%;background:var(--green,#2E9E5B);color:#06120b;font-size:9px;font-weight:900;
   font-style:normal;display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 0 1.5px #15171c;line-height:1}
+  box-shadow:0 0 0 2px var(--s1,#111);line-height:1}
 .vt-pkico{position:relative;display:flex;align-items:center;justify-content:center}
-.vt-pkx{position:absolute;bottom:-5px;inset-inline-end:-6px;width:13px;height:13px;
-  border-radius:50%;background:#C0392B;color:#fff;font-size:9px;font-weight:900;
+.vt-pkx{position:absolute;bottom:-5px;inset-inline-end:-6px;width:12px;height:12px;
+  border-radius:50%;background:var(--red,#D64541);color:#fff;font-size:9px;font-weight:900;
   font-style:normal;display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 0 1.5px #15171c;line-height:1}
+  box-shadow:0 0 0 2px var(--s1,#111);line-height:1}
 
 /* بطاقة صفراء/حمراء كرسم لا كنصّ */
-.ev-card{display:inline-block;width:9px;height:12px;border-radius:1.8px;vertical-align:-1px}
-.ev-card.ev-y{background:#F1C40F}
-.ev-card.ev-r{background:#E74C3C}
-.ev-card2{display:inline-flex;position:relative;width:14px;height:13px}
-.ev-card2 .ev-card{position:absolute;top:0}
-.ev-card2 .ev-y{inset-inline-start:0;transform:rotate(-12deg)}
-.ev-card2 .ev-r{inset-inline-end:0;transform:rotate(9deg)}
+.ev-card{display:inline-block;width:11px;height:15px;border-radius:2.2px;
+  vertical-align:-1px;box-shadow:0 1px 2px rgba(0,0,0,.45)}
+.ev-card.ev-y{background:#D6A92D}
+.ev-card.ev-r{background:var(--red,#D64541)}
+/* 🔴 الصفراء كانت شبه مختفية خلف الحمراء: تراكب شديد وعرض ضيّق.
+   وُسِّعت الحاوية وقلَّ التراكب فتظهر البطاقتان معاً بوضوح. */
+.ev-card2{display:inline-flex;position:relative;width:21px;height:17px}
+.ev-card2 .ev-card{position:absolute;top:1px;width:11px;height:15px}
+/* 🔴 كانت الصفراء في الطبقة العليا — والطرد نتيجته **الحمراء**، فهي
+   الحدث الأهمّ ومكانها الأمام. الصفراء خلفها تُرى بارزة من طرفها فتشرح
+   السبب بلا أن تزاحم النتيجة. */
+.ev-card2 .ev-y{inset-inline-start:0;transform:rotate(-14deg);z-index:1}
+.ev-card2 .ev-r{inset-inline-end:0;transform:rotate(11deg);z-index:2}
 
 /* الأسماء */
-.vt-goalw{display:inline-flex;flex-direction:column;gap:2px;max-width:100%}
+.vt-goalw{display:flex;flex-direction:column;gap:2px;min-width:0;flex:0 1 auto}
 .vt-goal{display:flex;flex-direction:column;gap:1px;min-width:0}
 .vt-goal-name{font-size:12px;font-weight:800;color:var(--t1,#eee);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vt-goal-name.vt-goal-own{color:#E88C82}
+.vt-goal-name.vt-goal-own{color:var(--red,#D64541)}
 .vt-goal-assist{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;
   color:var(--t3,#888);opacity:.9}
 .vt-goal-sub2{display:inline-flex;align-items:center;gap:4px;font-size:10px;
-  font-weight:700;color:#2ecc71;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  font-weight:700;color:var(--green,#2E9E5B);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vt-subout{font-style:normal;opacity:.65;margin-inline-start:3px}
 .vt-side-left .vt-goalw{align-items:flex-start}
 .vt-side-right .vt-goalw{align-items:flex-end}
 
 /* ترويسة الفريقين وعلامات الأشواط */
-.vt-teams{display:grid;grid-template-columns:1fr 62px 1fr;gap:4px;padding:0 0 8px;
+.vt-teams{display:grid;grid-template-columns:1fr 30px 1fr;gap:0;padding:0 0 8px;
   border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:6px}
 .vt-teams .vt-team-h:first-child{justify-self:start}
 .vt-teams .vt-team-h:last-child{justify-self:end;grid-column:3}
@@ -3382,7 +3402,9 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .vt-row-mid{grid-template-columns:1fr}
 .vt-row-mid .vt-chip{justify-self:center}
 @media (max-width:380px){
-  .vt-row,.vt-teams{grid-template-columns:1fr 54px 1fr}
+  .vt-row,.vt-teams{grid-template-columns:1fr 28px 1fr}
+  .vt-side-left{padding-inline-end:36px}
+  .vt-side-right{padding-inline-start:36px}
   .vt-goal-name{font-size:11px}
 }
 
@@ -3390,5 +3412,5 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .pl-badge-sy{position:relative;display:inline-flex;width:15px;height:13px;
   background:transparent!important;border:none!important;padding:0!important}
 .pl-card{position:absolute;top:0;width:9px;height:12px;border-radius:1.8px}
-.pl-card-y{inset-inline-start:0;background:#F1C40F;transform:rotate(-12deg)}
-.pl-card-r{inset-inline-end:0;background:#E74C3C;transform:rotate(9deg)}
+.pl-card-y{inset-inline-start:0;background:#D6A92D;transform:rotate(-12deg);z-index:1}
+.pl-card-r{inset-inline-end:0;background:var(--red,#D64541);transform:rotate(9deg);z-index:2}

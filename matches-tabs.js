@@ -21,6 +21,21 @@
   function isKO(m) {
     return !!(m && (m.isKnockout || m.knockoutRoundId != null));
   }
+  /* ترتيب المنتهية: الأحدث أوّلاً — نفس معيار صفحة الإدارة حرفياً
+     (تاريخ ثم وقت ثم جولة ثم معرّف) فلا يختلف ما يراه المنظّم عمّا يراه
+     الجمهور. */
+  function _finKey(m) {
+    return (m && m.date ? String(m.date) : '0000-00-00') + 'T' +
+           (m && m.time ? String(m.time) : '00:00');
+  }
+  function _finDesc(a, b) {
+    var d = _finKey(b).localeCompare(_finKey(a));
+    if (d) return d;
+    var r = (b.round || 0) - (a.round || 0);
+    if (r) return r;
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  }
+
   function isFinished(m) {
     return m && (m.status === 'finished' || (m.liveData && m.liveData.matchStatus === 'ended'));
   }
@@ -214,6 +229,12 @@
       var d = meta[a].sk - meta[b].sk;
       return tab === 'fin' ? -d : d;   // المنتهية: الأحدث أولاً
     });
+    /* 🔴 ترتيب المجموعات كان معكوساً للمنتهية، لكن المباريات **داخل** كل
+       مجموعة تبقى تصاعدية — فآخر مباراة انتهت في يومها تظهر أسفل يومها.
+       نعكس الداخل أيضاً ليكون الأحدث أوّلاً في كل المستويات. */
+    if (tab === 'fin') {
+      order.forEach(function (k) { buckets[k] = buckets[k].slice().sort(_finDesc); });
+    }
 
     return order.map(function (k) {
       var tone = (byDate && DG) ? DG.tone(meta[k].d) : '';

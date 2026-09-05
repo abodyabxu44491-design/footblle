@@ -1426,7 +1426,17 @@
     const matches = getMatches();
     const live     = matches.filter(m => m.status === 'live');
     const upcoming = matches.filter(m => m.status === 'upcoming');
-    const finished = matches.filter(m => m.status === 'finished').reverse();
+    /* 🔴 كان `.reverse()` وحده — وهو يعكس **ترتيب المصفوفة** لا ترتيب
+       الوقت. فإن وصلت المباريات بترتيب غير زمني (وهو الغالب مع التحميل
+       اللحظي) خرج الترتيب عشوائياً. نرتّب بالتاريخ والوقت صراحةً بنفس
+       معيار الإدارة والجمهور — فلا تختلف قائمة البطاقات عنهما. */
+    const _fk = m => (m && m.date ? String(m.date) : '0000-00-00') + 'T' +
+                     (m && m.time ? String(m.time) : '00:00');
+    const finished = matches.filter(m => m.status === 'finished')
+      .slice()
+      .sort((a, b) => _fk(b).localeCompare(_fk(a))
+                   || (b.round || 0) - (a.round || 0)
+                   || String(b.id || '').localeCompare(String(a.id || '')));
 
     const renderGroup = (title, list) => {
       if (!list.length) return '';

@@ -3255,9 +3255,13 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
    بطاقة حمراء صغيرة مائلة قليلاً عند حافّة الشعار، كما تعرضها التطبيقات
    الكبيرة. تعدّد الطرد يُعرض برقم داخلها لا بتكرارها — فلا تتزاحم ولا
    تخرج عن حدود البطاقة مهما بلغ العدد. */
-.mc2-logo{position:relative}
+/* 🔴 كانت الشارة داخل `.mc2-logo` وفيه `overflow:hidden` — وهو ضروري
+   لقصّ شعار الفريق داخل الإطار المستدير. فكانت الشارة تُقصّ معه ولا يظهر
+   منها إلا الجزء الواقع داخل الحدود.
+   الحلّ: غلاف لا يقصّ يحيط بالشعار، والشارة فيه لا داخل الشعار. */
+.mc2-logowrap{position:relative;display:inline-flex;overflow:visible;flex:0 0 auto}
 .mc2-red{
-  position:absolute; inset-inline-end:-5px; bottom:-3px;
+  position:absolute; inset-inline-end:-6px; bottom:-4px; z-index:2;
   display:inline-flex; align-items:center; gap:2px;
   padding:1px 3px 1px 2px; border-radius:5px;
   background:#15171c; box-shadow:0 0 0 1.5px #15171c;
@@ -3271,4 +3275,103 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .mc2-red-n{
   font-size:8.5px; font-weight:900; color:#E88C82; line-height:1;
   padding-inline-end:1px; font-variant-numeric:tabular-nums;
+}
+
+/* ── ركلة الجزاء في مجريات المباراة ── */
+.vt-pk{font-size:9px;font-weight:800;color:#9B59B6;background:rgba(155,89,182,.14);
+  border:1px solid rgba(155,89,182,.32);border-radius:20px;padding:1px 7px;
+  margin-inline-start:5px;white-space:nowrap}
+.vt-chip-pkmiss{border-color:rgba(155,89,182,.34)!important;background:rgba(155,89,182,.07)!important}
+.vt-pk-ic{font-size:13px;line-height:1;filter:grayscale(.15)}
+.vt-pk-label{display:block;font-size:9px;font-weight:800;color:#B07CC6;margin-top:1px}
+
+/* ── شارات التشكيلة: الهدف العكسي وركلة الجزاء ── */
+.pl-badge-own{background:rgba(192,57,43,.18)!important;border-color:rgba(192,57,43,.5)!important}
+.pl-badge-own svg,.pl-badge-own path,.pl-badge-own circle{fill:#C0392B!important;stroke:#C0392B!important}
+.pl-badge-pkmiss{background:rgba(155,89,182,.16)!important;border-color:rgba(155,89,182,.45)!important;
+  font-size:9px;line-height:1}
+.pl-badge-pkdot{position:absolute;top:-2px;inset-inline-end:-2px;width:6px;height:6px;
+  border-radius:50%;background:#9B59B6;box-shadow:0 0 0 1.5px var(--s1,#111)}
+.pl-badge-goal{position:relative}
+
+/* ══════════════════════════════════════════════════════════════════
+ *  مجريات المباراة — إعادة تصميم
+ *  كل حدث في جهة فريقه (المضيف يميناً · الضيف يساراً)، والرمز في الوسط
+ *  على خطّ رأسي واحد، والدقيقة تحته. بلا شرح نصّي: الرمز يقول النوع.
+ * ══════════════════════════════════════════════════════════════════ */
+.vt-row{display:grid;grid-template-columns:1fr 46px 1fr;align-items:center;
+  gap:6px;padding:7px 0;position:relative}
+.vt-row::before{content:'';position:absolute;top:0;bottom:0;left:50%;width:1.5px;
+  transform:translateX(-50%);background:rgba(255,255,255,.06);z-index:0}
+.vt-side{min-width:0}
+.vt-side-left{text-align:left;padding-inline-end:4px}
+.vt-side-right{text-align:right;padding-inline-start:4px}
+.vt-marker{position:relative;z-index:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:3px}
+.vt-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;position:relative;
+  background:#15171c;border:1.5px solid rgba(255,255,255,.12);flex:0 0 auto}
+.vt-min{font-size:9.5px;font-weight:800;color:var(--t3,#777);
+  font-variant-numeric:tabular-nums;line-height:1}
+
+/* ألوان النقاط بحسب نوع الحدث */
+.vt-dot-goal{background:rgba(201,160,43,.16);border-color:rgba(201,160,43,.55)}
+.vt-dot-goal.vt-dot-own{background:rgba(192,57,43,.16)!important;border-color:rgba(192,57,43,.6)!important}
+.vt-dot-goal.vt-dot-own svg,.vt-dot-goal.vt-dot-own path,.vt-dot-goal.vt-dot-own circle{fill:#C0392B!important;stroke:#C0392B!important}
+.vt-dot-pkgoal{border-color:rgba(155,89,182,.6)}
+.vt-dot-y{background:rgba(241,196,15,.14);border-color:rgba(241,196,15,.5)}
+.vt-dot-r{background:rgba(231,76,60,.14);border-color:rgba(231,76,60,.55)}
+.vt-dot-sy{background:rgba(231,76,60,.14);border-color:rgba(231,76,60,.55)}
+.vt-dot-pkmiss{background:rgba(155,89,182,.14);border-color:rgba(155,89,182,.55)}
+.vt-dot-sub{background:rgba(46,204,113,.13);border-color:rgba(46,204,113,.45)}
+.vt-dot-inj{background:rgba(230,126,34,.13);border-color:rgba(230,126,34,.45)}
+.vt-dot-var{background:rgba(155,89,182,.13);border-color:rgba(155,89,182,.45)}
+.vt-dot-ev{background:rgba(255,255,255,.05)}
+
+/* علامتا ركلة الجزاء: صحّ على الهدف، إكس على الضائعة */
+.vt-pkok{position:absolute;bottom:-3px;inset-inline-end:-4px;width:13px;height:13px;
+  border-radius:50%;background:#2ecc71;color:#08130c;font-size:9px;font-weight:900;
+  font-style:normal;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 1.5px #15171c;line-height:1}
+.vt-pkico{position:relative;display:flex;align-items:center;justify-content:center}
+.vt-pkx{position:absolute;bottom:-5px;inset-inline-end:-6px;width:13px;height:13px;
+  border-radius:50%;background:#C0392B;color:#fff;font-size:9px;font-weight:900;
+  font-style:normal;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 1.5px #15171c;line-height:1}
+
+/* بطاقة صفراء/حمراء كرسم لا كنصّ */
+.ev-card{display:inline-block;width:9px;height:12px;border-radius:1.8px;vertical-align:-1px}
+.ev-card.ev-y{background:#F1C40F}
+.ev-card.ev-r{background:#E74C3C}
+.ev-card2{display:inline-flex;position:relative;width:14px;height:13px}
+.ev-card2 .ev-card{position:absolute;top:0}
+.ev-card2 .ev-y{inset-inline-start:0;transform:rotate(-12deg)}
+.ev-card2 .ev-r{inset-inline-end:0;transform:rotate(9deg)}
+
+/* الأسماء */
+.vt-goalw{display:inline-flex;flex-direction:column;gap:2px;max-width:100%}
+.vt-goal{display:flex;flex-direction:column;gap:1px;min-width:0}
+.vt-goal-name{font-size:12px;font-weight:800;color:var(--t1,#eee);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vt-goal-name.vt-goal-own{color:#E88C82}
+.vt-goal-assist{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;
+  color:var(--t3,#888);opacity:.9}
+.vt-goal-sub2{display:inline-flex;align-items:center;gap:4px;font-size:10px;
+  font-weight:700;color:#2ecc71;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vt-subout{font-style:normal;opacity:.65;margin-inline-start:3px}
+.vt-side-left .vt-goalw{align-items:flex-start}
+.vt-side-right .vt-goalw{align-items:flex-end}
+
+/* ترويسة الفريقين وعلامات الأشواط */
+.vt-teams{display:grid;grid-template-columns:1fr 46px 1fr;gap:6px;padding:0 0 8px;
+  border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:6px}
+.vt-teams .vt-team-h:first-child{justify-self:start}
+.vt-teams .vt-team-h:last-child{justify-self:end;grid-column:3}
+.vt-team-h{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--t2,#aaa)}
+.vt-team-h b{font-weight:900;color:var(--t1,#eee)}
+.vt-row-mid{grid-template-columns:1fr}
+.vt-row-mid .vt-chip{justify-self:center}
+@media (max-width:380px){
+  .vt-row{grid-template-columns:1fr 40px 1fr}
+  .vt-goal-name{font-size:11px}
 }

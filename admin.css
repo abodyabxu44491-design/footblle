@@ -1997,3 +1997,121 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pom-x{flex:0 0 auto;font-family:inherit;font-size:11px;cursor:pointer;padding:4px 9px;border-radius:7px;
   background:transparent;border:1px solid var(--border2,#2a2a2a);color:var(--muted,#888)}
+
+/* ══════════════════════════════════════════════════════════════════
+ *  أنماط صفحة البثّ ومنتقي اللاعبين
+ *  🔴 كانت محقونة داخل كتلة <style> في admin.js، وضاعت في تعديلات
+ *  متتابعة على تلك الكتلة — فبقيت العناصر بلا تنسيق. نُقلت إلى هنا
+ *  حيث لا يمسّها تعديل على الشيفرة.
+ * ══════════════════════════════════════════════════════════════════ */
+
+/* ── قائمة اللاعبين المشتركة (هدف · بطاقة · إصابة · جزاء · صانع) ── */
+.rpick-box{display:grid;grid-template-columns:1fr 1fr;gap:5px;max-height:36vh;overflow-y:auto;
+  -webkit-overflow-scrolling:touch;padding:5px;border:1px solid var(--border2,#2a2a2a);
+  border-radius:11px;background:rgba(255,255,255,.015)}
+.rpick-row{display:flex;align-items:center;gap:8px;width:100%;min-width:0;padding:7px 8px;
+  border-radius:10px;cursor:pointer;text-align:start;font-family:'Tajawal',sans-serif;
+  background:var(--card3,#1a1a1a);border:1px solid var(--border2,#2a2a2a);color:var(--text,#eee)}
+.rpick-row:active{border-color:var(--gold,#C9A02B);background:rgba(201,160,43,.08)}
+.rpick-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rpick-nm{font-size:11.5px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rpick-meta{font-size:9px;color:var(--muted,#888);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rpick-num{flex:0 0 auto;min-width:22px;height:22px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;
+  background:rgba(255,255,255,.05);color:var(--muted,#9a9a9a)}
+@media (max-width:340px){ .rpick-box{grid-template-columns:1fr} }
+
+/* ── بطاقة أهداف كل فريق في البثّ ──
+   «⚽ هدف» يأخذ المساحة الباقية فهو الأبرز، والثلاثة الثانوية مربّعات
+   متساوية على طرفه: جزاء · عكسي · حذف. */
+.lp-gcard{border:1px solid var(--border2,#2a2a2a);background:var(--card2,#141414);
+  border-radius:13px;padding:11px;margin-bottom:9px}
+.lp-gcard.home{border-inline-start:3px solid var(--gold,#C9A02B)}
+.lp-gcard.away{border-inline-start:3px solid #3B7DBF}
+.lp-gcard-h{display:flex;align-items:center;gap:7px;margin-bottom:10px;min-width:0}
+.lp-gcard-h span{font-size:12.5px;font-weight:900;color:var(--text,#eee);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lp-gcard-b{display:flex;align-items:stretch;gap:6px}
+.lp-goal{flex:1 1 auto;min-width:0;height:56px;border-radius:12px;cursor:pointer;
+  font-family:'Tajawal',sans-serif;font-size:15px;font-weight:900;letter-spacing:.3px;
+  background:rgba(39,174,96,.16);border:1px solid rgba(39,174,96,.45);color:#2ecc71}
+.lp-goal:active{background:rgba(39,174,96,.3)}
+.lp-gs{flex:0 0 54px;width:54px;height:56px;border-radius:12px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  font-family:'Tajawal',sans-serif;background:transparent}
+.lp-gs-ic{font-size:15px;line-height:1}
+.lp-gs-tx{font-size:9px;font-weight:800;line-height:1}
+.lp-gs.pk{border:1px solid rgba(155,89,182,.45);color:#9B59B6;background:rgba(155,89,182,.07)}
+.lp-gs.own{border:1px solid rgba(229,83,61,.45);color:#e5533d;background:rgba(229,83,61,.07)}
+.lp-gs.del{border:1px solid var(--border2,#2a2a2a);color:var(--muted,#8a8a8a)}
+.lp-gs:active{opacity:.75}
+@media (max-width:380px){ .lp-gs{flex:0 0 46px;width:46px} .lp-gs-tx{font-size:8px} .lp-goal{font-size:13.5px} }
+
+/* ── أحداث البثّ: عمود لكل فريق ── */
+.lp-teamev{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 6px}
+.lp-teamev-col{border:1px solid var(--border2,#2a2a2a);background:var(--card2,#141414);
+  border-radius:12px;padding:9px;min-width:0}
+.lp-teamev-h{font-size:11px;font-weight:900;text-align:center;padding:6px 4px;
+  border-radius:8px;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lp-teamev-h.home{background:rgba(201,160,43,.13);color:#C9A02B}
+.lp-teamev-h.away{background:rgba(59,125,191,.13);color:#7FA9DC}
+.lp-teamev-b{display:flex;flex-direction:column;gap:5px}
+.lp-tev{width:100%;min-height:38px;border-radius:9px;cursor:pointer;
+  font-family:'Tajawal',sans-serif;font-size:11px;font-weight:800;
+  background:var(--card,#0f1216);border:1px solid var(--border2,#2a2a2a);color:var(--text,#ddd)}
+.lp-tev.yellow{border-color:rgba(241,196,15,.35);color:#f1c40f}
+.lp-tev.red{border-color:rgba(231,76,60,.35);color:#e74c3c}
+.lp-tev.sub{border-color:rgba(46,204,113,.30);color:#2ecc71}
+.lp-tev.inj{border-color:rgba(230,126,34,.30);color:#e67e22}
+.lp-tev.var{border-color:rgba(155,89,182,.30);color:#9b59b6}
+.lp-teamev-note{font-size:9.5px;color:var(--muted,#888);text-align:center;line-height:1.8;margin-bottom:10px}
+.lp-evteam-badge{font-size:12px;font-weight:900;color:var(--gold,#C9A02B);text-align:center;
+  padding:8px;border-radius:9px;margin-bottom:10px;
+  background:rgba(201,160,43,.10);border:1px solid rgba(201,160,43,.28)}
+@media (max-width:360px){ .lp-teamev{grid-template-columns:1fr} }
+
+/* ── نافذة ركلة الجزاء ── */
+.pk-box{width:100%;max-width:460px;max-height:86vh;display:flex;flex-direction:column;
+  background:#111318;border:1px solid #23262e;border-radius:18px 18px 0 0;overflow:hidden}
+.pk-head{flex:0 0 auto;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+  padding:15px 17px 12px;border-bottom:1px solid #1f2229}
+.pk-t{font-size:14px;font-weight:900;color:#9B59B6}
+.pk-s{font-size:10.5px;color:#8a8a8a;margin-top:3px;line-height:1.7}
+.pk-s b{color:#eee}
+.pk-x{flex:0 0 auto;width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:13px;
+  background:transparent;border:1px solid #2a2a2a;color:#888;font-family:inherit}
+.pk-body{flex:1 1 auto;overflow-y:auto;padding:13px 16px}
+.pk-in{width:100%;box-sizing:border-box;padding:11px;border-radius:10px;
+  background:#0f1216;border:1px solid #2a2a2a;color:#eee;
+  font-family:'Tajawal',sans-serif;font-size:12.5px;outline:none}
+.pk-foot{flex:0 0 auto;display:grid;grid-template-columns:1fr 1.4fr;gap:8px;
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #1f2229}
+.pk-b{min-height:50px;border-radius:12px;cursor:pointer;font-family:'Tajawal',sans-serif;
+  font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:7px}
+.pk-b-ic{font-size:15px;line-height:1}
+.pk-b.miss{background:rgba(192,57,43,.13);border:1px solid rgba(192,57,43,.45);color:#E88C82}
+.pk-b.goal{background:rgba(39,174,96,.16);border:1px solid rgba(39,174,96,.5);color:#2ecc71}
+.pk-b:active{opacity:.8}
+@media (min-width:520px){ #pkOv{align-items:center!important;padding:20px} .pk-box{border-radius:18px} }
+
+/* ── نافذة الهدف العكسي ── */
+.og-box{width:100%;max-width:460px;max-height:86vh;display:flex;flex-direction:column;
+  background:#111318;border:1px solid #23262e;border-radius:18px 18px 0 0;overflow:hidden}
+.og-head{flex:0 0 auto;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+  padding:15px 17px 12px;border-bottom:1px solid #1f2229}
+.og-t{font-size:14px;font-weight:900;color:#e5533d}
+.og-s{font-size:10.5px;color:#8a8a8a;margin-top:3px;line-height:1.7}
+.og-s b{color:#eee}
+.og-x{flex:0 0 auto;width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:13px;
+  background:transparent;border:1px solid #2a2a2a;color:#888;font-family:inherit}
+.og-body{flex:1 1 auto;overflow-y:auto;padding:13px 16px}
+.og-in{width:100%;box-sizing:border-box;padding:11px;border-radius:10px;
+  background:#0f1216;border:1px solid #2a2a2a;color:#eee;
+  font-family:'Tajawal',sans-serif;font-size:12.5px;outline:none}
+.og-foot{flex:0 0 auto;display:grid;grid-template-columns:1fr 1.7fr;gap:7px;
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #1f2229}
+.og-b{min-height:46px;border-radius:11px;cursor:pointer;font-family:'Tajawal',sans-serif;
+  font-size:12px;font-weight:800}
+.og-b.anon{background:rgba(201,160,43,.12);border:1px solid rgba(201,160,43,.4);color:#C9A02B}
+.og-b.ok{background:rgba(229,83,61,.15);border:1px solid rgba(229,83,61,.5);color:#e5533d}
+@media (min-width:520px){ #ogOv{align-items:center!important;padding:20px} .og-box{border-radius:18px} }

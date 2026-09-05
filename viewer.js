@@ -6644,7 +6644,12 @@ function _playerMatchBadges(events, side, playerName, number, playerId) {
     return an === nmNorm || (an.length>=3 && nmNorm.length>=3 && (an.indexOf(nmNorm)===0 || nmNorm.indexOf(an)===0));
   };
 
+  /* 🔴 الهدف العكسي وركلة الجزاء لم يكن لهما أثر على شارات التشكيلة:
+     مسجّل العكسي يظهر بلا شيء رغم أنه حدث فارق، والهدف من ركلة جزاء
+     يُعدّ هدفاً عادياً بلا تمييز. أُضيفا كي تقرأ التشكيلة نفس ما تقوله
+     مجريات المباراة — فلا يختلف ما يراه الجمهور بين شاشتين. */
   let goals = 0, yellow = 0, red = false, subOut = null, subIn = null, assists = 0;
+  let ownGoals = 0, pkGoals = 0, pkMiss = 0;
   const hasNum = number != null && number !== '';
   // مطابقة اللاعب — الأولوية القصوى للهوية (playerId):
   //   ① لو الحدث يحمل هوية ولدينا هوية اللاعب → المطابقة بالهوية وحدها (أدقّ ما يكون،
@@ -6672,9 +6677,20 @@ function _playerMatchBadges(events, side, playerName, number, playerId) {
     if (e.type === 'goal' && e.assist &&
         matchesPlayer(e, 'assist', 'assistNumber', 'assistPlayerId')) assists++;
     if (!matchesPlayer(e, 'player', 'playerNumber', 'playerId')) return;
-    if (e.type === 'goal') goals++;
+    if (e.type === 'goal') { goals++; if (e.penalty) pkGoals++; }
     else if (e.type === 'yellow') yellow++;
     else if (e.type === 'red') red = true;
+    else if (e.type === 'penaltyMiss') pkMiss++;
+  });
+
+  /* الهدف العكسي يُنسب للفريق الآخر، فمسجّله ليس في هذا الجانب —
+     نبحث عنه في أحداث العكسي التي جهتها الجهة المقابلة. */
+  const otherSide = side === 'home' ? 'away' : 'home';
+  events.forEach(e => {
+    if (e.type !== 'own') return;
+    if (sideOf(e) !== otherSide) return;          // العكسي محسوب للخصم
+    if (!matchesPlayer(e, 'player', 'playerNumber', 'playerId')) return;
+    ownGoals++;
   });
   const secondYellow = yellow >= 2;
   const showRed = red || secondYellow;
@@ -6688,7 +6704,18 @@ function _playerMatchBadges(events, side, playerName, number, playerId) {
   if (goals > 0) {
     const cnt = goals > 1 ? `<span class="pl-badge-goalcount">${goals}</span>` : '';
     const ball = (window.Icon ? window.Icon('ball', 11) : '⚽');
-    badges.push('<span class="pl-badge pl-badge-goal">' + ball + cnt + '</span>');
+    // نقطة بنفسجية صغيرة إن كان فيها هدف من ركلة جزاء
+    const pkDot = pkGoals > 0 ? '<span class="pl-badge-pkdot" title="منها ركلة جزاء"></span>' : '';
+    badges.push('<span class="pl-badge pl-badge-goal">' + ball + cnt + pkDot + '</span>');
+  }
+  if (ownGoals > 0) {
+    const ocnt = ownGoals > 1 ? `<span class="pl-badge-goalcount">${ownGoals}</span>` : '';
+    const oball = (window.Icon ? window.Icon('ball', 11) : '⚽');
+    badges.push('<span class="pl-badge pl-badge-own" title="هدف في مرماه">' + oball + ocnt + '</span>');
+  }
+  if (pkMiss > 0) {
+    const mcnt = pkMiss > 1 ? `<span class="pl-badge-goalcount">${pkMiss}</span>` : '';
+    badges.push('<span class="pl-badge pl-badge-pkmiss" title="أضاع ركلة جزاء">🎯' + mcnt + '</span>');
   }
   /* ✅︎ شارة صناعة الأهداف (حذاء أخضر) — تظهر على اللاعب في الملعب وفي الدكة،
      وتحترم إعدادات البطولة تماماً كسطر الصناعة في الخط الزمني. */
@@ -6886,12 +6913,16 @@ function _matchCard(m) {
     <div class="mc2 ${(isL && _liveOn)?'mc2-live':''} ${isF?'mc2-fin':''}" onclick="openMatchDetail('${m.id}')">
       ${roundBadge}
       <div class="mc2-team">
-        <div class="mc2-logo">${_logo(ht.logo, 40)}${_redBadge(_reds.home)}</div>
+        <div class="mc2-logowrap">
+          <div class="mc2-logo">${_logo(ht.logo, 40)}</div>${_redBadge(_reds.home)}
+        </div>
         <div class="mc2-name ${hw?'mc2-win':''}">${ht.name}</div>
       </div>
       ${center}
       <div class="mc2-team">
-        <div class="mc2-logo">${_logo(at.logo, 40)}${_redBadge(_reds.away)}</div>
+        <div class="mc2-logowrap">
+          <div class="mc2-logo">${_logo(at.logo, 40)}</div>${_redBadge(_reds.away)}
+        </div>
         <div class="mc2-name ${aw?'mc2-win':''}">${at.name}</div>
       </div>
       ${predB ? `<div class="mc2-pred">${predB}</div>` : ''}
@@ -6909,14 +6940,44 @@ window.vRedCount = function (m) {
   const evs = (m.liveData && Array.isArray(m.liveData.events) && m.liveData.events.length)
     ? m.liveData.events
     : (Array.isArray(m.events) ? m.events : []);
+
+  const norm = v => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const key  = e => (e.team || e.side || '') + '::' + norm(e.player || e.playerNumber || '');
+
+  /* من طُرد بصفراوين — يُحسب طرداً واحداً */
+  const yc = {}, sy = new Set();
+  evs.forEach(e => {
+    if (!e || String(e.type || '').toLowerCase() !== 'yellow') return;
+    const k = key(e);
+    yc[k] = (yc[k] || 0) + 1;
+    if (yc[k] === 2) sy.add(k);
+  });
+
+  /* 🔴 المنظّم قد يسجّل الصفراء الثانية **وبطاقة حمراء منفصلة** لنفس
+     اللاعب — وهما حادثة واحدة. فكانت الشارة تعدّ طردين والواقع طرد.
+     نجمع مفاتيح المطرودين في مجموعة واحدة: من طُرد بصفراوين، ومن نال
+     حمراء مباشرة — فالتكرار يسقط تلقائياً لأن المفتاح واحد. */
+  const sent = { home: new Set(), away: new Set() };
+  const anon = { home: 0, away: 0 };   // طرد بلا اسم: لا يمكن دمجه فيُعدّ كما هو
+
+  sy.forEach(k => {
+    const sd = k.split('::')[0];
+    if (sent[sd]) sent[sd].add(k);
+  });
+
   evs.forEach(e => {
     if (!e) return;
     const t = String(e.type || '').toLowerCase();
     if (t !== 'red' && t !== 'redcard' && t !== 'secondyellow') return;
     const sd = e.team || e.side;
-    if (sd === 'home') out.home++;
-    else if (sd === 'away') out.away++;
+    if (sd !== 'home' && sd !== 'away') return;
+    const nm = norm(e.player || e.playerNumber || '');
+    if (!nm) { anon[sd]++; return; }
+    sent[sd].add(key(e));
   });
+
+  out.home = sent.home.size + anon.home;
+  out.away = sent.away.size + anon.away;
   return out;
 };
 
@@ -8104,14 +8165,28 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
 
         // ── كشف البطاقة الصفراء الثانية: تُعرض كطرد (صفراء+حمراء) ──
         const _secondYellowIds = new Set();
+        const _syWho = new Set();          // اللاعبون الذين طُردوا بصفراوين
         const _yCount = {};
+        const _whoKey = (ev) => _evSide(ev) + '::' + _normName(ev.player || ev.playerNumber || '');
         rows.filter(r => r.ev && r.ev.type === 'yellow')
           .forEach(r => {
             const ev = r.ev;
-            const side = _evSide(ev);
-            const who = side + '::' + _normName(ev.player || ev.playerNumber || '');
+            const who = _whoKey(ev);
             _yCount[who] = (_yCount[who] || 0) + 1;
-            if (_yCount[who] === 2) _secondYellowIds.add(ev.id != null ? ev.id : ev);
+            if (_yCount[who] === 2) { _secondYellowIds.add(ev.id != null ? ev.id : ev); _syWho.add(who); }
+          });
+
+        /* 🔴 المنظّم يسجّل الصفراء الثانية ثم يسجّل **بطاقة حمراء منفصلة**
+           لنفس اللاعب — وهما حادثة واحدة. فيظهر في المجريات صفّان: «بطاقة
+           ثانية · طرد» ثم بطاقة حمراء صافية تحته، ويبدو كأن اللاعب طُرد
+           مرتين. نُسقط الحمراء المكرّرة ونُبقي الصفّ المركّب وحده — فهو
+           الأدقّ لأنه يبيّن سبب الطرد. */
+        const _dupRedIds = new Set();
+        rows.filter(r => r.ev && (r.ev.type === 'red' || r.ev.type === 'redCard'))
+          .forEach(r => {
+            const ev = r.ev;
+            if (!_syWho.has(_whoKey(ev))) return;
+            _dupRedIds.add(ev.id != null ? ev.id : ev);
           });
 
         function rowHtml(r) {
@@ -8154,79 +8229,105 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
             const side = _evSide(ev) === 'away' ? 'left' : 'right';
             const isOwn = ev.type === 'own';
             const _goalTeamId = _evSide(ev) === 'away' ? at.id : ht.id;
-            /* 🔴 الهدف العكسي كان يُعرض بكلمة «هدف عكسي» وحدها بلا اسم — ولو
-               عُرف مسجّله. التطبيقات الكبيرة تنسبه إليه وتميّزه بكرة حمراء،
-               فيرى الجمهور من أدخلها في مرماه ويبقى الفرق واضحاً عن الهدف
-               العادي. المسجِّل من الفريق **الآخر**، فنبحث عن اسمه في كشفه. */
+            /* الهدف العكسي: مسجّله من الفريق **الآخر** فنبحث عنه في كشفه.
+               ولا شرح نصّي بعده — الكرة الحمراء وحدها تقول إنه في مرماه. */
             const _ownTeamId = _evSide(ev) === 'away' ? ht.id : at.id;
             const _ownScorer = isOwn ? (ev.player || _liveEventPlayerName(ev, _ownTeamId) || '') : '';
             const goalName = isOwn
-              ? (_ownScorer ? `${_ownScorer} <span class="vt-og">(ضد فريقه)</span>` : 'هدف عكسي')
+              ? (_ownScorer || 'هدف عكسي')
               : (_liveEventPlayerName(ev, _goalTeamId) || '—');
-            /* ✅︎ صانع الهدف — سطر ثانوي تحت اسم الهدّاف تماماً كالتطبيقات الرسمية */
+            /* صانع الهدف — سطر ثانوي تحت اسم الهدّاف تماماً كالتطبيقات */
             const _asNm = (!isOwn && _assistsPublic()) ? _liveAssistName(ev, _goalTeamId) : '';
             const _asHtml = _asNm
-              ? `<span class="vt-goal-assist">${window.Icon ? window.Icon('boots', 10) : '👟'}<span>صناعة: ${_asNm}</span></span>`
+              ? `<span class="vt-goal-assist">${window.Icon ? window.Icon('boots', 10) : '👟'}<span>${_asNm}</span></span>`
               : '';
+            /* الرمز وحده يميّز النوع: كرة · كرة حمراء (عكسي) · كرة بعلامة
+               صحّ صغيرة (من ركلة جزاء) — بلا نصّ «(ركلة جزاء)» يزاحم الاسم. */
+            const _dotCls = isOwn ? 'vt-dot-goal vt-dot-own'
+                          : ev.penalty ? 'vt-dot-goal vt-dot-pkgoal' : 'vt-dot-goal';
+            const _pkMark = (!isOwn && ev.penalty)
+              ? '<i class="vt-pkok">✓</i>' : '';
             const content = `<div class="vt-goalw">
               <div class="vt-goal">
                 <span class="vt-goal-name${isOwn ? ' vt-goal-own' : ''}">${goalName}</span>
-                <span class="vt-goal-min">${minLabel(ev)}</span>
               </div>
               ${_asHtml}
             </div>`;
             return `<div class="vt-row vt-row-${side}">
               <div class="vt-side vt-side-left">${side === 'left' ? content : ''}</div>
-              <div class="vt-marker"><span class="vt-dot vt-dot-goal${isOwn ? ' vt-dot-own' : ''}">${window.Icon ? window.Icon('ball', 12) : ''}</span></div>
+              <div class="vt-marker">
+                <span class="vt-dot ${_dotCls}">${window.Icon ? window.Icon('ball', 12) : ''}${_pkMark}</span>
+                <span class="vt-min">${minLabel(ev)}</span>
+              </div>
               <div class="vt-side vt-side-right">${side === 'right' ? content : ''}</div>
             </div>`;
           }
-          // بطاقات / تبديلات / إصابات / فار — بطاقة صغيرة في منتصف الخط
-          const sideLbl = _evSide(ev) === 'away' ? at.name : ht.name;
 
-          // ── التبديل: عرض احترافي بسهمين (داخل أخضر / خارج أحمر) ──
-          if (ev.type === 'sub') {
-            const _subTeamId = _evSide(ev) === 'away' ? at.id : ht.id;
-            const inName  = _liveSubName(ev, _subTeamId, 'in')  || ev.playerIn  || ev.player2 || '';
-            const outName = _liveSubName(ev, _subTeamId, 'out') || ev.playerOut || ev.player  || '';
-            return `<div class="vt-row vt-row-mid">
-              <div class="vt-chip vt-chip-sub">
-                <span class="vt-sub-min">${minLabel(ev)}</span>
-                <span class="vt-sub-body">
-                  <span class="vt-sub-line vt-sub-in"><span class="vt-sub-arrow">${window.Icon ? window.Icon('upload', 10) : '▲'}</span>${inName}</span>
-                  <span class="vt-sub-line vt-sub-out"><span class="vt-sub-arrow">${window.Icon ? window.Icon('download', 10) : '▼'}</span>${outName}</span>
-                </span>
-                <span class="vt-chip-team">(${sideLbl})</span>
-              </div>
-            </div>`;
+          // الحمراء المكرّرة لمن طُرد بصفراوين: لا تُعرض مرة ثانية
+          if ((ev.type === 'red' || ev.type === 'redCard')
+              && _dupRedIds.has(ev.id != null ? ev.id : ev)) return '';
+
+          /* ══ صفّ موحّد لكل الأحداث ══
+             🔴 كانت الأهداف وحدها تُعرض في جهة فريقها، وبقيّة الأحداث
+             (البطاقات · التبديل · الإصابة · VAR · ركلة الجزاء الضائعة)
+             تُعرض شرائح **في الوسط** مع شرح نصّي: «ركلة جزاء ضائعة»،
+             «بطاقة ثانية · طرد». فيختلّ الخطّ الزمني: نصفه مصطفّ بالجهات
+             ونصفه في المنتصف، ولا يُعرف صاحب البطاقة من أي فريق إلا
+             بقراءة النصّ.
+             الآن **كل حدث في جهة فريقه** كما في التطبيقات الكبيرة، والرمز
+             وحده يقول نوعه: كرة للهدف، كرة حمراء للعكسي، بطاقة صفراء أو
+             حمراء، سهما التبديل، وركلة الجزاء بعلامة ✓ أو ✗ — بلا شرح
+             نصّي يزاحم الأسماء. */
+          const _sd = _evSide(ev) === 'away' ? 'left' : 'right';
+          const _tid = _evSide(ev) === 'away' ? at.id : ht.id;
+          const _nm = _liveEventPlayerName(ev, _tid) || ev.player || '';
+
+          // أيقونة الحدث وشكل النقطة الوسطى
+          let _dot = '', _icon = '', _sub = '';
+          const _isSY = ev.type === 'yellow' && _secondYellowIds.has(ev.id != null ? ev.id : ev);
+
+          if (_isSY) {
+            _dot = 'vt-dot-sy';
+            _icon = '<span class="ev-card2"><span class="ev-card ev-y"></span><span class="ev-card ev-r"></span></span>';
+          } else if (ev.type === 'yellow') {
+            _dot = 'vt-dot-y'; _icon = '<span class="ev-card ev-y"></span>';
+          } else if (ev.type === 'red' || ev.type === 'redCard') {
+            _dot = 'vt-dot-r'; _icon = '<span class="ev-card ev-r"></span>';
+          } else if (ev.type === 'penaltyMiss') {
+            _dot = 'vt-dot-pkmiss';
+            _icon = '<span class="vt-pkico">' + (window.Icon ? window.Icon('target', 12) : '🎯') +
+                    '<i class="vt-pkx">✕</i></span>';
+          } else if (ev.type === 'sub') {
+            _dot = 'vt-dot-sub';
+            _icon = window.Icon ? window.Icon('refresh', 12) : '⇄';
+            const _in = _liveSubName(ev, _tid, 'in') || ev.playerIn || ev.player2 || '';
+            if (_in) _sub = '<span class="vt-goal-sub2">' +
+              (window.Icon ? window.Icon('upload', 9) : '▲') + ' ' + _in + '</span>';
+          } else if (ev.type === 'injury') {
+            _dot = 'vt-dot-inj'; _icon = window.Icon ? window.Icon('injury', 12) : '＋';
+          } else if (ev.type === 'var') {
+            _dot = 'vt-dot-var'; _icon = window.Icon ? window.Icon('tv', 12) : '▣';
+          } else {
+            _dot = 'vt-dot-ev'; _icon = _evIcon(ev, 12);
           }
 
-          // ── البطاقة الصفراء الثانية = طرد (تصميم مميّز مثل التطبيقات الرسمية) ──
-          const _isSecondYellow = ev.type === 'yellow' && _secondYellowIds.has(ev.id != null ? ev.id : ev);
-          if (_isSecondYellow) {
-            const _syTeamId = _evSide(ev) === 'away' ? at.id : ht.id;
-            const _syName = _liveEventPlayerName(ev, _syTeamId) || ev.player || '';
-            return `<div class="vt-row vt-row-mid">
-              <div class="vt-chip vt-chip-event vt-chip-sy">
-                <span class="vt-chip-ic"><span class="ev-card2"><span class="ev-card ev-y"></span><span class="ev-card ev-r"></span></span></span>
-                <span class="vt-chip-txt"><strong>${_syName}</strong>
-                  <span class="vt-sy-label">بطاقة ثانية · طرد</span>
-                  <span class="vt-chip-team">(${sideLbl})</span></span>
-                <span class="vt-chip-min">${minLabel(ev)}</span>
-              </div>
-            </div>`;
-          }
+          const _outName = ev.type === 'sub'
+            ? (_liveSubName(ev, _tid, 'out') || ev.playerOut || ev.player || '')
+            : _nm;
 
-          const _chipTeamId = _evSide(ev) === 'away' ? at.id : ht.id;
-          const _chipName = _liveEventPlayerName(ev, _chipTeamId) || ev.player || '';
-          const _chipName2 = ev.player2 ? (_liveSubName(ev, _chipTeamId, 'in') || ev.player2) : '';
-          return `<div class="vt-row vt-row-mid">
-            <div class="vt-chip vt-chip-event">
-              <span class="vt-chip-ic">${_evIcon(ev, 13)}</span>
-              <span class="vt-chip-txt"><strong>${_chipName}</strong>${_chipName2 ? ` ← ${_chipName2}` : ''}
-                <span class="vt-chip-team">(${sideLbl})</span></span>
-              <span class="vt-chip-min">${minLabel(ev)}</span>
+          const _content = `<div class="vt-goal">
+            <span class="vt-goal-name">${_outName || '—'}${
+              ev.type === 'sub' ? ' <i class="vt-subout">' + (window.Icon ? window.Icon('download', 9) : '▼') + '</i>' : ''}</span>
+            ${_sub}
+          </div>`;
+
+          return `<div class="vt-row vt-row-${_sd}">
+            <div class="vt-side vt-side-left">${_sd === 'left' ? _content : ''}</div>
+            <div class="vt-marker">
+              <span class="vt-dot ${_dot}">${_icon}</span>
+              <span class="vt-min">${minLabel(ev)}</span>
             </div>
+            <div class="vt-side vt-side-right">${_sd === 'right' ? _content : ''}</div>
           </div>`;
         }
 

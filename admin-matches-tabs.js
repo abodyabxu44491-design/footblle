@@ -22,6 +22,21 @@
   function isPO(m) { return !!(m && m.isPlayoff === true); }
   function isFin(m) { return m && m.status === 'finished'; }
 
+  /* ترتيب المنتهية: الأحدث أوّلاً. المعيار التاريخ ثم الوقت، ثم رقم
+     الجولة، ثم المعرّف — فالنتيجة ثابتة ولا تتأرجح بين إعادتَي رسم. */
+  function _finKey(m) {
+    return (m && m.date ? String(m.date) : '0000-00-00') + 'T' +
+           (m && m.time ? String(m.time) : '00:00');
+  }
+  function _finDesc(a, b) {
+    var d = _finKey(b).localeCompare(_finKey(a));
+    if (d) return d;
+    var r = (b.round || 0) - (a.round || 0);
+    if (r) return r;
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  }
+  window._amtFinDesc = _finDesc;
+
   function M() { return (window._amtGetMatches && window._amtGetMatches()) || []; }
   function S() { return (window._amtGetSettings && window._amtGetSettings()) || {}; }
 
@@ -159,10 +174,19 @@
       if (!buckets[k]) { buckets[k] = []; meta[k] = { sk: sk, d: m.date }; }
       buckets[k].push(m);
     });
+    /* 🔴 المنتهية كانت مرتّبة تصاعدياً (الأقدم فوق) إلا حين التجميع
+       بالتاريخ. والمنظّم يبحث دائماً عن **آخر** مباراة انتهت لا أوّلها —
+       فيضطر للتمرير إلى الأسفل في كل مرة.
+       المنتهية تنازلياً دائماً: الأحدث أوّلاً، في ترتيب المجموعات
+       وداخل كل مجموعة معاً. وغير المنتهية تبقى تصاعدياً لأن القادم
+       الأقرب هو المقصود. */
     var order = Object.keys(buckets).sort(function (a, b) {
       var d = meta[a].sk - meta[b].sk;
-      return (active === 'fin' && byDate) ? -d : d;
+      return (active === 'fin') ? -d : d;
     });
+    if (active === 'fin') {
+      order.forEach(function (k) { buckets[k] = buckets[k].slice().sort(_finDesc); });
+    }
 
     /* الجولة الحالية = أول جولة غير مكتملة */
     var currentKey = null;

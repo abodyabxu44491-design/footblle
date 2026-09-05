@@ -3344,13 +3344,18 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
   font-variant-numeric:tabular-nums;line-height:1}
 
 /* ══ تلوين الرموز ══
-   لا خلفية ولا حدّ — اللون على الرسم نفسه، من لوحة المنصة. */
-.vt-dot-goal svg,.vt-dot-goal path,.vt-dot-goal circle{fill:var(--gold,#C9A02B);stroke:var(--gold,#C9A02B)}
-.vt-dot-goal.vt-dot-own svg,.vt-dot-goal.vt-dot-own path,.vt-dot-goal.vt-dot-own circle{fill:var(--red,#D64541)!important;stroke:var(--red,#D64541)!important}
-.vt-dot-inj svg,.vt-dot-inj path{fill:var(--orange,#C4761E);stroke:var(--orange,#C4761E)}
-.vt-dot-var svg,.vt-dot-var path{fill:var(--blue,#3B7DBF);stroke:var(--blue,#3B7DBF)}
-.vt-dot-pkmiss svg,.vt-dot-pkmiss path{fill:#9B59B6;stroke:#9B59B6}
-.vt-dot svg{display:block}
+   🔴 أيقونات المنصة مرسومة **بالخطوط**: `fill="none"` و`stroke="currentColor"`.
+   وقاعدتي السابقة فرضت `fill` على `circle` و`path` — فامتلأت دائرة الكرة
+   الخارجية ذهباً وابتلعت تفاصيلها، فظهر الهدف **نقطة صفراء صمّاء** لا كرة.
+   التلوين الصحيح هنا على `color` وحده: `stroke="currentColor"` يتبعه
+   تلقائياً، ويبقى الداخل مفرَّغاً فتظهر خطوط الكرة. */
+.vt-dot{color:var(--t2,#aaa)}
+.vt-dot-goal{color:var(--gold,#C9A02B)}
+.vt-dot-goal.vt-dot-own{color:var(--red,#D64541)}
+.vt-dot-inj{color:var(--orange,#C4761E)}
+.vt-dot-var{color:var(--blue,#3B7DBF)}
+.vt-dot-pkmiss{color:#9B59B6}
+.vt-dot svg{display:block;fill:none;stroke:currentColor}
 
 /* علامتا ركلة الجزاء: صحّ على الهدف، إكس على الضائعة */
 .vt-pkok{position:absolute;bottom:-4px;inset-inline-end:-5px;width:12px;height:12px;

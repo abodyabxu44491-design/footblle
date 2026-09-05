@@ -6696,7 +6696,14 @@ function _playerMatchBadges(events, side, playerName, number, playerId) {
   const showRed = red || secondYellow;
 
   const badges = [];
-  if (showRed) {
+  /* 🔴 الطرد بصفراوين كان يُعرض **بطاقة حمراء صافية** كالطرد المباشر —
+     فيضيع سببه، ويظهر لاعب نال صفراوين كأنه ارتكب مخالفة طرد مباشر.
+     مجريات المباراة تعرضه ببطاقتين متراكبتين، فتوحيد الشكلين يجعل
+     التشكيلة تقول ما تقوله المجريات بلا اختلاف. */
+  if (secondYellow) {
+    badges.push('<span class="pl-badge pl-badge-sy" title="طرد بصفراوين">' +
+      '<span class="pl-card pl-card-y"></span><span class="pl-card pl-card-r"></span></span>');
+  } else if (red) {
     badges.push('<span class="pl-badge pl-badge-red" title="بطاقة حمراء"></span>');
   } else if (yellow === 1) {
     badges.push('<span class="pl-badge pl-badge-yellow" title="بطاقة صفراء"></span>');

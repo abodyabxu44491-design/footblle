@@ -3299,8 +3299,12 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
  *  كل حدث في جهة فريقه (المضيف يميناً · الضيف يساراً)، والرمز في الوسط
  *  على خطّ رأسي واحد، والدقيقة تحته. بلا شرح نصّي: الرمز يقول النوع.
  * ══════════════════════════════════════════════════════════════════ */
-.vt-row{display:grid;grid-template-columns:1fr 46px 1fr;align-items:center;
-  gap:6px;padding:7px 0;position:relative}
+/* 🔴 الرمز كان في منتصف العمود الأوسط دائماً — فيبدو محايداً لا ينتمي
+   لأحد، ويصعب ربطه بصاحبه حين يتلاحق حدثان من فريقين.
+   الآن يميل **نحو جهة فريقه** داخل العمود، والخطّ الرأسي يبقى في المنتصف
+   تماماً — فيُقرأ الانتماء من موضع الرمز وحده. */
+.vt-row{display:grid;grid-template-columns:1fr 62px 1fr;align-items:center;
+  gap:4px;padding:7px 0;position:relative}
 .vt-row::before{content:'';position:absolute;top:0;bottom:0;left:50%;width:1.5px;
   transform:translateX(-50%);background:rgba(255,255,255,.06);z-index:0}
 .vt-side{min-width:0}
@@ -3308,6 +3312,12 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .vt-side-right{text-align:right;padding-inline-start:4px}
 .vt-marker{position:relative;z-index:1;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:3px}
+/* 🔴 كتبتُها على أساس أن الصفحة RTL — لكن حاوية المجريات نفسها
+   `direction:ltr` (لتثبيت يمين/يسار بصرف النظر عن اتجاه الصفحة).
+   فانعكست القاعدتان وبدت الرموز باتجاه واحد.
+   في LTR: flex-end = يمين (المضيف) · flex-start = يسار (الضيف). */
+.vt-row-right .vt-marker{align-items:flex-end}
+.vt-row-left  .vt-marker{align-items:flex-start}
 .vt-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;
   justify-content:center;position:relative;
   background:#15171c;border:1.5px solid rgba(255,255,255,.12);flex:0 0 auto}
@@ -3363,7 +3373,7 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .vt-side-right .vt-goalw{align-items:flex-end}
 
 /* ترويسة الفريقين وعلامات الأشواط */
-.vt-teams{display:grid;grid-template-columns:1fr 46px 1fr;gap:6px;padding:0 0 8px;
+.vt-teams{display:grid;grid-template-columns:1fr 62px 1fr;gap:4px;padding:0 0 8px;
   border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:6px}
 .vt-teams .vt-team-h:first-child{justify-self:start}
 .vt-teams .vt-team-h:last-child{justify-self:end;grid-column:3}
@@ -3372,6 +3382,13 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .vt-row-mid{grid-template-columns:1fr}
 .vt-row-mid .vt-chip{justify-self:center}
 @media (max-width:380px){
-  .vt-row{grid-template-columns:1fr 40px 1fr}
+  .vt-row,.vt-teams{grid-template-columns:1fr 54px 1fr}
   .vt-goal-name{font-size:11px}
 }
+
+/* ── التشكيلة: الطرد بصفراوين ببطاقتين متراكبتين (كما في المجريات) ── */
+.pl-badge-sy{position:relative;display:inline-flex;width:15px;height:13px;
+  background:transparent!important;border:none!important;padding:0!important}
+.pl-card{position:absolute;top:0;width:9px;height:12px;border-radius:1.8px}
+.pl-card-y{inset-inline-start:0;background:#F1C40F;transform:rotate(-12deg)}
+.pl-card-r{inset-inline-end:0;background:#E74C3C;transform:rotate(9deg)}

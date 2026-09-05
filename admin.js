@@ -15099,11 +15099,20 @@ function injectAdminCSS() {
     .abm-third .abm-grid{display:flex;justify-content:center}
 
     /* الحجم العادي: نُبطل تكبير بطاقة النهائي ونُبقي تخطيطها */
+    /* 🔴 قاعدة التخطيط الأفقي مكتوبة على حاوية النهائي وحدها
+       (abm-final-round ab-box) — وبطاقة المركز الثالث في حاوية أخرى
+       (abm-third) فلا تصلها: تبقى على الاتجاه العمودي الافتراضي فيظهر
+       فريق فوق فريق، ويأخذ الصندوق عرضاً كاملاً فيبدو ضخماً.
+       نكرّر التخطيط لها صراحةً بحجمها المصغَّر. */
+    .abm-third .ab-box,
     .ab-box.btf-third{
-      width:100%; max-width:300px;
-      height:auto; min-height:var(--abm-h,70px);
-      padding:9px 10px;
-      border-color:rgba(176,141,87,.45);
+      display:flex !important;
+      flex-direction:row !important;
+      align-items:center !important;
+      width:100%; max-width:290px;
+      height:auto; min-height:62px;
+      padding:8px 10px; gap:6px; margin:0 auto;
+      border-color:rgba(176,141,87,.45) !important;
       background:rgba(176,141,87,.05);
     }
     .btf-third .btf-logo{width:26px;height:26px}

@@ -51,8 +51,19 @@
     return (window.DateGroups && window.DateGroups.label) ? window.DateGroups.label(d) : d;
   }
 
+  /* 🔴 كان الشرط يطلب `isKnockout` **و**`knockoutRoundName` معاً. ومباراة
+     الإقصاء قد تحمل `knockoutRoundId` بلا العَلَم، أو اسم الدور بلا العلم —
+     فتسقط إلى «الجولة N»، ورقم الجولة في الإقصاء رقم داخلي ثابت.
+     ونفس القاعدة في كل مواضع المنصة: اسم الدور يسبق رقم الجولة دائماً. */
   function stageOf(m) {
-    if (m.isKnockout && m.knockoutRoundName) return m.knockoutRoundName;
+    if (!m) return '';
+    if (m.knockoutRoundName) return m.knockoutRoundName;
+    if (m.isKnockout || m.knockoutRoundId != null) return 'دور إقصائي';
+    if (m.isPlayoff) {
+      return (m.poGroup != null)
+        ? 'الملحق · مجموعة ' + String.fromCharCode(65 + m.poGroup)
+        : 'الملحق';
+    }
     if (m.groupName && m.round) return m.groupName + ' · الجولة ' + m.round;
     if (m.groupName) return m.groupName;
     if (m.round) return 'الجولة ' + m.round;

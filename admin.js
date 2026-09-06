@@ -4329,13 +4329,17 @@ window.adminOpenPlayerCard = async function (teamId, playerId, name) {
     rows.push({ m, opp, mine });
   });
 
+  /* 🔴 كانت الأحداث تُعرض **نقاطاً ملوّنة** — نقطة ذهبية للهدف وأخرى
+     خضراء للصناعة. والنقطة لا تقول ما هي، فيضطر المنظّم لحفظ دلالة كل
+     لون. الآن رموز حقيقية: كرة للهدف، وحذاء للصناعة، وبطاقة للبطاقة. */
+  const _ic = (n, sz) => (window.Icon ? window.Icon(n, sz || 12) : '');
   const ICO = {
-    goal: '<span class="apc-i apc-i-goal"></span>',
-    own: '<span class="apc-i apc-i-own"></span>',
-    assist: '<span class="apc-i apc-i-as"></span>',
+    goal:   '<span class="apc-i apc-i-goal">'  + _ic('ball')  + '</span>',
+    own:    '<span class="apc-i apc-i-own">'   + _ic('ball')  + '</span>',
+    assist: '<span class="apc-i apc-i-as">'    + _ic('boots') + '</span>',
     yellow: '<span class="apc-c apc-c-y"></span>',
-    red: '<span class="apc-c apc-c-r"></span>',
-    pkmiss: '<span class="apc-i apc-i-pkm"></span>',
+    red:    '<span class="apc-c apc-c-r"></span>',
+    pkmiss: '<span class="apc-i apc-i-pkm">'   + _ic('target') + '</span>',
   };
   const minOf = ev => (ev && ev.minute) ? ev.minute + "'" : '';
 

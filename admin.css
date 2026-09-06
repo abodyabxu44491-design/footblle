@@ -2168,3 +2168,12 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
   border:1px solid rgba(201,160,43,.4);color:var(--gold,#C9A02B)}
 .apc-b.close{background:transparent;border-color:#2a2a2a;color:#888}
 @media (min-width:520px){ #apcOv{align-items:center;padding:20px} .apc-box{border-radius:18px} }
+
+/* ── رموز بطاقة اللاعب في الإدارة: رسوم لا نقاط ── */
+.apc-i{display:inline-flex!important;align-items:center;justify-content:center;
+  width:14px!important;height:14px!important;border-radius:0!important;background:none!important}
+.apc-i svg{width:100%;height:100%;display:block;fill:none;stroke:currentColor}
+.apc-i-goal{color:var(--gold,#C9A02B)}
+.apc-i-own{color:var(--red,#C0392B)}
+.apc-i-as{color:var(--green,#27ae60)}
+.apc-i-pkm{color:#9B59B6}

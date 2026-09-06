@@ -379,8 +379,8 @@
      مسمّى واحد يُستعمل في كل مواضع البطاقات — نفس قاعدة صفحة الجمهور. */
   function _csRound(m) {
     if (!m) return '';
-    if (m.isKnockout || m.knockoutRoundId != null || m.knockoutRoundName)
-      return m.knockoutRoundName || 'دور إقصائي';
+    if (m.knockoutRoundName) return m.knockoutRoundName;
+    if (m.isKnockout || m.knockoutRoundId != null) return 'دور إقصائي';
     if (m.isPlayoff)
       return (m.poGroup != null)
         ? 'الملحق · مجموعة ' + String.fromCharCode(65 + m.poGroup)
@@ -1447,11 +1447,15 @@
        الوقت. فإن وصلت المباريات بترتيب غير زمني (وهو الغالب مع التحميل
        اللحظي) خرج الترتيب عشوائياً. نرتّب بالتاريخ والوقت صراحةً بنفس
        معيار الإدارة والجمهور — فلا تختلف قائمة البطاقات عنهما. */
+    /* نفس قاعدة الترتيب في صفحتَي الإدارة والجمهور — فلا تختلف قائمة
+       البطاقات عنهما. وعند غياب التاريخ (وهو شائع في الإقصاء) يحسم
+       **ترتيب الدور**: النهائي قبل نصف النهائي قبل ربعه. */
     const _fk = m => (m && m.date ? String(m.date) : '0000-00-00') + 'T' +
                      (m && m.time ? String(m.time) : '00:00');
     const finished = matches.filter(m => m.status === 'finished')
       .slice()
       .sort((a, b) => _fk(b).localeCompare(_fk(a))
+                   || (b.knockoutOrder || 0) - (a.knockoutOrder || 0)
                    || (b.round || 0) - (a.round || 0)
                    || String(b.id || '').localeCompare(String(a.id || '')));
 

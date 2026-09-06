@@ -1387,6 +1387,9 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
 
     const evs = _matchEvents(m);
     let myGoals = 0, myYellow = 0, myRed = 0, myAssist = 0;
+    /* دقائق الأحداث — تقول **متى** وقع كل هدف لا كم عددها فقط، كما في
+       بطاقة الإدارة. سطر واحد يغني عن فتح المباراة للتحقّق. */
+    const myMins = { goal: [], assist: [], pk: 0, own: 0 };
 
     if (evs.length) {
       evs.forEach(ev => {
@@ -1401,10 +1404,17 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
         };
         // صناعة الهدف: تُنسب لصانعها
         if (ev.type === 'goal' && ev.assist && !ev.isShootout && !ev.shootout) {
-          if (matchPlayer(ev.assistPlayerId, ev.assist)) myAssist++;
+          if (matchPlayer(ev.assistPlayerId, ev.assist)) {
+            myAssist++;
+            if (ev.minute) myMins.assist.push(ev.minute);
+          }
         }
         if (!matchPlayer(ev.playerId, ev.player)) return;
-        if (ev.type === 'goal') myGoals++;
+        if (ev.type === 'goal') {
+          myGoals++;
+          if (ev.minute) myMins.goal.push(ev.minute);
+          if (ev.penalty) myMins.pk++;
+        }
         else if (ev.type === 'yellow') myYellow++;
         else if (ev.type === 'red') myRed++;
       });
@@ -1473,7 +1483,7 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
     // أو إن كان له حدث مؤثّر (توافق مع بيانات قديمة بلا تشكيلة).
     if (_played || myGoals > 0 || myAssist > 0 || myYellow > 0 || myRed > 0) {
       playerMatches.push({ m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed,
-                           playStatus, subInMinute, subOutMinute });
+                           playStatus, subInMinute, subOutMinute, myMins });
     }
   });
 
@@ -1575,8 +1585,15 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
         <div style="font-size:11px;color:var(--t3)">${my}-${op}</div>
         <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
           ${roleBadge}
-          ${myGoals>0?`<span class="pm-goals-badge">${window.Icon?window.Icon('ball',11):'⚽'}×${myGoals}</span>`:''}
-          ${myAssist>0?`<span class="pm-goals-badge" style="background:rgba(39,174,96,.15);color:var(--green,#27ae60)" title="صناعة">👟×${myAssist}</span>`:''}
+          ${myGoals>0?`<span class="pm-goals-badge" title="${(myMins&&myMins.goal.length)?'الدقائق: '+myMins.goal.join('، '):''}">${window.Icon?window.Icon('ball',12):'⚽'}${
+              (myMins&&myMins.goal.length)
+                ? `<i class="pm-mins">${myMins.goal.map(x=>x+"'").join(' ')}</i>`
+                : `×${myGoals}`}${
+              (myMins&&myMins.pk)?'<i class="pm-pk">ج</i>':''}</span>`:''}
+          ${myAssist>0?`<span class="pm-goals-badge pm-as" title="صناعة">${window.Icon?window.Icon('boots',12):'👟'}${
+              (myMins&&myMins.assist.length)
+                ? `<i class="pm-mins">${myMins.assist.map(x=>x+"'").join(' ')}</i>`
+                : `×${myAssist}`}</span>`:''}
           ${myYellow>0?`<span style="width:9px;height:12px;background:#E8B93B;border-radius:2px;display:inline-block" title="بطاقة صفراء"></span>`:''}
           ${myRed>0?`<span style="width:9px;height:12px;background:#C0392B;border-radius:2px;display:inline-block" title="بطاقة حمراء"></span>`:''}
         </div>

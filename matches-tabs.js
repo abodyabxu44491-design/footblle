@@ -31,6 +31,9 @@
   function _finDesc(a, b) {
     var d = _finKey(b).localeCompare(_finKey(a));
     if (d) return d;
+    // بلا تاريخ (أو بتاريخ واحد): ترتيب الدور ثم الجولة — لا المعرّف وحده
+    var k = (b.knockoutOrder || 0) - (a.knockoutOrder || 0);
+    if (k) return k;
     var r = (b.round || 0) - (a.round || 0);
     if (r) return r;
     return String(b.id || '').localeCompare(String(a.id || ''));
@@ -214,8 +217,14 @@
            أولاً ثم الإقصاء — والإقصاء خاتمة البطولة فمكانه الأسفل.
            نطرح إزاحة كبيرة من مفتاح ترتيبها فتقع دائماً بعد الجولات مهما
            كان تاريخها، ويبقى ترتيبها بينها زمنياً صحيحاً. */
-        sk = (tab === 'fin' && DG) ? (DG.sortKey(m.date) || 0)
-                                  : (m.knockoutOrder || m.round || 0);
+        /* 🔴 مباريات الإقصاء كثيراً ما تُسجَّل **بلا تاريخ** — فيسقط مفتاح
+           الترتيب إلى صفر لكل أدوارها، ويعود الترتيب إلى ترتيب الإنشاء:
+           ربع النهائي أولاً والنهائي أخيراً. أي عكس المطلوب تماماً.
+           البديل عند غياب التاريخ: ترتيب الدور نفسه (النهائي أكبر). */
+        var _dk = DG ? (DG.sortKey(m.date) || 0) : 0;
+        sk = (tab === 'fin')
+             ? (_dk || (m.knockoutOrder || m.round || 0))
+             : (m.knockoutOrder || m.round || 0);
       } else if (byDate) {
         key = DG.label(m.date);
         sk  = DG.sortKey(m.date);

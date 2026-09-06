@@ -2852,7 +2852,7 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 /* 🔴 قاعدة من التصميم القديم كانت تعيد الدائرة والحدّ لرمز الهدف وحده،
    فيبقى محاطاً بإطار بينما بقيّة الرموز عارية. حُيِّدت خلفيتها وحدّها. */
 .vt-dot-goal{
-  width:22px; height:22px; display:flex; align-items:center; justify-content:center;
+  width:26px; height:26px; display:flex; align-items:center; justify-content:center;
   background:transparent; border:none; color:var(--gold); box-shadow:none;
 }
 .vt-goal{ display:flex; align-items:baseline; gap:6px; direction:rtl }
@@ -3337,9 +3337,12 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 /* 🔴 كانت الرموز داخل دوائر ملوّنة بخلفية وحدّ — فتبدو أزراراً لا أحداثاً،
    وتزاحم الأسماء بحجمها، ويضيع شكل الكرة والبطاقة داخل الإطار.
    الآن الرمز عارٍ كما هو: كرة كرة، وبطاقة بطاقة، وسهما تبديل. */
-.vt-dot{width:22px;height:22px;display:flex;align-items:center;
-  justify-content:center;position:absolute;top:50%;margin-top:-11px;
+.vt-dot{width:24px;height:24px;display:flex;align-items:center;
+  justify-content:center;position:absolute;top:50%;margin-top:-12px;
   background:transparent;border:none;flex:0 0 auto}
+/* الكرة أكبر قليلاً من بقيّة الرموز: الهدف أهمّ ما في المجريات */
+.vt-dot-goal svg{width:19px;height:19px}
+.vt-dot-goal{width:26px;height:26px;margin-top:-13px}
 .vt-min{font-size:9.5px;font-weight:800;color:var(--t3,#777);
   font-variant-numeric:tabular-nums;line-height:1}
 
@@ -3419,3 +3422,13 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .pl-card{position:absolute;top:0;width:9px;height:12px;border-radius:1.8px}
 .pl-card-y{inset-inline-start:0;background:#D6A92D;transform:rotate(-12deg);z-index:1}
 .pl-card-r{inset-inline-end:0;background:var(--red,#D64541);transform:rotate(9deg);z-index:2}
+
+/* ── دقائق الأهداف في بطاقة اللاعب (الجمهور) ── */
+.pm-goals-badge{display:inline-flex;align-items:center;gap:4px}
+.pm-goals-badge svg{width:12px;height:12px;fill:none;stroke:currentColor}
+.pm-mins{font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.2px;
+  font-variant-numeric:tabular-nums}
+.pm-pk{font-style:normal;font-size:8.5px;font-weight:900;color:#9B59B6;
+  background:rgba(155,89,182,.16);border:1px solid rgba(155,89,182,.34);
+  border-radius:20px;padding:0 4px;line-height:1.5}
+.pm-goals-badge.pm-as{background:rgba(46,158,91,.15);color:var(--green,#2E9E5B)}

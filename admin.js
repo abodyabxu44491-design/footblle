@@ -1437,40 +1437,166 @@ function updateMatchStats() {
 }
 
 // ══ RENDER TEAMS ══
+/* ══════════════════════════════════════════════════════════════════
+ *  👥 قسم الأندية — إعادة بناء
+ *  ──────────────────────────────────────────────────────────────────
+ *  🔴 كان صفّاً واحداً لكل فريق: شعار واسم وعدد نقاط وثلاثة أزرار.
+ *  وبطولة بعشرين نادياً تعني قائمة طويلة بلا بحث ولا فرز، ولا سبيل
+ *  لمعرفة أيّ ناد ناقص البيانات (بلا شعار · بلا كشف لاعبين) إلا بفتح
+ *  كلٍّ على حدة. والنقاط وحدها لا تقول شيئاً عن حال الفريق.
+ *
+ *  الجديد: شريط حالة يلخّص البطولة · بحث فوري · فرز · وبطاقة نادٍ
+ *  تعرض سجلّه (فاز/تعادل/خسر) وعدد لاعبيه، وتُنبّه على ما ينقصه.
+ * ══════════════════════════════════════════════════════════════════ */
+window._tmQ = '';
+window._tmSort = 'pts';
+
+window.tmSearch = function (v) {
+  window._tmQ = String(v || '').trim().toLowerCase();
+  renderTeams();
+  const el = document.getElementById('tmSearchInput');
+  if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} }
+};
+window.tmSort = function (k) { window._tmSort = k; renderTeams(); };
+
+/* سجلّ الفريق من المباريات المنتهية — مصدره الأحداث نفسها لا حقل محفوظ،
+   فلا يتأخّر عن الواقع بعد أي تعديل. */
+function _tmRecord(teamId) {
+  let w = 0, d = 0, l = 0, gf = 0, ga = 0, played = 0;
+  (window.matches || []).forEach(m => {
+    if (m.status !== 'finished') return;
+    if (m.homeId !== teamId && m.awayId !== teamId) return;
+    const home = m.homeId === teamId;
+    const my = home ? (m.homeScore ?? 0) : (m.awayScore ?? 0);
+    const op = home ? (m.awayScore ?? 0) : (m.homeScore ?? 0);
+    played++; gf += my; ga += op;
+    if (my > op) w++; else if (my === op) d++; else l++;
+  });
+  return { w, d, l, gf, ga, played, diff: gf - ga };
+}
+
 function renderTeams() {
+  /* عدد لاعبي كل نادٍ يُقرأ من `rosterCache`، وهو لا يُملأ إلا بفتح كشف
+     فريق. فبلا تحميل مسبق تظهر كل الأندية «بلا كشف لاعبين» خطأً.
+     نحمّلها مرة واحدة ثم نُعيد الرسم — نفس ما فُعل في صفحة الإحصائيات. */
+  if (!window._adminStatsRostersReady) {
+    setTimeout(() => { try { window._adminPreloadRosters && window._adminPreloadRosters(); } catch (e) {} }, 0);
+  }
   if (typeof _checkForceTeamsGate === 'function') _checkForceTeamsGate();
-  /* ✅︎ بوابة المجموعات — الخطوة التالية بعد اكتمال الفرق */
   if (typeof window._checkForceGroupsGate === 'function') window._checkForceGroupsGate();
   const el = document.getElementById('teamsList');
-  if(teams.length === 0) {
+  if (!el) return;
+
+  if (teams.length === 0) {
     el.innerHTML = '<div class="empty-state"><div class="e-icon">👥</div><div>لا توجد فرق بعد — أضف فريقاً!</div></div>';
+    updateDoc(doc(db, 'leagues', LEAGUE_ID), { teamsCount: 0 }).catch(() => {});
     return;
   }
-  el.innerHTML = teams.map(t => {
-    const isImg = t.logo && (t.logo.startsWith('data:') || t.logo.startsWith('http://') || t.logo.startsWith('https://') || t.logo.startsWith('/'));
-    const logoHtml = isImg
-      ? '<div class="team-logo-box" style="background-image:url(\'' + t.logo + '\');background-size:cover;background-position:center;font-size:0"></div>'
-      : '<div class="team-logo-box">' + (t.logo || '⚽') + '</div>';
-    const details = [
-      t.coach ? '🧑‍💼 ' + t.coach : '',
-      t.stadium ? '🏟 ' + t.stadium : '',
-      t.phone ? '📱 ' + t.phone : ''
-    ].filter(Boolean).join('  ·  ');
-    return '<div class="team-row">'
-      + logoHtml
-      + '<div style="flex:1;min-width:0">'
-      + '<input class="team-name-input" value="' + t.name + '" onblur="updateTeamName(\'' + t.id + '\',this.value)" placeholder="اسم الفريق"/>'
-      + (details ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">' + details + '</div>' : '')
-      + (t.bio ? '<div style="font-size:10px;color:var(--muted2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + t.bio + '</div>' : '')
-      + '</div>'
-      + '<div style="font-size:10px;color:var(--muted);text-align:center;min-width:40px;flex-shrink:0">'
-      + '<div style="color:var(--gold);font-weight:900;font-size:14px">' + (t.pts || 0) + '</div><div>نقطة</div></div>'
-      + '<div style="display:flex;gap:6px;flex-shrink:0">'
-      + '<button class="icon-btn" onclick="openRosterModal(\'' + t.id + '\')" title="قائمة اللاعبين" style="background:var(--blue,#2980b9)22;border:1px solid var(--blue,#2980b9)44">👥</button>'
-      + '<button class="icon-btn" onclick="openEditTeam(\'' + t.id + '\')" title="تعديل">✏︎️</button>'
-      + '<button class="icon-btn del" onclick="deleteTeam(\'' + t.id + '\')">🗑</button>'
-      + '</div></div>';
+
+  const isImg = v => v && (v.startsWith('data:') || v.startsWith('http://') ||
+                           v.startsWith('https://') || v.startsWith('/'));
+  const rosterN = id => ((rosterCache && rosterCache[id]) || []).length;
+
+  // ── شريط الحالة: ما ينقص البطولة قبل أن يبدأ المنظّم ──
+  const noLogo   = teams.filter(t => !t.logo).length;
+  const noRoster = teams.filter(t => !rosterN(t.id)).length;
+  const maxT     = parseInt(window.settings?.teamsCount || 0) || 0;
+  const chips = [
+    `<span class="tm-chip ok">${teams.length}${maxT ? ' / ' + maxT : ''} نادٍ</span>`,
+    noLogo   ? `<span class="tm-chip warn" onclick="tmSort('nologo')">${noLogo} بلا شعار</span>` : '',
+    noRoster ? `<span class="tm-chip warn" onclick="tmSort('noroster')">${noRoster} بلا كشف لاعبين</span>` : '',
+  ].filter(Boolean).join('');
+
+  // ── البحث والفرز ──
+  const SORTS = [
+    { id: 'pts',  label: 'الأعلى نقاطاً' },
+    { id: 'name', label: 'أبجدياً' },
+    { id: 'new',  label: 'الأحدث إضافة' },
+  ];
+  const head = `
+    <div class="tm-bar">
+      <div class="tm-chips">${chips}</div>
+      <div class="tm-search">
+        <span class="tm-search-ic">🔍</span>
+        <input id="tmSearchInput" class="tm-search-in" value="${String(window._tmQ).replace(/"/g, '&quot;')}"
+          placeholder="ابحث عن نادٍ…" oninput="tmSearch(this.value)"/>
+        ${window._tmQ ? `<button class="tm-search-x" onclick="tmSearch('')">✕</button>` : ''}
+      </div>
+      <div class="tm-sorts">
+        ${SORTS.map(x => `<button class="tm-sort${window._tmSort === x.id ? ' on' : ''}"
+          onclick="tmSort('${x.id}')">${x.label}</button>`).join('')}
+      </div>
+    </div>`;
+
+  // ── التصفية والفرز ──
+  let list = teams.slice();
+  if (window._tmQ) {
+    const q = window._tmQ;
+    list = list.filter(t => ((t.name || '') + ' ' + (t.coach || '') + ' ' + (t.stadium || ''))
+      .toLowerCase().includes(q));
+  }
+  if (window._tmSort === 'nologo')       list = list.filter(t => !t.logo);
+  else if (window._tmSort === 'noroster') list = list.filter(t => !rosterN(t.id));
+  if (window._tmSort === 'name')      list.sort((x, y) => String(x.name || '').localeCompare(String(y.name || ''), 'ar'));
+  else if (window._tmSort === 'new')  list.reverse();
+  else if (window._tmSort === 'pts')  list.sort((x, y) => (y.pts || 0) - (x.pts || 0));
+
+  if (!list.length) {
+    el.innerHTML = head + `<div class="empty-state"><div class="e-icon">🔍</div>
+      <div>لا نادي يطابق البحث</div>
+      <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="tmSearch('');tmSort('pts')">عرض الكل</button></div>`;
+    return;
+  }
+
+  const rows = list.map((t, i) => {
+    const r = _tmRecord(t.id);
+    const rn = rosterN(t.id);
+    const logo = isImg(t.logo)
+      ? `<span class="tmc-logo" style="background-image:url('${t.logo}')"></span>`
+      : `<span class="tmc-logo tmc-logo-tx">${t.logo || '⚽'}</span>`;
+    const rank = (window._tmSort === 'pts' && !window._tmQ)
+      ? `<span class="tmc-rank${i < 3 ? ' top' : ''}">${i + 1}</span>` : '';
+    const miss = [
+      !t.logo ? 'بلا شعار' : '',
+      !rn ? 'بلا كشف لاعبين' : '',
+    ].filter(Boolean);
+    const meta = [
+      t.coach   ? `مدرّب: ${t.coach}` : '',
+      t.stadium ? `ملعب: ${t.stadium}` : '',
+    ].filter(Boolean).join(' · ');
+
+    return `
+      <div class="tmc">
+        <div class="tmc-head">
+          ${rank}${logo}
+          <div class="tmc-id">
+            <input class="tmc-name" value="${(t.name || '').replace(/"/g, '&quot;')}"
+              onblur="updateTeamName('${t.id}',this.value)" placeholder="اسم النادي"/>
+            ${meta ? `<div class="tmc-meta">${meta}</div>` : ''}
+          </div>
+          <div class="tmc-pts"><b>${t.pts || 0}</b><span>نقطة</span></div>
+        </div>
+
+        <div class="tmc-stats">
+          <span class="tmc-st"><b>${r.played}</b>لعب</span>
+          <span class="tmc-st w"><b>${r.w}</b>فاز</span>
+          <span class="tmc-st d"><b>${r.d}</b>تعادل</span>
+          <span class="tmc-st l"><b>${r.l}</b>خسر</span>
+          <span class="tmc-st"><b>${r.diff > 0 ? '+' : ''}${r.diff}</b>فارق</span>
+          <span class="tmc-st${rn ? '' : ' zero'}"><b>${rn}</b>لاعب</span>
+        </div>
+
+        ${miss.length ? `<div class="tmc-miss">⚠ ${miss.join(' · ')}</div>` : ''}
+
+        <div class="tmc-acts">
+          <button class="tmc-b roster" onclick="openRosterModal('${t.id}')">👥 الكشف${rn ? ` (${rn})` : ''}</button>
+          <button class="tmc-b" onclick="openEditTeam('${t.id}')">✏︎ تعديل</button>
+          <button class="tmc-b del" onclick="deleteTeam('${t.id}')">🗑</button>
+        </div>
+      </div>`;
   }).join('');
+
+  el.innerHTML = head + `<div class="tm-list">${rows}</div>`;
   updateDoc(doc(db, 'leagues', LEAGUE_ID), { teamsCount: teams.length }).catch(() => {});
 }
 
@@ -4417,6 +4543,7 @@ window._adminPreloadRosters = async function () {
   } catch (e) {}
   window._adminStatsRostersReady = true;
   try { renderAdminStats(); } catch (e) {}
+  try { if (document.getElementById('teamsList')) renderTeams(); } catch (e) {}
 };
 
 // ── الدالة الرئيسية: تبني كل أقسام إحصائيات الإدارة ──
@@ -18929,6 +19056,7 @@ window.importRosterToLineup = function(teamId) {
     'saveEditTeam', 'saveZoneRules', 'saveSettings', 'saveKoSchedule',
     'poCreateSection', 'poGenerateMatches', 'poResetAll', 'poAddSuggested',
     'poAutoAssign', 'poClearAssign', 'poAssign', 'poPickToggleAll', 'poTab',
+    'tmSearch', 'tmSort',
     'pkOpen', 'pkCommit', 'adminOpenPlayerCard', 'adminConfirmBracketCreate',
     'saveDeduction', 'autoSchedule', 'swissGenerateFixtures',
     'saveNewPassword', 'uploadRosterPhoto', 'removeRosterPhoto'

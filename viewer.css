@@ -3432,3 +3432,9 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
   background:rgba(155,89,182,.16);border:1px solid rgba(155,89,182,.34);
   border-radius:20px;padding:0 4px;line-height:1.5}
 .pm-goals-badge.pm-as{background:rgba(46,158,91,.15);color:var(--green,#2E9E5B)}
+
+/* ══ تبويبات قسم المباريات (الجمهور) — نفس نسق الإدارة ══ */
+.mt-tab{display:inline-flex!important;align-items:center;gap:6px}
+.mt-tab-n{font-size:10px;font-weight:900;background:rgba(255,255,255,.07);
+  border-radius:20px;padding:1px 7px;line-height:1.6}
+.mt-tab.on .mt-tab-n{background:rgba(201,160,43,.22)}

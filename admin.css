@@ -2177,3 +2177,87 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
 .apc-i-own{color:var(--red,#C0392B)}
 .apc-i-as{color:var(--green,#27ae60)}
 .apc-i-pkm{color:#9B59B6}
+
+/* ══ تبويبات قسم المباريات (الإدارة) — نسق قسم بطاقات المشاركة ══
+   التبويب يحمل عدّاده فيُعرف ما فيه قبل فتحه. */
+.amt-tab{display:inline-flex!important;align-items:center;gap:6px}
+.amt-tab-n{font-size:10px;font-weight:900;background:rgba(255,255,255,.07);
+  border-radius:20px;padding:1px 7px;line-height:1.6}
+.amt-tab.on .amt-tab-n{background:rgba(201,160,43,.22)}
+
+/* ══════════════════════════════════════════════════════════════════
+ *  👥 قسم الأندية
+ * ══════════════════════════════════════════════════════════════════ */
+.tm-bar{margin-bottom:12px}
+.tm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.tm-chip{font-size:10px;font-weight:800;border-radius:20px;padding:5px 11px;
+  border:1px solid var(--border2,#2a2a2a);color:var(--muted,#8a8a8a)}
+.tm-chip.ok{background:rgba(201,160,43,.1);border-color:rgba(201,160,43,.32);color:var(--gold,#C9A02B)}
+.tm-chip.warn{background:rgba(230,126,34,.1);border-color:rgba(230,126,34,.34);
+  color:#E67E22;cursor:pointer}
+.tm-chip.warn:active{opacity:.75}
+
+.tm-search{position:relative;margin-bottom:9px}
+.tm-search-ic{position:absolute;inset-inline-start:12px;top:50%;transform:translateY(-50%);
+  font-size:13px;opacity:.5;pointer-events:none}
+.tm-search-in{width:100%;box-sizing:border-box;padding:12px 38px;border-radius:12px;
+  background:var(--card2,#121316);border:1px solid var(--border2,#23262e);color:var(--text,#eee);
+  font-family:'Tajawal',sans-serif;font-size:13px;outline:none}
+.tm-search-in:focus{border-color:rgba(201,160,43,.45)}
+.tm-search-x{position:absolute;inset-inline-end:8px;top:50%;transform:translateY(-50%);
+  width:26px;height:26px;border-radius:8px;cursor:pointer;font-size:12px;
+  background:transparent;border:1px solid var(--border2,#2a2a2a);color:var(--muted,#888);font-family:inherit}
+
+.tm-sorts{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.tm-sorts::-webkit-scrollbar{display:none}
+.tm-sort{flex:0 0 auto;padding:8px 13px;border-radius:20px;cursor:pointer;white-space:nowrap;
+  font-family:'Tajawal',sans-serif;font-size:11px;font-weight:800;
+  background:transparent;border:1px solid var(--border2,#23262e);color:var(--muted,#8a8a8a)}
+.tm-sort.on{background:rgba(201,160,43,.12);border-color:rgba(201,160,43,.42);color:var(--gold,#C9A02B)}
+
+.tm-list{display:flex;flex-direction:column;gap:9px}
+.tmc{background:var(--card2,#121316);border:1px solid var(--border2,#23262e);
+  border-radius:14px;padding:12px 12px 0;overflow:hidden}
+.tmc-head{display:flex;align-items:center;gap:10px;min-width:0}
+.tmc-rank{flex:0 0 auto;width:22px;height:22px;border-radius:7px;display:flex;
+  align-items:center;justify-content:center;font-size:10.5px;font-weight:900;
+  background:rgba(255,255,255,.05);color:var(--muted,#888)}
+.tmc-rank.top{background:rgba(201,160,43,.16);color:var(--gold,#C9A02B)}
+.tmc-logo{flex:0 0 auto;width:44px;height:44px;border-radius:12px;
+  background-size:cover;background-position:center;background-color:var(--card,#0f1216);
+  display:flex;align-items:center;justify-content:center}
+.tmc-logo-tx{font-size:22px}
+.tmc-id{flex:1;min-width:0}
+.tmc-name{width:100%;box-sizing:border-box;background:transparent;border:none;outline:none;
+  font-family:'Tajawal',sans-serif;font-size:14px;font-weight:900;color:var(--text,#eee);
+  padding:0;border-bottom:1px solid transparent}
+.tmc-name:focus{border-bottom-color:rgba(201,160,43,.5)}
+.tmc-meta{font-size:10px;color:var(--muted,#888);margin-top:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tmc-pts{flex:0 0 auto;text-align:center;min-width:44px}
+.tmc-pts b{display:block;font-size:18px;font-weight:900;color:var(--gold,#C9A02B);line-height:1;
+  font-variant-numeric:tabular-nums}
+.tmc-pts span{display:block;font-size:9px;color:var(--muted,#888);margin-top:3px}
+
+.tmc-stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+.tmc-st{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;
+  color:var(--muted,#8a8a8a);background:rgba(255,255,255,.035);
+  border:1px solid var(--border,#1f2229);border-radius:20px;padding:3px 9px}
+.tmc-st b{font-size:11.5px;font-weight:900;color:var(--text,#ddd);font-variant-numeric:tabular-nums}
+.tmc-st.w b{color:#2E9E5B}
+.tmc-st.d b{color:#8a8a8a}
+.tmc-st.l b{color:#D64541}
+.tmc-st.zero b{color:#E67E22}
+
+.tmc-miss{margin-top:9px;font-size:10px;font-weight:700;color:#E67E22;
+  background:rgba(230,126,34,.08);border:1px solid rgba(230,126,34,.24);
+  border-radius:9px;padding:6px 10px}
+
+.tmc-acts{display:flex;gap:6px;margin:11px -12px 0;padding:9px 12px;
+  border-top:1px solid var(--border,#1c1f26);background:rgba(255,255,255,.015)}
+.tmc-b{flex:1;min-height:36px;border-radius:9px;cursor:pointer;
+  font-family:'Tajawal',sans-serif;font-size:11px;font-weight:800;
+  background:transparent;border:1px solid var(--border2,#2a2a2a);color:var(--muted,#9a9a9a)}
+.tmc-b.roster{flex:1.6;background:rgba(59,125,191,.12);border-color:rgba(59,125,191,.38);color:#7FA9DC}
+.tmc-b.del{flex:0 0 46px;border-color:rgba(192,57,43,.3);color:#C0392B}
+.tmc-b:active{opacity:.75}

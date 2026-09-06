@@ -138,47 +138,80 @@
 
   /* ── قائمة المباريات ── */
   .cs-matches-wrap { padding: 12px 16px; }
-  .cs-match-item {
-    display: flex; align-items: center; gap: 10px;
-    background: #0f0f0f; border: 1px solid rgba(255,255,255,.06);
-    border-radius: 14px; padding: 11px 13px;
-    margin-bottom: 8px; cursor: pointer;
-    transition: all .2s; position: relative; overflow: hidden;
-  }
-  .cs-match-item::before {
-    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
-    width: 3px; background: transparent; transition: background .2s;
-  }
-  .cs-match-item:hover { border-color: rgba(201,160,43,.3); background: #141414; }
-  .cs-match-item:hover::before { background: ${GOLD}; }
-  .cs-match-item.upcoming::before { background: #3b82f6; }
-  .cs-match-item.live::before { background: #ef4444; }
-  .cs-match-item.finished::before { background: ${GOLD}; }
-  .cs-match-teams-logos { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-  .cs-match-team-logo {
-    width: 28px; height: 28px; border-radius: 6px;
-    object-fit: cover; background: #1a1a1a;
-    border: 1px solid rgba(255,255,255,.06);
-  }
-  .cs-match-vs-dot { font-size: 9px; color: #444; font-weight: 700; }
-  .cs-match-teams { flex: 1; min-width: 0; }
-  .cs-match-names {
-    font-size: 13px; font-weight: 700; color: #eee;
-    font-family: Tajawal, sans-serif; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis;
-  }
-  .cs-match-meta { font-size: 10px; color: #555; margin-top: 2px; }
-  .cs-match-score {
-    font-size: 17px; font-weight: 900; color: ${GOLD};
+  /* ══ واجهة اختيار المباراة — إعادة بناء ══ */
+  .cs-matches-wrap { padding: 0 2px 20px; }
+
+  .cs-search { position: relative; margin: 12px 0 10px; }
+  .cs-search-ic { position: absolute; inset-inline-start: 12px; top: 50%;
+    transform: translateY(-50%); font-size: 13px; opacity: .5; pointer-events: none; }
+  .cs-search-in { width: 100%; box-sizing: border-box; padding: 12px 38px;
+    border-radius: 12px; background: #121316; border: 1px solid #23262e; color: #eee;
+    font-family: Tajawal, sans-serif; font-size: 13px; outline: none; }
+  .cs-search-in:focus { border-color: rgba(201,160,43,.45); }
+  .cs-search-in::placeholder { color: #666; }
+  .cs-search-x { position: absolute; inset-inline-end: 8px; top: 50%; transform: translateY(-50%);
+    width: 26px; height: 26px; border-radius: 8px; cursor: pointer; font-size: 12px;
+    background: transparent; border: 1px solid #2a2a2a; color: #888; font-family: inherit; }
+
+  .cs-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto;
+    -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .cs-tab { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 14px; border-radius: 20px; cursor: pointer; white-space: nowrap;
+    font-family: Tajawal, sans-serif; font-size: 12px; font-weight: 800;
+    background: transparent; border: 1px solid #23262e; color: #8a8a8a; }
+  .cs-tab.on { background: rgba(201,160,43,.12); border-color: rgba(201,160,43,.42); color: ${GOLD}; }
+  .cs-tab-n { font-size: 10px; font-weight: 900; background: rgba(255,255,255,.07);
+    border-radius: 20px; padding: 1px 7px; }
+  .cs-tab.on .cs-tab-n { background: rgba(201,160,43,.2); }
+
+  .cs-grp { margin-bottom: 18px; }
+  .cs-grp-h { display: flex; align-items: center; gap: 8px; font-family: Tajawal, sans-serif;
+    font-size: 11px; font-weight: 800; color: #777; letter-spacing: .5px; margin-bottom: 9px; }
+  .cs-grp-h span { font-size: 9.5px; font-weight: 900; color: #666;
+    background: rgba(255,255,255,.05); border-radius: 20px; padding: 1px 7px; }
+  .cs-grp-b { display: flex; flex-direction: column; gap: 7px; }
+
+  /* بطاقة المباراة: سطر الفريقين والنتيجة، وشريط تفاصيل تحته */
+  .csm { display: block; width: 100%; text-align: start; cursor: pointer;
+    background: #121316; border: 1px solid #23262e; border-radius: 13px;
+    padding: 12px 12px 0; font-family: Tajawal, sans-serif; overflow: hidden; }
+  .csm:active { border-color: rgba(201,160,43,.4); background: #16181e; }
+  .csm.live { border-color: rgba(214,69,65,.32); }
+  .csm-main { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
+  .csm-side { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .csm-side-a { justify-content: flex-end; }
+  .csm-crest { width: 30px; height: 30px; border-radius: 8px; object-fit: cover;
+    flex: 0 0 auto; background: #0f1216; }
+  .csm-crest-ph { display: flex; align-items: center; justify-content: center;
+    font-size: 14px; border: 1px solid #23262e; }
+  .csm-nm { font-size: 12.5px; font-weight: 800; color: #eee; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .csm-score { flex: 0 0 auto; font-size: 19px; font-weight: 900; color: #fff;
+    font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+  .csm-score i { font-style: normal; color: #555; margin: 0 3px; }
+  .csm-score b { font-size: 13px; font-weight: 800; color: #8a8a8a; letter-spacing: 0; }
+
+  .csm-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    margin: 11px -12px 0; padding: 8px 12px; border-top: 1px solid #1c1f26;
+    background: rgba(255,255,255,.015); }
+  .csm-badge { font-size: 9px; font-weight: 900; border-radius: 20px; padding: 2px 8px; }
+  .csm-badge.live { background: rgba(214,69,65,.15); color: #E88C82; }
+  .csm-badge.finished { background: rgba(255,255,255,.06); color: #999; }
+  .csm-badge.upcoming { background: rgba(59,125,191,.14); color: #7FA9DC; }
+  .csm-stage { font-size: 9.5px; font-weight: 800; color: ${GOLD};
+    background: rgba(201,160,43,.1); border-radius: 20px; padding: 2px 8px; }
+  .csm-date { font-size: 9.5px; color: #666; font-variant-numeric: tabular-nums; }
+  .csm-hist { font-size: 9px; font-weight: 800; color: ${GOLD};
+    border: 1px solid rgba(201,160,43,.28); border-radius: 20px; padding: 1px 7px;
+    margin-inline-start: auto; }
+
+  .cs-clear { display: block; margin: 14px auto 0; padding: 9px 18px; border-radius: 10px;
+    cursor: pointer; font-family: Tajawal, sans-serif; font-size: 11.5px; font-weight: 800;
+    background: rgba(201,160,43,.12); border: 1px solid rgba(201,160,43,.4); color: ${GOLD}; }
+
+  @media (max-width: 360px) { .csm-nm { font-size: 11.5px; } .csm-crest { width: 26px; height: 26px; } }; }; };
     font-family: Tajawal, sans-serif; min-width: 50px; text-align: center; flex-shrink: 0;
-  }
-  .cs-match-badge {
-    font-size: 9px; font-weight: 700; padding: 2px 7px;
-    border-radius: 20px; white-space: nowrap; flex-shrink: 0;
-  }
-  .cs-match-badge.upcoming { background: rgba(59,130,246,.1); color: #60a5fa; border: 1px solid rgba(59,130,246,.2); }
-  .cs-match-badge.live     { background: rgba(239,68,68,.1);  color: #f87171; border: 1px solid rgba(239,68,68,.2); animation: cs-pulse 1.5s infinite; }
-  .cs-match-badge.finished { background: rgba(201,160,43,.08); color: ${GOLD}; border: 1px solid rgba(201,160,43,.2); }
+  }; border: 1px solid rgba(201,160,43,.2); }
   @keyframes cs-pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
 
   /* ── Modal البطاقة ── */
@@ -378,16 +411,10 @@
      في الإقصاء رقم داخلي ثابت لا معنى له.
      مسمّى واحد يُستعمل في كل مواضع البطاقات — نفس قاعدة صفحة الجمهور. */
   function _csRound(m) {
-    if (!m) return '';
-    if (m.knockoutRoundName) return m.knockoutRoundName;
-    if (m.isKnockout || m.knockoutRoundId != null) return 'دور إقصائي';
-    if (m.isPlayoff)
-      return (m.poGroup != null)
-        ? 'الملحق · مجموعة ' + String.fromCharCode(65 + m.poGroup)
-        : 'الملحق';
-    if (m.groupName) return m.groupName + (m.round ? ' · الجولة ' + m.round : '');
-    return m.round ? 'الجولة ' + m.round : '';
+    // مفوَّضة إلى النواة المشتركة (match-core.js)
+    return (window.MatchCore ? window.MatchCore.stageLabel(m) : '');
   }
+
 
   function fmt12(t) {
     if (!t) return '';
@@ -604,6 +631,50 @@
   // ════════════════════════════════════════════════════════════════
   //  رسم خلفية البطاقة الموحدة
   // ════════════════════════════════════════════════════════════════
+  /* ══ عناصر الإطار المشتركة ══
+     🔴 كانت كل بطاقة تبني رأسها وتذييلها بأرقام خاصّة بها — فتختلف
+     الحواف والمسافات بين البطاقات الأربع، ويبدو القسم كأنه من تصميمين.
+     هذه العناصر مشتركة فتضمن هوية واحدة في كل البطاقات. */
+
+  /* حافّة داخلية رفيعة تُؤطّر البطاقة وتفصلها عن خلفية أي تطبيق تُشارَك فيه */
+  function drawCardFrame(ctx, W, H, accent) {
+    const rgb = hexToRgb(accent || _state.accentColor || GOLD);
+    ctx.save();
+    ctx.strokeStyle = `rgba(${rgb},0.16)`;
+    ctx.lineWidth = 2;
+    roundRect(ctx, 22, 22, W - 44, H - 44, 30);
+    ctx.stroke();
+    // زوايا مميّزة: أربع علامات قصيرة بلون البطولة
+    ctx.strokeStyle = `rgba(${rgb},0.55)`;
+    ctx.lineWidth = 3;
+    const L = 44, o = 22, r = 30;
+    [[o + r, o, 1, 0], [W - o - r, o, -1, 0], [o, o + r, 0, 1], [W - o, o + r, 0, 1],
+     [o + r, H - o, 1, 0], [W - o - r, H - o, -1, 0], [o, H - o - r, 0, -1], [W - o, H - o - r, 0, -1]]
+      .forEach(([x, y, dx, dy]) => {
+        ctx.beginPath(); ctx.moveTo(x, y);
+        ctx.lineTo(x + dx * (dx ? L : 0), y + dy * (dy ? L : 0));
+        ctx.stroke();
+      });
+    ctx.restore();
+  }
+
+  /* شارة المرحلة — نفس الشكل في البطاقات الأربع */
+  function drawStageChip(ctx, W, y, text, accent) {
+    if (!text) return y;
+    const rgb = hexToRgb(accent || _state.accentColor || GOLD);
+    ctx.font = '800 19px Tajawal,Arial';
+    const tw = Math.min(ctx.measureText(text).width + 46, W - 160);
+    const h = 40;
+    ctx.fillStyle = `rgba(${rgb},0.11)`;
+    ctx.strokeStyle = `rgba(${rgb},0.34)`;
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, W / 2 - tw / 2, y, tw, h, h / 2);
+    ctx.fill(); ctx.stroke();
+    drawText(ctx, truncateToWidth(ctx, text, tw - 30), W / 2, y + h / 2 + 7,
+             '800 19px Tajawal,Arial', accent || GOLD, 'center');
+    return y + h + 16;
+  }
+
   function drawBackground(ctx, W, H, accent) {
     const ac  = accent || _state.accentColor || GOLD;
     const rgb = hexToRgb(ac);
@@ -935,6 +1006,7 @@
 
     // ─ خلفية
     drawBackground(ctx, W, H, accent);
+    drawCardFrame(ctx, W, H, accent);
 
     // ─ 1) شريط هوية البطولة (أعلى البطاقة مباشرة)
     const ID_TOP = 16;
@@ -995,6 +1067,7 @@
     const rgb     = hexToRgb(accent);
 
     drawBackground(ctx, W, H, accent);
+    drawCardFrame(ctx, W, H, accent);
 
     // ─ 1) هوية البطولة
     const ID_TOP = 16;
@@ -1002,10 +1075,12 @@
     let curY     = ID_TOP + idH + 12;
 
     // ─ 2) شارة نهاية المباراة + المرحلة
-    const stage    = extras.stage || _csRound(m);
-    const endLabel = stage ? `نهاية المباراة  ·  ${stage}` : 'نهاية المباراة';
-    drawIconText(ctx, 'finish', endLabel, W/2, curY+16, '700 17px Tajawal,Arial', '#666', 'center');
-    curY += 38;
+    /* 🔴 كانت المرحلة سطراً رمادياً صغيراً يذوب في الخلفية الداكنة.
+       صارت شارة مؤطّرة بلون البطولة — أول ما تقع عليه العين بعد الهوية. */
+    const stage = extras.stage || _csRound(m);
+    drawIconText(ctx, 'finish', 'نهاية المباراة', W/2, curY+16, '700 17px Tajawal,Arial', '#8a8a8a', 'center');
+    curY += 34;
+    curY = drawStageChip(ctx, W, curY, stage, accent);
 
     // ─ 3) قسم الفرق + النتيجة
     const scoreStr  = `${hs}  –  ${as_}`;
@@ -1066,20 +1141,25 @@
       });
 
       const listY = headY + 44;
-      const lh = 34;
+      const lh = 30;
       const drawScorerCol = (list, cx0) => {
         let yy = listY;
         if (!list.length) { drawText(ctx, '—', cx0, yy, '400 17px Tajawal,Arial', '#666', 'center'); return yy + lh; }
         // ✅ تجميع الأهداف حسب اسم اللاعب — الاسم يظهر مرة واحدة فقط، وبجانبه
         //    كرة ⚽ لكل هدف سجّله (ثنائية = كرتان، هاتريك = ثلاث...) بدل تكرار
         //    اسمه مرة لكل هدف مع دقيقته
+        /* 🔴 التجميع كان يُسقط **الدقائق** تماماً: يبقى الاسم وعدد الكرات
+           ولا يُعرف متى سُجّل الهدف. والدقيقة أهمّ ما يُروى عن هدف.
+           نحتفظ بها ونعرضها في سطر ثانوي تحت الاسم. */
         const grouped = [];
         list.forEach(s => {
           const mt = s.match(/^(.*?)[\s\u00A0]*(\d+\+?\d*)'?\s*$/);
           const nm = (mt ? mt[1] : s).trim();
+          const mn = mt ? mt[2] : '';
           if (!nm) return;
           const found = grouped.find(g => g.name === nm);
-          if (found) found.count++; else grouped.push({ name: nm, count: 1 });
+          if (found) { found.count++; if (mn) found.mins.push(mn); }
+          else grouped.push({ name: nm, count: 1, mins: mn ? [mn] : [] });
         });
         grouped.slice(0,8).forEach(g => {
           const ballCount = Math.min(g.count, 6); // سقف بصري احترازي
@@ -1107,6 +1187,12 @@
           } else {
             ctx.textAlign = 'center';
             ctx.fillText(nmFit, cx0, yy);
+          }
+          // سطر الدقائق تحت الاسم — بشارات صغيرة بلون البطولة
+          if (g.mins && g.mins.length) {
+            const txt = g.mins.map(x => x + "'").join('  ');
+            drawText(ctx, txt, cx0, yy + 19, '800 15px Tajawal,Arial', GOLD2, 'center');
+            yy += 20;
           }
           yy += lh;
         });
@@ -1150,6 +1236,7 @@
 
     // خلفية نظيفة موحّدة (بلا شبكة/توهج/زوايا)
     drawBackground(ctx, W, H, accent);
+    drawCardFrame(ctx, W, H, accent);
 
     // 1) هوية
     const ID_TOP = 16;
@@ -1279,6 +1366,7 @@
 
     // خلفية نظيفة موحّدة
     drawBackground(ctx, W, H, accent);
+    drawCardFrame(ctx, W, H, accent);
 
     // 1) هوية
     const ID_TOP = 16;
@@ -1437,72 +1525,143 @@
   }
 
   // ── قائمة المباريات ───────────────────────────────────────────
+  /* ══════════════════════════════════════════════════════════════════
+   *  🔴 الواجهة القديمة: ثلاث مجموعات متتابعة (مباشرة · قادمة · منتهية)
+   *  تُعرض كلها دفعةً واحدة في قائمة واحدة طويلة. وبطولة بأربعين مباراة
+   *  تعني تمريراً لا ينتهي بحثاً عن مباراة بعينها، ولا وسيلة للبحث
+   *  بالاسم. وصفّ المباراة نفسه يكدّس شعارين و«VS» والأسماء والتاريخ
+   *  والمرحلة والنتيجة وشارة الحالة في سطر أفقي واحد — فتتزاحم وتُقصّ
+   *  الأسماء على الجوال.
+   *
+   *  الواجهة الجديدة: تبويبات تفصل الحالات، وبحث فوري بالاسم، وبطاقة
+   *  مباراة بسطرين واضحين — الفريقان ونتيجتهما في الأعلى، والتفاصيل
+   *  في شريط سفلي.
+   * ══════════════════════════════════════════════════════════════════ */
+  var _csTab = 'all', _csQ = '';
+
+  window._csSetTab = function (t) { _csTab = t; renderCardsPage(); };
+  window._csSearch = function (v) {
+    _csQ = String(v || '').trim().toLowerCase();
+    renderCardsPage();
+    var el = document.getElementById('csSearchInput');
+    if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} }
+  };
+
+  function _csFinSort(list) {
+    /* نفس قاعدة الإدارة والجمهور: آخر ما لُعب أوّلاً، وعند غياب التاريخ
+       يحسم ترتيب الدور — فلا تختلف هذه القائمة عنهما. */
+    var fk = function (m) {
+      return (m && m.date ? String(m.date) : '0000-00-00') + 'T' +
+             (m && m.time ? String(m.time) : '00:00');
+    };
+    return list.slice().sort(function (a, b) {
+      return fk(b).localeCompare(fk(a))
+          || (b.knockoutOrder || 0) - (a.knockoutOrder || 0)
+          || (b.round || 0) - (a.round || 0)
+          || String(b.id || '').localeCompare(String(a.id || ''));
+    });
+  }
+
   function renderCardsPage() {
     const el = document.getElementById('cardsList');
     if (!el) return;
-    const matches = getMatches();
-    const live     = matches.filter(m => m.status === 'live');
-    const upcoming = matches.filter(m => m.status === 'upcoming');
-    /* 🔴 كان `.reverse()` وحده — وهو يعكس **ترتيب المصفوفة** لا ترتيب
-       الوقت. فإن وصلت المباريات بترتيب غير زمني (وهو الغالب مع التحميل
-       اللحظي) خرج الترتيب عشوائياً. نرتّب بالتاريخ والوقت صراحةً بنفس
-       معيار الإدارة والجمهور — فلا تختلف قائمة البطاقات عنهما. */
-    /* نفس قاعدة الترتيب في صفحتَي الإدارة والجمهور — فلا تختلف قائمة
-       البطاقات عنهما. وعند غياب التاريخ (وهو شائع في الإقصاء) يحسم
-       **ترتيب الدور**: النهائي قبل نصف النهائي قبل ربعه. */
-    const _fk = m => (m && m.date ? String(m.date) : '0000-00-00') + 'T' +
-                     (m && m.time ? String(m.time) : '00:00');
-    const finished = matches.filter(m => m.status === 'finished')
-      .slice()
-      .sort((a, b) => _fk(b).localeCompare(_fk(a))
-                   || (b.knockoutOrder || 0) - (a.knockoutOrder || 0)
-                   || (b.round || 0) - (a.round || 0)
-                   || String(b.id || '').localeCompare(String(a.id || '')));
+    const all = getMatches();
 
-    const renderGroup = (title, list) => {
-      if (!list.length) return '';
-      return `
-        <div style="font-size:10px;color:#555;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:14px 0 8px;font-family:Tajawal,sans-serif">${title}</div>
-        ${list.map(m => {
-          const ht = getTeam(m.homeId, m.homeName, m.homeLogo);
-          const at = getTeam(m.awayId, m.awayName, m.awayLogo);
-          const scoreHtml = m.status==='finished'||m.status==='live'
-            ? `<div class="cs-match-score">${m.homeScore??'—'} – ${m.awayScore??'—'}</div>`
-            : `<div class="cs-match-score" style="font-size:13px;color:#555">${m.time?fmt12(m.time):'—'}</div>`;
-          const hist = (_state.history[m.id]||[]).length;
-          const histBadge = hist > 0 ? `<span style="font-size:9px;background:rgba(201,160,43,.1);color:${GOLD};border:1px solid rgba(201,160,43,.2);border-radius:10px;padding:1px 7px;margin-right:4px">${hist} بطاقة</span>` : '';
-          return `
-            <div class="cs-match-item ${m.status}" onclick="window._csOpenMatch('${m.id}')">
-              <div class="cs-match-teams-logos">
-                ${ht.logo?`<img class="cs-match-team-logo" src="${ht.logo}" alt="">`:`<div class="cs-match-team-logo" style="display:flex;align-items:center;justify-content:center;font-size:14px">⚽</div>`}
-                <span class="cs-match-vs-dot">VS</span>
-                ${at.logo?`<img class="cs-match-team-logo" src="${at.logo}" alt="">`:`<div class="cs-match-team-logo" style="display:flex;align-items:center;justify-content:center;font-size:14px">⚽</div>`}
-              </div>
-              <div class="cs-match-teams">
-                <div class="cs-match-names">${ht.name} <span style="color:#444">×</span> ${at.name}</div>
-                <div class="cs-match-meta">
-                  ${histBadge}
-                  ${m.date?`📅 ${m.date}`:''}
-                  ${_csRound(m)?` · ${_csRound(m)}`:''}
-                </div>
-              </div>
-              ${scoreHtml}
-              <span class="cs-match-badge ${m.status}">${m.status==='live'?'🔴 مباشر':m.status==='upcoming'?'قادمة':'🏁 انتهت'}</span>
-            </div>`;
-        }).join('')}`;
-    };
+    const live     = all.filter(m => m.status === 'live');
+    const upcoming = all.filter(m => m.status === 'upcoming')
+      .slice().sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+    const finished = _csFinSort(all.filter(m => m.status === 'finished'));
 
-    if (!matches.length) {
+    if (!all.length) {
       el.innerHTML = `<div class="cs-empty"><div class="cs-empty-icon">🎴</div>لا توجد مباريات بعد</div>`;
       return;
     }
 
-    el.innerHTML = `
-      <div class="cs-matches-wrap">
-        ${renderGroup('🔴 مباشرة الآن', live)}
-        ${renderGroup('⏳ المباريات القادمة', upcoming)}
-        ${renderGroup('🏁 المباريات المنتهية', finished)}
+    // ── تبويبات: العدد بجانب كل حالة فيعرف المنظّم أين يبحث ──
+    const TABS = [
+      { id: 'all',      label: 'الكل',    n: all.length },
+      { id: 'live',     label: 'مباشرة',  n: live.length },
+      { id: 'finished', label: 'منتهية',  n: finished.length },
+      { id: 'upcoming', label: 'قادمة',   n: upcoming.length },
+    ].filter(t => t.id === 'all' || t.n > 0);
+    if (!TABS.some(t => t.id === _csTab)) _csTab = 'all';
+
+    const tabsHtml = `
+      <div class="cs-tabs">
+        ${TABS.map(t => `
+          <button class="cs-tab${_csTab === t.id ? ' on' : ''}" onclick="window._csSetTab('${t.id}')">
+            ${t.label}<span class="cs-tab-n">${t.n}</span>
+          </button>`).join('')}
       </div>`;
+
+    const searchHtml = `
+      <div class="cs-search">
+        <span class="cs-search-ic">🔍</span>
+        <input id="csSearchInput" class="cs-search-in" value="${_csQ.replace(/"/g, '&quot;')}"
+          placeholder="ابحث باسم فريق…" oninput="window._csSearch(this.value)"/>
+        ${_csQ ? `<button class="cs-search-x" onclick="window._csSearch('')">✕</button>` : ''}
+      </div>`;
+
+    // ── التصفية بالبحث ──
+    const match = m => {
+      if (!_csQ) return true;
+      const ht = getTeam(m.homeId, m.homeName, m.homeLogo);
+      const at = getTeam(m.awayId, m.awayName, m.awayLogo);
+      return ((ht.name || '') + ' ' + (at.name || '') + ' ' + (_csRound(m) || ''))
+             .toLowerCase().includes(_csQ);
+    };
+
+    const groups = [];
+    if (_csTab === 'all' || _csTab === 'live')     groups.push(['🔴 مباشرة الآن', live.filter(match)]);
+    if (_csTab === 'all' || _csTab === 'finished') groups.push(['🏁 المنتهية', finished.filter(match)]);
+    if (_csTab === 'all' || _csTab === 'upcoming') groups.push(['⏳ القادمة', upcoming.filter(match)]);
+
+    const total = groups.reduce((n, g) => n + g[1].length, 0);
+
+    const row = (m) => {
+      const ht = getTeam(m.homeId, m.homeName, m.homeLogo);
+      const at = getTeam(m.awayId, m.awayName, m.awayLogo);
+      const done = m.status === 'finished' || m.status === 'live';
+      const crest = (t) => t.logo
+        ? `<img class="csm-crest" src="${t.logo}" alt="">`
+        : `<span class="csm-crest csm-crest-ph">⚽</span>`;
+      const hist = (_state.history[m.id] || []).length;
+      const stage = _csRound(m);
+      return `
+        <button class="csm ${m.status}" onclick="window._csOpenMatch('${m.id}')">
+          <div class="csm-main">
+            <span class="csm-side">
+              ${crest(ht)}<span class="csm-nm">${ht.name || '—'}</span>
+            </span>
+            <span class="csm-score">${done
+              ? `${m.homeScore ?? 0}<i>-</i>${m.awayScore ?? 0}`
+              : `<b>${m.time ? fmt12(m.time) : '—'}</b>`}</span>
+            <span class="csm-side csm-side-a">
+              <span class="csm-nm">${at.name || '—'}</span>${crest(at)}
+            </span>
+          </div>
+          <div class="csm-foot">
+            <span class="csm-badge ${m.status}">${
+              m.status === 'live' ? '● مباشر' : m.status === 'upcoming' ? 'قادمة' : 'انتهت'}</span>
+            ${stage ? `<span class="csm-stage">${stage}</span>` : ''}
+            ${m.date ? `<span class="csm-date">${m.date}</span>` : ''}
+            ${hist ? `<span class="csm-hist">${hist} بطاقة</span>` : ''}
+          </div>
+        </button>`;
+    };
+
+    const body = total
+      ? groups.filter(g => g[1].length).map(([title, list]) => `
+          <div class="cs-grp">
+            <div class="cs-grp-h">${title}<span>${list.length}</span></div>
+            <div class="cs-grp-b">${list.map(row).join('')}</div>
+          </div>`).join('')
+      : `<div class="cs-empty"><div class="cs-empty-icon">🔍</div>
+           لا مباراة تطابق «${_csQ}»
+           <button class="cs-clear" onclick="window._csSearch('')">مسح البحث</button>
+         </div>`;
+
+    el.innerHTML = `<div class="cs-matches-wrap">${searchHtml}${tabsHtml}${body}</div>`;
   }
 
   // ── Modal اختيار نوع البطاقة ──────────────────────────────────

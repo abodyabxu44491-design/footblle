@@ -29,15 +29,10 @@
            (m && m.time ? String(m.time) : '00:00');
   }
   function _finDesc(a, b) {
-    var d = _finKey(b).localeCompare(_finKey(a));
-    if (d) return d;
-    // بلا تاريخ (أو بتاريخ واحد): ترتيب الدور ثم الجولة — لا المعرّف وحده
-    var k = (b.knockoutOrder || 0) - (a.knockoutOrder || 0);
-    if (k) return k;
-    var r = (b.round || 0) - (a.round || 0);
-    if (r) return r;
-    return String(b.id || '').localeCompare(String(a.id || ''));
+    // مفوَّضة إلى النواة المشتركة (match-core.js)
+    return window.MatchCore ? window.MatchCore.newestFirst(a, b) : 0;
   }
+
 
   function isFinished(m) {
     return m && (m.status === 'finished' || (m.liveData && m.liveData.matchStatus === 'ended'));
@@ -75,33 +70,43 @@
      ولا بالإقصاء، فالملحق دور قائم بذاته بقواعده ومقاعده. */
   function isPO(m) { return m && m.isPlayoff === true; }
 
+  /* ══ التبويبات ══
+     🔴 كانت مبنيّة على **نوع المباراة** (إقصاء · ملحق · مجموعات) ثم
+     «المنتهية» في آخرها. والجمهور يسأل عن **الحالة** أوّلاً: ما الجاري
+     الآن؟ وما آخر ما انتهى؟ — وهي مبعثرة على التبويبات كلها.
+     الترتيب الجديد بالحالة، ثم النوع للقادمة وحدها. ولكل تبويب عدّاده
+     فيُعرف ما فيه قبل فتحه — نفس نسق قسم بطاقات المشاركة. */
+  function isLiveM(m) { return m && m.status === 'live'; }
+  function isUpM(m)   { return m && m.status === 'upcoming'; }
+
   function availableTabs() {
     var list = pub();
-    var live = list.filter(function (m) { return !isFinished(m); });
-    var hasPO = live.some(isPO);
-    var hasKO = live.some(function (m) { return !isPO(m) && isKO(m); });
-    var hasGR = live.some(function (m) { return !isPO(m) && !isKO(m); });
-    var tabs = [];
-    if (hasKO) tabs.push({ id: 'ko', label: '🏆 الإقصاء' });
-    if (hasPO) {
+    var live = list.filter(isLiveM);
+    var fin  = list.filter(isFinished);
+    var up   = list.filter(isUpM);
+    var upKO = up.filter(function (m) { return !isPO(m) && isKO(m); });
+    var upPO = up.filter(isPO);
+
+    var tabs = [{ id: 'all', label: 'الكل', n: list.length }];
+    if (live.length) tabs.push({ id: 'live', label: 'مباشرة', n: live.length });
+    if (fin.length)  tabs.push({ id: 'fin',  label: 'منتهية', n: fin.length });
+    if (up.length)   tabs.push({ id: 'up',   label: 'قادمة',  n: up.length });
+    if (upKO.length) tabs.push({ id: 'ko',   label: 'الإقصاء', n: upKO.length });
+    if (upPO.length) {
       var pn = (window.settings && window.settings.playoff && window.settings.playoff.name) || 'الملحق';
-      tabs.push({ id: 'po', label: '🥊 ' + pn });
+      tabs.push({ id: 'po', label: pn, n: upPO.length });
     }
-    if (hasGR) {
-      var t = (window.settings && window.settings.type) || '';
-      tabs.push({ id: 'gr', label: t === 'groups' ? '👥 المجموعات' : '⚽ المباريات' });
-    }
-    // ✅ تبويب «المنتهية» يظهر فقط لو فيه مباريات منتهية فعلاً
-    if (list.some(isFinished)) tabs.push({ id: 'fin', label: '🏁 المنتهية' });
     return tabs;
   }
 
   function filterFor(tab) {
     var list = pub().slice();
-    if (tab === 'fin') return list.filter(isFinished);
-    if (tab === 'po')  return list.filter(function (m) { return !isFinished(m) && isPO(m); });
-    if (tab === 'ko')  return list.filter(function (m) { return !isFinished(m) && !isPO(m) && isKO(m); });
-    if (tab === 'gr')  return list.filter(function (m) { return !isFinished(m) && !isPO(m) && !isKO(m); });
+    if (tab === 'all')  return list;
+    if (tab === 'live') return list.filter(isLiveM);
+    if (tab === 'fin')  return list.filter(isFinished);
+    if (tab === 'up')   return list.filter(isUpM);
+    if (tab === 'ko')   return list.filter(function (m) { return isUpM(m) && !isPO(m) && isKO(m); });
+    if (tab === 'po')   return list.filter(function (m) { return isUpM(m) && isPO(m); });
     return list;
   }
 
@@ -136,7 +141,8 @@
 
     var bar = '<div class="mt-tabs">' + tabs.map(function (t) {
       return '<button class="mt-tab' + (t.id === active ? ' on' : '') +
-             '" onclick="mtSwitch(\'' + t.id + '\')">' + t.label + '</button>';
+             '" onclick="mtSwitch(\'' + t.id + '\')">' + t.label +
+             '<span class="mt-tab-n">' + (t.n || 0) + '</span></button>';
     }).join('') + '</div>';
 
     var list = filterFor(active);
@@ -204,6 +210,33 @@
     var withDate = list.filter(function (m) { return m && m.date; }).length;
     var byDate = DG && tab !== 'ko' && list.length > 0 && (withDate / list.length) >= 0.5;
 
+    /* ══ المنتهية: قاعدة واحدة قاطعة ══
+       🔴 كان الترتيب يتفرّع: التاريخ إن وُجد، وإلا ترتيب الدور، ومفتاح
+       المجموعة من أحدث مباراة… وكل فرع يتعثّر في حالة: الإقصاء بلا
+       تواريخ، أو جولات بلا تواريخ، أو خليط منهما — فيختلف الناتج بلا
+       قاعدة يفهمها المستخدم.
+       الآن: تُرتَّب **كل** المباريات المنتهية تنازلياً أوّلاً (آخر ما
+       لُعب أوّلاً)، ثم تُكوَّن المجموعات **بترتيب ظهورها** في تلك القائمة.
+       فالمجموعة التي تضمّ آخر مباراة تعلو حتماً، وداخلها الأحدث أوّلاً —
+       بلا فروع ولا استثناءات. */
+    /* 🔴 «الكل» كان يرتّب بالتاريخ تنازلياً فتتصدّره **المباريات القادمة**
+       لأن تواريخها أبعد — والقادمة لم تُلعب بعد، فتصدّرها بلا معنى.
+       ترتيب «الكل» بالحالة أوّلاً: الجارية الآن، ثم آخر ما انتهى، ثم
+       الأقرب موعداً. وداخل كل حالة الترتيب المناسب لها. */
+    var _isAll = (tab === 'all');
+    var _finSorted = (tab === 'fin' || _isAll);
+    if (_isAll) {
+      /* ترتيب «الكل»: الجارية الآن، ثم **القادمة** (الأقرب موعداً أوّلاً)،
+         ثم المنتهية (الأحدث أوّلاً). القادمة تسبق المنتهية لأنها ما يعنيه
+         المتابع الآن: ما الذي سيُلعب؟ والمنتهية مرجع يُرجع إليه بعدها. */
+      list = list.slice().sort(function (x, y) {
+        return window.MatchCore ? window.MatchCore.allOrder(x, y) : 0;
+      });
+    } else if (_finSorted) {
+      list = list.slice().sort(_finDesc);
+    }
+    var _seq = 0;
+
     var buckets = {}, meta = {};
     list.forEach(function (m) {
       var key, sk;
@@ -222,7 +255,7 @@
            ربع النهائي أولاً والنهائي أخيراً. أي عكس المطلوب تماماً.
            البديل عند غياب التاريخ: ترتيب الدور نفسه (النهائي أكبر). */
         var _dk = DG ? (DG.sortKey(m.date) || 0) : 0;
-        sk = (tab === 'fin')
+        sk = _finSorted
              ? (_dk || (m.knockoutOrder || m.round || 0))
              : (m.knockoutOrder || m.round || 0);
       } else if (byDate) {
@@ -236,24 +269,24 @@
         key = (m.round || 0) > 0 ? 'الجولة ' + m.round + _lgTxt : 'مباريات';
         sk  = m.round || 0;
       }
-      if (!buckets[key]) { buckets[key] = []; meta[key] = { sk: sk, d: m.date }; }
+      if (!buckets[key]) { buckets[key] = []; meta[key] = { sk: _finSorted ? (-(_seq++)) : sk, d: m.date }; }
       /* 🔴 مفتاح ترتيب المجموعة كان يُؤخذ من **أول** مباراة تدخلها. فمجموعة
          فيها مباراة قديمة وأخرى حديثة تُرتَّب بالقديمة — فتظهر آخر مباراة
          لُعبت في أسفل القائمة رغم أنها الأحدث.
          نأخذ **أحدث** مباراة في المجموعة مفتاحاً لها، فيصير أعلى القائمة
          دائماً آخر ما لُعب فعلاً. */
-      else if (sk > meta[key].sk) { meta[key].sk = sk; meta[key].d = m.date; }
+      else if (!_finSorted && sk > meta[key].sk) { meta[key].sk = sk; meta[key].d = m.date; }
       buckets[key].push(m);
     });
 
     var order = Object.keys(buckets).sort(function (a, b) {
       var d = meta[a].sk - meta[b].sk;
-      return tab === 'fin' ? -d : d;   // المنتهية: الأحدث أولاً
+      return _finSorted ? -d : d;   // المنتهية: الأحدث أولاً
     });
     /* 🔴 ترتيب المجموعات كان معكوساً للمنتهية، لكن المباريات **داخل** كل
        مجموعة تبقى تصاعدية — فآخر مباراة انتهت في يومها تظهر أسفل يومها.
        نعكس الداخل أيضاً ليكون الأحدث أوّلاً في كل المستويات. */
-    if (tab === 'fin') {
+    if (_finSorted) {
       order.forEach(function (k) { buckets[k] = buckets[k].slice().sort(_finDesc); });
     }
 

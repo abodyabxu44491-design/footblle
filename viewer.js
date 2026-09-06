@@ -1324,14 +1324,9 @@ window._playerSilhouetteSVG = function() {
    الشجرة تخزّن اسم الدور في `knockoutRoundName`، وترقيم الجولة فيها ثابت.
    مصدر واحد يُستعمل في كل موضع فلا يختلف الوصف بين شاشة وأخرى. */
 window.vRoundLabel = function (m) {
-  if (!m) return '';
-  if (m.isKnockout) return m.knockoutRoundName || 'دور إقصائي';
-  if (m.isPlayoff) {
-    return (m.poGroup != null)
-      ? 'الملحق · مجموعة ' + String.fromCharCode(65 + m.poGroup)
-      : 'الملحق';
-  }
-  return m.round ? 'جولة ' + m.round : '';
+  /* مفوَّضة إلى النواة المشتركة — كانت نسخة ثالثة من القاعدة نفسها،
+     وكل نسخة تنحرف عن أختها مع أول تعديل. */
+  return (window.MatchCore ? window.MatchCore.stageLabel(m) : '');
 };
 
 window.openPlayerModal = function(playerName, teamId, playerId) {
@@ -1568,7 +1563,10 @@ window.openPlayerModal = function(playerName, teamId, playerId) {
   if (!playerMatches.length) {
     listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t3);font-size:11px">لا توجد بيانات</div>';
   } else {
-    listEl.innerHTML = playerMatches.slice(0, 15).map(({m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed, playStatus, subInMinute, subOutMinute}) => {
+    /* 🔴 أُضيف `myMins` إلى السجلّ المدفوع ولم يُضَف إلى **معاملات
+       التفكيك** هنا — فيبقى غير معرَّف، ويرمي الوصولُ إليه استثناءً
+       يمنع بناء القائمة كلها، فلا تُفتح بطاقة اللاعب إطلاقاً. */
+    listEl.innerHTML = playerMatches.slice(0, 15).map(({m, opp, my, op, result, rc, myGoals, myAssist, myYellow, myRed, playStatus, subInMinute, subOutMinute, myMins}) => {
       // شارة المشاركة: أساسي / بديل نزل بالدقيقة (كالتطبيقات الرسمية)
       let roleBadge = '';
       if (playStatus === 'sub') {
@@ -6959,50 +6957,7 @@ function _matchCard(m) {
    الانتهاء — نقرأ الاثنين بترتيب ثابت فلا يختلف العدد بين الحالتين.
    وتشمل الطرد المباشر والطرد بصفراوين إن سُجّل بنوعه. */
 window.vRedCount = function (m) {
-  const out = { home: 0, away: 0 };
-  if (!m) return out;
-  const evs = (m.liveData && Array.isArray(m.liveData.events) && m.liveData.events.length)
-    ? m.liveData.events
-    : (Array.isArray(m.events) ? m.events : []);
-
-  const norm = v => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
-  const key  = e => (e.team || e.side || '') + '::' + norm(e.player || e.playerNumber || '');
-
-  /* من طُرد بصفراوين — يُحسب طرداً واحداً */
-  const yc = {}, sy = new Set();
-  evs.forEach(e => {
-    if (!e || String(e.type || '').toLowerCase() !== 'yellow') return;
-    const k = key(e);
-    yc[k] = (yc[k] || 0) + 1;
-    if (yc[k] === 2) sy.add(k);
-  });
-
-  /* 🔴 المنظّم قد يسجّل الصفراء الثانية **وبطاقة حمراء منفصلة** لنفس
-     اللاعب — وهما حادثة واحدة. فكانت الشارة تعدّ طردين والواقع طرد.
-     نجمع مفاتيح المطرودين في مجموعة واحدة: من طُرد بصفراوين، ومن نال
-     حمراء مباشرة — فالتكرار يسقط تلقائياً لأن المفتاح واحد. */
-  const sent = { home: new Set(), away: new Set() };
-  const anon = { home: 0, away: 0 };   // طرد بلا اسم: لا يمكن دمجه فيُعدّ كما هو
-
-  sy.forEach(k => {
-    const sd = k.split('::')[0];
-    if (sent[sd]) sent[sd].add(k);
-  });
-
-  evs.forEach(e => {
-    if (!e) return;
-    const t = String(e.type || '').toLowerCase();
-    if (t !== 'red' && t !== 'redcard' && t !== 'secondyellow') return;
-    const sd = e.team || e.side;
-    if (sd !== 'home' && sd !== 'away') return;
-    const nm = norm(e.player || e.playerNumber || '');
-    if (!nm) { anon[sd]++; return; }
-    sent[sd].add(key(e));
-  });
-
-  out.home = sent.home.size + anon.home;
-  out.away = sent.away.size + anon.away;
-  return out;
+  return (window.MatchCore ? window.MatchCore.redCount(m) : { home: 0, away: 0 });
 };
 
 /* ══ الحالة الخاصة للمباراة ══

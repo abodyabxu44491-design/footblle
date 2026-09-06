@@ -316,16 +316,8 @@
 
   /* اسم الدور/الجولة */
   function roundLabel(m) {
-    if (!m) return '';
-    if (m.knockoutRoundName) return m.knockoutRoundName;
-    if (m.isKnockout || m.knockoutRoundId != null) return 'دور إقصائي';
-    if (m.isPlayoff) {
-      return (m.poGroup != null)
-        ? 'الملحق · مجموعة ' + String.fromCharCode(65 + m.poGroup)
-        : 'الملحق';
-    }
-    if (m.round) return 'الجولة ' + m.round;
-    return '';
+    // مفوَّضة إلى النواة المشتركة (match-core.js)
+    return (window.MatchCore ? window.MatchCore.stageLabel(m) : '');
   }
 
   async function drawCard(m) {

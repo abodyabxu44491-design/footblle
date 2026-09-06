@@ -193,12 +193,6 @@ if('serviceWorker' in navigator) {
       <input class="search-input" id="matchSearch" placeholder="ابحث عن فريق أو جولة..." oninput="filterMatchSearch(this.value)"/>
       <span class="search-clear" id="searchClear" onclick="clearSearch()">✕</span>
     </div>
-    <div class="filter-pills">
-      <div class="fp active" onclick="filterMatches('all',this)">الكل</div>
-      <div class="fp" onclick="filterMatches('live',this)">🔴 مباشر</div>
-      <div class="fp" onclick="filterMatches('upcoming',this)">🟡 قادمة</div>
-      <div class="fp" onclick="filterMatches('finished',this)">✅︎ انتهت</div>
-    </div>
     <div class="matches-section" id="matchesList"></div>
   </div>
 

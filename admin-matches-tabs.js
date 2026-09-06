@@ -48,13 +48,19 @@
      ولكل تبويب عدّاده فيُعرف ما فيه قبل فتحه. */
   function isLive(m) { return m && m.status === 'live'; }
   function isUp(m)   { return m && m.status === 'upcoming'; }
+  function isPend(m) { return m && m.status === 'pending'; }
+  /* ✅ مباراة إقصاء تولّدت تلقائياً من تقدّم الشجرة تُحفظ بحالة «pending»
+     حتى يعبّئها المنظّم وينشرها — فهي ليست «قادمة» بعد ولا «منتهية»، وكانت
+     تختفي من هذا القسم بالكامل ولا تظهر إلا داخل الشجرة نفسها. تبويب
+     «الإقصاء» يحتاج يعرضها فوراً كبطاقة مستقلة تنتظر التفعيل. */
+  function isKoActionable(m) { return isKO(m) && (isUp(m) || isPend(m)); }
 
   function tabs() {
     var all  = M();
     var live = all.filter(isLive);
     var fin  = all.filter(isFin);
     var up   = all.filter(isUp);
-    var upKO = up.filter(isKO);
+    var upKO = all.filter(isKoActionable);
     var upPO = up.filter(isPO);
 
     var out = [{ id: 'all', label: 'الكل', n: all.length }];
@@ -73,7 +79,7 @@
     if (tab === 'live') return all.filter(isLive);
     if (tab === 'fin')  return all.filter(isFin);
     if (tab === 'up')   return all.filter(isUp);
-    if (tab === 'ko')   return all.filter(function (m) { return isUp(m) && isKO(m); });
+    if (tab === 'ko')   return all.filter(isKoActionable);
     if (tab === 'po')   return all.filter(function (m) { return isUp(m) && isPO(m); });
     return all.slice();
   }
@@ -202,7 +208,7 @@
       var k, sk;
       if (active === 'po' || (active === 'fin' && isPO(m))) {
         var _pg = (m.poGroup != null) ? ('مجموعة الملحق ' + String.fromCharCode(65 + m.poGroup)) : 'مباريات الملحق';
-        (groups[_pg] = groups[_pg] || []).push(m);
+        k = _pg; sk = 0;
       } else if (active === 'ko' || (active === 'fin' && isKO(m))) {
         k = m.knockoutRoundName || 'الإقصاء';
         /* ✅ الإقصاء يُلعب بعد المجموعات — نعطيه مفتاحه الزمني في «المنتهية»

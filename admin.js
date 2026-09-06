@@ -2384,6 +2384,46 @@ function renderMatchCard(m) {
   const homeTeam = teams.find(t => t.id === m.homeId) || { name: m.homeName || 'فريق ؟', logo: m.homeLogo || '⚽' };
   const awayTeam = teams.find(t => t.id === m.awayId) || { name: m.awayName || 'فريق ؟', logo: m.awayLogo || '⚽' };
 
+  /* ✅︎ مباراة إقصاء «معلّقة» — تأهّل طرفاها (أو أحدهما) من الشجرة تواً بعد
+     اكتمال المباراة السابقة. بطاقة مستقلة في قسم المباريات (تبويب الإقصاء)
+     بدل ظهورها فقط داخل الشجرة. زرّ واحد واضح: تفعيلها للجمهور —
+     لا زرّي «إضافة تفاصيل / سجّل نتيجتها» المزدوجَين المُعدّين لمباريات
+     المجموعات، فهذان يفترضان مباراة عادية بلا معنى «التأهّل من الشجرة». */
+  if (m.status === 'pending' && m.isKnockout) {
+    const roundLabel = m.knockoutRoundName || 'دور إقصائي';
+    const homeReady = !!m.homeId, awayReady = !!m.awayId;
+    const bothReady = homeReady && awayReady;
+    return `
+<div class="mcv2-card" style="position:relative;background:#0e0e0e;border:1px dashed #3a3320;border-radius:20px;overflow:hidden;margin-bottom:12px">
+  <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px dashed #2a2410">
+    <span style="font-size:9px;color:#8a7a3a;background:rgba(201,160,43,.08);border:1px solid rgba(201,160,43,.2);border-radius:6px;padding:2px 7px">🏆 ${roundLabel}</span>
+    <span style="font-size:10px;font-weight:700;color:#8a7a3a;padding:4px 10px;border-radius:20px;background:rgba(201,160,43,.06)">⚪ لم تُفعّل بعد</span>
+  </div>
+  <div style="padding:16px;display:flex;align-items:center;gap:10px">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+      <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,.03);overflow:hidden;opacity:.7">${homeReady ? logoHtml(homeTeam.logo, 40, 10) : '<span style="font-size:20px;opacity:.4">⚽</span>'}</div>
+      <div style="font-size:12px;font-weight:700;color:${homeReady ? '#999' : '#555'};text-align:center;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${homeReady ? homeTeam.name : 'بانتظار المتأهل'}</div>
+    </div>
+    <div style="font-size:13px;font-weight:900;color:#555">VS</div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+      <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,.03);overflow:hidden;opacity:.7">${awayReady ? logoHtml(awayTeam.logo, 40, 10) : '<span style="font-size:20px;opacity:.4">⚽</span>'}</div>
+      <div style="font-size:12px;font-weight:700;color:${awayReady ? '#999' : '#555'};text-align:center;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${awayReady ? awayTeam.name : 'بانتظار المتأهل'}</div>
+    </div>
+  </div>
+  <div style="padding:0 14px 14px">
+    ${bothReady ? `
+    <button onclick="mcv2OpenInfo('${m.id}')" style="width:100%;padding:13px;border-radius:12px;border:1px solid rgba(201,160,43,.4);background:rgba(201,160,43,.12);color:#C9A02B;font-weight:900;font-size:12.5px;cursor:pointer;font-family:Tajawal,sans-serif">
+      🔓 تفعيل المباراة للجمهور
+    </button>` : `
+    <div style="text-align:center;padding:10px;border-radius:12px;background:rgba(255,255,255,.03);color:#666;font-size:11px">
+      بانتظار حسم الطرف الثاني من الشجرة أولاً
+    </div>`}
+  </div>
+  <button onclick="deleteMatch('${m.id}')" title="حذف"
+    style="position:absolute;top:10px;left:12px;background:rgba(192,57,43,.08);border:1px solid rgba(192,57,43,.2);border-radius:8px;color:#C0392B;font-size:11px;padding:3px 7px;cursor:pointer">🗑</button>
+</div>`;
+  }
+
   // ✅︎ مباراة "معلّقة" تولّدت تلقائياً من المجموعات ولسه ما أُضيفت تفاصيلها — بطاقة مبسّطة مختلفة
   if (m.status === 'pending') {
     const legLabel = _legOf(m) ? ' · ' + _legLabel(_legOf(m)) : '';
@@ -18589,7 +18629,7 @@ window.importRosterToLineup = function(teamId) {
   <div class="mcv2-sbody">
 
     ${isPending ? `<div style="background:rgba(201,160,43,.08);border:1px solid rgba(201,160,43,.25);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11px;color:#e0c060;line-height:1.7">
-      🆕 مباراة جديدة تولّدت تلقائياً من المجموعة — عبّئ التاريخ والملعب واضغط النشر لتظهر للجمهور فوراً.
+      🆕 ${m.isKnockout ? 'مباراة جديدة تأهّل طرفاها من الشجرة' : 'مباراة جديدة تولّدت تلقائياً من المجموعة'} — عبّئ التاريخ والملعب واضغط تفعيل المباراة لتظهر للجمهور فوراً.
     </div>` : ''}
 
         <div class="mcv2-sec">📅 الموعد والمكان</div>
@@ -18637,7 +18677,7 @@ window.importRosterToLineup = function(teamId) {
       <input class="mcv2-inp" id="mst-note-${matchId}" value="${(m.statusNote || '').replace(/"/g, '&quot;')}" placeholder="مثال: تأجلت لسوء الأحوال الجوية — الموعد الجديد يُعلن لاحقاً"/>
     </div>
 
-    <button class="mcv2-sbtn mcv2-sbtn-gold" onclick="mcv2SaveInfo('${matchId}')">${isPending ? '🚀 نشر المباراة للجمهور' : '💾 حفظ المعلومات'}</button>
+    <button class="mcv2-sbtn mcv2-sbtn-gold" onclick="mcv2SaveInfo('${matchId}')">${isPending ? '🔓 تفعيل المباراة للجمهور' : '💾 حفظ المعلومات'}</button>
   </div>
 </div>`;
 
@@ -18669,8 +18709,12 @@ window.importRosterToLineup = function(teamId) {
 
   window.mcv2SaveInfo = async function(matchId) {
     const m = _getM(matchId); if (!m) return;
-    // حالة اللعب لم تعد تُضبط من هنا — تُحفظ كما هي
-    const status = m.status;
+    // حالة اللعب لم تعد تُضبط من هنا يدوياً — إلا الاستثناء الوحيد:
+    // مباراة «معلّقة» (pending) الهدف الوحيد من فتح هذه النافذة لها هو
+    // تفعيلها للجمهور، وزر الحفظ هنا نصّه صراحة «نشر المباراة/تفعيلها».
+    // 🔴 كانت الحالة تُحفظ دون تغيير (status: m.status) فتبقى pending
+    // للأبد مهما ضغط المنظّم «نشر» — لا شيء كان يفعّلها فعلياً.
+    const status = m.status === 'pending' ? 'upcoming' : m.status;
     const _ovEl = document.getElementById('mcv2-info-ov');
     const _flag = (_ovEl && _ovEl.__selFlag != null) ? _ovEl.__selFlag : (m.specialStatus || 'none');
     const _note = (document.getElementById(`mst-note-${matchId}`)?.value || '').trim();

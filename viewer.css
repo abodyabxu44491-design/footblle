@@ -3037,26 +3037,36 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
  *  تبويبات قسم المباريات — الإقصاء · المجموعات · المنتهية
  * ═══════════════════════════════════════════════════════════════ */
 .mt-tabs{
-  display:flex; gap:6px; padding:10px 12px;
+  display:flex; gap:7px; padding:10px 12px;
   position:sticky; top:0; z-index:20;
   background:var(--bg); border-bottom:1px solid var(--b2);
   overflow-x:auto; -webkit-overflow-scrolling:touch;
   scrollbar-width:none;
+  /* ✅ الآن التنقل الوحيد لقسم المباريات (بعد حذف شريط الحبوب القديم
+     المكرّر وغير الفعّال فوقه). قد يحمل حتى ٦ تبويبات (الكل·مباشرة·
+     منتهية·قادمة·الإقصاء·الملحق) فيتمرّر أفقياً — تلاشٍ خفيف عند
+     الحافتين يلمّح لذلك بدل أن يبدو الشريط مقصوصاً بلا سبب. */
+  -webkit-mask-image:linear-gradient(to left, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+          mask-image:linear-gradient(to left, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+  scroll-snap-type:x proximity;
 }
 .mt-tabs::-webkit-scrollbar{display:none}
 .mt-tab{
-  flex:1 1 0; min-width:max-content; white-space:nowrap;
-  padding:9px 12px; border-radius:9px; cursor:pointer;
+  flex:0 0 auto; min-width:max-content; white-space:nowrap;
+  padding:9px 13px; border-radius:9px; cursor:pointer;
   background:var(--s2); border:1px solid var(--b2);
   color:var(--t2); font-family:'Tajawal',sans-serif;
   font-size:12px; font-weight:800; letter-spacing:.2px;
   transition:background .18s, color .18s, border-color .18s, transform .12s;
+  scroll-snap-align:start;
 }
 .mt-tab:active{transform:scale(.97)}
 .mt-tab.on{
   background:var(--gold,#C9A02B); border-color:var(--gold,#C9A02B);
   color:#12131a; box-shadow:0 2px 10px rgba(201,160,43,.28);
 }
+/* شريطان أو ثلاثة فقط (لا داعي للتمرير) → توزيع متساوٍ على العرض كاملاً */
+.mt-tabs:has(.mt-tab:nth-child(-n+3):last-child) .mt-tab{ flex:1 1 0; }
 /* ── مبدّل الذهاب/الإياب — شريط ثانوي أدقّ من تبويبات القسم ──
    يظهر فقط عند وجود الدورين معاً، ويلتصق تحت شريط التبويبات. */
 .mt-legs{

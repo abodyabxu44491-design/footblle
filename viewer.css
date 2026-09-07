@@ -3260,9 +3260,12 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
   .mc2-sf,.mi-flag{background:rgba(255,255,255,.06)}
 }
 
-/* ── الهدف العكسي: كرة حمراء واسم مسجّله ── */
-.vt-dot-goal.vt-dot-own{background:rgba(192,57,43,.16)!important;border-color:rgba(192,57,43,.55)!important}
-.vt-dot-goal.vt-dot-own svg,.vt-dot-goal.vt-dot-own path,.vt-dot-goal.vt-dot-own circle{fill:#C0392B!important;stroke:#C0392B!important}
+/* ── الهدف العكسي: نفس رمز الكرة تماماً بلا أي فرق في الرسم — فقط
+   لونه أحمر بدل الذهبي. القاعدة كانت هنا تفرض خلفية دائرية ملوّنة
+   وتملأ مسارات الأيقونة (fill) رغم أنها مرسومة بالخطوط فقط (stroke)،
+   فتمتلئ الدائرة الخارجية بالكامل وتبتلع تفاصيل الكرة وتظهر ككتلة حمراء
+   مشوّهة لا ككرة. اللون الصحيح يكفيه `color` وحده (انظر .vt-dot-goal.vt-dot-own
+   في تلوين الرموز أسفل) لأن الأيقونة ترث currentColor تلقائياً. */
 .vt-goal-name.vt-goal-own{color:var(--red,#D64541)}
 .vt-og{font-size:9px;font-weight:800;color:#C0392B;background:rgba(192,57,43,.13);
   border:1px solid rgba(192,57,43,.3);border-radius:20px;padding:1px 7px;margin-inline-start:5px;
@@ -3367,19 +3370,24 @@ html.light .ls-snum,html.light .lo-snum{color:var(--live)}
 .vt-dot-goal.vt-dot-own{color:var(--red,#D64541)}
 .vt-dot-inj{color:var(--orange,#C4761E)}
 .vt-dot-var{color:var(--blue,#3B7DBF)}
-.vt-dot-pkmiss{color:#9B59B6}
 .vt-dot svg{display:block;fill:none;stroke:currentColor}
 
-/* علامتا ركلة الجزاء: صحّ على الهدف، إكس على الضائعة */
-.vt-pkok{position:absolute;bottom:-4px;inset-inline-end:-5px;width:12px;height:12px;
-  border-radius:50%;background:var(--green,#2E9E5B);color:#06120b;font-size:9px;font-weight:900;
-  font-style:normal;display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 0 2px var(--s1,#111);line-height:1}
-.vt-pkico{position:relative;display:flex;align-items:center;justify-content:center}
-.vt-pkx{position:absolute;bottom:-5px;inset-inline-end:-6px;width:12px;height:12px;
-  border-radius:50%;background:var(--red,#D64541);color:#fff;font-size:9px;font-weight:900;
-  font-style:normal;display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 0 2px var(--s1,#111);line-height:1}
+/* ── ركلة الجزاء: حرف "P" داخل دائرة، كما في تطبيقات المباريات —
+   بدل كرة عادية بعلامة في زاويتها (تلتبس بهدف عادي) أو هدف مستهدف 🎯
+   للركلة الضائعة (لا صلة بصرية بينه وبين ركلة الجزاء المُسجَّلة).
+   نفس الأيقونة لحالتي التسجيل والإضاعة، وإشارة صغيرة أسفلها فقط هي
+   الفارق: صحّ أخضر = سجّلها، إكس أحمر = أضاعها. */
+.vt-dot-pk{width:23px;height:23px;border-radius:50%;position:relative;
+  background:rgba(155,89,182,.15);border:1.5px solid #9B59B6;
+  display:flex;align-items:center;justify-content:center}
+.vt-pk-letter{font-family:'Tajawal',Arial,sans-serif;font-weight:900;font-size:11.5px;
+  font-style:normal;color:#9B59B6;line-height:1}
+.vt-pk-mark{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
+  width:12px;height:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 2px var(--s1,#111)}
+.vt-pk-mark svg{width:8px;height:8px;stroke-width:3}
+.vt-pk-mark-ok{background:var(--green,#2E9E5B);color:#06120b}
+.vt-pk-mark-x{background:var(--red,#D64541);color:#fff}
 
 /* بطاقة صفراء/حمراء كرسم لا كنصّ */
 .ev-card{display:inline-block;width:11px;height:15px;border-radius:2.2px;

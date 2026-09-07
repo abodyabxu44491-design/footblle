@@ -1234,15 +1234,21 @@ html.light{--dark:#f4f4f4;--card:#ffffff;--card2:#ebebeb;--card3:#e0e0e0;--borde
 /* ═══════════════════════════════════════════════════════════════
  *  تبويبات قسم المباريات (الإدارة) + تقدّم الجولات
  * ═══════════════════════════════════════════════════════════════ */
+/* ✅ نفس تصميم تبويبات قسم المباريات عند الجمهور (mt-tabs) وتبويبات
+   بطاقات المشاركة (cs-tabs) حرفياً — قياس واحد ولون واحد وسلوك واحد
+   في الأقسام الثلاثة، فلا يبدو التنقل شكلاً مختلفاً كل مرة. */
 .amt-tabs{
-  display:flex; gap:6px; padding:10px 0 12px;
+  display:flex; gap:7px; padding:10px 0 12px;
   position:sticky; top:0; z-index:30; background:var(--bg,#0d0e12);
-  overflow-x:auto; scrollbar-width:none;
+  overflow-x:auto; scrollbar-width:none; scroll-snap-type:x proximity;
+  -webkit-mask-image:linear-gradient(to left, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+          mask-image:linear-gradient(to left, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
 }
 .amt-tabs::-webkit-scrollbar{display:none}
+.amt-tabs:has(.amt-tab:nth-child(-n+3):last-child) .amt-tab{ flex:1 1 0; }
 .amt-tab{
-  flex:1 1 0; min-width:max-content; white-space:nowrap;
-  padding:10px 14px; border-radius:10px; cursor:pointer;
+  flex:0 0 auto; min-width:max-content; white-space:nowrap; scroll-snap-align:start;
+  padding:9px 13px; border-radius:9px; cursor:pointer;
   background:var(--card3,#16181e); border:1px solid var(--border2,#23262e);
   color:var(--muted2,#8b8f9a); font-family:'Tajawal',sans-serif;
   font-size:12px; font-weight:800; transition:all .18s;

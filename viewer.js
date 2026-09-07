@@ -8220,12 +8220,17 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
             const _asHtml = _asNm
               ? `<span class="vt-goal-assist">${window.Icon ? window.Icon('boots', 10) : '👟'}<span>${_asNm}</span></span>`
               : '';
-            /* الرمز وحده يميّز النوع: كرة · كرة حمراء (عكسي) · كرة بعلامة
-               صحّ صغيرة (من ركلة جزاء) — بلا نصّ «(ركلة جزاء)» يزاحم الاسم. */
+            /* الرمز وحده يميّز النوع: كرة للهدف العادي · نفس الكرة بالأحمر
+               للعكسي · حرف "P" مع علامة صحّ صغيرة تحته لهدف ركلة الجزاء —
+               تماماً كأيقونة الجزاء في تطبيقات المباريات الكبرى، بدل كرة
+               عادية بعلامة صغيرة في زاويتها كانت تلتبس بسهولة بهدف عادي. */
+            const _isPkGoal = !isOwn && !!ev.penalty;
             const _dotCls = isOwn ? 'vt-dot-goal vt-dot-own'
-                          : ev.penalty ? 'vt-dot-goal vt-dot-pkgoal' : 'vt-dot-goal';
-            const _pkMark = (!isOwn && ev.penalty)
-              ? '<i class="vt-pkok">✓</i>' : '';
+                          : _isPkGoal ? 'vt-dot-pk' : 'vt-dot-goal';
+            const _dotInner = _isPkGoal
+              ? '<b class="vt-pk-letter">P</b><i class="vt-pk-mark vt-pk-mark-ok">' +
+                (window.Icon ? window.Icon('check', 8) : '✓') + '</i>'
+              : (window.Icon ? window.Icon('ball', 12) : '');
             const content = `<div class="vt-goalw">
               <div class="vt-goal">
                 <span class="vt-goal-name${isOwn ? ' vt-goal-own' : ''}">${goalName}</span>
@@ -8243,7 +8248,7 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
             return `<div class="vt-row vt-row-${side}">
               <div class="vt-side vt-side-left">${side === 'left' ? content : ''}</div>
               <div class="vt-marker">
-                <span class="vt-dot ${_dotCls}">${window.Icon ? window.Icon('ball', 12) : ''}${_pkMark}</span>
+                <span class="vt-dot ${_dotCls}">${_dotInner}</span>
                 <span class="vt-min">${minLabel(ev)}</span>
               </div>
               <div class="vt-side vt-side-right">${side === 'right' ? content : ''}</div>
@@ -8281,9 +8286,13 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
           } else if (ev.type === 'red' || ev.type === 'redCard') {
             _dot = 'vt-dot-r'; _icon = '<span class="ev-card ev-r"></span>';
           } else if (ev.type === 'penaltyMiss') {
-            _dot = 'vt-dot-pkmiss';
-            _icon = '<span class="vt-pkico">' + (window.Icon ? window.Icon('target', 12) : '🎯') +
-                    '<i class="vt-pkx">✕</i></span>';
+            /* نفس أيقونة "P" لركلة الجزاء، مع إشارة إكس صغيرة تحتها بدل
+               الصحّ — بدل رمز الهدف 🎯 الذي لا علاقة له بصرياً بركلة
+               الجزاء المُسجَّلة أعلاه، فيبدو الحدثان نوعين مختلفين
+               تماماً رغم أنهما نفس الفعل (ركلة جزاء) بنتيجتين مختلفتين. */
+            _dot = 'vt-dot-pk';
+            _icon = '<b class="vt-pk-letter">P</b><i class="vt-pk-mark vt-pk-mark-x">' +
+                    (window.Icon ? window.Icon('close', 8) : '✕') + '</i>';
           } else if (ev.type === 'sub') {
             _dot = 'vt-dot-sub';
             /* أيقونة تبديل صريحة: سهم نازل أحمر للخارج وصاعد أخضر للداخل —

@@ -120,21 +120,12 @@
   }
   .cs-header-sub { font-size: 10px; color: #555; margin-top: 1px; font-family: Tajawal,sans-serif; }
 
-  /* ── Tabs ── */
-  .cs-tabs {
-    display: flex; gap: 4px;
-    padding: 10px 16px 0;
-    border-bottom: 1px solid rgba(255,255,255,.06);
-    background: #0d0d0d;
-  }
-  .cs-tab {
-    flex: 1; padding: 9px 4px; text-align: center;
-    font-size: 12px; font-weight: 700; color: #555;
-    border: none; background: transparent;
-    border-bottom: 2px solid transparent;
-    cursor: pointer; font-family: Tajawal, sans-serif; transition: all .2s;
-  }
-  .cs-tab.active { color: ${GOLD}; border-bottom-color: ${GOLD}; }
+  /* 🔴 كان هنا تعريف قديم لـ .cs-tabs/.cs-tab (تبويبات بخط سفلي) من قبل
+     إعادة بناء واجهة اختيار المباراة — لم يعد يُستعمل في أي HTML مطلقاً
+     (الزر الفعلي صار يحمل الصنف .on لا .active)، وبقاؤه كرمز ميت يُربك
+     أي تعديل لاحق على شكل التبويبات. عُرّف الشكل الحقيقي مرة واحدة أدناه،
+     موحّداً مع تبويبات قسم المباريات في الإدارة والجمهور (نفس القياسات
+     والألوان تماماً) بدل ثلاثة أشكال مختلفة لنفس الفكرة. */
 
   /* ── قائمة المباريات ── */
   .cs-matches-wrap { padding: 12px 16px; }
@@ -153,16 +144,26 @@
     width: 26px; height: 26px; border-radius: 8px; cursor: pointer; font-size: 12px;
     background: transparent; border: 1px solid #2a2a2a; color: #888; font-family: inherit; }
 
-  .cs-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto;
-    -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
-  .cs-tab { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
-    padding: 9px 14px; border-radius: 20px; cursor: pointer; white-space: nowrap;
+  /* ✅ نفس تصميم تبويبات «قسم المباريات» بالإدارة والجمهور حرفياً — نفس
+     القياسات والألوان والسلوك، فلا يبدو شكل التنقل ثلاث واجهات مختلفة
+     لثلاثة أقسام من نفس البيانات. تلاشٍ خفيف على الحواف حين تتجاوز
+     التبويبات عرض الشاشة (٤ تبويبات هنا: مباشرة·منتهية·قادمة·الكل)،
+     وانطباق تام على العرض حين تكون قليلة بدل تكدّسها يميناً. */
+  .cs-tabs { display: flex; gap: 7px; margin-bottom: 14px; overflow-x: auto;
+    -webkit-overflow-scrolling: touch; padding-bottom: 2px; scroll-snap-type: x proximity;
+    -webkit-mask-image: linear-gradient(to left, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+            mask-image: linear-gradient(to left, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%); }
+  .cs-tabs::-webkit-scrollbar { display: none; }
+  .cs-tabs:has(.cs-tab:nth-child(-n+3):last-child) .cs-tab { flex: 1 1 0; }
+  .cs-tab { flex: 0 0 auto; min-width: max-content; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 13px; border-radius: 9px; cursor: pointer; white-space: nowrap; scroll-snap-align: start;
     font-family: Tajawal, sans-serif; font-size: 12px; font-weight: 800;
-    background: transparent; border: 1px solid #23262e; color: #8a8a8a; }
-  .cs-tab.on { background: rgba(201,160,43,.12); border-color: rgba(201,160,43,.42); color: ${GOLD}; }
+    background: #16181e; border: 1px solid #23262e; color: #8b8f9a; transition: all .18s; }
+  .cs-tab:active { transform: scale(.97); }
+  .cs-tab.on { background: ${GOLD}; border-color: ${GOLD}; color: #12131a; box-shadow: 0 2px 10px rgba(201,160,43,.28); }
   .cs-tab-n { font-size: 10px; font-weight: 900; background: rgba(255,255,255,.07);
     border-radius: 20px; padding: 1px 7px; }
-  .cs-tab.on .cs-tab-n { background: rgba(201,160,43,.2); }
+  .cs-tab.on .cs-tab-n { background: rgba(18,19,26,.2); color: #12131a; }
 
   .cs-grp { margin-bottom: 18px; }
   .cs-grp-h { display: flex; align-items: center; gap: 8px; font-family: Tajawal, sans-serif;

@@ -3072,10 +3072,20 @@ async function _shGenLineupCanvas(lineup, team, isAway, teamId, m){
   };
   const _ringColors = isGK => isGK ? ['#a86bd6','#7b3fb0'] : (isAway ? ['#e5645a','#a52a1e'] : ['#e6c157','#b8860b']);
   const _motm = (m && typeof _resolveMOTM === 'function') ? _resolveMOTM(m) : null;
+  /* 🔴 المطابقة كانت بالاسم وحده وبلا حدّ لعدد المطابقات. فلاعبان يحملان
+     نفس الاسم — في الفريقين أو في الفريق نفسه — كانا يحصلان **كلاهما**
+     على نجمة رجل المباراة، فيظهر للجمهور نجمان لاختيار واحد.
+     الآن: نحصر البحث في فريق المختار متى عُرف، ونمنح النجمة مرة واحدة. */
+  let _motmTaken = false;
   const _isMOTM = (p) => {
-    if (!_motm || !_motm.name) return false;
-    if (_motm.playerId && p.id) return _motm.playerId === p.id;
-    return (typeof _normName==='function' ? _normName(_motm.name)===_normName(p.name||'') : _motm.name===p.name);
+    if (!_motm || !_motm.name || _motmTaken) return false;
+    const _sideTid = (typeof isAway !== 'undefined' && isAway) ? m.awayId : m.homeId;
+    if (_motm.teamId && _sideTid && _motm.teamId !== _sideTid) return false;
+    const hit = (_motm.playerId && p.id)
+      ? (_motm.playerId === p.id)
+      : (typeof _normName==='function' ? _normName(_motm.name)===_normName(p.name||'') : _motm.name===p.name);
+    if (hit) _motmTaken = true;
+    return hit;
   };
   await Promise.all(starters.map(async (p, i) => {
     const x = pitchX + (p.x ?? 50)/100 * pitchW;
@@ -4432,7 +4442,12 @@ window.openBracketMatch = function(roundId, matchId) {
 
   // ── عرض النتيجة مع ركلات الترجيح إذا وجدت ──
   const scoreHtml = isFin || isLive
-    ? `<div class="md-score">${bm.homeScore??0} - ${bm.awayScore??0}${_psD ? `<br><span style="font-size:12px;color:var(--gold)">رك: ${_psD.h} - ${_psD.a}</span>` : ''}</div>`
+    ? `<div class="md-score">${bm.homeScore??0} - ${bm.awayScore??0}${(() => {
+        const _v = window.PK ? window.PK.verdict(bm) : null;
+        if (_v && _v.decidedByPens)
+          return `<br><span style="font-size:11.5px;color:var(--gold);font-weight:800">🥅 ${_v.winnerName} بالترجيح ${_v.penH}-${_v.penA}</span>`;
+        return _psD ? `<br><span style="font-size:12px;color:var(--gold)">🥅 ركلات الترجيح ${_psD.h} - ${_psD.a}</span>` : '';
+      })()}</div>`
     : `<div class="md-score" style="font-size:18px;color:var(--t3);letter-spacing:4px">VS</div>`;
 
   body.innerHTML = `
@@ -6416,67 +6431,33 @@ const _LIVE = ['live','halftime','extratime1','halftime_et','extratime2','penalt
 
 // ══════════════════════════════════════════════════════════════
 //  رجل المباراة (Man of the Match) — مُحلّل موحّد
-//  الأولوية:
-//   1) اختيار يدوي صريح (m.manOfMatch) — من أي مسار إدخال في الإدارة
-//      (نافذة التفاصيل / الإدخال السريع / نظام البطاقات / شاشة نهاية البث)
-//   2) استنتاج تلقائي من الأحداث (للأحداث القديمة بلا اختيار):
-//      الأعلى نقاطاً = أهداف×3 + صناعات×2، مع استبعاد من طُرد (بطاقة حمراء)،
-//      وترجيح الفريق الفائز عند التعادل في النقاط.
-//  يُرجع { name, teamId, auto } أو null.
+//  ✅ اختياري بالكامل الآن: يُعرض فقط لو المنظّم اختاره صراحة
+//     (m.manOfMatch) من أي مسار إدخال في الإدارة. لا استنتاج تلقائي
+//     من الأحداث بعد اليوم — كان يخمّن لاعباً من الأهداف/الصناعات
+//     ويُظهره نجماً ذهبياً في التشكيلة وكأن المنظّم اختاره فعلاً، فيضلّل
+//     الجمهور برجل مباراة "غير رسمي" لم يُقرَّر أبداً. بلا اختيار صريح
+//     → لا نجمة تظهر إطلاقاً، وهذا هو الوضع الصحيح.
+//  يُرجع { name, teamId, playerId, auto:false } أو null.
 // ══════════════════════════════════════════════════════════════
 function _resolveMOTM(m) {
   if (!m) return null;
-  // ── 1) اختيار يدوي (نص الاسم كما أُدخل) ──
   const manual = (m.manOfMatch || (m.liveData && m.liveData.manOfMatch) || '').toString().trim();
-  if (manual) {
-    // حاول ربطه بفريقه لعرض الشعار/فتح صفحته (بحث في كشوف/تشكيلات الفريقين)
-    let teamId = null, pid = null;
-    const _tryTeam = (tid, lineup) => {
-      if (teamId) return;
-      const roster = (window._teamRosters && window._teamRosters[tid]) || [];
-      const pool = [...(roster||[]), ...(((lineup||{}).players)||[])];
-      const hit = pool.find(p => p && _normName(p.name) === _normName(manual));
-      if (hit) { teamId = tid; pid = hit.id || null; }
-    };
-    _tryTeam(m.homeId, m.homeLineup);
-    _tryTeam(m.awayId, m.awayLineup);
-    return { name: manual, teamId, playerId: pid, auto: false };
-  }
-  // ── 2) استنتاج تلقائي من الأحداث ──
-  const evs = (typeof _matchEvents === 'function') ? _matchEvents(m) : (m.events || []);
-  if (!Array.isArray(evs) || !evs.length) return null;
-  const score = {};                                   // key → {name, teamId, pid, goals, assists, red}
-  const _sideTeam = (ev) => (ev.teamId) || ((ev.side || ev.team) === 'away' ? m.awayId : m.homeId);
-  const _key = (name, tid) => (tid || '') + '::' + _normName(name);
-  evs.forEach(ev => {
-    if (!ev) return;
-    const tid = _sideTeam(ev);
-    const nm = (ev.player || '').toString().trim();
-    if (nm && (ev.type === 'goal')) {
-      const k = _key(nm, tid); (score[k] = score[k] || { name: nm, teamId: tid, pid: ev.playerId || null, goals: 0, assists: 0, red: 0 }).goals++;
-    }
-    if (ev.assist) {
-      const an = ev.assist.toString().trim(); const k = _key(an, tid);
-      (score[k] = score[k] || { name: an, teamId: tid, pid: ev.assistPlayerId || null, goals: 0, assists: 0, red: 0 }).assists++;
-    }
-    if (nm && ev.type === 'red') {
-      const k = _key(nm, tid); (score[k] = score[k] || { name: nm, teamId: tid, pid: ev.playerId || null, goals: 0, assists: 0, red: 0 }).red++;
-    }
-  });
-  const cands = Object.values(score).filter(c => c.red === 0 && (c.goals > 0 || c.assists > 0));
-  if (!cands.length) return null;
-  const winnerTeam = (m.homeScore > m.awayScore) ? m.homeId : (m.awayScore > m.homeScore) ? m.awayId : null;
-  cands.sort((a, b) => {
-    const pa = a.goals * 3 + a.assists * 2, pb = b.goals * 3 + b.assists * 2;
-    if (pb !== pa) return pb - pa;
-    if (b.goals !== a.goals) return b.goals - a.goals;          // الأكثر أهدافاً
-    const wa = a.teamId === winnerTeam ? 1 : 0, wb = b.teamId === winnerTeam ? 1 : 0;
-    return wb - wa;                                              // من الفريق الفائز
-  });
-  const top = cands[0];
-  return { name: top.name, teamId: top.teamId, playerId: top.pid, auto: true, goals: top.goals, assists: top.assists };
+  if (!manual) return null;   // لا اختيار صريح = لا رجل مباراة يُعرض
+  // حاول ربطه بفريقه لعرض الشعار/فتح صفحته (بحث في كشوف/تشكيلات الفريقين)
+  let teamId = null, pid = null;
+  const _tryTeam = (tid, lineup) => {
+    if (teamId) return;
+    const roster = (window._teamRosters && window._teamRosters[tid]) || [];
+    const pool = [...(roster||[]), ...(((lineup||{}).players)||[])];
+    const hit = pool.find(p => p && _normName(p.name) === _normName(manual));
+    if (hit) { teamId = tid; pid = hit.id || null; }
+  };
+  _tryTeam(m.homeId, m.homeLineup);
+  _tryTeam(m.awayId, m.awayLineup);
+  return { name: manual, teamId, playerId: pid, auto: false };
 }
 window._resolveMOTM = _resolveMOTM;
+
 
 // ══════════════════════════════════════════════════════════════
 //  📖 قصة المباراة — سرد تلقائي ذكي من الأحداث
@@ -6845,11 +6826,15 @@ function _matchCard(m) {
         ${tag}
         ${isPenScore ? '' : `<div class="mc2-clock" id="mc2-clock-${m.id}">${_clock(d)}</div>`}
         <div class="mc2-score">
-          <span>${isPenScore ? penH : (d.homeScore ?? 0)}</span>
+          <span>${d.homeScore ?? 0}</span>
           <span class="mc2-sep">:</span>
-          <span>${isPenScore ? penA : (d.awayScore ?? 0)}</span>
+          <span>${d.awayScore ?? 0}</span>
         </div>
-        ${isPenScore ? `<div class="mc2-note">(${d.homeScore ?? 0}-${d.awayScore ?? 0} بعد الوقت الأصلي)</div>` : ''}
+        ${/* 🔴 كانت النتيجة الكبيرة تُستبدل بنتيجة الترجيح، وتُنزَل نتيجة
+             المباراة إلى سطر رمادي صغير. وهذا مقلوب: الترجيح وسيلة حسم
+             لا نتيجة — المباراة انتهت بالتعادل، ولذلك لا يدخل الترجيح
+             جدول الترتيب ولا جدول الهدّافين. */''}
+        ${isPenScore ? `<div class="mc2-note" style="color:var(--gold);font-weight:800">🥅 ركلات الترجيح ${penH}-${penA}</div>` : ''}
         ${isPaused && pReason ? `<div class="mc2-pause-reason">🛈 ${pReason}</div>` : ''}
       </div>`;
   } else if (isF) {
@@ -6860,7 +6845,15 @@ function _matchCard(m) {
           <span class="mc2-sep">:</span>
           <span class="${aw?'mc2-win':''}">${m.awayScore ?? 0}</span>
         </div>
-        ${_psM ? `<div class="mc2-note" style="color:var(--gold);font-weight:800">ركلات الترجيح ${_psM.h}-${_psM.a}</div>` : `<div class="mc2-note">انتهت</div>`}
+        ${(() => {
+          /* الرقم وحده لا يقول من تأهّل. الصياغة الموحّدة تأتي من PK.verdict
+             فلا تختلف بين البطاقة والمشاركة وصفحة المباراة. */
+          const _v = window.PK ? window.PK.verdict(m) : null;
+          if (_v && _v.decidedByPens)
+            return `<div class="mc2-note" style="color:var(--gold);font-weight:800">🥅 ${_v.winnerName} بالترجيح ${_v.penH}-${_v.penA}</div>`;
+          if (_psM) return `<div class="mc2-note" style="color:var(--gold);font-weight:800">🥅 ركلات الترجيح ${_psM.h}-${_psM.a}</div>`;
+          return `<div class="mc2-note">انتهت</div>`;
+        })()}
       </div>`;
   } else {
     // ── عدّاد تنازلي داخل البطاقة إذا كانت المباراة خلال ٢٤ ساعة ──
@@ -8187,9 +8180,13 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
               <span class="vt-goal-name">${nm}</span>
               <span class="vt-goal-min">رك ${r.penNo}</span>
             </div>`;
+            /* الكرة هي **كرة الهدف نفسها** (Icon('ball',12)) بلونها الذهبي،
+               وتحتها شارة صغيرة ✓ أو ✗. الدائرة القديمة بعلامة صحّ وحدها
+               كانت تشبه أي تأكيد ولا تقول إن الحدث ركلة. */
+            const _pMark = window.Icon ? window.Icon(r.penGoal ? 'check' : 'close', 8) : (r.penGoal ? '✓' : '✗');
             return `<div class="vt-row vt-row-${side}">
               <div class="vt-side vt-side-left">${side === 'left' ? content : ''}</div>
-              <div class="vt-marker"><span class="vt-dot ${r.penGoal ? 'vt-dot-penin' : 'vt-dot-penout'}">${window.Icon ? window.Icon(r.penGoal ? 'check' : 'close', 11) : (r.penGoal ? '✓' : '✗')}</span></div>
+              <div class="vt-marker"><span class="vt-dot vt-dot-pen ${r.penGoal ? 'vt-pen-ok' : 'vt-pen-no'}">${window.Icon ? window.Icon('ball', 12) : '⚽'}<i class="vt-pen-mark">${_pMark}</i></span></div>
               <div class="vt-side vt-side-right">${side === 'right' ? content : ''}</div>
             </div>`;
           }
@@ -8309,6 +8306,14 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
             _dot = 'vt-dot-inj'; _icon = window.Icon ? window.Icon('injury', 12) : '＋';
           } else if (ev.type === 'var') {
             _dot = 'vt-dot-var'; _icon = window.Icon ? window.Icon('tv', 12) : '▣';
+          } else if (ev.type === 'goalCancelled') {
+            /* هدف أُلغي (خطأ تسجيل أو مراجعة VAR): يبقى **ظاهراً** في مكانه
+               الزمني الأصلي بدل أن يختفي بلا أثر — بعلامة إلغاء واضحة،
+               تماماً كما تُظهر تطبيقات المباريات الكبرى الأهداف الملغاة.
+               النتيجة والإحصائيات والهدّافون لا يحتسبونه إطلاقاً — يكفي
+               تغيير type عن 'goal'/'own' فلا يطابقه أي فرز في المنصة. */
+            _dot = 'vt-dot-cancelled';
+            _icon = window.Icon ? window.Icon('close', 12) : '✕';
           } else {
             _dot = 'vt-dot-ev'; _icon = _evIcon(ev, 12);
           }
@@ -8316,9 +8321,13 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
           const _outName = ev.type === 'sub'
             ? (_liveSubName(ev, _tid, 'out') || ev.playerOut || ev.player || '')
             : _nm;
+          if (ev.type === 'goalCancelled') {
+            _sub = '<span class="vt-goal-sub2 vt-goal-cancel-tag">' +
+              (window.Icon ? window.Icon('close', 9) : '✕') + ' تم إلغاء الهدف</span>';
+          }
 
           const _content = `<div class="vt-goal">
-            <span class="vt-goal-name">${_outName || '—'}${
+            <span class="vt-goal-name${ev.type === 'goalCancelled' ? ' vt-goal-cancelled' : ''}">${_outName || '—'}${
               ev.type === 'sub' ? ' <i class="vt-subout">' + (window.Icon ? window.Icon('download', 9) : '▼') + '</i>' : ''}</span>
             ${_sub}
           </div>`;
@@ -8488,10 +8497,19 @@ function renderPitchViewer(lineup, isAway) {
           // 🌟 رجل المباراة — يُحسب مرة واحدة (اختيار يدوي أو استنتاج تلقائي)
           //    ويُميَّز على اللاعب نفسه في التشكيلة بشارة نجمة ذهبية.
           const _motm = (typeof _resolveMOTM === 'function') ? _resolveMOTM(m) : null;
+          /* 🔴 نفس ثغرة بطاقة المشاركة: المطابقة بالاسم وحده تُنجّم كل من
+             حمل الاسم — في الفريقين معاً. النجمة اختيار واحد، فتُمنح مرة
+             واحدة وداخل فريق المختار وحده. */
+          let _motmTaken = false;
           const _isMOTM = (p) => {
-            if (!_motm || !_motm.name) return false;
-            if (_motm.playerId && p.id) return _motm.playerId === p.id;
-            return _normName(_motm.name) === _normName(p.name || '');
+            if (!_motm || !_motm.name || _motmTaken) return false;
+            const _sideTid = isAway ? m.awayId : m.homeId;
+            if (_motm.teamId && _sideTid && _motm.teamId !== _sideTid) return false;
+            const hit = (_motm.playerId && p.id)
+              ? (_motm.playerId === p.id)
+              : (_normName(_motm.name) === _normName(p.name || ''));
+            if (hit) _motmTaken = true;
+            return hit;
           };
           const dots = starters.map((p, i) => {
             const x   = p.x ?? 50;

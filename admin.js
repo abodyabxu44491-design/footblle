@@ -88,6 +88,12 @@ function _lightMatch(obj) {
     const v = obj[k];
     if (typeof v === 'string' && v.startsWith('data:')) obj[k] = ''; // احذف base64 الثقيل
   });
+  /* كل مسارات إنشاء المباريات (١٢ موضعاً: الإضافة اليدوية، مولّد الدوري،
+     المجموعات، الإقصاء، الملحق، الفاصلة) تمرّ من هنا — فهذا الموضع الوحيد
+     الذي تُملأ فيه القيم الافتراضية، ولا يبقى مسار يفلت منها. */
+  if (typeof window._applyMatchDefaults === 'function') {
+    try { obj = window._applyMatchDefaults(obj); } catch (e) {}
+  }
   return obj;
 }
 window._lightMatch = _lightMatch;
@@ -3945,7 +3951,9 @@ window.saveZoneRules = async function() {
     settings.zoneRules = rules;
     _zoneDraft = rules.map(r => ({ ...r }));
     showToast(rules.length ? `✅︎ حُفظت ${rules.length} منطقة` : '✅︎ أُزيلت كل المناطق', 'success');
-    if (typeof renderStandings === 'function') renderStandings();
+    // 🔴 كان نداءً مباشراً renderStandings() فيتخطّى إصلاح all-fixes.js
+    // (إخفاء الجدول خارج نظام الدوري) — انظر OVERRIDES.md.
+    if (typeof window.renderStandings === 'function') window.renderStandings();
     window.renderZonesEditor();
   } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
@@ -5772,7 +5780,7 @@ window.addMatch = async function() {
   const awayTeam = teams.find(t => t.id === awayId);
   const date = document.getElementById('matchDate')?.value;
   const time = document.getElementById('matchTime')?.value || '16:00';
-  const venue = document.getElementById('matchVenue')?.value || 'ملعب الحارة';
+  const venue = (document.getElementById('matchVenue')?.value || '').trim();
   const round = parseInt(document.getElementById('matchRound')?.value || '1');
 
   // ✅︎ رقم الجولة يُحسب رياضياً من عدد الفرق ونظام الذهاب/الإياب — لا يُختار بحرية.
@@ -6028,7 +6036,9 @@ window.autoSchedule = async function() {
           homeLogo: teams[h].logo, awayLogo: teams[a].logo,
           homeScore: null, awayScore: null,
           date: new Date(today.getTime() + (rNum - 1) * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          time: '16:00', venue: (settings && settings.defaultVenue) || 'ملعب الحارة',
+          /* الوقت والملعب يأتيان من «القيم الافتراضية للمباريات».
+             تثبيتهما هنا كان يسبق الإعداد فلا يُطبَّق ما اختاره المنظّم. */
+          time: '', venue: '',
           round: rNum,
           ...(_dbl2 ? { leg: legNo, legNo } : {}),
           status: 'upcoming', createdAt: serverTimestamp()
@@ -7130,7 +7140,9 @@ window.toggleSwitch = function(row) {
         if (window.settings) window.settings.allowCrossGroupPlayoff = val;
         document.getElementById('page-groups')?.remove();
         if (typeof injectGroupsAndKnockoutPages === 'function') injectGroupsAndKnockoutPages();
-        if (typeof renderGroupsAdmin === 'function') renderGroupsAdmin();
+        // 🔴 كان نداءً مباشراً renderGroupsAdmin() فيتخطّى إصلاح all-fixes.js
+        // (حساب نقاط المجموعات + زر توزيع الفرق) — انظر OVERRIDES.md.
+        if (typeof window.renderGroupsAdmin === 'function') window.renderGroupsAdmin();
       }
     })
     .catch(() => { showToast('خطأ في الحفظ', 'error'); sw.classList.toggle('on'); });
@@ -7169,9 +7181,14 @@ window.openModal = function(id) {
     // الملعب: آخر ملعب استُعمل فعلاً، وإلا الملعب الافتراضي من الإعدادات
     const venueEl = document.getElementById('matchVenue');
     if (venueEl) {
+      /* الإعداد أَولى من الاستنتاج: ما اختاره المنظّم في «القيم الافتراضية»
+         يسبق «آخر ملعب استُعمل»، وإلا لم يظهر أثر إعداده أبداً. */
+      const _md = (window.settings && window.settings.matchDefaults) || {};
       const lastV = (window.matches || []).slice().reverse()
         .map(m => (m.venue || '').trim()).find(v => v);
-      venueEl.value = lastV || (window.settings && window.settings.defaultVenue) || 'ملعب الحارة';
+      venueEl.value = (_md.venue || (window.settings && window.settings.defaultVenue) || lastV || '');
+      const _tEl = document.getElementById('matchTime');
+      if (_tEl && !_tEl.value && _md.time) _tEl.value = _md.time;
     }
     // التاريخ: اليوم إن كان فارغاً
     const dIn = document.getElementById('matchDate');
@@ -8837,17 +8854,38 @@ window._lpRenderEvents = function _lpRenderEvents(matchId) {
     const _pOut   = window._adminLiveName(ev.teamId, ev.playerOutId || ev.playerId, ev.playerOut || ev.player || '');
     const _pIn    = window._adminLiveName(ev.teamId, ev.playerInId, ev.playerIn || ev.player2 || '');
     const _p2     = window._adminLiveName(ev.teamId, ev.playerInId || ev.player2Id, ev.player2 || '');
+    // ✅ هدف مُلغى: بطاقة مميّزة رمادية باهتة، اسم اللاعب مشطوب، وزر
+    // تراجع واحد بدل التعديل/الحذف/الإلغاء — الحدث الوحيد بلا نتيجة حقيقية.
+    if (ev.type === 'goalCancelled') {
+      return `
+      <div class="lp-ev-item" style="opacity:.75">
+        <div class="lp-ev-min">${ev.minute}'</div>
+        <div class="lp-ev-icon">🚫</div>
+        <div class="lp-ev-desc">
+          <strong style="text-decoration:line-through;color:#888">${_pName || 'هدف بلا اسم'}</strong>
+          · ${ev.teamName || ''}
+          <span style="display:block;font-size:10px;color:#D64541;font-weight:800;margin-top:2px">تم إلغاء الهدف</span>
+        </div>
+        <button class="lp-ev-edit" onclick="lpUncancelGoal('${matchId}',${ev.id})" title="تراجع عن الإلغاء" style="background:rgba(46,158,91,.12);border:1px solid rgba(46,158,91,.35);color:#2E9E5B;border-radius:7px;width:28px;height:28px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center">${window.Icon?window.Icon('refresh',13):'↩️'}</button>
+      </div>`;
+    }
     const desc = ev.type === 'sub'
       ? `<span style="color:#e05252">${window.Icon?window.Icon('download',10):''} ${_pOut}</span> <span style="color:#2ecc71">${window.Icon?window.Icon('upload',10):''} ${_pIn}</span> · ${ev.teamName || ''}`
       : ev.type === 'own'
         ? `<strong style="color:#e5533d">هدف عكسي</strong> · ${ev.teamName || ''}`
         : `<strong>${_pName}</strong>${ev.player2 ? ' ← ' + _p2 : ''} · ${ev.teamName || ''}`;
+    // ✅ زر «إلغاء» إضافي على الأهداف (عادية وعكسية) فقط — يبقيه ظاهراً
+    // بعلامة إلغاء بدل حذفه نهائياً؛ بجانب زرّي التعديل والحذف الموجودين.
+    const cancelBtn = (ev.type === 'goal' || ev.type === 'own')
+      ? `<button class="lp-ev-cancel" onclick="lpCancelGoal('${matchId}',${ev.id})" title="إلغاء الهدف (يبقى ظاهراً بعلامة إلغاء)" style="background:rgba(214,69,65,.1);border:1px solid rgba(214,69,65,.3);color:#D64541;border-radius:7px;width:28px;height:28px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin-inline-end:4px">🚫</button>`
+      : '';
     return `
     <div class="lp-ev-item">
       <div class="lp-ev-min">${ev.minute}'</div>
       <div class="lp-ev-icon">${ev.icon}</div>
       <div class="lp-ev-desc">${desc}</div>
       <button class="lp-ev-edit" onclick="lpEditEvent('${matchId}',${ev.id})" title="تعديل" style="background:rgba(201,160,43,.12);border:1px solid rgba(201,160,43,.35);color:#C9A02B;border-radius:7px;width:28px;height:28px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin-inline-end:4px">${window.Icon?window.Icon('edit',13):'تعديل'}</button>
+      ${cancelBtn}
       <button class="lp-ev-del" onclick="lpDeleteEvent('${matchId}',${ev.id})" title="حذف">${window.Icon?window.Icon('trash',13):'حذف'}</button>
     </div>`;
   }).join('');
@@ -9062,6 +9100,50 @@ window.lpDeleteEvent = async function(matchId, id) {
   _lpRescore(matchId);
   _lpRenderEvents(matchId);
   await _lpSave(matchId);
+};
+
+/* ══ إلغاء هدف (بدل حذفه نهائياً) ══
+   الفرق عن lpDeleteEvent: الحدث لا يختفي من مجريات المباراة — يبقى في
+   مكانه الزمني الأصلي بعلامة «تم إلغاء الهدف» ظاهرة للجمهور، تماماً
+   كما تفعل تطبيقات المباريات الكبرى عند إلغاء هدف بمراجعة VAR. الحيلة:
+   تغيير type من 'goal'/'own' إلى 'goalCancelled' يكفي وحده لإسقاطه
+   تلقائياً من كل مكان يُحتسب فيه (النتيجة، سجلّ اللاعب، جدول الهدّافين،
+   إحصائيات التشكيلة) — فكلّها تتحقق من type بالضبط، ولا شيء منها يعرف
+   نوعاً اسمه goalCancelled فيتجاهله حسابياً بينما يبقى ظاهراً بصرياً. */
+window.lpCancelGoal = async function(matchId, id) {
+  const st = _liveMatches[matchId];
+  if (!st) return;
+  const ev = (st.events || []).find(e => e.id === id);
+  if (!ev || (ev.type !== 'goal' && ev.type !== 'own')) return;
+  const who = ev.type === 'own' ? ('هدف عكسي' + (ev.player ? ' · ' + ev.player : ''))
+                                : (ev.player || 'هدف بلا اسم');
+  const ok = await window.confirmDialog({
+    title: '🚫 إلغاء هدف',
+    message: `سيُلغى: ${who}${ev.minute ? ' (د ' + ev.minute + ')' : ''}\n\nيبقى ظاهراً في مجريات المباراة بعلامة «تم إلغاء الهدف»، لكنه يختفي فوراً من: النتيجة · سجلّ اللاعب · جدول الهدّافين · إحصائيات التشكيلة.`,
+    confirmText: 'إلغاء الهدف', danger: true
+  });
+  if (!ok) return;
+  ev._origGoalType = ev.type;   // للتراجع لاحقاً لو احتاج
+  ev.type = 'goalCancelled';
+  ev.cancelledAt = new Date().toLocaleTimeString('ar');
+  _lpRescore(matchId);
+  _lpRenderEvents(matchId);
+  await _lpSave(matchId);
+  showToast('🚫 أُلغي الهدف — يبقى ظاهراً في المجريات بعلامة الإلغاء', 'success');
+};
+
+// تراجع عن إلغاء هدف (لو أُلغي بالغلط)
+window.lpUncancelGoal = async function(matchId, id) {
+  const st = _liveMatches[matchId];
+  if (!st) return;
+  const ev = (st.events || []).find(e => e.id === id);
+  if (!ev || ev.type !== 'goalCancelled') return;
+  ev.type = ev._origGoalType || 'goal';
+  delete ev._origGoalType; delete ev.cancelledAt;
+  _lpRescore(matchId);
+  _lpRenderEvents(matchId);
+  await _lpSave(matchId);
+  showToast('↩️ أُعيد احتساب الهدف', 'success');
 };
 
 window.lpClearEvents = async function(matchId) {
@@ -10434,14 +10516,22 @@ async function _lpSaveV2(matchId) {
   if (['live','halftime','extratime1','halftime_et','extratime2','penalties'].includes(st.matchStatus)) matchStatus = 'live';
   else if (st.matchStatus === 'ended') matchStatus = 'finished';
 
-  // ── تحديد النتيجة النهائية (تشمل ركلات الترجيح إذا كانت موجودة) ──
+  /* ── النتيجة الرسمية للمباراة — بلا ركلات ترجيح ──
+     🔴 كان هنا: `st.penHomeScore != null && st.penalties ? st.penHomeScore : st.homeScore`
+        أي أن مباراة انتهت 2-2 وحُسمت 4-3 بالركلات كانت **تُحفظ في قاعدة
+        البيانات بنتيجة 4-3**، فتُمحى النتيجة الحقيقية نهائياً.
+
+        وهذا مصدر التكرار الذي يظهر في البطاقات: الرقم الكبير يصير 4–3
+        (وهو الترجيح لا المباراة)، ثم يُرسم تحته «🥅 ركلات الترجيح 4–3»
+        مرة ثانية — فيبدو الرقم نفسه مرتين، ولا أثر للتعادل أصلاً.
+
+        ويفسد معه كل ما يُبنى على النتيجة: أسماء الهدّافين المشتقّة من
+        الأحداث تقول هدفين والنتيجة تقول أربعة، والمباراة تُقرأ فوزاً لا
+        تعادلاً. الترجيح يُحفظ في penaltyScoreHome/Away وفي
+        liveData.penalties — وهذا مكانه الوحيد. */
   const _isEnded = (st.matchStatus === 'ended') || (matchStatus === 'finished');
-  const finalHomeScore = _isEnded
-    ? (st.penHomeScore != null && st.penalties ? st.penHomeScore : st.homeScore)
-    : null;
-  const finalAwayScore = _isEnded
-    ? (st.penAwayScore != null && st.penalties ? st.penAwayScore : st.awayScore)
-    : null;
+  const finalHomeScore = _isEnded ? st.homeScore : null;
+  const finalAwayScore = _isEnded ? st.awayScore : null;
 
   // ── اشتقاق أسماء الهدّافين من الأحداث (لتتحدّث البطاقات وكل شي) ──
   const _evs = st.events || [];

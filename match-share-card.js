@@ -678,7 +678,10 @@
 
     var hs = m.homeScore ?? 0, as_ = m.awayScore ?? 0;
     var hw = hs > as_, aw = as_ > hs, isDraw = hs === as_;
-    var hasPens = m.penaltyScoreHome != null && isDraw;
+    var _pkV = window.PK ? window.PK.verdict(m) : null;
+    var hasPens = _pkV ? _pkV.decidedByPens : (m.penaltyScoreHome != null && isDraw);
+    var _pkH = (_pkV && _pkV.hasPens) ? _pkV.penH : m.penaltyScoreHome;
+    var _pkA = (_pkV && _pkV.hasPens) ? _pkV.penA : m.penaltyScoreAway;
 
     drawBackground(ctx, W, H, GREEN);
     var ID_TOP = 16;
@@ -694,13 +697,13 @@
     curY = afterTeams;
 
     if (hasPens) {
-      drawText(ctx, '(ركلات الترجيح: ' + m.penaltyScoreHome + ' – ' + m.penaltyScoreAway + ')', W / 2, curY + 2, '700 17px Tajawal,Arial', '#9b59b6', 'center');
+      drawText(ctx, '🥅 ركلات الترجيح  ' + _pkH + ' – ' + _pkA, W / 2, curY + 2, '800 18px Tajawal,Arial', '#9b59b6', 'center');
       curY += 30;
     }
 
     curY += 8;
     if (!isDraw || hasPens) {
-      var winnerName = hw ? ht.name : hasPens ? (m.penaltyScoreHome > m.penaltyScoreAway ? ht.name : at.name) : at.name;
+      var winnerName = hw ? ht.name : hasPens ? (_pkH > _pkA ? ht.name : at.name) : at.name;
       var isKO = !!(m.isKnockout || m.knockoutRoundId != null || m.knockoutRoundName);
       var verb = isKO ? 'يتأهل' : 'الفائز';
       var label = isKO ? (winnerName + '  ' + verb) : (verb + ':  ' + winnerName);
@@ -785,7 +788,10 @@
     } else if (m.status === 'finished') {
       var hs2 = m.homeScore ?? 0, as2 = m.awayScore ?? 0;
       L.push('✅ انتهت المباراة'); L.push(head); L.push('⚽ ' + scoreLine(hs2, as2));
-      if (m.penaltyScoreHome != null && m.penaltyScoreAway != null) L.push('🥅 ركلات الترجيح: ' + m.penaltyScoreHome + ' - ' + m.penaltyScoreAway);
+      /* 🔴 كان يُطبع سطر الترجيح كلما وُجد الرقم — حتى في مباراة حُسمت
+         بنتيجتها (٣-١) فيظهر سطران متناقضان. الآن: فقط إن كان هو الحاسم. */
+      var _vv = window.PK ? window.PK.verdict(m) : null;
+      if (_vv && _vv.decidedByPens) L.push('🥅 ركلات الترجيح ' + _vv.penH + ' - ' + _vv.penA + '  ←  ' + _vv.winnerName);
       if (m.manOfMatch) L.push('🌟 رجل المباراة: ' + m.manOfMatch);
       L.push(''); L.push('📊 كل التفاصيل والهدّافين:'); L.push(url);
     } else {

@@ -1063,7 +1063,13 @@
     const [hImg, aImg, lgImg] = await Promise.all([loadImg(ht.logo), loadImg(at.logo), loadLeagueLogo()]);
     const hs = m.homeScore ?? 0, as_ = m.awayScore ?? 0;
     const hw = hs > as_, aw = as_ > hs, isDraw = hs === as_;
-    const hasPens = m.penaltyScoreHome != null && isDraw;
+    /* 🔴 كان المصدر `penaltyScoreHome` وحده — ومباراة أُدخل ترجيحها من
+       صفحة البثّ تُحفظ ركلاتها في liveData.penalties، فتخرج البطاقة
+       بتعادل بلا فائز. القارئ الموحّد يجمع المصادر الثلاثة. */
+    const _pkV   = window.PK ? window.PK.verdict(m) : null;
+    const hasPens = _pkV ? _pkV.decidedByPens : (m.penaltyScoreHome != null && isDraw);
+    const _pkH   = _pkV && _pkV.hasPens ? _pkV.penH : m.penaltyScoreHome;
+    const _pkA   = _pkV && _pkV.hasPens ? _pkV.penA : m.penaltyScoreAway;
     const accent  = _state.accentColor || GOLD;
     const rgb     = hexToRgb(accent);
 
@@ -1085,22 +1091,23 @@
 
     // ─ 3) قسم الفرق + النتيجة
     const scoreStr  = `${hs}  –  ${as_}`;
-    const _winSide = hasPens
-      ? (m.penaltyScoreHome > m.penaltyScoreAway ? 'home' : 'away')
-      : (hw ? 'home' : aw ? 'away' : null);
+    const _winSide = hasPens ? (_pkH > _pkA ? 'home' : 'away')
+                             : (hw ? 'home' : aw ? 'away' : null);
     const afterTeams = drawTeamsSection(ctx, W, curY, hImg, aImg, ht.name, at.name, scoreStr, '#ffffff', accent, 192, ht.logo, at.logo, _winSide);
     curY = afterTeams;
 
     // ركلات الترجيح
     if (hasPens) {
-      drawText(ctx, `(ركلات الترجيح: ${m.penaltyScoreHome} – ${m.penaltyScoreAway})`, W/2, curY+2, '700 17px Tajawal,Arial', '#9b59b6', 'center');
+      /* النتيجة الرسمية تبقى هي العنوان (٢–٢)، والترجيح سطر تحتها يقول
+         من تأهّل — لا رقم عائم يُقرأ وكأنه نتيجة المباراة. */
+      drawText(ctx, `🥅 ركلات الترجيح  ${_pkH} – ${_pkA}`, W/2, curY+2, '800 18px Tajawal,Arial', '#9b59b6', 'center');
       curY += 30;
     }
 
     // الفائز / تعادل
     curY += 8;
     if (!isDraw || hasPens) {
-      const winnerName = hw ? ht.name : hasPens ? (m.penaltyScoreHome > m.penaltyScoreAway ? ht.name : at.name) : at.name;
+      const winnerName = hw ? ht.name : hasPens ? (_pkH > _pkA ? ht.name : at.name) : at.name;
       // ✅ "يتأهل" فقط في الإقصائيات — في الدوري لا أحد يتأهل، هو فائز فقط
       const _isKO = !!(m.isKnockout || m.knockoutRoundId != null || m.knockoutRoundName) ||
                     (getSettings().type === 'knockout');
@@ -1465,7 +1472,7 @@
     roundRect(ctx, W/2-sW/2, curY, sW, 38, 19); ctx.fill(); ctx.stroke();
     drawText(ctx, sLabel, W/2, curY+26, scoreFont, '#888', 'center');
     if (hasPens) {
-      drawText(ctx, `(ركلات: ${m.penaltyScoreHome} – ${m.penaltyScoreAway})`, W/2, curY+60, '700 17px Tajawal,Arial', '#9b59b6', 'center');
+      drawText(ctx, `🥅 ركلات الترجيح  ${m.penaltyScoreHome} – ${m.penaltyScoreAway}`, W/2, curY+60, '800 18px Tajawal,Arial', '#9b59b6', 'center');
     }
 
     drawBottomBar(ctx, W, H);
@@ -1928,7 +1935,10 @@
       L.push(head());
       L.push('');
       L.push('⚽ ' + (ht.name||'') + '  ' + hs + ' - ' + as_ + '  ' + (at.name||''));
-      if (m.penaltyScoreHome != null && m.homeScore === m.awayScore)
+      const _v = window.PK ? window.PK.verdict(m) : null;
+      if (_v && _v.decidedByPens)
+        L.push('🥅 ركلات الترجيح ' + _v.penH + ' - ' + _v.penA + '  ←  ' + _v.winnerName);
+      else if (m.penaltyScoreHome != null && m.homeScore === m.awayScore)
         L.push('🥅 ركلات الترجيح: ' + m.penaltyScoreHome + ' - ' + m.penaltyScoreAway);
       // الهدّافون مرتّبون تحت كل فريق — كل اسم مفصول بوضوح عن دقيقته
       const _parseScorerLine = (s) => {

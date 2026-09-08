@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>معاينة — الإيقاف الآلي بتراكم البطاقات v335</title>
+<link rel="icon" href="icon-192.png"/>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800;900&display=swap');
+:root{--gold:#C9A02B;--gold2:#E8BE45;--card:#1a1a1a;--card2:#202020;--card3:#262626;
+ --border:#2c2c2c;--border2:#383838;--text:#efefef;--muted:#5a5a5a;--muted2:#888;--green:#27AE60}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#07080a;font-family:Tajawal,sans-serif;color:#e6e8ec;padding:20px 12px 70px;line-height:1.7}
+.wrap{max-width:1180px;margin:0 auto}
+.top{text-align:center;margin-bottom:20px}
+.top h1{font-size:21px;font-weight:900;color:#F0C84A;margin-bottom:6px}
+.top p{font-size:12.5px;color:#818794;max-width:640px;margin:0 auto}
+.bar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:18px 0 22px}
+.bar button{padding:10px 18px;border-radius:11px;border:1px solid #262a33;background:#0d0f13;
+ color:#9aa0aa;font-family:Tajawal,sans-serif;font-size:12px;font-weight:800;cursor:pointer}
+.bar button.on{border-color:var(--gold);background:rgba(201,160,43,.13);color:#F0C84A}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));align-items:start}
+.panel{background:#0d0f13;border:1px solid #1c2028;border-radius:18px;overflow:hidden}
+.ph{padding:12px 15px;border-bottom:1px solid #1c2028;background:linear-gradient(135deg,rgba(201,160,43,.09),transparent)}
+.ph h3{font-size:13px;font-weight:900;color:#F0C84A}
+.ph p{font-size:10.5px;color:#6a7080;margin-top:2px}
+.pb{padding:14px}
+.note{background:rgba(201,160,43,.05);border:1px solid rgba(201,160,43,.16);border-radius:12px;
+ padding:12px 15px;font-size:11.5px;color:#9aa0aa;margin:20px 0;line-height:1.95}
+.note b{color:#F0C84A}
+/* أصداء من admin.css كي تبدو الصفحات كما هي في اللوحة */
+.page-header{margin-bottom:14px}
+.page-title{font-size:17px;font-weight:900;color:var(--text)}
+.page-sub{font-size:11.5px;color:var(--muted2);margin-top:3px}
+.set-back{font-size:11.5px;color:var(--muted2);margin-bottom:10px;cursor:pointer}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.card-body{padding:12px 14px}
+.section{display:none}.section.active{display:block}
+.foot{text-align:center;font-size:10.5px;color:#3f444d;margin-top:36px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>⚖️ الإيقاف الآلي بتراكم البطاقات</h1>
+    <p>اختياري بالكامل ومعطَّل افتراضياً. ما دام معطَّلاً لا يُحسب شيء — حالة كل لاعب يدوية كما هي اليوم.</p>
+  </div>
+
+  <div class="bar">
+    <button id="b-off" class="on" onclick="pvMode('off')">① الحالة الافتراضية (معطَّل)</button>
+    <button id="b-setup" onclick="spOpenSetup()">② نافذة الإعداد</button>
+    <button id="b-on" onclick="pvMode('on')">③ بعد التفعيل</button>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="ph"><h3>⚙︎ الإعدادات ← الانضباط والإيقافات</h3><p>الصفحة الفرعية الجديدة داخل مركز الإعدادات</p></div>
+      <div class="pb"><div id="page-set-discipline" class="section active"></div></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h3>⚖️ الإيقافات</h3><p>قسم جديد في القائمة الجانبية — من يغيب عن الجولة القادمة</p></div>
+      <div class="pb"><div id="page-suspensions" class="section active"></div></div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>بيانات المعاينة:</b> ٦ جولات منتهية ومباراة قادمة.
+    <b>محمد</b> نال ٣ صفراوات (جولات ١·٢·٣) فأُوقف وقضى إيقافه في الجولة ٤ —
+    فلا يظهر موقوفاً الآن، وهذا هو الصحيح.
+    <b>خالد</b> نال حمراء مباشرة في الجولة ٤ (إيقاف مباراتان) قضى إحداهما وبقيت واحدة.
+    <b>سالم</b> طُرد بإنذارين في الجولة ٥.
+    <br><br>
+    <b>جرّب:</b> اضغط «نافذة الإعداد» وغيّر العتبة من ٣ إلى ٢ — ستتغيّر المعاينة داخل النافذة فوراً
+    وتخبرك كم لاعباً سيُوقَف قبل أن تحفظ. وزرّ «إعفاء» يرفع الإيقاف عن لاعب (تظلّم أو خطأ تسجيل).
+  </div>
+
+  <div class="foot">منصة بطولات · معاينة v335 — مولَّدة من <code>suspensions.js</code> نفسه</div>
+</div>
+
+<script>
+/* ═══ بيئة المعاينة ═══ */
+window.teams=[{id:'H',name:'الهلال'},{id:'A',name:'النصر'}];
+window._teamRosters={
+  H:[{id:'h1',name:'محمد الشهري',number:10},{id:'h2',name:'خالد القحطاني',number:7},{id:'h3',name:'عمر السالم',number:4}],
+  A:[{id:'a1',name:'سالم الفهد',number:9},{id:'a2',name:'فهد العتيبي',number:11}]
+};
+var NM={h1:'محمد الشهري',h2:'خالد القحطاني',h3:'عمر السالم',a1:'سالم الفهد',a2:'فهد العتيبي'};
+function Y(pid,side,min){return{type:'yellow',team:side,teamId:side==='home'?'H':'A',playerId:pid,player:NM[pid],minute:min};}
+function R(pid,side,min){return{type:'red',team:side,teamId:side==='home'?'H':'A',playerId:pid,player:NM[pid],minute:min};}
+function mk(id,round,date,evs,st){return{id:id,round:round,date:date,time:'18:00',status:st||'finished',homeId:'H',awayId:'A',events:evs};}
+window.matches=[
+  mk('m1',1,'2026-01-01',[Y('h1','home',20)]),
+  mk('m2',2,'2026-01-08',[Y('h1','home',30),Y('a1','away',44),Y('a2','away',61)]),
+  mk('m3',3,'2026-01-15',[Y('h1','home',55)]),
+  mk('m4',4,'2026-01-22',[R('h2','home',70),Y('h3','home',12)]),
+  mk('m5',5,'2026-01-29',[Y('a1','away',10),Y('a1','away',80),Y('h3','home',33)]),
+  mk('m6',6,'2026-02-05',[Y('a2','away',25)]),
+  mk('m7',7,'2026-02-12',[],'upcoming')
+];
+window.settings={};   /* ← لا discipline إطلاقاً: الحالة الافتراضية */
+
+window.showToast=function(m){
+  var t=document.createElement('div'); t.textContent=m;
+  t.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:200000;'+
+   'background:#161a20;border:1px solid #C9A02B;color:#F0C84A;padding:11px 18px;border-radius:12px;'+
+   'font-family:Tajawal,sans-serif;font-size:12.5px;font-weight:800';
+  document.body.appendChild(t); setTimeout(function(){t.remove();},2600);
+};
+window.confirmDialog=function(o){return Promise.resolve(confirm(o.title+'\n\n'+o.message));};
+window.showPage=function(name){
+  if(name==='set-discipline'||name==='settings') pvMode(cur);
+  if(name==='suspensions') pvMode(cur);
+};
+/* في المعاينة لا حفظ على الخادم */
+window._getLeagueId=function(){return '';};
+</script>
+
+<script>
+/* ملف suspensions.js مضمّن كي تعمل المعاينة بفتح الملف وحده */
+/* ═══════════════════════════════════════════════════════════════════
+ *  suspensions.js — v335
+ *  الإيقاف الآلي بتراكم البطاقات
+ *  ───────────────────────────────────────────────────────────────────
+ *  المشكلة التي يحلّها:
+ *
+ *    بطاقات اللاعب كانت تُحسب فعلاً عبر المباريات (يظهر مجموعها في
+ *    صفحته عند الجمهور)، وحالة «موقوف» موجودة في كشف الفريق — لكن
+ *    **لا شيء يربط بينهما**. لا عتبة، ولا تنبيه، ولا قائمة موقوفين.
+ *    فيلعب اللاعب وهو مستحقّ للإيقاف ولا ينتبه أحد إلا بعد الاحتجاج،
+ *    وقد تكون المباراة انتهت ونتيجتها دخلت جدول الترتيب.
+ *
+ *  المبدأ: **اختياري بالكامل، ومعطَّل افتراضياً.**
+ *
+ *    القوانين تختلف بين بطولة وأخرى اختلافاً حقيقياً: عتبة الصفراوات،
+ *    ومدّة إيقاف الحمراء، وهل تُمسح الأرصدة عند التأهل للإقصاء.
+ *    فنظام يفرض قانوناً واحداً يخطئ في أكثر البطولات. لذلك:
+ *      • ما دام معطَّلاً → لا حساب ولا استنتاج ولا تلوين. حالة اللاعب
+ *        تبقى **يدوية بالكامل** كما كانت، ولا يتغيّر شيء في المنصة.
+ *      • عند تفعيله → تُفتح نافذة الإعداد فوراً ولا يعمل النظام قبل
+ *        أن يملأها المنظّم ويحفظ. لا افتراضات صامتة.
+ *      • عند إيقافه → كل ما استنتجه يختفي في اللحظة نفسها، ولا يُترك
+ *        أثر مكتوب في كشوف اللاعبين (لم نكتب فيها أصلاً).
+ *
+ *  لا يُكتب أي إيقاف آلي في قاعدة البيانات: الحالة تُحسب من الأحداث
+ *  عند كل عرض. فإلغاء بطاقة أو تعديل دقيقتها يصحّح الإيقاف تلقائياً،
+ *  ولا يبقى إيقاف يتيم لبطاقة حُذفت.
+ * ═══════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var GOLD = '#C9A02B', GOLD2 = '#F0C84A';
+
+  /* ⚠️ admin.js و viewer.js يُحمَّلان بـ type="module" — أي أنهما يعملان
+     **بعد** السكربتات العادية مهما كان ترتيبها. فأي دالّة نلفّها فوراً
+     يدهسها تعريفهما بعد لحظات. ننتظر ظهور الدالّة ثم نلفّها. */
+  function whenFn(name, wrap, tries) {
+    tries = tries || 0;
+    if (typeof window[name] === 'function') { try { wrap(window[name]); } catch (e) {} return; }
+    if (tries > 400) return;                     // ~24 ثانية ثم نكفّ
+    setTimeout(function () { whenFn(name, wrap, tries + 1); }, 60);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ① الإعدادات — كلها بلا افتراضات مُطبَّقة قبل الحفظ
+     ───────────────────────────────────────────────────────────── */
+  var DEFAULTS = {
+    enabled: false,          // ← معطَّل حتى يُفعّله المنظّم صراحةً
+    configured: false,       // ← ولا يعمل قبل أن يحفظ نافذة الإعداد
+    yellowThreshold: 3,      // كم صفراء متراكمة تُوجب الإيقاف (0 = لا إيقاف بالتراكم)
+    yellowBan: 1,            // كم مباراة يُوقف عند بلوغ العتبة
+    redBan: 1,               // كم مباراة يُوقف بالبطاقة الحمراء المباشرة
+    secondYellowBan: 1,      // كم مباراة يُوقف بالطرد بصفراوين (0 = لا إيقاف)
+    secondYellowCounts: false, // هل تُضاف صفراوا الطرد إلى رصيده التراكمي
+    countKnockout: true,     // هل تُحتسب بطاقات مباريات الإقصاء
+    countPlayoff: true,      // هل تُحتسب بطاقات مباريات الملحق
+    resetOnKnockout: false,  // مسح أرصدة الصفراوات عند بداية الإقصاء
+    blockInLineup: true,     // منع اختيار الموقوف في التشكيلة والأحداث
+    warnOnOpen: true,        // تنبيه عند فتح مباراة فيها موقوف
+    showToPublic: true,      // إظهار قائمة الموقوفين للجمهور
+    pardons: []              // [{ key, afterMatchId }] — إعفاءات يدوية
+  };
+
+  function S() { return (window.settings || {}); }
+  function cfg() {
+    var d = (S().discipline) || {};
+    var out = {};
+    for (var k in DEFAULTS) out[k] = (d[k] === undefined) ? DEFAULTS[k] : d[k];
+    if (!Array.isArray(out.pardons)) out.pardons = [];
+    return out;
+  }
+  /* النظام «شغّال» فقط إذا فُعّل **وأُعدّ**. التفعيل وحده لا يكفي — وإلا
+     طبّقنا قانوناً لم يختره أحد. */
+  function live() { var c = cfg(); return !!(c.enabled && c.configured); }
+
+  window.Suspensions = window.Suspensions || {};
+
+  /* ─────────────────────────────────────────────────────────────
+     ② المحرّك — يُحسب من الأحداث، ولا يُخزَّن
+     ───────────────────────────────────────────────────────────── */
+  function norm(v) {
+    return String(v == null ? '' : v)
+      .replace(/[\u064B-\u0652\u0640]/g, '')
+      .replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
+      .replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function MS() { return window.matches || []; }
+  function TM() { return window.teams || []; }
+  function teamName(tid) {
+    var t = TM().filter(function (x) { return x.id === tid; })[0];
+    return (t && t.name) || '';
+  }
+  function isKO(m) { return !!(m && (m.isKnockout || m.knockoutRoundId != null)); }
+  function isPO(m) { return !!(m && m.isPlayoff === true); }
+
+  /* ترتيب المباريات الأقدم أوّلاً — بنفس معيار المنصة (تاريخ ← وقت ←
+     جولة ← معرّف) كي لا يختلف تسلسل الإيقاف عن تسلسل قوائم المباريات. */
+  function oldestFirst(a, b) {
+    if (window.MatchCore && window.MatchCore.newestFirst) return window.MatchCore.newestFirst(b, a);
+    var ka = (a.date || '0000-00-00') + 'T' + (a.time || '00:00');
+    var kb = (b.date || '0000-00-00') + 'T' + (b.time || '00:00');
+    return ka.localeCompare(kb) || ((a.round || 0) - (b.round || 0));
+  }
+  function evOf(m) {
+    if (window.MatchCore && window.MatchCore.events) return window.MatchCore.events(m) || [];
+    return (m && ((m.liveData && m.liveData.events) || m.events)) || [];
+  }
+  function sideOf(e) { return (e.team === 'away' || e.side === 'away') ? 'away' : 'home'; }
+
+  /* مفتاح اللاعب: الهوية متى توفّرت، وإلا الاسم المطبَّع داخل فريقه.
+     الاسم وحده يخلط لاعبَين متشابهَين في فريقين، فنُقرن الفريق دائماً. */
+  function keyOf(teamId, e) {
+    var pid = e.playerId || null;
+    return teamId + '::' + (pid ? ('id:' + pid) : ('nm:' + norm(e.player || e.playerNumber || '')));
+  }
+
+  function rosterInfo(teamId, playerId, fallbackName) {
+    var r = (window._teamRosters && window._teamRosters[teamId]) || [];
+    var hit = null;
+    if (playerId) hit = r.filter(function (p) { return p.id === playerId; })[0];
+    if (!hit && fallbackName) {
+      hit = r.filter(function (p) { return norm(p.name) === norm(fallbackName); })[0];
+    }
+    return hit || null;
+  }
+
+  /* الحساب الكامل. يُعيد:
+       { on, players:[...], suspended:[...], warning:[...], nextByTeam:{} } */
+  function compute() {
+    var c = cfg();
+    if (!(c.enabled && c.configured)) {
+      return { on: false, players: [], suspended: [], warning: [], nextByTeam: {}, cfg: c };
+    }
+
+    var all = MS().slice();
+    var finished = all.filter(function (m) { return m && m.status === 'finished'; }).sort(oldestFirst);
+
+    /* المباراة القادمة لكل فريق — هي التي سيغيب عنها الموقوف */
+    var upcoming = all.filter(function (m) {
+      return m && m.status !== 'finished' && (m.homeId || m.awayId);
+    }).sort(function (a, b) { return oldestFirst(a, b); });
+    var nextByTeam = {};
+    upcoming.forEach(function (m) {
+      [m.homeId, m.awayId].forEach(function (tid) {
+        if (tid && !nextByTeam[tid]) nextByTeam[tid] = m;
+      });
+    });
+
+    var st = {};   // key → سجلّ اللاعب
+    function rec(teamId, e) {
+      var k = keyOf(teamId, e);
+      if (!st[k]) {
+        var info = rosterInfo(teamId, e.playerId, e.player);
+        st[k] = {
+          key: k, teamId: teamId,
+          playerId: e.playerId || (info && info.id) || null,
+          name: (info && info.name) || e.player || 'لاعب بلا اسم',
+          number: (info && info.number != null) ? info.number : (e.playerNumber != null ? e.playerNumber : null),
+          tally: 0, pending: 0, yellowsTotal: 0, redsTotal: 0, log: []
+        };
+      }
+      return st[k];
+    }
+
+    var pardons = {};
+    (c.pardons || []).forEach(function (p) {
+      if (!p || !p.afterMatchId) return;
+      (pardons[p.afterMatchId] = pardons[p.afterMatchId] || []).push(p.key);
+    });
+
+    var knockoutStarted = false;
+
+    finished.forEach(function (m) {
+      var koNow = isKO(m), poNow = isPO(m);
+
+      /* مسح الأرصدة عند أول مباراة إقصاء — قاعدة شائعة في البطولات
+         الرسمية: الصفراوات لا تُنقل من دور المجموعات إلى الإقصاء. */
+      if (c.resetOnKnockout && koNow && !knockoutStarted) {
+        knockoutStarted = true;
+        Object.keys(st).forEach(function (k) {
+          if (st[k].tally) {
+            st[k].log.push({ kind: 'reset', matchId: m.id, text: 'مُسح رصيد الصفراوات عند بداية الإقصاء' });
+            st[k].tally = 0;
+          }
+        });
+      }
+
+      /* ① قضاء الإيقافات: من عليه إيقاف معلّق يغيب عن هذه المباراة.
+            الخصم قبل معالجة أحداث المباراة — وإلا قضى الطرد عقوبته في
+            المباراة التي طُرد فيها. */
+      [m.homeId, m.awayId].forEach(function (tid) {
+        if (!tid) return;
+        Object.keys(st).forEach(function (k) {
+          var p = st[k];
+          if (p.teamId === tid && p.pending > 0) {
+            p.pending--;
+            p.log.push({ kind: 'served', matchId: m.id, text: 'قضى إيقافاً في هذه المباراة' });
+          }
+        });
+      });
+
+      /* ② هل تُحتسب بطاقات هذه المباراة أصلاً؟ */
+      var countThis = true;
+      if (koNow && !c.countKnockout) countThis = false;
+      if (poNow && !c.countPlayoff) countThis = false;
+
+      if (countThis) {
+        var evs = evOf(m);
+        var perPlayer = {};   // key → { yellows, red, ref }
+        evs.forEach(function (e) {
+          if (!e) return;
+          var t = String(e.type || '').toLowerCase();
+          if (t !== 'yellow' && t !== 'red' && t !== 'redcard' && t !== 'secondyellow') return;
+          var tid = e.teamId || (sideOf(e) === 'home' ? m.homeId : m.awayId);
+          if (!tid) return;
+          var p = rec(tid, e);
+          var k = p.key;
+          if (!perPlayer[k]) perPlayer[k] = { yellows: 0, red: false, minutes: [], ref: p };
+          if (t === 'yellow') { perPlayer[k].yellows++; perPlayer[k].minutes.push(e.minute); }
+          else { perPlayer[k].red = true; perPlayer[k].minutes.push(e.minute); }
+        });
+
+        Object.keys(perPlayer).forEach(function (k) {
+          var d = perPlayer[k], p = d.ref;
+          var mLbl = d.minutes.filter(function (x) { return x || x === 0; }).join('، ');
+          var secondYellow = (d.yellows >= 2);
+
+          p.yellowsTotal += d.yellows;
+          if (d.red || secondYellow) p.redsTotal++;
+
+          if (secondYellow) {
+            /* طرد بصفراوين: عقوبته عقوبة الطرد، والصفراوان لا تُضافان
+               للرصيد التراكمي إلا إن اختار المنظّم ذلك صراحةً. */
+            if (c.secondYellowBan > 0) {
+              p.pending += c.secondYellowBan;
+              p.log.push({ kind: 'ban', matchId: m.id, n: c.secondYellowBan,
+                text: 'طرد بإنذارين' + (mLbl ? ' (د ' + mLbl + ')' : '') + ' — إيقاف ' + c.secondYellowBan + ' مباراة' });
+            }
+            if (c.secondYellowCounts) p.tally += d.yellows;
+          } else if (d.yellows) {
+            p.tally += d.yellows;
+          }
+
+          if (d.red) {
+            if (c.redBan > 0) {
+              p.pending += c.redBan;
+              p.log.push({ kind: 'ban', matchId: m.id, n: c.redBan,
+                text: 'بطاقة حمراء مباشرة' + (mLbl ? ' (د ' + mLbl + ')' : '') + ' — إيقاف ' + c.redBan + ' مباراة' });
+            }
+          }
+
+          /* بلوغ عتبة التراكم — قد تُبلغ أكثر من مرة لو أُدخلت متأخرة */
+          if (c.yellowThreshold > 0) {
+            while (p.tally >= c.yellowThreshold) {
+              p.tally -= c.yellowThreshold;
+              p.pending += c.yellowBan;
+              p.log.push({ kind: 'ban', matchId: m.id, n: c.yellowBan,
+                text: 'تراكم ' + c.yellowThreshold + ' بطاقات صفراء — إيقاف ' + c.yellowBan + ' مباراة' });
+            }
+          }
+        });
+      }
+
+      /* ③ الإعفاءات اليدوية تُطبَّق بعد هذه المباراة تحديداً — فتبقى
+            ثابتة مهما أُعيد الحساب، ولا تُمحى بأول تعديل على الأحداث. */
+      (pardons[m.id] || []).forEach(function (k) {
+        if (st[k] && st[k].pending > 0) {
+          st[k].pending = 0;
+          st[k].log.push({ kind: 'pardon', matchId: m.id, text: 'أُعفي من الإيقاف بقرار المنظّم' });
+        }
+      });
+    });
+
+    var players = Object.keys(st).map(function (k) { return st[k]; });
+    players.forEach(function (p) {
+      p.teamName = teamName(p.teamId);
+      p.nextMatch = nextByTeam[p.teamId] || null;
+      p.toBan = (c.yellowThreshold > 0) ? Math.max(0, c.yellowThreshold - p.tally) : null;
+      p.lastBan = p.log.filter(function (l) { return l.kind === 'ban'; }).slice(-1)[0] || null;
+    });
+
+    var suspended = players.filter(function (p) { return p.pending > 0; })
+      .sort(function (a, b) { return (a.teamName || '').localeCompare(b.teamName || ''); });
+    var warning = players.filter(function (p) {
+      return p.pending === 0 && c.yellowThreshold > 0 && p.toBan === 1;
+    }).sort(function (a, b) { return (a.teamName || '').localeCompare(b.teamName || ''); });
+
+    return { on: true, cfg: c, players: players, suspended: suspended, warning: warning, nextByTeam: nextByTeam };
+  }
+
+  /* ذاكرة قصيرة — الحساب يمرّ على كل المباريات، ولا داعي لتكراره
+     عشرات المرات في الرسمة الواحدة. */
+  var _cache = null, _cacheAt = 0;
+  function state(force) {
+    var now = Date.now();
+    if (!force && _cache && (now - _cacheAt) < 1500) return _cache;
+    _cache = compute(); _cacheAt = now;
+    return _cache;
+  }
+  function bust() { _cache = null; }
+
+  window.Suspensions.state = state;
+  window.Suspensions.bust = bust;
+  window.Suspensions.cfg = cfg;
+  window.Suspensions.live = live;
+
+  /* مجموعة معرّفات/أسماء الموقوفين — تستعملها المنتقيات والتشكيلة */
+  window.Suspensions.suspendedSet = function () {
+    var s = state();
+    var ids = {}, names = {};
+    if (!s.on) return { ids: ids, names: names, any: false };
+    s.suspended.forEach(function (p) {
+      if (p.playerId) ids[p.playerId] = p;
+      names[p.teamId + '::' + norm(p.name)] = p;
+    });
+    return { ids: ids, names: names, any: s.suspended.length > 0 };
+  };
+
+  /* الموقوفون عن مباراة بعينها */
+  window.Suspensions.forMatch = function (matchId) {
+    var s = state();
+    var out = { home: [], away: [] };
+    if (!s.on) return out;
+    var m = MS().filter(function (x) { return x.id === matchId; })[0];
+    if (!m) return out;
+    s.suspended.forEach(function (p) {
+      if (p.teamId && p.teamId === m.homeId) out.home.push(p);
+      else if (p.teamId && p.teamId === m.awayId) out.away.push(p);
+    });
+    return out;
+  };
+
+  /* ─────────────────────────────────────────────────────────────
+     ③ CSS
+     ───────────────────────────────────────────────────────────── */
+  function css() {
+    if (document.getElementById('susp-css')) return;
+    var s = document.createElement('style');
+    s.id = 'susp-css';
+    s.textContent = [
+      '.sp{font-family:Tajawal,sans-serif}',
+      '.sp-off{text-align:center;padding:26px 18px;border:1px dashed rgba(201,160,43,.25);border-radius:16px;background:rgba(201,160,43,.03)}',
+      '.sp-off .sp-ic{font-size:34px;opacity:.55;margin-bottom:10px}',
+      '.sp-off h4{font-size:15px;font-weight:900;color:' + GOLD2 + ';margin-bottom:8px}',
+      '.sp-off p{font-size:12px;color:#818794;line-height:1.95;max-width:460px;margin:0 auto 16px}',
+      '.sp-cta{padding:12px 26px;border-radius:12px;border:none;background:linear-gradient(145deg,' + GOLD2 + ',' + GOLD + ');color:#1a1200;font-family:Tajawal,sans-serif;font-size:13px;font-weight:900;cursor:pointer}',
+      '.sp-grp{display:flex;align-items:center;gap:8px;margin:20px 0 10px;font-size:11px;font-weight:900;color:#6a7080;letter-spacing:.5px}',
+      '.sp-grp::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.07)}',
+      '.sp-card{display:flex;align-items:center;gap:10px;padding:11px 12px;margin-bottom:7px;border-radius:13px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06)}',
+      '.sp-card.ban{border-color:rgba(192,57,43,.28);background:rgba(192,57,43,.05)}',
+      '.sp-card.warn{border-color:rgba(217,162,27,.26);background:rgba(217,162,27,.045)}',
+      '.sp-num{flex:0 0 auto;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;background:rgba(255,255,255,.05);color:#9aa0aa}',
+      '.sp-body{flex:1;min-width:0}',
+      '.sp-nm{font-size:13px;font-weight:900;color:#e6e8ec}',
+      '.sp-tm{font-size:10px;color:#6a7080;font-weight:700}',
+      '.sp-why{display:block;font-size:10.5px;font-weight:700;margin-top:3px;line-height:1.6}',
+      '.sp-why.ban{color:#e07070}.sp-why.warn{color:#D9A21B}',
+      '.sp-miss{display:block;font-size:10px;color:#818794;margin-top:2px}',
+      '.sp-badge{flex:0 0 auto;font-size:10px;font-weight:900;padding:5px 10px;border-radius:999px}',
+      '.sp-badge.ban{background:rgba(192,57,43,.14);color:#e07070;border:1px solid rgba(192,57,43,.3)}',
+      '.sp-badge.warn{background:rgba(217,162,27,.13);color:#D9A21B;border:1px solid rgba(217,162,27,.3)}',
+      '.sp-pardon{flex:0 0 auto;padding:6px 10px;border-radius:9px;border:1px solid rgba(46,158,91,.3);background:rgba(46,158,91,.08);color:#2E9E5B;font-size:10.5px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif}',
+      '.sp-empty{text-align:center;padding:20px;color:#6a7080;font-size:12px;line-height:1.9}',
+      '.sp-strip{display:flex;align-items:flex-start;gap:9px;padding:11px 13px;border-radius:12px;margin-bottom:12px;background:rgba(192,57,43,.07);border:1px solid rgba(192,57,43,.26);font-family:Tajawal,sans-serif}',
+      '.sp-strip b{display:block;font-size:12px;font-weight:900;color:#e07070;margin-bottom:3px}',
+      '.sp-strip span{font-size:11px;color:#b9bec7;line-height:1.8}',
+      /* نافذة الإعداد */
+      '.sp-ov{position:fixed;inset:0;z-index:100060;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;font-family:Tajawal,sans-serif}',
+      '@media(min-width:640px){.sp-ov{align-items:center}}',
+      '.sp-sheet{width:100%;max-width:480px;max-height:94vh;overflow-y:auto;background:#111318;border:1px solid #262a33;border-radius:20px 20px 0 0;animation:spUp .24s ease}',
+      '@media(min-width:640px){.sp-sheet{border-radius:20px}}',
+      '@keyframes spUp{from{transform:translateY(28px);opacity:0}to{transform:translateY(0);opacity:1}}',
+      '.sp-hd{position:sticky;top:0;z-index:2;padding:17px 18px 14px;border-bottom:1px solid #1f232b;background:linear-gradient(135deg,rgba(201,160,43,.14),rgba(201,160,43,.03)),#111318}',
+      '.sp-hd h4{margin:0 0 4px;font-size:16px;font-weight:900;color:#e8eaf0}',
+      '.sp-hd p{margin:0;font-size:11px;color:#818794;line-height:1.8}',
+      '.sp-bd{padding:16px 18px 0}',
+      '.sp-q{margin-bottom:18px}',
+      '.sp-q>label{display:block;font-size:12.5px;font-weight:900;color:#e6e8ec;margin-bottom:3px}',
+      '.sp-q>.sp-hint{display:block;font-size:10.5px;color:#6a7080;line-height:1.75;margin-bottom:8px}',
+      '.sp-seg{display:flex;gap:6px;flex-wrap:wrap}',
+      '.sp-seg button{flex:1;min-width:56px;padding:11px 4px;border-radius:11px;border:1px solid #262a33;background:#0d0f13;color:#9aa0aa;font-size:12px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;transition:.15s}',
+      '.sp-seg button.on{border-color:' + GOLD + ';background:rgba(201,160,43,.13);color:' + GOLD2 + '}',
+      '.sp-sw{display:flex;align-items:center;gap:11px;padding:12px;border-radius:12px;background:#0d0f13;border:1px solid #1f232b;cursor:pointer;margin-bottom:9px}',
+      '.sp-sw .sp-sw-tx{flex:1;min-width:0}',
+      '.sp-sw .sp-sw-t{font-size:12.5px;font-weight:800;color:#e6e8ec}',
+      '.sp-sw .sp-sw-d{font-size:10.5px;color:#6a7080;line-height:1.7;margin-top:2px}',
+      '.sp-knob{flex:0 0 auto;width:42px;height:24px;border-radius:999px;background:#262a33;position:relative;transition:.18s}',
+      '.sp-knob::after{content:"";position:absolute;top:3px;inset-inline-end:3px;width:18px;height:18px;border-radius:50%;background:#6a7080;transition:.18s}',
+      '.sp-sw.on .sp-knob{background:rgba(201,160,43,.35)}',
+      '.sp-sw.on .sp-knob::after{inset-inline-end:21px;background:' + GOLD2 + '}',
+      '.sp-prev{margin:4px 0 16px;padding:12px 14px;border-radius:12px;background:rgba(201,160,43,.05);border:1px solid rgba(201,160,43,.18);font-size:11.5px;color:#b9bec7;line-height:1.9}',
+      '.sp-prev b{color:' + GOLD2 + '}',
+      '.sp-ft{display:flex;gap:9px;padding:14px 18px 20px;position:sticky;bottom:0;background:#111318;border-top:1px solid #1f232b}',
+      '.sp-ft button{flex:1;padding:13px;border-radius:12px;font-size:13px;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer;border:1px solid transparent}',
+      '.sp-ft .sp-cancel{background:transparent;border-color:#262a33;color:#818794}',
+      '.sp-ft .sp-save{flex:2;background:linear-gradient(145deg,' + GOLD2 + ',' + GOLD + ');color:#1a1200}'
+    ].join('\n');
+    document.head.appendChild(s);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ④ نافذة الإعداد — تُفتح فور التفعيل، ولا يعمل النظام قبل حفظها
+     ───────────────────────────────────────────────────────────── */
+  var DRAFT = null;
+
+  function seg(field, opts) {
+    return '<div class="sp-seg">' + opts.map(function (o) {
+      return '<button class="' + (DRAFT[field] === o.v ? 'on' : '') + '" ' +
+        'onclick="spPick(this,\'' + field + '\',' + JSON.stringify(o.v) + ')">' + o.t + '</button>';
+    }).join('') + '</div>';
+  }
+  function sw(field, title, desc) {
+    return '<div class="sp-sw ' + (DRAFT[field] ? 'on' : '') + '" onclick="spToggle(this,\'' + field + '\')">' +
+      '<div class="sp-sw-tx"><div class="sp-sw-t">' + title + '</div>' +
+      '<div class="sp-sw-d">' + desc + '</div></div><div class="sp-knob"></div></div>';
+  }
+
+  window.spPick = function (btn, field, val) {
+    DRAFT[field] = val;
+    var box = btn.parentNode;
+    Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.classList.remove('on'); });
+    btn.classList.add('on');
+    spRefreshPreview();
+  };
+  window.spToggle = function (row, field) {
+    DRAFT[field] = !DRAFT[field];
+    row.classList.toggle('on', !!DRAFT[field]);
+    spRefreshPreview();
+  };
+
+  /* معاينة حيّة: كم لاعباً سيوقفه هذا الإعداد **الآن** على بياناتك
+     الفعلية. الرقم قبل الحفظ يمنع اكتشاف الخطأ بعد تطبيقه. */
+  function spRefreshPreview() {
+    var el = document.getElementById('sp-preview');
+    if (!el) return;
+    var backup = S().discipline;
+    try {
+      window.settings = window.settings || {};
+      window.settings.discipline = Object.assign({}, DRAFT, { enabled: true, configured: true });
+      bust();
+      var s = compute();
+      var lines = [];
+      lines.push('بهذا الإعداد سيُوقَف الآن <b>' + s.suspended.length + '</b> لاعباً، و<b>' +
+                 s.warning.length + '</b> على بُعد بطاقة واحدة من الإيقاف.');
+      if (DRAFT.yellowThreshold > 0) {
+        lines.push('كل <b>' + DRAFT.yellowThreshold + '</b> بطاقات صفراء ← إيقاف <b>' + DRAFT.yellowBan + '</b> مباراة، ثم يُصفَّر الرصيد.');
+      } else {
+        lines.push('لا إيقاف بتراكم الصفراوات — البطاقة الحمراء وحدها تُوقف.');
+      }
+      el.innerHTML = lines.join('<br>');
+    } catch (e) {
+      el.textContent = 'تعذّرت المعاينة';
+    } finally {
+      if (backup === undefined) { try { delete window.settings.discipline; } catch (e2) {} }
+      else window.settings.discipline = backup;
+      bust();
+    }
+  }
+
+  window.spOpenSetup = function () {
+    css();
+    var c = cfg();
+    DRAFT = {};
+    for (var k in DEFAULTS) DRAFT[k] = c[k];
+    DRAFT.pardons = c.pardons || [];
+
+    document.getElementById('sp-setup-ov') && document.getElementById('sp-setup-ov').remove();
+    var ov = document.createElement('div');
+    ov.id = 'sp-setup-ov';
+    ov.className = 'sp-ov';
+    ov.innerHTML =
+      '<div class="sp-sheet" onclick="event.stopPropagation()">' +
+        '<div class="sp-hd">' +
+          '<h4>⚖️ إعداد الإيقاف الآلي</h4>' +
+          '<p>القوانين تختلف بين بطولة وأخرى، فلا شيء يُطبَّق حتى تختاره بنفسك هنا وتحفظ.</p>' +
+        '</div>' +
+        '<div class="sp-bd">' +
+
+          '<div class="sp-q"><label>① كم بطاقة صفراء متراكمة تُوجب الإيقاف؟</label>' +
+            '<span class="sp-hint">تُجمع صفراوات اللاعب عبر المباريات. عند بلوغ العدد يُوقف ويُصفَّر رصيده ويبدأ من جديد.</span>' +
+            seg('yellowThreshold', [
+              { v: 0, t: 'لا إيقاف' }, { v: 2, t: '٢' }, { v: 3, t: '٣' }, { v: 4, t: '٤' }, { v: 5, t: '٥' }
+            ]) + '</div>' +
+
+          '<div class="sp-q"><label>② كم مباراة يُوقف عند بلوغ العتبة؟</label>' +
+            '<span class="sp-hint">الغالب مباراة واحدة.</span>' +
+            seg('yellowBan', [{ v: 1, t: 'مباراة' }, { v: 2, t: 'مباراتان' }, { v: 3, t: '٣ مباريات' }]) + '</div>' +
+
+          '<div class="sp-q"><label>③ البطاقة الحمراء المباشرة — كم مباراة؟</label>' +
+            '<span class="sp-hint">تُطبَّق فوراً بلا تراكم، وتبدأ من المباراة التالية لمباراة الطرد.</span>' +
+            seg('redBan', [{ v: 0, t: 'لا إيقاف' }, { v: 1, t: 'مباراة' }, { v: 2, t: 'مباراتان' }, { v: 3, t: '٣' }, { v: 4, t: '٤' }]) + '</div>' +
+
+          '<div class="sp-q"><label>④ الطرد بإنذارين — كم مباراة؟</label>' +
+            '<span class="sp-hint">صفراوان في المباراة نفسها = طرد. عقوبته غالباً أخفّ من الحمراء المباشرة.</span>' +
+            seg('secondYellowBan', [{ v: 0, t: 'لا إيقاف' }, { v: 1, t: 'مباراة' }, { v: 2, t: 'مباراتان' }]) + '</div>' +
+
+          '<div class="sp-q"><label>⑤ تفاصيل الاحتساب</label>' +
+            '<span class="sp-hint">هذه هي المواضع التي تختلف فيها لوائح البطولات فعلاً.</span>' +
+            sw('secondYellowCounts', 'صفراوا الطرد تُضاف للرصيد التراكمي',
+               'في أغلب اللوائح لا تُضافان — العقوبة أُخذت بالطرد نفسه. فعّلها فقط إن كانت لائحتك تقول غير ذلك.') +
+            sw('resetOnKnockout', 'مسح أرصدة الصفراوات عند بداية الإقصاء',
+               'قاعدة شائعة رسمياً: ما تراكم في دور المجموعات لا يُنقل إلى الأدوار الإقصائية.') +
+            sw('countKnockout', 'احتساب بطاقات مباريات الإقصاء',
+               'أطفئها لو كانت الأدوار الإقصائية خارج نظام الإيقاف عندك.') +
+            sw('countPlayoff', 'احتساب بطاقات مباريات الملحق',
+               'مباريات الملحق الفاصلة — تُحتسب أو تُستثنى.') +
+          '</div>' +
+
+          '<div class="sp-q"><label>⑥ ماذا يفعل النظام بالموقوف؟</label>' +
+            sw('blockInLineup', 'وسمه ومنعه في التشكيلة والأحداث',
+               'يظهر «موقوف» بوضوح في منتقي اللاعبين وأداة التشكيلة، فلا يُنزَل سهواً.') +
+            sw('warnOnOpen', 'تنبيه عند فتح مباراة فيها موقوف',
+               'شريط أحمر أعلى صفحة البثّ يسمّي الموقوفين من الفريقين.') +
+            sw('showToPublic', 'إظهار قائمة الموقوفين للجمهور',
+               'تظهر في تفاصيل المباراة القادمة — كما تفعل المواقع الرسمية.') +
+          '</div>' +
+
+          '<div class="sp-prev" id="sp-preview">…</div>' +
+        '</div>' +
+        '<div class="sp-ft">' +
+          '<button class="sp-cancel" onclick="spCloseSetup()">إلغاء</button>' +
+          '<button class="sp-save" onclick="spSaveSetup()">💾 حفظ وتفعيل</button>' +
+        '</div>' +
+      '</div>';
+    ov.onclick = function () { ov.remove(); };
+    document.body.appendChild(ov);
+    spRefreshPreview();
+  };
+
+  window.spCloseSetup = function () {
+    var ov = document.getElementById('sp-setup-ov');
+    if (ov) ov.remove();
+    DRAFT = null;
+  };
+
+  async function saveDiscipline(obj) {
+    window.settings = window.settings || {};
+    window.settings.discipline = obj;
+    bust();
+    try {
+      var lid = window._getLeagueId ? window._getLeagueId() : '';
+      if (lid && window._firestoreSetDoc && window._firestoreDoc && window._db) {
+        await window._firestoreSetDoc(
+          window._firestoreDoc(window._db, 'leagues', lid, 'config', 'settings'),
+          { discipline: obj }, { merge: true });
+      }
+      return true;
+    } catch (e) {
+      window.showToast && window.showToast('تعذّر الحفظ: ' + (window._trErr ? window._trErr(e) : e.message), 'error');
+      return false;
+    }
+  }
+
+  window.spSaveSetup = async function () {
+    if (!DRAFT) return;
+    var obj = Object.assign({}, DRAFT, { enabled: true, configured: true });
+    var ok = await saveDiscipline(obj);
+    window.spCloseSetup();
+    if (!ok) return;
+    var s = state(true);
+    window.showToast && window.showToast(
+      '✅ فُعّل الإيقاف الآلي — ' + s.suspended.length + ' موقوفاً حالياً', 'success');
+    renderSettingsPage();
+    renderSuspPage();
+  };
+
+  /* الإيقاف: يُعطَّل النظام ولا يبقى له أثر — لم نكتب شيئاً في الكشوف */
+  window.spDisable = async function () {
+    var ok = window.confirmDialog
+      ? await window.confirmDialog({
+          title: '⚖️ إيقاف النظام الآلي',
+          message: 'ستعود حالات اللاعبين يدوية بالكامل كما كانت.\n\n' +
+                   'لن يُحتسب أي إيقاف تلقائياً، وتختفي قوائم الموقوفين والتنبيهات فوراً.\n' +
+                   'إعداداتك محفوظة — لو أعدت التفعيل لاحقاً تعود كما تركتها.',
+          confirmText: 'إيقاف النظام', danger: true })
+      : confirm('إيقاف النظام الآلي؟');
+    if (!ok) return;
+    var c = cfg();
+    c.enabled = false;
+    await saveDiscipline(c);
+    state(true);
+    window.showToast && window.showToast('النظام معطَّل — الحالات يدوية بالكامل', 'success');
+    renderSettingsPage();
+    renderSuspPage();
+    syncSidebar();
+  };
+
+  /* ─────────────────────────────────────────────────────────────
+     ⑤ صفحة الإعدادات الفرعية: الانضباط والإيقافات
+     ───────────────────────────────────────────────────────────── */
+  function cfgSummary() {
+    var c = cfg();
+    if (!c.enabled) return 'معطَّل';
+    if (!c.configured) return 'يحتاج إعداداً';
+    var bits = [];
+    bits.push(c.yellowThreshold > 0 ? (c.yellowThreshold + ' صفراوات') : 'بلا تراكم');
+    bits.push(c.redBan > 0 ? ('حمراء = ' + c.redBan) : 'حمراء بلا إيقاف');
+    return bits.join(' · ');
+  }
+
+  function renderSettingsPage() {
+    var host = document.getElementById('page-set-discipline');
+    if (!host) return;
+    css();
+    var c = cfg(), s = state(true);
+    var on = c.enabled && c.configured;
+
+    var head =
+      '<div class="set-back" onclick="showPage(\'settings\',null)"><span>›</span> الإعدادات</div>' +
+      '<div class="page-header">' +
+        '<div class="page-title">⚖️ الانضباط والإيقافات</div>' +
+        '<div class="page-sub">الإيقاف الآلي بتراكم البطاقات — اختياري بالكامل</div>' +
+      '</div>';
+
+    if (!on) {
+      host.innerHTML = head +
+        '<div class="sp">' +
+          '<div class="sp-off">' +
+            '<div class="sp-ic">⚖️</div>' +
+            '<h4>' + (c.enabled ? 'النظام مفعَّل لكنه غير مُعدّ' : 'الإيقاف الآلي معطَّل') + '</h4>' +
+            '<p>ما دام معطَّلاً فحالة كل لاعب <b style="color:#e6e8ec">يدوية بالكامل</b> كما هي اليوم: ' +
+              'أنت من يضع «موقوف» في كشف الفريق، ولا تُحسب البطاقات ولا يُستنتج شيء.<br><br>' +
+              'عند التفعيل تُفتح نافذة تختار فيها لائحتك: عتبة الصفراوات، ومدّة إيقاف الحمراء والطرد بإنذارين، ' +
+              'وهل تُمسح الأرصدة عند التأهل للإقصاء. ولا يُطبَّق شيء قبل حفظها.</p>' +
+            '<button class="sp-cta" onclick="spOpenSetup()">⚖️ تفعيل وإعداد النظام</button>' +
+          '</div>' +
+        '</div>';
+      return;
+    }
+
+    var rows = [
+      ['عتبة الصفراوات', c.yellowThreshold > 0 ? (c.yellowThreshold + ' بطاقات ← إيقاف ' + c.yellowBan + ' مباراة') : 'لا إيقاف بالتراكم'],
+      ['البطاقة الحمراء', c.redBan > 0 ? (c.redBan + ' مباراة') : 'لا إيقاف'],
+      ['الطرد بإنذارين', c.secondYellowBan > 0 ? (c.secondYellowBan + ' مباراة') : 'لا إيقاف'],
+      ['صفراوا الطرد في الرصيد', c.secondYellowCounts ? 'تُحتسب' : 'لا تُحتسب'],
+      ['عند بداية الإقصاء', c.resetOnKnockout ? 'تُمسح الأرصدة' : 'تُنقل كما هي'],
+      ['بطاقات الإقصاء', c.countKnockout ? 'تُحتسب' : 'مستثناة'],
+      ['بطاقات الملحق', c.countPlayoff ? 'تُحتسب' : 'مستثناة'],
+      ['في التشكيلة والأحداث', c.blockInLineup ? 'يُوسم ويُمنع' : 'بلا وسم'],
+      ['تنبيه فتح المباراة', c.warnOnOpen ? 'مفعَّل' : 'مطفأ'],
+      ['ظهوره للجمهور', c.showToPublic ? 'يظهر' : 'مخفي']
+    ].map(function (r) {
+      return '<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05)">' +
+        '<span style="font-size:11.5px;color:#818794">' + r[0] + '</span>' +
+        '<span style="font-size:11.5px;font-weight:800;color:#e6e8ec;text-align:left">' + r[1] + '</span></div>';
+    }).join('');
+
+    host.innerHTML = head +
+      '<div class="sp">' +
+        '<div style="display:flex;gap:9px;margin-bottom:14px">' +
+          '<div style="flex:1;text-align:center;padding:14px;border-radius:14px;background:rgba(192,57,43,.07);border:1px solid rgba(192,57,43,.24)">' +
+            '<div style="font-size:24px;font-weight:900;color:#e07070">' + s.suspended.length + '</div>' +
+            '<div style="font-size:10.5px;color:#818794;font-weight:700">موقوف الآن</div></div>' +
+          '<div style="flex:1;text-align:center;padding:14px;border-radius:14px;background:rgba(217,162,27,.07);border:1px solid rgba(217,162,27,.24)">' +
+            '<div style="font-size:24px;font-weight:900;color:#D9A21B">' + s.warning.length + '</div>' +
+            '<div style="font-size:10.5px;color:#818794;font-weight:700">على حافة الإيقاف</div></div>' +
+        '</div>' +
+        '<div class="card"><div class="card-body">' + rows + '</div></div>' +
+        '<div style="display:flex;gap:9px;margin-top:14px">' +
+          '<button class="sp-cta" style="flex:2" onclick="spOpenSetup()">✎ تعديل اللائحة</button>' +
+          '<button style="flex:1;padding:12px;border-radius:12px;border:1px solid rgba(192,57,43,.3);background:rgba(192,57,43,.07);color:#e07070;font-family:Tajawal,sans-serif;font-weight:900;font-size:12.5px;cursor:pointer" onclick="spDisable()">إيقاف النظام</button>' +
+        '</div>' +
+        '<div style="margin-top:14px;text-align:center">' +
+          '<button style="padding:11px 20px;border-radius:11px;border:1px solid #262a33;background:transparent;color:#9aa0aa;font-family:Tajawal,sans-serif;font-size:12px;font-weight:800;cursor:pointer" onclick="showPage(\'suspensions\',null)">عرض قائمة الموقوفين ←</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ⑥ صفحة الموقوفين
+     ───────────────────────────────────────────────────────────── */
+  function playerCard(p, kind) {
+    var c = cfg();
+    var why = kind === 'ban'
+      ? (p.lastBan ? p.lastBan.text : 'إيقاف')
+      : ('رصيده ' + p.tally + ' من ' + c.yellowThreshold + ' — بطاقة واحدة تُوقفه');
+    var miss = '';
+    if (kind === 'ban') {
+      miss = p.nextMatch
+        ? ('يغيب عن: ' + esc(matchLabel(p.nextMatch)))
+        : 'لا مباراة قادمة مجدولة لفريقه بعد';
+    }
+    return '<div class="sp-card ' + kind + '">' +
+      '<div class="sp-num">' + (p.number != null ? p.number : '—') + '</div>' +
+      '<div class="sp-body">' +
+        '<div class="sp-nm">' + esc(p.name) + '</div>' +
+        '<div class="sp-tm">' + esc(p.teamName) + '</div>' +
+        '<span class="sp-why ' + kind + '">' + esc(why) + '</span>' +
+        (miss ? '<span class="sp-miss">' + miss + '</span>' : '') +
+      '</div>' +
+      (kind === 'ban'
+        ? '<span class="sp-badge ban">' + p.pending + ' مباراة</span>' +
+          '<button class="sp-pardon" onclick="spPardon(\'' + p.key.replace(/'/g, "\\'") + '\')" title="رفع الإيقاف عن هذا اللاعب">إعفاء</button>'
+        : '<span class="sp-badge warn">' + p.tally + '/' + c.yellowThreshold + '</span>') +
+    '</div>';
+  }
+
+  function matchLabel(m) {
+    var h = teamName(m.homeId) || m.homeName || '؟';
+    var a = teamName(m.awayId) || m.awayName || '؟';
+    var when = m.date ? (' · ' + m.date + (m.time ? ' ' + m.time : '')) : (m.round ? (' · الجولة ' + m.round) : '');
+    return h + ' × ' + a + when;
+  }
+
+  /* الإعفاء يُثبَّت على آخر مباراة منتهية، فيبقى صامداً أمام إعادة
+     الحساب ولا يُمحى بأول تعديل على الأحداث. */
+  window.spPardon = async function (key) {
+    var s = state();
+    var p = s.players.filter(function (x) { return x.key === key; })[0];
+    if (!p) return;
+    var ok = window.confirmDialog
+      ? await window.confirmDialog({
+          title: '🕊 رفع الإيقاف',
+          message: 'سيُرفع الإيقاف عن ' + p.name + ' (' + p.teamName + ') فوراً.\n\n' +
+                   'يُستعمل عند قبول تظلّم أو خطأ في تسجيل بطاقة. رصيده التراكمي لا يتأثر.',
+          confirmText: 'رفع الإيقاف' })
+      : confirm('رفع الإيقاف عن ' + p.name + '؟');
+    if (!ok) return;
+    var finished = MS().filter(function (m) { return m.status === 'finished'; }).sort(oldestFirst);
+    var last = finished[finished.length - 1];
+    if (!last) return;
+    var c = cfg();
+    c.pardons = (c.pardons || []).filter(function (x) { return !(x.key === key && x.afterMatchId === last.id); });
+    c.pardons.push({ key: key, afterMatchId: last.id, at: Date.now(), name: p.name });
+    await saveDiscipline(c);
+    state(true);
+    renderSuspPage();
+    window.showToast && window.showToast('🕊 رُفع الإيقاف عن ' + p.name, 'success');
+  };
+
+  function renderSuspPage() {
+    var host = document.getElementById('page-suspensions');
+    if (!host) return;
+    css();
+    var c = cfg();
+    var head =
+      '<div class="page-header">' +
+        '<div class="page-title">⚖️ الإيقافات</div>' +
+        '<div class="page-sub">من يغيب عن الجولة القادمة ولماذا</div>' +
+      '</div>';
+
+    if (!(c.enabled && c.configured)) {
+      host.innerHTML = head +
+        '<div class="sp"><div class="sp-off">' +
+          '<div class="sp-ic">⚖️</div>' +
+          '<h4>الإيقاف الآلي معطَّل</h4>' +
+          '<p>لا يُحسب شيء تلقائياً الآن — حالة كل لاعب يدوية من كشف فريقه.<br>' +
+             'فعّله لتظهر هنا قائمة الموقوفين للجولة القادمة ومن اقترب منها.</p>' +
+          '<button class="sp-cta" onclick="showPage(\'set-discipline\',null)">⚖️ اذهب للإعداد</button>' +
+        '</div></div>';
+      return;
+    }
+
+    var s = state(true);
+    var body = '';
+
+    body += '<div class="sp-grp">🚫 موقوفون عن الجولة القادمة (' + s.suspended.length + ')</div>';
+    body += s.suspended.length
+      ? s.suspended.map(function (p) { return playerCard(p, 'ban'); }).join('')
+      : '<div class="sp-empty">لا يوجد موقوفون — كل اللاعبين متاحون.</div>';
+
+    if (c.yellowThreshold > 0) {
+      body += '<div class="sp-grp">⚠️ على حافة الإيقاف (' + s.warning.length + ')</div>';
+      body += s.warning.length
+        ? s.warning.map(function (p) { return playerCard(p, 'warn'); }).join('')
+        : '<div class="sp-empty">لا أحد على بُعد بطاقة واحدة من الإيقاف.</div>';
+    }
+
+    /* جدول الأرصدة — من له بطاقة واحدة فأكثر، مرتّباً بالأعلى رصيداً */
+    var withCards = s.players.filter(function (p) { return p.yellowsTotal || p.redsTotal; })
+      .sort(function (a, b) { return (b.tally - a.tally) || (b.yellowsTotal - a.yellowsTotal); });
+    if (withCards.length) {
+      body += '<div class="sp-grp">📋 أرصدة البطاقات (' + withCards.length + ')</div>';
+      body += '<div class="card"><div class="card-body" style="padding:4px 12px">' +
+        withCards.map(function (p) {
+          return '<div style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05)">' +
+            '<span style="flex:1;min-width:0;font-size:12px;font-weight:800;color:#e6e8ec;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+              esc(p.name) + ' <span style="font-size:10px;color:#6a7080;font-weight:600">' + esc(p.teamName) + '</span></span>' +
+            '<span style="font-size:10.5px;color:#D9A21B;font-weight:800">🟨 ' + p.yellowsTotal + '</span>' +
+            (p.redsTotal ? '<span style="font-size:10.5px;color:#e07070;font-weight:800">🟥 ' + p.redsTotal + '</span>' : '') +
+            '<span style="font-size:10px;color:#6a7080;font-weight:700;min-width:52px;text-align:left">رصيد ' + p.tally + '</span>' +
+          '</div>';
+        }).join('') + '</div></div>';
+    }
+
+    body += '<div style="margin-top:16px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.025);' +
+      'border:1px solid rgba(255,255,255,.06);font-size:11px;color:#818794;line-height:1.9">' +
+      'ℹ️ الإيقافات <b style="color:#e6e8ec">تُحسب ولا تُخزَّن</b>: أي تعديل على بطاقة — إلغاؤها أو تصحيح دقيقتها ' +
+      'أو حذفها — يصحّح الإيقاف في اللحظة نفسها، فلا يبقى إيقاف يتيم لبطاقة لم تعد موجودة.' +
+      '</div>' +
+      '<div style="margin-top:10px;text-align:center">' +
+        '<button style="padding:11px 20px;border-radius:11px;border:1px solid #262a33;background:transparent;color:#9aa0aa;' +
+        'font-family:Tajawal,sans-serif;font-size:12px;font-weight:800;cursor:pointer" onclick="showPage(\'set-discipline\',null)">⚙︎ تعديل اللائحة</button>' +
+      '</div>';
+
+    host.innerHTML = head + '<div class="sp">' + body + '</div>';
+  }
+
+  window.Suspensions.renderPage = renderSuspPage;
+  window.Suspensions.renderSettings = renderSettingsPage;
+
+  /* ─────────────────────────────────────────────────────────────
+     ⑦ حقن الصفحات وعناصر التنقّل في لوحة الإدارة
+     ───────────────────────────────────────────────────────────── */
+  function makeSection(id) {
+    if (document.getElementById(id)) return document.getElementById(id);
+    var host = document.getElementById('panel-main');
+    if (!host) return null;
+    var d = document.createElement('div');
+    d.className = 'section';
+    d.id = id;
+    host.appendChild(d);
+    return d;
+  }
+
+  function syncSidebar() {
+    var item = document.getElementById('sb-suspensions');
+    if (!item) return;
+    var c = cfg();
+    var badge = item.querySelector('.sb-badge');
+    var s = (c.enabled && c.configured) ? state() : null;
+    if (badge) {
+      if (s && s.suspended.length) {
+        badge.textContent = s.suspended.length;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  }
+
+  function inject() {
+    if (!document.querySelector('.sidebar') || !document.getElementById('panel-main')) return false;
+    if (document.getElementById('sb-suspensions')) return true;
+
+    makeSection('page-set-discipline');
+    makeSection('page-suspensions');
+
+    /* بند القائمة الجانبية — تحت «الإدارة» بجوار الفرق */
+    var teamsItem = document.querySelector('.sidebar .sb-item[onclick*="\'teams\'"]');
+    if (teamsItem && teamsItem.parentNode) {
+      var it = document.createElement('div');
+      it.className = 'sb-item';
+      it.id = 'sb-suspensions';
+      it.setAttribute('onclick', "showPage('suspensions',this)");
+      it.setAttribute('data-page', 'suspensions');
+      it.innerHTML = '<span class="sb-icon">⚖️</span> الإيقافات ' +
+        '<span class="sb-badge" style="display:none;background:rgba(192,57,43,.18);color:#e07070">0</span>';
+      teamsItem.parentNode.insertBefore(it, teamsItem.nextSibling);
+    }
+
+    /* صفّ في مركز الإعدادات — المجموعة ② (المباريات واللاعبون) */
+    var lists = document.querySelectorAll('#page-settings .set-list');
+    var target = lists[1] || lists[0];
+    if (target && !document.getElementById('set-row-discipline')) {
+      var row = document.createElement('div');
+      row.className = 'set-row';
+      row.id = 'set-row-discipline';
+      row.setAttribute('onclick', "showPage('set-discipline',null)");
+      row.innerHTML =
+        '<span class="set-row-ic">⚖️</span>' +
+        '<div class="set-row-txt">' +
+          '<div class="set-row-t">الانضباط والإيقافات</div>' +
+          '<div class="set-row-d">إيقاف آلي بتراكم البطاقات — اختياري</div>' +
+        '</div>' +
+        '<span class="set-badge" id="set-badge-discipline"></span>' +
+        '<span class="set-row-go">‹</span>';
+      target.appendChild(row);
+    }
+    syncSidebar();
+    return true;
+  }
+
+  /* شارة الصفّ في مركز الإعدادات تعرض القيمة الحالية بلا فتحه */
+  function syncSettingsBadge() {
+    var b = document.getElementById('set-badge-discipline');
+    if (b) b.textContent = cfgSummary();
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ⑧ الربط بالمنصة — كله مشروط بأن النظام مفعَّل ومُعدّ
+     ───────────────────────────────────────────────────────────── */
+
+  /* أ) وسم الموقوف في منتقي اللاعبين (الأحداث والأهداف) */
+  whenFn('_renderRosterPickButtons', function (orig) {
+    window._renderRosterPickButtons = function (players, inputId, excl) {
+      try {
+        var c = cfg();
+        if (live() && c.blockInLineup) {
+          var set = window.Suspensions.suspendedSet();
+          if (set.any) {
+            players = (players || []).map(function (p) {
+              var hit = (p.id && set.ids[p.id]);
+              if (!hit) {
+                for (var k in set.names) { if (k.split('::')[1] === norm(p.name)) { hit = set.names[k]; break; } }
+              }
+              /* لا نستبدل «مصاب» — الإصابة حقيقة بدنية أَولى بالعرض */
+              if (hit && p.status !== 'injured') {
+                var cp = {}; for (var q in p) cp[q] = p[q];
+                cp.status = 'suspended';
+                return cp;
+              }
+              return p;
+            });
+          }
+        }
+      } catch (e) {}
+      return orig.call(this, players, inputId, excl);
+    };
+  });
+
+  /* ب) شريط تنبيه أعلى صفحة البثّ */
+  function stripHtml(matchId) {
+    var c = cfg();
+    if (!live() || !c.warnOnOpen) return '';
+    var f = window.Suspensions.forMatch(matchId);
+    var all = f.home.concat(f.away);
+    if (!all.length) return '';
+    var names = all.map(function (p) {
+      return esc(p.name) + ' <span style="color:#818794">(' + esc(p.teamName) + ')</span>';
+    }).join(' · ');
+    return '<div class="sp-strip"><span style="font-size:17px">🚫</span><div>' +
+      '<b>موقوفون عن هذه المباراة — ' + all.length + '</b>' +
+      '<span>' + names + '</span></div></div>';
+  }
+  window.Suspensions.stripHtml = stripHtml;
+
+  whenFn('openLivePage', function (orig) {
+    window.openLivePage = function (matchId) {
+      var r = orig.apply(this, arguments);
+      try {
+        css();
+        setTimeout(function () {
+          var page = document.getElementById('lp-' + matchId);
+          if (!page || page.querySelector('.sp-strip')) return;
+          var html = stripHtml(matchId);
+          if (!html) return;
+          var main = page.querySelector('.lp-col-main');
+          if (!main) return;
+          var d = document.createElement('div');
+          d.innerHTML = html;
+          main.insertBefore(d.firstChild, main.firstChild);
+        }, 120);
+      } catch (e) {}
+      return r;
+    };
+  });
+
+  /* ج) تنبيه في أداة التشكيلة */
+  whenFn('openLineupDragDrop', function (orig) {
+    window.openLineupDragDrop = function (matchId) {
+      var r = orig.apply(this, arguments);
+      try {
+        var c = cfg();
+        if (live() && c.blockInLineup) {
+          var f = window.Suspensions.forMatch(matchId);
+          var all = f.home.concat(f.away);
+          if (all.length && window.showToast) {
+            window.showToast('🚫 موقوف عن هذه المباراة: ' +
+              all.map(function (p) { return p.name; }).join(' · '), 'error');
+          }
+        }
+      } catch (e) {}
+      return r;
+    };
+  });
+
+  /* د) إعادة الرسم عند فتح الصفحتين */
+  whenFn('showPage', function (orig) {
+    window.showPage = function (name) {
+      var r = orig.apply(this, arguments);
+      try {
+        if (name === 'suspensions') renderSuspPage();
+        if (name === 'set-discipline') renderSettingsPage();
+        if (name === 'settings') syncSettingsBadge();
+      } catch (e) {}
+      return r;
+    };
+  });
+
+  /* ─────────────────────────────────────────────────────────────
+     ⑨ صفحة الجمهور — الموقوفون عن المباراة القادمة
+     ───────────────────────────────────────────────────────────── */
+  whenFn('openMatchDetail', function (orig) {
+    window.openMatchDetail = function (matchId) {
+      var r = orig.apply(this, arguments);
+      try {
+        var c = cfg();
+        if (!live() || !c.showToPublic) return r;
+        var m = MS().filter(function (x) { return x.id === matchId; })[0];
+        if (!m || m.status === 'finished') return r;   // الإيقاف يخصّ ما لم يُلعب
+        var f = window.Suspensions.forMatch(matchId);
+        var all = f.home.concat(f.away);
+        if (!all.length) return r;
+        css();
+        setTimeout(function () {
+          var body = document.getElementById('matchDetailBody');
+          if (!body || body.querySelector('.sp-strip')) return;
+          var d = document.createElement('div');
+          d.style.cssText = 'padding:0 14px';
+          d.innerHTML = '<div class="sp-strip" style="background:rgba(192,57,43,.06)">' +
+            '<span style="font-size:17px">🚫</span><div><b>موقوفون عن هذه المباراة</b><span>' +
+            all.map(function (p) {
+              return esc(p.name) + ' <span style="color:#818794">(' + esc(p.teamName) + ')</span>';
+            }).join(' · ') + '</span></div></div>';
+          body.insertBefore(d, body.firstChild);
+        }, 150);
+      } catch (e) {}
+      return r;
+    };
+  });
+
+  /* ─────────────────────────────────────────────────────────────
+     ⑩ الإقلاع
+     ───────────────────────────────────────────────────────────── */
+  var tries = 0;
+  var timer = setInterval(function () {
+    tries++;
+    if (inject() || tries > 60) {
+      clearInterval(timer);
+      try { syncSettingsBadge(); syncSidebar(); } catch (e) {}
+    }
+  }, 500);
+
+  /* أي تعديل على الأحداث يُبطل الذاكرة المؤقتة فوراً */
+  ['_lpSave', '_lpSaveV2'].forEach(function (fn) {
+   whenFn(fn, function (orig) {
+    window[fn] = async function () {
+      var r = await orig.apply(this, arguments);
+      bust();
+      try { syncSidebar(); } catch (e) {}
+      return r;
+    };
+   });
+  });
+
+  console.log('[suspensions] v335 — الإيقاف الآلي (اختياري) جاهز ✅');
+})();
+
+</script>
+
+<script>
+var cur='off';
+var TUNED={enabled:true,configured:true,yellowThreshold:3,yellowBan:1,redBan:2,secondYellowBan:1,
+  secondYellowCounts:false,countKnockout:true,countPlayoff:true,resetOnKnockout:false,
+  blockInLineup:true,warnOnOpen:true,showToPublic:true,pardons:[]};
+function paint(){
+  window.Suspensions.bust();
+  window.Suspensions.renderSettings();
+  window.Suspensions.renderPage();
+}
+function pvMode(m){
+  cur=m;
+  document.getElementById('b-off').classList.toggle('on',m==='off');
+  document.getElementById('b-on').classList.toggle('on',m==='on');
+  if(m==='off') delete window.settings.discipline;
+  else window.settings.discipline=JSON.parse(JSON.stringify(TUNED));
+  paint();
+}
+/* اعتراض الحفظ: يبقى محلياً ويعيد الرسم */
+var _origSave=window.spSaveSetup;
+paint();
+</script>
+</body>
+</html>

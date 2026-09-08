@@ -1,0 +1,799 @@
+/* ═══════════════════════════════════════════════════════════════════
+ *  events-timeline.js — v334
+ *  مجريات المباراة: عرض واحد أنيق + تحرير كامل في المواضع الثلاثة
+ *  ───────────────────────────────────────────────────────────────────
+ *  المشكلة التي يحلّها:
+ *
+ *    كانت «مجريات المباراة» ثلاث قوائم مختلفة في ثلاثة أماكن:
+ *      ① صفحة البثّ            (_lpRenderEvents)  — قائمة مسطّحة
+ *      ② الإدخال السريع/النتيجة (_qrEventsHtml)    — الأهداف فقط، بلا تعديل
+ *      ③ تعديل مباراة منتهية    (نفس صفحة البثّ)
+ *    كلٌّ بشكل مختلف، وترتيبها ترتيب الإدخال لا ترتيب الوقوع، ولا
+ *    تُظهر الصانع ولا طرفَي التبديل، والتعديل فيها ناقص: نافذة التعديل
+ *    لم يكن فيها حقل الصانع إطلاقاً — فلا سبيل لتصحيح صناعة أُدخلت خطأ.
+ *
+ *    هذا الملف يجعل الثلاثة **عرضاً واحداً**: خطّ زمني مرتّب بالأشواط،
+ *    كل حدث في صفّه بلونه وأيقونته، والصانع وطرفا التبديل ظاهران،
+ *    والأزرار الثلاثة (تعديل · إلغاء · حذف) في كل صفّ.
+ *
+ *  ما يضيفه:
+ *    • ترتيب زمني حقيقي: شوط ← دقيقة ← بدل ضائع (مع مبدّل «الأحدث أولاً»).
+ *    • فواصل الأشواط: الشوط الأول · الثاني · الإضافي ١/٢ · الترجيح.
+ *    • مرشّحات: الكل · أهداف · بطاقات · تبديلات · ملغاة.
+ *    • إلغاء الهدف في المواضع الثلاثة (كان في صفحة البثّ وحدها) —
+ *      يبقى ظاهراً بوسم «تم إلغاء الهدف» ويسقط من كل حساب.
+ *    • نافذة تحرير موحّدة تُعدّل: المسجّل · **الصانع** · الخارج/الداخل
+ *      في التبديل · الدقيقة · بدل الضائع · الشوط · الملاحظة —
+ *      وتُعيد حلّ الهويّات فلا ينفصل الحدث عن اللاعب بعد التعديل.
+ *
+ *  يُحمَّل آخر ملف في league-admin.html (بعد admin.js وكل الإصلاحات).
+ * ═══════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var GOLD = '#C9A02B', GOLD2 = '#F0C84A';
+
+  /* ⚠️ admin.js يُحمَّل بـ type="module" — أي أنه يعمل **بعد** السكربتات
+     العادية مهما كان ترتيبها في الصفحة. فتعريفاتنا لو طُبّقت فوراً دهسها
+     admin.js بعد لحظات وعادت القوائم القديمة. ننتظر حتى تظهر دوالّه
+     (نفس أسلوب timer-hotfix.js) ثم نُطبّق. */
+  function ready(fn, tries) {
+    tries = tries || 0;
+    if (window._liveMatches && typeof window._lpSaveV2 === 'function') return fn();
+    if (tries > 400) return;                     // ~24 ثانية ثم نكفّ
+    setTimeout(function () { ready(fn, tries + 1); }, 60);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ① أنواع الأحداث — مصدر واحد للأيقونة واللون والاسم
+     ───────────────────────────────────────────────────────────── */
+  var TYPES = {
+    goal:          { ic: '⚽', c: '#F0C84A', label: 'هدف',              goalish: true },
+    own:           { ic: '⚽', c: '#e5533d', label: 'هدف عكسي',         goalish: true },
+    /* ⚠️ 'penalty' في هذه المنصة = ركلة **ترجيح** لا ركلة جزاء أثناء اللعب.
+       ركلة الجزاء المسجَّلة تُحفظ نوعها 'goal' مع علامة penalty:true.
+       فلو عاملنا 'penalty' معاملة الهدف لأُضيفت ركلات الترجيح إلى النتيجة. */
+    penalty:       { ic: '🥅', c: '#9b59b6', label: 'ركلة ترجيح', shootout: true },
+    goalCancelled: { ic: '🚫', c: '#7a7a7a', label: 'هدف ملغى',         cancelled: true },
+    penaltyMiss:   { ic: '🎯', c: '#C0392B', label: 'ركلة جزاء ضائعة' },
+    yellow:        { ic: '🟨', c: '#D9A21B', label: 'بطاقة صفراء' },
+    red:           { ic: '🟥', c: '#C0392B', label: 'بطاقة حمراء' },
+    sub:           { ic: '🔄', c: '#3498db', label: 'تبديل' },
+    injury:        { ic: '🤕', c: '#e67e22', label: 'إصابة' },
+    var:           { ic: '📺', c: '#9b59b6', label: 'مراجعة VAR' },
+    assist:        { ic: '👟', c: '#27ae60', label: 'صناعة' }
+  };
+  function meta(t) { return TYPES[t] || { ic: '•', c: '#8a8a8a', label: 'حدث' }; }
+
+  var HALVES = {
+    '1':   { r: 1, label: 'الشوط الأول' },
+    '2':   { r: 2, label: 'الشوط الثاني' },
+    'et1': { r: 3, label: 'الوقت الإضافي — الشوط الأول' },
+    'et2': { r: 4, label: 'الوقت الإضافي — الشوط الثاني' },
+    'pen': { r: 5, label: 'ركلات الترجيح' }
+  };
+
+  /* الشوط قد يغيب في أحداث قديمة — نستنتجه من الدقيقة بدل تركه بلا فاصل */
+  function halfKey(e) {
+    if (e && e.type === 'penalty') return 'pen';   // ركلة ترجيح
+    var h = e && e.half;
+    if (h === 1 || h === '1') return '1';
+    if (h === 2 || h === '2') return '2';
+    if (h === 'et1' || h === 'et2' || h === 'pen') return h;
+    var m = parseInt(e && e.minute, 10);
+    if (isNaN(m)) return '1';
+    if (m > 120) return 'pen';
+    if (m > 105) return 'et2';
+    if (m > 90)  return 'et1';
+    if (m > 45)  return '2';
+    return '1';
+  }
+  function halfRank(e) { return (HALVES[halfKey(e)] || HALVES['1']).r; }
+
+  function num(v) { var n = parseInt(v, 10); return isNaN(n) ? 0 : n; }
+
+  /* الترتيب الزمني: شوط ← دقيقة ← بدل ضائع ← ترتيب الإدخال.
+     المعرّف آخر معيار حتى لا يتأرجح صفّان بنفس الدقيقة بين رسمتين. */
+  function chrono(a, b) {
+    return (halfRank(a) - halfRank(b))
+        || (num(a.minute) - num(b.minute))
+        || (num(a.extraMinute) - num(b.extraMinute))
+        || (num(a.id) - num(b.id));
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function minLabel(e) {
+    var m = e.minute === 0 || e.minute ? e.minute : '?';
+    return e.extraMinute ? (m + '+' + e.extraMinute) : String(m);
+  }
+  function sideOf(e) { return (e.team === 'away' || e.side === 'away') ? 'away' : 'home'; }
+
+  /* الاسم الحيّ من الكشف بالهوية — يتبع تعديل الاسم في صفحة الفرق */
+  function liveName(teamId, pid, fallback) {
+    try {
+      if (window._adminLiveName) return window._adminLiveName(teamId, pid, fallback || '');
+    } catch (e) {}
+    return fallback || '';
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ② CSS — يُحقن مرة واحدة
+     ───────────────────────────────────────────────────────────── */
+  function css() {
+    if (document.getElementById('etl-css')) return;
+    var s = document.createElement('style');
+    s.id = 'etl-css';
+    s.textContent = [
+      '.etl{font-family:Tajawal,sans-serif;direction:rtl}',
+      '.etl-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0 0 10px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:8px}',
+      '.etl-chip{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#9aa0aa;border-radius:999px;padding:5px 11px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;transition:.15s;white-space:nowrap}',
+      '.etl-chip:hover{border-color:rgba(201,160,43,.4);color:#ccc}',
+      '.etl-chip.on{background:rgba(201,160,43,.14);border-color:' + GOLD + ';color:' + GOLD2 + '}',
+      '.etl-chip .etl-n{opacity:.65;font-weight:700;margin-inline-start:3px}',
+      '.etl-ord{margin-inline-start:auto}',
+      '.etl-sum{display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 10px;margin-bottom:10px;border-radius:12px;background:linear-gradient(135deg,rgba(201,160,43,.07),transparent);border:1px solid rgba(201,160,43,.16)}',
+      '.etl-sum b{font-size:16px;font-weight:900;color:' + GOLD2 + '}',
+      '.etl-sum span{font-size:11px;font-weight:800;color:#cfd3da;max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.etl-sum i{font-style:normal;color:#5a6070;font-size:13px}',
+      '.etl-half{display:flex;align-items:center;gap:8px;margin:14px 0 8px;font-size:10px;font-weight:900;color:#6a7080;letter-spacing:.6px}',
+      '.etl-half::before,.etl-half::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.07)}',
+      '.etl-row{position:relative;display:flex;align-items:flex-start;gap:9px;padding:9px 11px 9px 9px;margin-bottom:6px;border-radius:12px;background:rgba(255,255,255,.022);border:1px solid rgba(255,255,255,.055);transition:.15s}',
+      '.etl-row:hover{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.1)}',
+      '.etl-row::before{content:"";position:absolute;top:9px;bottom:9px;inset-inline-start:0;width:3px;border-radius:0 3px 3px 0;background:var(--etl-a,#555)}',
+      '.etl-row.etl-away::before{border-radius:3px 0 0 3px;inset-inline-start:auto;inset-inline-end:0}',
+      '.etl-row.etl-away{padding:9px 9px 9px 11px}',
+      '.etl-row.etl-cancel{opacity:.62;background:rgba(255,255,255,.012)}',
+      '.etl-min{flex:0 0 auto;min-width:38px;text-align:center;font-size:11.5px;font-weight:900;color:' + GOLD + ';background:rgba(201,160,43,.08);border:1px solid rgba(201,160,43,.18);border-radius:8px;padding:4px 5px;line-height:1.2}',
+      '.etl-row.etl-cancel .etl-min{color:#7a7a7a;background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.07)}',
+      '.etl-ic{flex:0 0 auto;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;border-radius:8px;background:rgba(255,255,255,.04);margin-top:1px}',
+      '.etl-main{flex:1;min-width:0}',
+      '.etl-nm{font-size:12.5px;font-weight:800;color:#e6e8ec;line-height:1.45;word-break:break-word}',
+      '.etl-row.etl-cancel .etl-nm{color:#8a8a8a;text-decoration:line-through;text-decoration-color:#5a5a5a}',
+      '.etl-tag{display:inline-block;font-size:9px;font-weight:800;padding:1px 6px;border-radius:6px;margin-inline-start:5px;vertical-align:1px;background:rgba(255,255,255,.06);color:#9aa0aa}',
+      '.etl-line{display:block;font-size:10.5px;font-weight:700;margin-top:3px;line-height:1.5}',
+      '.etl-assist{color:#27ae60}',
+      '.etl-in{color:#2ecc71}.etl-out{color:#e05252}',
+      '.etl-note{color:#7f858f;font-weight:600}',
+      '.etl-cancelled-tag{color:#D64541;font-weight:900}',
+      '.etl-team{display:block;font-size:9.5px;font-weight:700;color:#6a7080;margin-top:3px}',
+      '.etl-acts{flex:0 0 auto;display:flex;gap:4px;align-items:center;margin-top:1px}',
+      '.etl-b{width:27px;height:27px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;border:1px solid;background:transparent;transition:.15s;padding:0}',
+      '.etl-b:active{transform:scale(.92)}',
+      '.etl-b-ed{border-color:rgba(201,160,43,.32);color:' + GOLD + ';background:rgba(201,160,43,.08)}',
+      '.etl-b-cx{border-color:rgba(214,69,65,.3);color:#D64541;background:rgba(214,69,65,.07)}',
+      '.etl-b-un{border-color:rgba(46,158,91,.34);color:#2E9E5B;background:rgba(46,158,91,.09)}',
+      '.etl-b-del{border-color:rgba(192,57,43,.28);color:#C0392B;background:rgba(192,57,43,.06)}',
+      '.etl-empty{text-align:center;padding:22px 14px;color:#6a7080;font-size:11.5px;line-height:1.9}',
+      '.etl-empty b{display:block;font-size:22px;margin-bottom:6px;opacity:.5}',
+      /* نافذة التحرير */
+      '.etl-ov{position:fixed;inset:0;z-index:100050;background:rgba(0,0,0,.78);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;font-family:Tajawal,sans-serif}',
+      '@media(min-width:640px){.etl-ov{align-items:center}}',
+      '.etl-sheet{width:100%;max-width:440px;max-height:92vh;overflow-y:auto;background:#111318;border:1px solid #262a33;border-radius:20px 20px 0 0;padding:0 0 26px;animation:etlUp .24s ease}',
+      '@media(min-width:640px){.etl-sheet{border-radius:20px}}',
+      '@keyframes etlUp{from{transform:translateY(26px);opacity:0}to{transform:translateY(0);opacity:1}}',
+      '.etl-sh-hd{position:sticky;top:0;z-index:2;padding:16px 18px 13px;border-bottom:1px solid #1f232b;background:linear-gradient(135deg,rgba(201,160,43,.13),rgba(201,160,43,.03)),#111318}',
+      '.etl-sh-hd h4{margin:0 0 3px;font-size:15.5px;font-weight:900;color:#e8eaf0}',
+      '.etl-sh-hd p{margin:0;font-size:11px;color:#818794}',
+      '.etl-sh-bd{padding:14px 18px 0}',
+      '.etl-f{margin-bottom:13px}',
+      '.etl-f>label{display:block;font-size:10.5px;font-weight:800;color:#818794;margin-bottom:5px}',
+      '.etl-inp{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:11px;border:1px solid #262a33;background:#0d0f13;color:#e6e8ec;font-size:13px;font-family:Tajawal,sans-serif}',
+      '.etl-inp:focus{outline:none;border-color:rgba(201,160,43,.55)}',
+      '.etl-2{display:grid;grid-template-columns:1fr 1fr;gap:9px}',
+      '.etl-seg{display:flex;gap:6px;flex-wrap:wrap}',
+      '.etl-seg button{flex:1;min-width:64px;padding:9px 4px;border-radius:10px;border:1px solid #262a33;background:#0d0f13;color:#9aa0aa;font-size:11px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif}',
+      '.etl-seg button.on{border-color:' + GOLD + ';background:rgba(201,160,43,.12);color:' + GOLD2 + '}',
+      '.etl-pick{max-height:190px;overflow-y:auto;margin-top:7px}',
+      '.etl-sh-ft{display:flex;gap:9px;padding:14px 18px 0;position:sticky;bottom:0;background:#111318;border-top:1px solid #1f232b;margin-top:6px;padding-bottom:4px}',
+      '.etl-ft-b{flex:1;padding:13px;border-radius:12px;font-size:13px;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer;border:1px solid transparent}',
+      '.etl-ft-cancel{background:transparent;border-color:#262a33;color:#818794}',
+      '.etl-ft-save{flex:2;background:linear-gradient(145deg,' + GOLD2 + ',' + GOLD + ');color:#1a1200}'
+    ].join('\n');
+    document.head.appendChild(s);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ③ المضيف: من أين تُقرأ الأحداث وأين تُحفظ
+        'live' = صفحة البثّ / تعديل مباراة منتهية  (_liveMatches)
+        'qr'   = الإدخال السريع / نافذة سجّل النتيجة (m.events)
+     ───────────────────────────────────────────────────────────── */
+  function M(id) { return (window.matches || []).find(function (x) { return x.id === id; }) || null; }
+  function T(id, fbName, fbLogo) {
+    var t = (window.teams || []).find(function (x) { return x.id === id; });
+    return t || { id: id, name: fbName || 'فريق', logo: fbLogo || '' };
+  }
+
+  function getEvents(host, matchId) {
+    if (host === 'live') {
+      var st = window._liveMatches && window._liveMatches[matchId];
+      return (st && Array.isArray(st.events)) ? st.events : [];
+    }
+    var m = M(matchId);
+    if (!m) return [];
+    if (!Array.isArray(m.events)) m.events = [];
+    return m.events;
+  }
+  function setEvents(host, matchId, arr) {
+    if (host === 'live') {
+      var st = window._liveMatches && window._liveMatches[matchId];
+      if (st) st.events = arr;
+      return;
+    }
+    var m = M(matchId);
+    if (m) m.events = arr;
+  }
+
+  /* كل حدث لازمه معرّف — أحداث قديمة في المباريات المنتهية قد تفتقده،
+     وبدونه لا يعرف زرّ التعديل على أيّ صفّ ضُغط. */
+  function ensureIds(events) {
+    var base = Date.now();
+    events.forEach(function (e, i) {
+      if (e && (e.id === undefined || e.id === null || e.id === '')) e.id = base + i;
+    });
+    return events;
+  }
+
+  /* إعادة احتساب النتيجة من الأحداث — قاعدة واحدة للمسارين.
+     goalCancelled ليس في القائمة، فيسقط تلقائياً من النتيجة. */
+  /* نفس شرط isGoalSide في admin.js حرفياً — 'goal' و'own' فقط.
+     أي توسعة هنا تُدخل ركلات الترجيح أو الأحداث العرضية في النتيجة. */
+  function isGoalFor(e, side) {
+    if (!e) return false;
+    if (e.type !== 'goal' && e.type !== 'own') return false;
+    if (e.isShootout || e.shootout) return false;
+    return sideOf(e) === side;
+  }
+  function resync(host, matchId) {
+    var evs = getEvents(host, matchId);
+    if (host === 'live') {
+      if (window._lpRescore) { try { window._lpRescore(matchId); return; } catch (e) {} }
+      var st = window._liveMatches && window._liveMatches[matchId];
+      if (!st) return;
+      st.homeScore = evs.filter(function (e) { return isGoalFor(e, 'home'); }).length;
+      st.awayScore = evs.filter(function (e) { return isGoalFor(e, 'away'); }).length;
+      return;
+    }
+    var m = M(matchId); if (!m) return;
+    m.homeScore = evs.filter(function (e) { return isGoalFor(e, 'home'); }).length;
+    m.awayScore = evs.filter(function (e) { return isGoalFor(e, 'away'); }).length;
+    /* المرايا النصية: أسماء فقط — أي رقم بين قوسين تقرأه أنظمة الهدّافين
+       على أنه عدد أهداف لا دقيقة. والملغى مستثنى هنا أيضاً. */
+    var names = function (sd) {
+      return evs.filter(function (e) { return e.type === 'goal' && sideOf(e) === sd; })
+                .map(function (e) { return e.player; })
+                .filter(Boolean).join(', ');
+    };
+    m.homeScorers = names('home');
+    m.awayScorers = names('away');
+  }
+
+  function repaint(host, matchId) {
+    if (host === 'live') {
+      if (window._lpRenderEvents) window._lpRenderEvents(matchId);
+    } else if (window._qrRefresh) {
+      window._qrRefresh(matchId);
+    }
+  }
+  async function persist(host, matchId) {
+    if (host !== 'live') return;               // مسار qr يحفظ عند ضغط «حفظ»
+    try { if (window._lpSave) await window._lpSave(matchId); } catch (e) {}
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ④ حالة العرض لكل مباراة (مرشّح + اتجاه الترتيب)
+     ───────────────────────────────────────────────────────────── */
+  var UI = {};
+  function ui(matchId) {
+    if (!UI[matchId]) UI[matchId] = { filter: 'all', desc: false };
+    return UI[matchId];
+  }
+  window.etlSetFilter = function (host, matchId, f) { ui(matchId).filter = f; repaint(host, matchId); };
+  window.etlToggleOrder = function (host, matchId) { ui(matchId).desc = !ui(matchId).desc; repaint(host, matchId); };
+
+  var FILTERS = [
+    { k: 'all',    t: 'الكل',      f: function () { return true; } },
+    { k: 'goals',  t: 'أهداف',     f: function (e) { return e.type === 'goal' || e.type === 'own'; } },
+    { k: 'cards',  t: 'بطاقات',    f: function (e) { return e.type === 'yellow' || e.type === 'red'; } },
+    { k: 'subs',   t: 'تبديلات',   f: function (e) { return e.type === 'sub'; } },
+    { k: 'cancel', t: 'ملغاة',     f: function (e) { return e.type === 'goalCancelled'; } }
+  ];
+
+  /* ─────────────────────────────────────────────────────────────
+     ⑤ الرسم
+     ───────────────────────────────────────────────────────────── */
+  function rowHtml(e, host, matchId, accent) {
+    var mt = meta(e.type);
+    var sd = sideOf(e);
+    var tid = e.teamId || null;
+    var cancelled = e.type === 'goalCancelled';
+
+    var main = '', extra = '';
+
+    /* ركلات الترجيح تُدار من لوحة الترجيح لا من هنا: تُعرض للسياق ولا
+       تُعدَّل ولا تُلغى، وإلا افترق ما في اللوحة عمّا في المجريات. */
+    if (e.type === 'penalty') {
+      var scored = (e.result === 'goal') || (e.result && e.result.result === 'goal');
+      var pnm = liveName(tid, e.playerId, e.player || '');
+      main = (pnm ? esc(pnm) : 'ركلة ترجيح') +
+        '<span class="etl-tag" style="color:' + (scored ? '#2E9E5B' : '#C0392B') + '">' +
+        (scored ? '✓ سجّلت' : '✕ ضاعت') + '</span>';
+      return '<div class="etl-row etl-' + sd + '" style="--etl-a:#9b59b6;opacity:.85">' +
+        '<span class="etl-min">' + esc(minLabel(e)) + '</span>' +
+        '<span class="etl-ic" style="color:#9b59b6">🥅</span>' +
+        '<div class="etl-main"><div class="etl-nm">' + main + '</div>' +
+        '<span class="etl-team">' + esc(e.teamName || '') + '</span></div></div>';
+    }
+
+    if (e.type === 'sub') {
+      var out = liveName(tid, e.playerOutId || e.playerId, e.playerOut || e.player || '');
+      var inn = liveName(tid, e.playerInId, e.playerIn || e.player2 || '');
+      main  = '<span class="etl-out">▼ ' + esc(out || '—') + '</span>';
+      extra = '<span class="etl-line etl-in">▲ ' + esc(inn || '—') + '</span>';
+    } else if (e.type === 'own') {
+      var ownNm = liveName(tid, e.playerId, e.player || '');
+      main = esc(ownNm || 'هدف عكسي') + '<span class="etl-tag">عكسي</span>';
+    } else {
+      var nm = liveName(tid, e.playerId, e.player || '');
+      main = esc(nm || (mt.goalish ? 'هدف بلا اسم' : '—'));
+      if (e.type === 'penalty' || e.penalty) main += '<span class="etl-tag">ركلة جزاء</span>';
+      if (e.assist) {
+        var asNm = liveName(tid, e.assistPlayerId, e.assist);
+        extra += '<span class="etl-line etl-assist">👟 صناعة: ' + esc(asNm) + '</span>';
+      }
+    }
+    if (cancelled) {
+      extra += '<span class="etl-line etl-cancelled-tag">✕ تم إلغاء الهدف</span>';
+    }
+    if (e.note) extra += '<span class="etl-line etl-note">📝 ' + esc(e.note) + '</span>';
+
+    /* الأزرار: الملغى له زرّ استرجاع بدل الإلغاء، والهدف وحده يقبل الإلغاء */
+    var canCancel = (e.type === 'goal' || e.type === 'own');
+    var acts =
+      '<button class="etl-b etl-b-ed" title="تعديل" onclick="etlEdit(\'' + host + '\',\'' + matchId + '\',\'' + e.id + '\')">✎</button>' +
+      (cancelled
+        ? '<button class="etl-b etl-b-un" title="تراجع عن الإلغاء" onclick="etlUncancel(\'' + host + '\',\'' + matchId + '\',\'' + e.id + '\')">↩</button>'
+        : (canCancel
+            ? '<button class="etl-b etl-b-cx" title="إلغاء الهدف — يبقى ظاهراً بعلامة إلغاء" onclick="etlCancel(\'' + host + '\',\'' + matchId + '\',\'' + e.id + '\')">🚫</button>'
+            : '')) +
+      '<button class="etl-b etl-b-del" title="حذف نهائياً" onclick="etlDelete(\'' + host + '\',\'' + matchId + '\',\'' + e.id + '\')">🗑</button>';
+
+    return '<div class="etl-row etl-' + sd + (cancelled ? ' etl-cancel' : '') + '" style="--etl-a:' + (cancelled ? '#4a4a4a' : (sd === 'home' ? accent.home : accent.away)) + '">' +
+      '<span class="etl-min">' + esc(minLabel(e)) + "'</span>" +
+      '<span class="etl-ic" style="color:' + mt.c + '">' + mt.ic + '</span>' +
+      '<div class="etl-main">' +
+        '<div class="etl-nm">' + main + '</div>' + extra +
+        '<span class="etl-team">' + esc(e.teamName || '') + '</span>' +
+      '</div>' +
+      '<div class="etl-acts">' + acts + '</div>' +
+    '</div>';
+  }
+
+  /* الواجهة العامة: تبني الخطّ الزمني كاملاً (شريط + ملخّص + صفوف) */
+  function render(host, matchId, opts) {
+    css();
+    opts = opts || {};
+    var m = M(matchId) || {};
+    var all = ensureIds(getEvents(host, matchId).slice());
+    var st = ui(matchId);
+
+    var ht = T(m.homeId, m.homeName, m.homeLogo);
+    var at = T(m.awayId, m.awayName, m.awayLogo);
+    var accent = { home: GOLD, away: '#5B8DEF' };
+
+    /* شريط المرشّحات — كل مرشّح يحمل عدده، فيُعرف الفارغ قبل الضغط */
+    var chips = FILTERS.map(function (f) {
+      var n = all.filter(f.f).length;
+      if (f.k === 'cancel' && !n) return '';                 // لا نعرض «ملغاة» بلا ملغى
+      return '<button class="etl-chip' + (st.filter === f.k ? ' on' : '') + '" ' +
+        'onclick="etlSetFilter(\'' + host + '\',\'' + matchId + '\',\'' + f.k + '\')">' +
+        f.t + '<span class="etl-n">' + n + '</span></button>';
+    }).join('');
+
+    var ordBtn = '<button class="etl-chip etl-ord" onclick="etlToggleOrder(\'' + host + '\',\'' + matchId + '\')" ' +
+      'title="ترتيب الأحداث">' + (st.desc ? '⇅ الأحدث أولاً' : '⇅ الأقدم أولاً') + '</button>';
+
+    if (!all.length) {
+      return '<div class="etl">' +
+        '<div class="etl-empty"><b>⚽</b>لا توجد أحداث بعد<br>' +
+        'سجّل هدفاً أو بطاقة من الأزرار بالأعلى وستظهر هنا مرتّبة بالدقيقة.</div></div>';
+    }
+
+    /* الملخّص: النتيجة كما تقولها الأحداث نفسها — لا رقم مستقلّ عنها */
+    var hg = all.filter(function (e) { return isGoalFor(e, 'home'); }).length;
+    var ag = all.filter(function (e) { return isGoalFor(e, 'away'); }).length;
+    var summary = '<div class="etl-sum"><span>' + esc(ht.name) + '</span><b>' + hg + '</b>' +
+      '<i>—</i><b>' + ag + '</b><span>' + esc(at.name) + '</span></div>';
+
+    var fdef = FILTERS.filter(function (f) { return f.k === st.filter; })[0] || FILTERS[0];
+    var list = all.filter(fdef.f).sort(chrono);
+    if (st.desc) list.reverse();
+
+    var body = '';
+    if (!list.length) {
+      body = '<div class="etl-empty">لا شيء في هذا التصنيف</div>';
+    } else {
+      var lastHalf = null;
+      list.forEach(function (e) {
+        var hk = halfKey(e);
+        if (hk !== lastHalf) {
+          lastHalf = hk;
+          body += '<div class="etl-half">' + (HALVES[hk] || HALVES['1']).label + '</div>';
+        }
+        body += rowHtml(e, host, matchId, accent);
+      });
+    }
+
+    return '<div class="etl">' +
+      '<div class="etl-bar">' + chips + ordBtn + '</div>' +
+      (opts.noSummary ? '' : summary) +
+      body +
+    '</div>';
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ⑥ إلغاء / استرجاع / حذف — بنفس السلوك في المسارين
+     ───────────────────────────────────────────────────────────── */
+  function find(host, matchId, id) {
+    var evs = getEvents(host, matchId);
+    return evs.filter(function (e) { return String(e.id) === String(id); })[0] || null;
+  }
+  function who(e) {
+    if (e.type === 'own') return 'هدف عكسي' + (e.player ? ' · ' + e.player : '');
+    return e.player || 'هدف بلا اسم';
+  }
+  async function ask(o) {
+    if (window.confirmDialog) return await window.confirmDialog(o);
+    return window.confirm(o.title + '\n\n' + o.message);
+  }
+  function toast(msg, kind) { if (window.showToast) window.showToast(msg, kind || 'success'); }
+
+  window.etlCancel = async function (host, matchId, id) {
+    var e = find(host, matchId, id);
+    if (!e) return;
+    var ok = await ask({
+      title: '🚫 إلغاء الهدف',
+      message: 'سيُلغى: ' + who(e) + (e.minute ? ' (د ' + minLabel(e) + ')' : '') +
+        '\n\nيبقى ظاهراً في المجريات بعلامة «تم إلغاء الهدف» — عندك وعند الجمهور — ' +
+        'ويسقط فوراً من: النتيجة · جدول الهدّافين · صنّاع الأهداف · سجلّ اللاعب · شارات التشكيلة · إحصائيات المباراة.',
+      confirmText: 'إلغاء الهدف', danger: true
+    });
+    if (!ok) return;
+    e._origGoalType = e.type;
+    e.type = 'goalCancelled';
+    e.cancelledAt = new Date().toLocaleTimeString('ar');
+    resync(host, matchId); repaint(host, matchId); await persist(host, matchId);
+    toast('🚫 أُلغي الهدف — ظاهر في المجريات وغير محتسَب في أي مكان');
+  };
+
+  window.etlUncancel = async function (host, matchId, id) {
+    var e = find(host, matchId, id);
+    if (!e || e.type !== 'goalCancelled') return;
+    e.type = e._origGoalType || 'goal';
+    delete e._origGoalType; delete e.cancelledAt;
+    resync(host, matchId); repaint(host, matchId); await persist(host, matchId);
+    toast('↩️ أُعيد احتساب الهدف');
+  };
+
+  window.etlDelete = async function (host, matchId, id) {
+    var e = find(host, matchId, id);
+    if (!e) return;
+    var mt = meta(e.type);
+    var ok = await ask({
+      title: '🗑 حذف الحدث',
+      message: 'سيُحذف نهائياً: ' + mt.label + ' — ' + who(e) +
+        (e.minute ? ' (د ' + minLabel(e) + ')' : '') +
+        '\n\nلن يبقى له أثر في المجريات ولا في أي إحصاء.\n' +
+        'لو كان هدفاً أُلغي بمراجعة، الأنسب زرّ «إلغاء» لا الحذف — فيبقى ظاهراً للجمهور.',
+      confirmText: 'حذف', danger: true
+    });
+    if (!ok) return;
+    setEvents(host, matchId, getEvents(host, matchId).filter(function (x) { return String(x.id) !== String(id); }));
+    resync(host, matchId); repaint(host, matchId); await persist(host, matchId);
+    toast('🗑 حُذف الحدث');
+  };
+
+  /* ─────────────────────────────────────────────────────────────
+     ⑦ نافذة التحرير الموحّدة
+        كل ما يُدخَل يُعدَّل: المسجّل · الصانع · طرفا التبديل ·
+        الدقيقة · بدل الضائع · الشوط · الملاحظة.
+     ───────────────────────────────────────────────────────────── */
+  var EDIT = null;   // {host, matchId, id, half}
+
+  function assistEnabled() {
+    return !!(window.settings && window.settings.showAssistPicker);
+  }
+
+  window.etlEdit = async function (host, matchId, id) {
+    css();
+    var e = find(host, matchId, id);
+    if (!e) return;
+    var m = M(matchId) || {};
+    var sd = sideOf(e);
+    var mt = meta(e.type);
+    var isSub = e.type === 'sub';
+    var isOwn = e.type === 'own';
+    var isGoal = (e.type === 'goal');
+
+    /* الفريق: صاحب الحدث. والهدف العكسي يسجّله لاعب من **الفريق الآخر**،
+       فكشفه يُجلب من الجهة المقابلة وإلا عرضنا لاعبين لا علاقة لهم به. */
+    var evTeamId = e.teamId || (sd === 'home' ? m.homeId : m.awayId);
+    var pickTeamId = isOwn ? (sd === 'home' ? m.awayId : m.homeId) : evTeamId;
+
+    EDIT = { host: host, matchId: matchId, id: id, half: halfKey(e) };
+
+    var old = document.getElementById('etl-edit-ov');
+    if (old) old.remove();
+
+    var body = '';
+    if (isSub) {
+      body =
+        '<div class="etl-f"><label>اللاعب الخارج ▼</label>' +
+          '<input id="etl-out" class="etl-inp" value="' + esc(e.playerOut || e.player || '') + '" placeholder="اسم الخارج"/>' +
+          '<div id="etl-out-pick" class="etl-pick"></div></div>' +
+        '<div class="etl-f"><label>اللاعب الداخل ▲</label>' +
+          '<input id="etl-in" class="etl-inp" value="' + esc(e.playerIn || e.player2 || '') + '" placeholder="اسم الداخل"/>' +
+          '<div id="etl-in-pick" class="etl-pick"></div></div>';
+    } else {
+      var plLabel = isOwn ? 'من سجّل الهدف العكسي (من الفريق الآخر)'
+        : isGoal ? 'صاحب الهدف'
+        : e.type === 'penaltyMiss' ? 'منفّذ الركلة الضائعة'
+        : 'اسم اللاعب';
+      body =
+        '<div class="etl-f"><label>' + plLabel + '</label>' +
+          '<input id="etl-player" class="etl-inp" value="' + esc(e.player || '') + '" placeholder="اكتب الاسم أو اختره من القائمة"/>' +
+          '<div id="etl-player-pick" class="etl-pick"></div></div>';
+      /* 🔴 حقل الصانع لم يكن في نافذة التعديل إطلاقاً — فصناعة أُدخلت خطأ
+         لا تُصحَّح إلا بحذف الهدف وإعادته. الآن يُعدَّل ويُمسح كغيره. */
+      if (isGoal && assistEnabled()) {
+        body +=
+          '<div class="etl-f"><label>👟 صانع الهدف <span style="color:#5a6070;font-weight:600">(اتركه فارغاً لإزالة الصناعة)</span></label>' +
+            '<input id="etl-assist" class="etl-inp" value="' + esc(e.assist || '') + '" placeholder="اسم الصانع"/>' +
+            '<div id="etl-assist-pick" class="etl-pick"></div></div>';
+      }
+    }
+
+    var halves = ['1', '2', 'et1', 'et2'];
+    var segs = halves.map(function (h) {
+      return '<button class="' + (EDIT.half === h ? 'on' : '') + '" onclick="etlPickHalf(this,\'' + h + '\')">' +
+        ({ '1': 'الأول', '2': 'الثاني', 'et1': 'إضافي ١', 'et2': 'إضافي ٢' })[h] + '</button>';
+    }).join('');
+
+    var ov = document.createElement('div');
+    ov.id = 'etl-edit-ov';
+    ov.className = 'etl-ov';
+    ov.innerHTML =
+      '<div class="etl-sheet" onclick="event.stopPropagation()">' +
+        '<div class="etl-sh-hd">' +
+          '<h4>' + mt.ic + ' تعديل: ' + mt.label + '</h4>' +
+          '<p>' + esc(e.teamName || '') + ' · الدقيقة ' + esc(minLabel(e)) + "'</p>" +
+        '</div>' +
+        '<div class="etl-sh-bd">' +
+          body +
+          '<div class="etl-f"><label>الشوط</label><div class="etl-seg" id="etl-halfseg">' + segs + '</div></div>' +
+          '<div class="etl-2">' +
+            '<div class="etl-f"><label>الدقيقة</label>' +
+              '<input id="etl-min" class="etl-inp" type="number" min="0" max="130" value="' + esc(e.minute === 0 || e.minute ? e.minute : '') + '"/></div>' +
+            '<div class="etl-f"><label>بدل الضائع (+)</label>' +
+              '<input id="etl-extra" class="etl-inp" type="number" min="0" max="20" value="' + esc(e.extraMinute || '') + '"/></div>' +
+          '</div>' +
+          '<div class="etl-f"><label>ملاحظة</label>' +
+            '<input id="etl-note" class="etl-inp" value="' + esc(e.note || '') + '" placeholder="مثال: تسديدة من خارج المنطقة"/></div>' +
+        '</div>' +
+        '<div class="etl-sh-ft">' +
+          '<button class="etl-ft-b etl-ft-cancel" onclick="etlCloseEdit()">إلغاء</button>' +
+          '<button class="etl-ft-b etl-ft-save" onclick="etlSaveEdit()">💾 حفظ التعديل</button>' +
+        '</div>' +
+      '</div>';
+    ov.onclick = function () { ov.remove(); };
+    document.body.appendChild(ov);
+
+    /* منتقيات الكشف — نفس القائمة الموحّدة المستعملة في تسجيل الحدث،
+       فلا يتفرّع شكل الاختيار بين الإضافة والتعديل. */
+    async function fillPick(boxId, inputId, teamId) {
+      var box = document.getElementById(boxId);
+      if (!box || !teamId || !window._loadTeamRoster) return;
+      box.innerHTML = '<span style="font-size:11px;color:#6a7080">جارِ تحميل الكشف…</span>';
+      try {
+        var roster = await window._loadTeamRoster(teamId);
+        box.innerHTML = window._renderRosterPickButtons
+          ? window._renderRosterPickButtons(roster, inputId, null)
+          : '';
+      } catch (err) {
+        box.innerHTML = '<span style="font-size:11px;color:#6a7080">تعذّر تحميل الكشف — اكتب الاسم يدوياً</span>';
+      }
+    }
+    if (isSub) {
+      fillPick('etl-out-pick', 'etl-out', evTeamId);
+      fillPick('etl-in-pick', 'etl-in', evTeamId);
+    } else {
+      fillPick('etl-player-pick', 'etl-player', pickTeamId);
+      if (isGoal && assistEnabled()) fillPick('etl-assist-pick', 'etl-assist', evTeamId);
+    }
+  };
+
+  window.etlPickHalf = function (btn, h) {
+    if (!EDIT) return;
+    EDIT.half = h;
+    var box = document.getElementById('etl-halfseg');
+    if (box) Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.classList.remove('on'); });
+    btn.classList.add('on');
+  };
+
+  window.etlCloseEdit = function () {
+    var ov = document.getElementById('etl-edit-ov');
+    if (ov) ov.remove();
+    EDIT = null;
+  };
+
+  window.etlSaveEdit = async function () {
+    if (!EDIT) return;
+    var host = EDIT.host, matchId = EDIT.matchId;
+    var e = find(host, matchId, EDIT.id);
+    if (!e) return window.etlCloseEdit();
+    var m = M(matchId) || {};
+    var sd = sideOf(e);
+    var evTeamId = e.teamId || (sd === 'home' ? m.homeId : m.awayId);
+    var isOwn = e.type === 'own';
+    var pickTeamId = isOwn ? (sd === 'home' ? m.awayId : m.homeId) : evTeamId;
+
+    var val = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
+
+    /* الاسم وحده لا يكفي: كل الحسابات تفضّل الهوية متى توفّرت. تغيير
+       الاسم بلا إعادة حلّ الهوية يُبقي الهدف مسجّلاً على اللاعب القديم. */
+    var rid = function (teamId, name) {
+      if (!name || !window._resolvePlayerId) return {};
+      try { return window._resolvePlayerId(teamId, name, matchId, sd) || {}; }
+      catch (err) { return {}; }
+    };
+
+    if (e.type === 'sub') {
+      var out = val('etl-out'), inn = val('etl-in');
+      if (!out || !inn) { toast('اكتب اللاعب الخارج والداخل', 'error'); return; }
+      var ro = rid(evTeamId, out), ri = rid(evTeamId, inn);
+      e.player = out; e.playerOut = out;
+      e.playerId = ro.playerId || null; e.playerOutId = ro.playerId || null;
+      e.playerNumber = ro.number != null ? ro.number : null;
+      e.player2 = inn; e.playerIn = inn;
+      e.playerInId = ri.playerId || null;
+      e.playerInNumber = ri.number != null ? ri.number : null;
+    } else {
+      var nm = val('etl-player');
+      var rp = rid(pickTeamId, nm);
+      e.player = nm;
+      e.playerId = rp.playerId || null;
+      e.playerNumber = rp.number != null ? rp.number : null;
+
+      var asEl = document.getElementById('etl-assist');
+      if (asEl) {
+        var asName = asEl.value.trim();
+        if (!asName || asName === nm) {
+          /* الصانع نفسه المسجّل = خطأ إدخال شائع، والفراغ يعني الإزالة.
+             نمسح الحقول الثلاثة معاً وإلا بقي assistPlayerId يتيماً. */
+          e.assist = null; e.assistPlayerId = null; e.assistNumber = null;
+        } else {
+          var ra = rid(evTeamId, asName);
+          e.assist = asName;
+          e.assistPlayerId = ra.playerId || null;
+          e.assistNumber = ra.number != null ? ra.number : null;
+        }
+      }
+    }
+
+    var mn = val('etl-min'), ex = val('etl-extra');
+    if (mn !== '') e.minute = parseInt(mn, 10);
+    e.extraMinute = ex === '' ? 0 : (parseInt(ex, 10) || 0);
+    e.half = EDIT.half;
+    e.note = val('etl-note');
+    e.editedAt = new Date().toLocaleTimeString('ar');
+
+    window.etlCloseEdit();
+    resync(host, matchId);
+    repaint(host, matchId);
+    await persist(host, matchId);
+    toast('✅ حُفظ التعديل — انعكس في المجريات والإحصائيات');
+  };
+
+  /* ─────────────────────────────────────────────────────────────
+     ⑧ ربط المواضع الثلاثة بالعرض الواحد
+     ───────────────────────────────────────────────────────────── */
+  ready(function () {
+
+  /* ① صفحة البثّ + تعديل مباراة منتهية */
+  window._lpRenderEvents = function (matchId) {
+    var box = document.getElementById('lp-events-list-' + matchId);
+    if (!box) return;
+    box.innerHTML = render('live', matchId, {});
+  };
+
+  /* ② نافذة «سجّل نتيجتها» / الإدخال السريع
+        كانت تعرض الأهداف وحدها وبزرّ حذف فقط — فالبطاقات والتبديلات
+        المسجّلة في البثّ تختفي من نظر المنظّم هنا تماماً. */
+  window._qrEventsHtml = function (m) {
+    if (!m) return '';
+    /* أول فتح للنافذة لا يمرّ بـ _qrRefresh، فنُصلح العنوان بعد دخول
+       العناصر للصفحة مباشرةً بدل انتظار أول تعديل. */
+    setTimeout(function () {
+      var box = document.getElementById('qr-events-' + m.id);
+      var prev = box && box.previousElementSibling;
+      if (prev && /سجل الأهداف/.test(prev.textContent || '')) prev.textContent = '⚽ مجريات المباراة';
+    }, 0);
+    return render('qr', m.id, {});
+  };
+
+  /* ③ نفس النافذة كان فيها **قائمتان**: الأهداف فوق، والبطاقات والتبديلات
+        تحت. فالمباراة الواحدة تُقرأ في مكانين ولا يُعرف تسلسلها. صار
+        الخطّ الزمني واحداً فوق، وهذه المساحة تبقى للأزرار وحدها. */
+  window._qrCardEventsHtml = function (m) {
+    var evs = m && Array.isArray(m.events) ? m.events : [];
+    var n = evs.filter(function (e) {
+      return e.type === 'yellow' || e.type === 'red' || e.type === 'sub' ||
+             e.type === 'injury' || e.type === 'var';
+    }).length;
+    return '<div style="text-align:center;padding:9px 8px;font-size:10.5px;color:#6a7080;' +
+      'background:rgba(255,255,255,.02);border-radius:9px;line-height:1.8">' +
+      (n ? ('سُجّل ' + n + ' حدثاً — يظهر بترتيبه الزمني في «مجريات المباراة» بالأعلى، ومنه يُعدَّل ويُحذف.')
+         : 'اضغط زرّاً بالأعلى لتسجيل حدث — سيظهر في «مجريات المباراة» في مكانه الزمني.') +
+      '</div>';
+  };
+
+  /* عنوان القسم كان «⚽ سجل الأهداف» وصار يعرض المجريات كاملة —
+     نُصلح النصّ بعد كل رسم كي لا يَعِد بأقلّ ممّا يُظهر. */
+  (function () {
+    var orig = window._qrRefresh;
+    window._qrRefresh = function (matchId) {
+      if (typeof orig === 'function') { try { orig.apply(this, arguments); } catch (e) {} }
+      var box = document.getElementById('qr-events-' + matchId);
+      if (box) {
+        box.innerHTML = render('qr', matchId, {});
+        var prev = box.previousElementSibling;
+        if (prev && /سجل الأهداف/.test(prev.textContent || '')) prev.textContent = '⚽ مجريات المباراة';
+      }
+      var cbox = document.getElementById('qr-cardevents-' + matchId);
+      if (cbox) cbox.innerHTML = window._qrCardEventsHtml(M(matchId));
+    };
+  })();
+
+  /* ④ القائمة القديمة (qe_events_*) إن كانت ما تزال ظاهرة في نسخة ما */
+  window._qeEventsListHtmlV2 = function (m) { return m ? render('qr', m.id, { noSummary: true }) : ''; };
+
+  }); /* /ready */
+
+  /* واجهة عامة لمن يريد بناء الخطّ الزمني في أي حاوية أخرى */
+  window.EvTL = {
+    render: render, chrono: chrono, halfKey: halfKey, meta: meta,
+    resync: resync, isGoalFor: isGoalFor, TYPES: TYPES, HALVES: HALVES
+  };
+
+  /* ─────────────────────────────────────────────────────────────
+     ⑨ رجل المباراة — نافذة الاختيار بعد نهاية المباراة
+        اختياري تماماً: بلا اختيار صريح لا تظهر نجمة على أحد في
+        التشكيلة. وهذه النافذة هي المكان الوحيد الذي يُقرَّر فيه.
+     ───────────────────────────────────────────────────────────── */
+  var _momShown = {};
+  function openMOMOnce(matchId, delay) {
+    if (!matchId || _momShown[matchId]) return;
+    _momShown[matchId] = true;
+    setTimeout(function () {
+      try { if (window.openMOMPicker) window.openMOMPicker(matchId); } catch (e) {}
+    }, delay || 600);
+  }
+  window.etlAskMOM = function (matchId) { _momShown[matchId] = false; openMOMOnce(matchId, 100); };
+
+  /* بعد إنهاء المباراة من صفحة البثّ */
+  ready(function () {
+    var orig = window.lpEndMatch;
+    if (typeof orig !== 'function') return;
+    window.lpEndMatch = async function (matchId) {
+      var r = await orig.apply(this, arguments);
+      var mm = M(matchId);
+      if (mm && !(mm.manOfMatch || '').trim()) openMOMOnce(matchId, 700);
+      return r;
+    };
+  });
+
+  console.log('[events-timeline] v334 — مجريات موحّدة في المواضع الثلاثة ✅');
+})();

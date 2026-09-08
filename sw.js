@@ -1,7 +1,7 @@
 // ══ Service Worker — منصة بطولات ══
 /* ⚠️ ارفع هذا الرقم مع كل نشر، وإلا خدم الـ SW نسخة قديمة من
    admin.js / TimerCore فتنكسر الاستبدالات وتعود أخطاء الساعة. */
-const VERSION = 'batolat-v333';
+const VERSION = 'batolat-v337';
 
 // أهم ملفات صفحة الجمهور فقط (offline يخص الجمهور بشكل أساسي)
 const SHELL = [
@@ -28,6 +28,10 @@ const SHELL = [
   './viewport-lock.js',
   './back-nav.js',
   './match-core.js',
+  './events-timeline.js',
+  './suspensions.js',
+  './match-defaults.js',
+  './penalties-core.js',
   './manifest.json',
   './manifest-viewer.json',
   './icon-192.png',

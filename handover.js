@@ -46,9 +46,7 @@
 
   /* ── بناء صفحة التسليم ── */
   function buildPage(d) {
-    var TYPE = { league: 'دوري نقاط', groups: 'مجموعات + خروج مغلوب', knockout: 'خروج مغلوب' };
-    var typeTxt = TYPE[d.type] || 'بطولة';
-
+  
     var row = function (label, value, opts) {
       opts = opts || {};
       if (!value) return '';
@@ -157,7 +155,7 @@
       '<div class="badge-top"><i></i> بطولة مُفعّلة وجاهزة</div>' +
       '<div class="lg">' + (d.logo ? '<img src="' + esc(d.logo) + '" alt=""/>' : ICON.trophy) + '</div>' +
       '<h1>' + esc(d.name) + '</h1>' +
-      '<div class="sub">' + esc(typeTxt) + ' &middot; موسم ' + esc(d.season || '2025') + '</div>' +
+      '<div class="sub">بطولة جاهزة &middot; موسم ' + esc(d.season || '2025') + '</div>' +
       '<div class="trust"><div>' + ICON.broadcast + ' بث مباشر</div><div>' + ICON.cloud + ' نسخ احتياطي</div><div>' + ICON.lock + ' آمن ومشفّر</div></div>' +
     '</div>' +
 
@@ -184,7 +182,8 @@
       '<ol class="steps">' +
         '<li>افتح لوحة الإدارة وسجّل الدخول بالبريد وكلمة المرور أعلاه</li>' +
         '<li>أكمل معالج إعداد البطولة (يظهر تلقائياً أول مرة)</li>' +
-        '<li>أضف الفرق المشاركة' + (d.type !== 'league' ? ' ثم وزّعها على المجموعات' : '') + '</li>' +
+        '<li>اختر نظام بطولتك من المعالج — دوري أو مجموعات أو خروج مغلوب</li>' +
+        '<li>أضف الفرق المشاركة</li>' +
         '<li>ستتولّد المباريات تلقائياً بالجولات مرتّبة</li>' +
         '<li>شارك رابط الجمهور مع الجميع لمتابعة البث المباشر</li>' +
       '</ol>' +

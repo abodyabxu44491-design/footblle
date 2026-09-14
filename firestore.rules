@@ -36,6 +36,12 @@ service cloud.firestore {
              && exists(/databases/$(database)/documents/leagueAdmins/$(request.auth.uid));
     }
 
+    // السوبر أدمن: مسجّل دخول وليس له سجلّ منظّم بطولة.
+    // هذا هو نفس التمييز المستعمل في بقية القواعد ضمناً.
+    function isSuperAdmin() {
+      return signedIn() && !hasAdminRec();
+    }
+
     // منظّم هذه البطولة تحديداً (ونشط)
     function ownsLeague(lid) {
       return hasAdminRec()
@@ -142,6 +148,24 @@ service cloud.firestore {
 
     // ── الاشتراكات ───────────────────────────────────────────
     // المنظّم يقرأ حالته وتاريخ انتهائه. الكتابة للسوبر أدمن فقط.
+
+    /* ── طلبات الاشتراك ─────────────────────────────────────────
+       صفحة الاشتراك عامة ويفتحها من لا حساب له، فالإنشاء مسموح
+       للجميع — لكن بلا قراءة ولا تعديل ولا حذف. فلا يقدر أحد أن
+       يقرأ طلبات غيره (وفيها بريد وكلمة مرور)، ولا أن يعبث بها.
+       القراءة والإدارة للسوبر أدمن وحده. */
+    match /subRequests/{rid} {
+      allow create: if request.resource.data.keys().hasAll(['name','phone','email'])
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() >= 2
+                    && request.resource.data.name.size() <= 80
+                    && request.resource.data.email is string
+                    && request.resource.data.email.size() <= 120
+                    && request.resource.data.phone is string
+                    && request.resource.data.phone.size() <= 25;
+      allow read, update, delete: if isSuperAdmin();
+    }
+
     match /subscriptions/{sid} {
       allow read:  if signedIn();
       allow write: if false;

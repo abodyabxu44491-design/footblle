@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>اشتراك منصة بطولات</title>
+<meta name="description" content="احسب تكلفة اشتراكك وأرسل طلبك في دقيقة.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap');
+:root{
+  --gold:#B8912A;--goldL:#FBF6E8;--goldB:#EBDCB4;
+  --bg:#F6F7F9;--card:#FFFFFF;--line:#E8EAEE;--line2:#D8DCE3;
+  --t1:#161A1F;--t2:#5A626D;--t3:#949BA6;
+  --green:#1EB955;--red:#D64541;
+  --sh:0 1px 2px rgba(16,20,26,.05),0 8px 24px rgba(16,20,26,.05);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);font-family:Tajawal,sans-serif;color:var(--t1);line-height:1.75;
+ padding:0 0 200px;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.wrap{max-width:520px;margin:0 auto;padding:0 16px}
+
+.hero{text-align:center;padding:40px 0 26px}
+.mark{width:66px;height:66px;margin:0 auto 16px;border-radius:20px;
+ background:linear-gradient(150deg,#FFF8E6,#F7EED4);border:1px solid var(--goldB);
+ display:flex;align-items:center;justify-content:center;color:var(--gold);
+ box-shadow:0 6px 20px rgba(184,145,42,.14)}
+.hero h1{font-size:26px;font-weight:900;letter-spacing:-.4px}
+.hero h1 b{color:var(--gold)}
+.hero p{font-size:13.5px;color:var(--t2);margin-top:8px;font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:6px;margin-top:15px;font-size:12px;
+ font-weight:900;color:var(--gold);background:var(--goldL);border:1px solid var(--goldB);
+ border-radius:999px;padding:7px 16px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;
+ margin-bottom:13px;overflow:hidden;box-shadow:var(--sh)}
+.ch{display:flex;align-items:center;gap:10px;padding:15px 17px;border-bottom:1px solid var(--line)}
+.ch .n{width:25px;height:25px;border-radius:9px;background:var(--goldL);
+ border:1px solid var(--goldB);color:var(--gold);font-size:11.5px;font-weight:900;
+ display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.ch .t{font-size:14.5px;font-weight:900}
+.ch .s{font-size:11px;color:var(--t3);font-weight:700;margin-inline-start:auto}
+.cb{padding:17px}
+
+.f{margin-bottom:16px}
+.f:last-child{margin-bottom:0}
+.f>label{display:block;font-size:12.5px;font-weight:800;color:var(--t1);margin-bottom:7px}
+.f>label .req{color:var(--red);margin-inline-start:3px}
+.f>.hint{font-size:11px;color:var(--t3);font-weight:600;margin:-3px 0 8px;line-height:1.7}
+.inp{width:100%;padding:14px 15px;border-radius:13px;border:1.5px solid var(--line2);
+ background:#FCFCFD;color:var(--t1);font-size:14.5px;font-family:Tajawal,sans-serif;
+ font-weight:700;transition:.15s}
+.inp::placeholder{color:#B3B9C2;font-weight:600}
+.inp:focus{outline:none;border-color:var(--gold);background:#fff;
+ box-shadow:0 0 0 4px rgba(184,145,42,.1)}
+.inp.bad{border-color:var(--red);background:#FFF8F8}
+.inp[type=tel]{direction:ltr;text-align:right;letter-spacing:.6px}
+.err{font-size:11.5px;color:var(--red);font-weight:700;margin-top:6px;display:none}
+.err.on{display:block}
+
+.step{display:flex;align-items:center;gap:8px;background:#FCFCFD;
+ border:1.5px solid var(--line2);border-radius:13px;padding:7px 8px}
+.step button{width:42px;height:42px;border-radius:11px;border:1px solid var(--line2);
+ background:#fff;color:var(--t2);font-size:21px;font-weight:900;cursor:pointer;
+ font-family:Tajawal,sans-serif;flex:0 0 auto;line-height:1;transition:.12s}
+.step button:active{background:var(--goldL);border-color:var(--goldB);color:var(--gold)}
+.step input{flex:1;min-width:0;border:0;background:none;color:var(--t1);text-align:center;
+ font-size:20px;font-weight:900;font-family:Tajawal,sans-serif;font-variant-numeric:tabular-nums}
+.step input:focus{outline:none}
+.step .u{font-size:11.5px;color:var(--t3);font-weight:800;flex:0 0 auto;padding-inline-end:6px}
+
+.sw{display:flex;align-items:center;gap:12px;padding:14px;border-radius:13px;
+ background:#FCFCFD;border:1.5px solid var(--line2);cursor:pointer;margin-bottom:10px;transition:.15s}
+.sw:last-child{margin-bottom:0}
+.sw.on{border-color:var(--goldB);background:var(--goldL)}
+.sw .tx{flex:1;min-width:0}
+.sw .tx b{display:block;font-size:13.5px;font-weight:800}
+.sw .tx i{font-style:normal;display:block;font-size:11px;color:var(--t3);font-weight:600;
+ line-height:1.65;margin-top:2px}
+.sw .px{font-size:12px;font-weight:900;color:var(--gold);flex:0 0 auto}
+.knob{width:46px;height:26px;border-radius:999px;background:#DFE3E9;position:relative;
+ transition:.22s;flex:0 0 auto}
+.knob::after{content:'';position:absolute;top:3px;inset-inline-end:3px;width:20px;height:20px;
+ border-radius:50%;background:#fff;transition:.22s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.sw.on .knob{background:var(--gold)}
+.sw.on .knob::after{inset-inline-end:23px}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.opt{position:relative;padding:14px 12px;border-radius:13px;border:1.5px solid var(--line2);
+ background:#FCFCFD;cursor:pointer;text-align:center;transition:.15s}
+.opt:active{transform:scale(.985)}
+.opt.on{border-color:var(--gold);background:var(--goldL);box-shadow:0 0 0 3px rgba(184,145,42,.09)}
+.opt b{display:block;font-size:14px;font-weight:900}
+.opt i{font-style:normal;display:block;font-size:11px;color:var(--t3);font-weight:700;margin-top:2px}
+.opt.on i{color:var(--gold)}
+.opt .tag{position:absolute;top:-8px;inset-inline-start:50%;transform:translateX(-50%);
+ font-size:9.5px;font-weight:900;color:#fff;background:var(--green);border-radius:999px;
+ padding:2px 9px;white-space:nowrap}
+
+
+/* ── زرّ الفيديو ── */
+.watch{display:flex;align-items:center;gap:11px;width:100%;padding:14px 16px;margin:4px 0 16px;
+ border-radius:15px;border:1.5px solid var(--line2);background:#fff;cursor:pointer;
+ font-family:Tajawal,sans-serif;text-align:right;box-shadow:var(--sh);transition:.15s}
+.watch:active{background:var(--bg)}
+.watch .pl{width:40px;height:40px;border-radius:12px;background:#FEECEC;color:#E5322D;
+ display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.watch .tx b{display:block;font-size:13.5px;font-weight:900;color:var(--t1)}
+.watch .tx i{font-style:normal;display:block;font-size:11px;color:var(--t3);font-weight:600;margin-top:1px}
+.watch .go{margin-inline-start:auto;color:var(--t3);flex:0 0 auto}
+
+/* ── بعد الطلب ── */
+.flow{display:flex;flex-direction:column;gap:0}
+.fstep{display:flex;gap:12px;align-items:flex-start}
+.fstep .n{width:28px;height:28px;border-radius:9px;background:var(--goldL);
+ border:1px solid var(--goldB);color:var(--gold);font-size:12px;font-weight:900;
+ display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.fstep .tx b{display:block;font-size:13.5px;font-weight:800}
+.fstep .tx i{font-style:normal;display:block;font-size:11.5px;color:var(--t3);
+ font-weight:600;line-height:1.75;margin-top:2px}
+.fline{width:2px;height:16px;background:var(--goldB);margin-inline-start:13px;
+ border-radius:2px}
+
+/* ── الأسئلة ── */
+.faq{border-bottom:1px solid var(--line)}
+.faq:last-child{border-bottom:none}
+.faq-q{display:flex;align-items:center;gap:10px;padding:14px 0;cursor:pointer;
+ font-size:13.5px;font-weight:800;color:var(--t1)}
+.faq-q .ic{margin-inline-start:auto;color:var(--t3);transition:.22s;flex:0 0 auto}
+.faq.on .faq-q .ic{transform:rotate(180deg);color:var(--gold)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .3s cubic-bezier(.16,1,.3,1)}
+.faq.on .faq-a{max-height:260px}
+.faq-a p{font-size:12.5px;color:var(--t2);line-height:2;padding:0 0 14px;font-weight:600}
+.faq-a b{color:var(--t1);font-weight:800}
+
+/* ── لا أدري ── */
+.dunno{display:block;width:100%;margin-top:9px;padding:10px;border-radius:11px;
+ border:1.5px dashed var(--line2);background:transparent;color:var(--t3);
+ font-family:Tajawal,sans-serif;font-size:11.5px;font-weight:800;cursor:pointer}
+.dunno:active{background:var(--bg)}
+.dunno.on{border-style:solid;border-color:var(--goldB);background:var(--goldL);color:var(--gold)}
+
+
+/* فاصل */
+.divider{display:flex;align-items:center;gap:11px;margin:20px 0 16px;
+ font-size:11px;font-weight:900;color:var(--t3)}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line)}
+/* اقتراح البريد */
+.sugg{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.sugg button{font-size:11px;font-weight:800;padding:6px 11px;border-radius:9px;
+ border:1px solid var(--line2);background:#FCFCFD;color:var(--t2);cursor:pointer;
+ font-family:ui-monospace,monospace;direction:ltr}
+.sugg button:active{background:var(--goldL);border-color:var(--goldB);color:var(--gold)}
+/* كلمة المرور */
+.pw{position:relative}
+.pw .inp{padding-inline-end:48px}
+.pw-eye{position:absolute;inset-inline-end:6px;top:50%;transform:translateY(-50%);
+ width:36px;height:36px;border:0;background:none;font-size:17px;cursor:pointer;opacity:.55}
+.pw-meter{height:5px;border-radius:99px;background:#E8EAEE;margin-top:9px;overflow:hidden}
+.pw-meter i{display:block;height:100%;width:0;border-radius:99px;
+ transition:width .3s,background .3s}
+.pw-tip{font-size:11px;font-weight:700;color:var(--t3);margin-top:6px}
+/* حالة الإرسال */
+.sent{text-align:center;padding:32px 20px}
+.sent .ic{width:72px;height:72px;margin:0 auto 16px;border-radius:50%;background:#E8F8EE;
+ color:var(--green);display:flex;align-items:center;justify-content:center;font-size:34px}
+.sent h2{font-size:22px;font-weight:900;margin-bottom:9px}
+.sent p{font-size:13.5px;color:var(--t2);line-height:2;font-weight:600}
+
+/* المنزلق */
+.rng{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:99px;
+ background:linear-gradient(90deg,var(--gold) var(--p,0%),#E4E7EC var(--p,0%));outline:none;margin:2px 0}
+.rng::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;
+ background:#fff;border:3px solid var(--gold);cursor:pointer;
+ box-shadow:0 2px 8px rgba(16,20,26,.2)}
+.rng::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:#fff;
+ border:3px solid var(--gold);cursor:pointer;box-shadow:0 2px 8px rgba(16,20,26,.2)}
+.rng-marks{display:flex;justify-content:space-between;margin-top:7px;
+ font-size:10.5px;color:var(--t3);font-weight:800}
+/* اختصارات */
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px}
+.quick button{padding:10px 4px;border-radius:11px;border:1.5px solid var(--line2);
+ background:#FCFCFD;color:var(--t2);font-family:Tajawal,sans-serif;font-size:12px;
+ font-weight:800;cursor:pointer;transition:.15s}
+.quick button.on{border-color:var(--gold);background:var(--goldL);color:var(--gold)}
+/* شرائح الخصم */
+.tiers{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tier{text-align:center;padding:9px 4px;border-radius:10px;border:1px solid var(--line);
+ background:#FAFBFC;transition:.15s}
+.tier b{display:block;font-size:12px;font-weight:900;color:var(--t2)}
+.tier i{font-style:normal;display:block;font-size:10px;color:var(--t3);font-weight:700;margin-top:1px}
+.tier.on{border-color:var(--green);background:#F1FBF4}
+.tier.on b{color:var(--green)}
+.tier.on i{color:var(--green)}
+.bill{background:linear-gradient(165deg,#FFFDF7,#FFFFFF);border-color:var(--goldB)}
+.bill .ch{border-color:var(--goldB)}
+.line{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;
+ border-bottom:1px dashed var(--line)}
+.line:last-of-type{border-bottom:none}
+.line .l{font-size:13px;font-weight:800;color:var(--t1)}
+.line .l small{display:block;font-size:10.5px;color:var(--t3);font-weight:600;margin-top:1px}
+.line .v{font-size:14px;font-weight:900;flex:0 0 auto;font-variant-numeric:tabular-nums}
+.line.disc .v{color:var(--green)}
+.total{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
+ margin-top:15px;padding-top:15px;border-top:2px solid var(--goldB)}
+.total .l{font-size:13.5px;font-weight:900;color:var(--t2)}
+.total .l small{display:block;font-size:11px;color:var(--t3);font-weight:600;margin-top:2px}
+.total .v{font-size:36px;font-weight:900;color:var(--gold);line-height:1;
+ font-variant-numeric:tabular-nums}
+.total .v u{text-decoration:none;font-size:14px;color:var(--t3);margin-inline-start:4px}
+.permo{text-align:center;font-size:12px;color:var(--green);font-weight:800;margin-top:11px;
+ background:#F1FBF4;border:1px solid #D4F0DE;border-radius:10px;padding:8px}
+.feat{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.feat span{font-size:11px;font-weight:800;color:var(--t2);background:#F4F5F7;
+ border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+
+.bar{position:fixed;bottom:0;inset-inline:0;z-index:40;background:rgba(255,255,255,.97);
+ border-top:1px solid var(--line);backdrop-filter:blur(14px);padding:13px 16px 20px;
+ box-shadow:0 -4px 24px rgba(16,20,26,.06)}
+.bar-in{max-width:520px;margin:0 auto}
+.bar-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+.bar-top .l{font-size:12px;color:var(--t3);font-weight:800}
+.bar-top .v{font-size:25px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}
+.bar-top .v u{text-decoration:none;font-size:12.5px;color:var(--t3);margin-inline-start:3px}
+.btn{width:100%;padding:17px;border-radius:15px;border:0;cursor:pointer;
+ font-family:Tajawal,sans-serif;font-size:15.5px;font-weight:900;
+ display:flex;align-items:center;justify-content:center;gap:10px}
+.btn-wa{background:linear-gradient(145deg,#2AD36A,#1EB955);color:#fff;
+ box-shadow:0 8px 22px rgba(30,185,85,.28)}
+.btn-wa:active{transform:scale(.99)}
+.btn2{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.btn-sm{padding:12px;border-radius:12px;border:1.5px solid var(--line2);background:#fff;
+ color:var(--t2);font-family:Tajawal,sans-serif;font-size:12.5px;font-weight:800;cursor:pointer;
+ display:flex;align-items:center;justify-content:center;gap:7px}
+.btn-sm:active{background:var(--bg)}
+
+.note{font-size:12px;color:var(--t2);line-height:2;text-align:center;margin-top:18px;
+ background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 16px}
+.note b{color:var(--t1);font-weight:800}
+.foot{text-align:center;font-size:11.5px;color:var(--t3);font-weight:700;margin-top:20px}
+.toast{position:fixed;top:-70px;left:50%;transform:translateX(-50%);background:var(--t1);
+ color:#fff;border-radius:13px;padding:12px 22px;font-size:13px;font-weight:800;z-index:100;
+ transition:top .35s cubic-bezier(.16,1,.3,1);white-space:nowrap;
+ box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.toast.on{top:22px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="mark">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>
+        <path d="M10 14h4M9 20h6M12 14v6"/></svg>
+    </div>
+    <h1>اشتراك <b>منصة بطولات</b></h1>
+    <p>احسب تكلفتك وأرسل طلبك في دقيقة</p>
+    <span class="pill">يبدأ من ٥٠ ريال شهرياً</span>
+  </div>
+
+  <button class="watch" onclick="window.open('https://youtu.be/CRfgpyAUPfg','_blank')">
+    <span class="pl"><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M8 5v14l11-7z"/></svg></span>
+    <span class="tx"><b>شاهد الشرح كاملاً</b><i>جولة في المنصة من أولها إلى آخرها</i></span>
+    <span class="go"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span>
+  </button>
+
+  <div class="card">
+    <div class="ch"><span class="n">١</span><span class="t">بياناتك</span></div>
+    <div class="cb">
+      <div class="f">
+        <label>الاسم <span class="req">*</span></label>
+        <input class="inp" id="name" placeholder="اسمك الكامل" autocomplete="name">
+        <div class="err" id="e-name">اكتب اسمك</div>
+      </div>
+      <div class="f">
+        <label>رقم الجوال <span class="req">*</span></label>
+        <div class="hint">تصلك عليه روابط بطولتك</div>
+        <input class="inp" id="phone" type="tel" inputmode="tel" placeholder="05XXXXXXXX"
+          maxlength="14" autocomplete="tel">
+        <div class="err" id="e-phone">اكتب رقم جوال صحيح</div>
+      </div>
+
+      <div class="f">
+        <label>اسم الدوري <span style="color:var(--t3);font-weight:600">(اختياري)</span></label>
+        <div class="hint">تقدر تغيّره بعدين من لوحة الإدارة</div>
+        <input class="inp" id="league" placeholder="مثال: دوري النجوم">
+      </div>
+
+      <div class="divider"><span>بيانات الدخول للوحة الإدارة</span></div>
+
+      <div class="f">
+        <label>البريد الإلكتروني <span class="req">*</span></label>
+        <div class="hint">تدخل به للوحة إدارتك — أي بريد يناسبك</div>
+        <input class="inp" id="email" type="email" inputmode="email" dir="ltr"
+          placeholder="name@gmail.com" autocomplete="email">
+        <div class="sugg" id="sugg"></div>
+        <div class="err" id="e-email">اكتب بريداً صحيحاً</div>
+      </div>
+
+      <div class="f" style="margin-bottom:0">
+        <label>كلمة المرور <span class="req">*</span></label>
+        <div class="hint">٦ أحرف على الأقل — اخترها أنت واحفظها</div>
+        <div class="pw">
+          <input class="inp" id="pass" type="password" placeholder="••••••••"
+            autocomplete="new-password">
+          <button type="button" class="pw-eye" onclick="eye()" id="eyeBtn">👁</button>
+        </div>
+        <div class="pw-meter"><i id="pwFill"></i></div>
+        <div class="pw-tip" id="pwTip">اكتب كلمة مرور</div>
+        <div class="err" id="e-pass">كلمة المرور ٦ أحرف على الأقل</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span class="n">٢</span><span class="t">حجم البطولة</span>
+      <span class="s" id="sizeTag"></span></div>
+    <div class="cb">
+      <div class="f">
+        <label>عدد الفرق</label>
+        <div class="hint">حتى ١٦ فريقاً مشمولة في الاشتراك الأساسي</div>
+        <div class="step">
+          <button onclick="bump('teams',-2)">−</button>
+          <input id="teams" type="number" inputmode="numeric" value="8" min="2" max="128" oninput="calc()">
+          <span class="u">فريق</span>
+          <button onclick="bump('teams',2)">+</button>
+        </div>
+      </div>
+
+      <div class="f" style="margin-bottom:0">
+        <label>كشوف اللاعبين</label>
+        <div class="sw on" id="sw-players" onclick="tog(this,'players')">
+          <span class="tx"><b>أريد إدخال اللاعبين</b>
+            <i>أسماء وأرقام ومراكز وصور — ومنها تُبنى الهدّافون والتشكيلات</i></span>
+          <span class="knob"></span>
+        </div>
+        <div id="playersBox">
+          <div class="f" style="margin:14px 0 0">
+            <label>عدد اللاعبين تقريباً</label>
+            <div class="hint">حتى ٢٠٠ لاعب مشمولون في الأساسي — <b style="color:var(--green)">وصورهم مجاناً</b></div>
+            <div class="step">
+              <button onclick="bump('players',-50)">−</button>
+              <input id="players" type="number" inputmode="numeric" value="200" min="0" max="5000" oninput="calc()">
+              <span class="u">لاعب</span>
+              <button onclick="bump('players',50)">+</button>
+            </div>
+            <button class="dunno" id="dunno" onclick="dunno()">🤔 ما أدري بالضبط — قدّر لي</button>
+          </div>
+          <div class="sw on" id="sw-photos" onclick="tog(this,'photos')" style="margin-top:12px">
+            <span class="tx"><b>صور اللاعبين</b>
+              <i>مجانية حتى ٢٠٠ لاعب — وبعدها ١٥ ﷼ لكل ١٠٠ لاعب</i></span>
+            <span class="px" id="photoPx">مجاناً</span>
+            <span class="knob"></span>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span class="n">٣</span><span class="t">مدة الاشتراك</span>
+      <span class="s" id="tierTag"></span></div>
+    <div class="cb">
+      <div class="f">
+        <label>كم شهراً؟</label>
+        <div class="hint">من شهر واحد إلى سنة — والخصم يزيد كلما طالت</div>
+        <div class="step">
+          <button onclick="bumpDur(-1)">−</button>
+          <input id="dur" type="number" inputmode="numeric" value="1" min="1" max="12" oninput="calc()">
+          <span class="u">شهر</span>
+          <button onclick="bumpDur(1)">+</button>
+        </div>
+      </div>
+
+      <div class="f" style="margin-bottom:14px">
+        <input type="range" class="rng" id="durRng" min="1" max="12" value="1"
+          oninput="syncDur(this.value)">
+        <div class="rng-marks"><span>١</span><span>٣</span><span>٦</span><span>٩</span><span>١٢</span></div>
+      </div>
+
+      <div class="quick" id="quick">
+        <button data-v="1"  class="on" onclick="setDur(1)">شهر</button>
+        <button data-v="3"  onclick="setDur(3)">٣ أشهر</button>
+        <button data-v="6"  onclick="setDur(6)">٦ أشهر</button>
+        <button data-v="12" onclick="setDur(12)">سنة</button>
+      </div>
+
+      <div class="tiers">
+        <div class="tier" data-t="0"><b>١ – ٢</b><i>بلا خصم</i></div>
+        <div class="tier" data-t="10"><b>٣ – ٥</b><i>١٠٪</i></div>
+        <div class="tier" data-t="15"><b>٦ – ١١</b><i>١٥٪</i></div>
+        <div class="tier" data-t="25"><b>١٢</b><i>٢٥٪</i></div>
+      </div>
+    </div>
+  </div>
+
+
+
+
+  <div class="card bill">
+    <div class="ch"><span class="n">﷼</span><span class="t">التكلفة</span></div>
+    <div class="cb">
+      <div id="lines"></div>
+      <div class="total">
+        <div class="l">الإجمالي<small id="durTxt">لشهر واحد</small></div>
+        <div class="v"><span id="grand">50</span><u>ريال</u></div>
+      </div>
+      <div class="permo" id="permo" style="display:none"></div>
+      <div class="feat">
+        <span>✓ بثّ مباشر</span><span>✓ بطاقات مشاركة</span>
+        <span>✓ ٢٠٠ لاعب بصورهم</span><span>✓ صفحة جمهور</span><span>✓ تحديثات مجانية</span>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="card">
+    <div class="ch"><span class="n">✓</span><span class="t">وش يصير بعد الطلب؟</span></div>
+    <div class="cb">
+      <div class="flow">
+        <div class="fstep"><span class="n">١</span><span class="tx"><b>ترسل الطلب</b>
+          <i>يوصلني على واتساب بكل تفاصيله — وأرد عليك خلال ساعات</i></span></div>
+        <div class="fline"></div>
+        <div class="fstep"><span class="n">٢</span><span class="tx"><b>تحويل بنكي</b>
+          <i>أرسل لك بيانات الحساب، وترسل لي صورة الإيصال</i></span></div>
+        <div class="fline"></div>
+        <div class="fstep"><span class="n">٣</span><span class="tx"><b>تصلك بطولتك جاهزة</b>
+          <i>خلال ٢٤ ساعة: بيانات دخولك ورابط إدارتك ورابط جمهورك</i></span></div>
+        <div class="fline"></div>
+        <div class="fstep"><span class="n">٤</span><span class="tx"><b>تبدأ من نفس اليوم</b>
+          <i>تدخل، تضيف فرقك، ويتولّد جدولك</i></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span class="n">؟</span><span class="t">أسئلة شائعة</span></div>
+    <div class="cb" style="padding:0 17px">
+      <div class="faq" onclick="faq(this)"><div class="faq-q">كيف أدفع؟
+        <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
+        <div class="faq-a"><p><b>تحويل بنكي.</b> بعد وصول طلبك أرسل لك بيانات الحساب،
+          وترسل لي صورة الإيصال — وتُفعَّل بطولتك.</p></div></div>
+
+      <div class="faq" onclick="faq(this)"><div class="faq-q">أقدر أزيد الفرق أو اللاعبين بعدين؟
+        <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
+        <div class="faq-a"><p>نعم في أي وقت. تراسلني بالعدد الجديد، ويُحسب <b>الفرق فقط</b>
+          للمدة المتبقّية — بلا إعادة اشتراك.</p></div></div>
+
+      <div class="faq" onclick="faq(this)"><div class="faq-q">وش يصير إذا انتهى الاشتراك؟
+        <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
+        <div class="faq-a"><p><b>بياناتك تبقى كما هي</b> ولا تُحذف. تتوقّف الإدارة فقط،
+          وترجع كل شي بتجديد الاشتراك.</p></div></div>
+
+      <div class="faq" onclick="faq(this)"><div class="faq-q">هل بياناتي مستقلّة عن غيري؟
+        <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
+        <div class="faq-a"><p>تماماً. كل دوري <b>منفصل</b> بفرقه ولاعبيه وإعداداته وجمهوره،
+          ورابط إدارتك خاصّ بك وحدك ولا يراه أحد.</p></div></div>
+
+      <div class="faq" onclick="faq(this)"><div class="faq-q">أحتاج خبرة تقنية؟
+        <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
+        <div class="faq-a"><p>لا. <b>ما تركّب ولا تعدّل شيئاً</b> — تفتح رابطك من الجوال وتبدأ.
+          والشرح الكامل موجود بالفيديو.</p></div></div>
+    </div>
+  </div>
+
+  <div class="note">
+    كل دوري <b>مستقل تماماً</b> — فرقه ولاعبوه وإعداداته وجمهوره، ولا يرى أحد بيانات أحد.<br>
+    بعد الطلب تصلك بطولتك جاهزة: <b>بيانات دخولك · رابط إدارتك · رابط جمهورك</b>.<br>
+    <span style="display:inline-flex;gap:6px;margin-top:9px;flex-wrap:wrap;justify-content:center">
+      <span style="font-size:10.5px;font-weight:800;color:var(--t2);background:#F4F5F7;
+        border:1px solid var(--line);border-radius:999px;padding:5px 11px">🏦 تحويل بنكي</span>
+      <span style="font-size:10.5px;font-weight:800;color:var(--t2);background:#F4F5F7;
+        border:1px solid var(--line);border-radius:999px;padding:5px 11px">⚡ تفعيل خلال ٢٤ ساعة</span>
+    </span>
+  </div>
+
+  <div class="foot">عبدالله السكني — مبرمج منصة بطولات</div>
+</div>
+
+<div class="bar"><div class="bar-in">
+  <div class="bar-top">
+    <span class="l" id="barL">شهر واحد</span>
+    <span class="v"><span id="barV">50</span><u>ريال</u></span>
+  </div>
+  <button class="btn btn-wa" id="sendBtn" onclick="submit()">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.5 14.2c-.2.6-1.2 1.2-1.7 1.2-.5.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6a11 11 0 0 1-4.2-3.8c-.3-.4-.8-1.2-.8-2.3s.6-1.6.8-1.8c.2-.2.4-.3.6-.3h.4c.1 0 .3 0 .5.4l.7 1.6c0 .1.1.3 0 .4l-.3.4-.3.3c-.1.1-.2.2-.1.4.1.2.5.9 1.1 1.4.8.7 1.4.9 1.6 1 .2.1.3.1.4 0l.6-.7c.1-.2.3-.2.4-.1l1.5.7c.2.1.4.2.4.3s0 .7-.2 1.2z"/></svg>
+    إرسال الطلب
+  </button>
+  <div class="btn2">
+    <button class="btn-sm" onclick="sendWA()">💬 واتساب</button>
+    <button class="btn-sm" onclick="copy()">📋 نسخ</button>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══ التسعير ═══
+   50 ﷼/شهر يشمل 16 فريقاً و100 لاعب بلا صور.
+   وما زاد يُحسب بشرائح — لأن الزيادة تعني مساحة تخزين أكبر. */
+const P = {
+  base: 50,
+  teamsIncluded: 16,    teamsBlock: 8,    teamsPrice: 10,
+  playersIncluded: 200, playersBlock: 50, playersPrice: 15,
+  /* 📸 صور أول 200 لاعب مجانية مع الاشتراك.
+     وما زاد: 15 ﷼ لكل 100 لاعب — تسعيرة رخيصة لأن الصور مضغوطة. */
+  photoFree: 200, photoBlock: 100, photoPrice: 15,
+  /* شرائح خصم المدة — أي عدد أشهر من 1 إلى 12 */
+  tiers: [ {min:12, d:.25}, {min:6, d:.15}, {min:3, d:.10}, {min:1, d:0} ]
+};
+const S = { dur:1, players:true, photos:true };
+const WA   = '966591757224';
+const MAIL = 'abodyabxu44491@gmail.com';
+
+const $  = id => document.getElementById(id);
+const ar = n => n.toLocaleString('ar-EG');
+const num = id => Math.max(0, parseInt($(id).value,10) || 0);
+const blocks = (n,inc,size) => n<=inc ? 0 : Math.ceil((n-inc)/size);
+const discOf = m => (P.tiers.find(t => m >= t.min) || {d:0}).d;
+
+function tog(el,k){
+  S[k] = !S[k]; el.classList.toggle('on', S[k]);
+  if(k==='players'){
+    $('playersBox').style.display = S.players ? '' : 'none';
+    if(!S.players){ S.photos=false; $('sw-photos').classList.remove('on'); }
+  }
+  calc();
+}
+function bump(id,d){ const e=$(id); e.value = Math.max(0,(parseInt(e.value,10)||0)+d); calc(); }
+
+/* ── المدة: العدّاد والمنزلق والاختصارات تتزامن ── */
+function clampDur(v){ return Math.min(12, Math.max(1, parseInt(v,10) || 1)); }
+function setDur(v){ $('dur').value = clampDur(v); calc(); }
+function bumpDur(d){ setDur(clampDur($('dur').value) + d); }
+function syncDur(v){ $('dur').value = clampDur(v); calc(); }
+
+function build(){
+  const teams   = num('teams');
+  const players = S.players ? num('players') : 0;
+  const dur     = clampDur($('dur').value);
+  const tB = blocks(teams, P.teamsIncluded, P.teamsBlock);
+  const pB = S.players ? blocks(players, P.playersIncluded, P.playersBlock) : 0;
+  /* الصور: مجانية حتى photoFree، وما فوقها بكتلة المئة */
+  const phB = (S.players && S.photos) ? blocks(players, P.photoFree, P.photoBlock) : 0;
+
+  const items = [{ l:'الاشتراك الأساسي',
+    s:'حتى ' + ar(P.teamsIncluded) + ' فريقاً و' + ar(P.playersIncluded) + ' لاعب بصورهم', v:P.base }];
+  if(tB) items.push({ l:'فرق إضافية',
+    s: ar(teams-P.teamsIncluded) + ' فريقاً فوق المشمول · ' +
+       ar(tB) + ' × ' + ar(P.teamsPrice) + ' ﷼', v:tB*P.teamsPrice });
+  if(pB) items.push({ l:'لاعبون إضافيون',
+    s: ar(players-P.playersIncluded) + ' لاعباً فوق المشمول · ' +
+       ar(pB) + ' × ' + ar(P.playersPrice) + ' ﷼', v:pB*P.playersPrice });
+  if(phB) items.push({ l:'صور إضافية',
+    s: ar(players-P.photoFree) + ' صورة فوق المجاني · ' +
+       ar(phB) + ' × ' + ar(P.photoPrice) + ' ﷼', v:phB*P.photoPrice });
+
+  const monthly = items.reduce((a,b)=>a+b.v,0);
+  const disc = discOf(dur);
+  const before = monthly * dur;
+  const off = Math.round(before*disc);
+  return { teams, players, items, monthly, dur, disc, before, off,
+           total: before - off, phB };
+}
+
+function calc(){
+  const r = build();
+  save();
+
+  /* ── الفاتورة ── */
+  let h = r.items.map(i =>
+    '<div class="line"><span class="l">' + i.l + '<small>' + i.s + '</small></span>' +
+    '<span class="v">' + ar(i.v) + ' ﷼</span></div>').join('');
+  if(r.dur > 1)
+    h += '<div class="line"><span class="l">المدة<small>' + ar(r.monthly) +
+         ' ﷼ × ' + ar(r.dur) + ' ' + (r.dur===2?'شهرين':'أشهر') +
+         '</small></span><span class="v">' + ar(r.before) + ' ﷼</span></div>';
+  if(r.off)
+    h += '<div class="line disc"><span class="l">خصم المدة<small>' +
+         Math.round(r.disc*100) + '٪</small></span><span class="v">− ' + ar(r.off) + ' ﷼</span></div>';
+  $('lines').innerHTML = h;
+
+  $('grand').textContent = ar(r.total);
+  $('barV').textContent  = ar(r.total);
+  const dt = r.dur === 1 ? 'لشهر واحد'
+           : r.dur === 2 ? 'لشهرين'
+           : r.dur === 12 ? 'لسنة كاملة'
+           : 'لـ ' + ar(r.dur) + ' أشهر';
+  $('durTxt').textContent = dt;
+  $('barL').textContent   = dt;
+
+  const pm = $('permo');
+  if(r.dur > 1){ pm.style.display=''; pm.textContent = 'أي ' + ar(Math.round(r.total/r.dur)) + ' ريالاً في الشهر'; }
+  else pm.style.display = 'none';
+
+  $('sizeTag').textContent = ar(r.teams) + ' فريق' + (S.players ? ' · ' + ar(r.players) + ' لاعب' : '');
+
+  /* سعر الصور على المفتاح — يتغيّر مع العدّاد */
+  const px = $('photoPx');
+  if(px){
+    const n = S.players ? blocks(num('players'), P.photoFree, P.photoBlock) : 0;
+    px.textContent = n ? ('+' + ar(n*P.photoPrice)) : 'مجاناً';
+    px.style.color = n ? 'var(--gold)' : 'var(--green)';
+  }
+
+  /* ── مزامنة عناصر المدة ── */
+  $('durRng').value = r.dur;
+  $('durRng').style.setProperty('--p', ((r.dur-1)/11*100).toFixed(1) + '%');
+  document.querySelectorAll('#quick button').forEach(b =>
+    b.classList.toggle('on', parseInt(b.dataset.v,10) === r.dur));
+  document.querySelectorAll('.tier').forEach(t =>
+    t.classList.toggle('on', parseInt(t.dataset.t,10) === Math.round(r.disc*100)));
+  $('tierTag').textContent = r.disc ? ('خصم ' + Math.round(r.disc*100) + '٪') : 'بلا خصم';
+}
+
+
+/* ── تقدير عدد اللاعبين من عدد الفرق ── */
+function dunno(){
+  const teams = num('teams');
+  const est = Math.max(50, teams * 18);          /* ١٨ لاعباً للفريق تقريباً */
+  $('players').value = Math.ceil(est/50)*50;
+  $('dunno').classList.add('on');
+  $('dunno').textContent = '✓ قُدِّر ' + ar(num('players')) + ' لاعباً (' + ar(teams) + ' فريق × ١٨)';
+  calc(); save();
+}
+/* ── الأسئلة ── */
+function faq(el){
+  const open = el.classList.contains('on');
+  document.querySelectorAll('.faq').forEach(f=>f.classList.remove('on'));
+  if(!open) el.classList.add('on');
+}
+/* ── الحفظ المحلي ── */
+const KEY = 'batolat_sub_v1';
+function save(){
+  try{
+    localStorage.setItem(KEY, JSON.stringify({
+      name:$('name').value, phone:$('phone').value,
+      email:$('email').value, league:$('league').value,
+      teams:$('teams').value, players:$('players').value,
+      dur:$('dur').value, players_on:S.players, photos:S.photos
+    }));
+  }catch(e){}
+}
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem(KEY)||'null');
+    if(!d) return;
+    if(d.name)   $('name').value = d.name;
+    if(d.phone)  $('phone').value = d.phone;
+    if(d.email)  $('email').value = d.email;
+    if(d.league) $('league').value = d.league;
+    if(d.teams)  $('teams').value = d.teams;
+    if(d.players)$('players').value = d.players;
+    if(d.dur)    $('dur').value = d.dur;
+    S.players = d.players_on !== false;
+    S.photos  = d.photos !== false;
+    $('sw-players').classList.toggle('on', S.players);
+    $('sw-photos').classList.toggle('on', S.photos);
+    $('playersBox').style.display = S.players ? '' : 'none';
+    if(d.name || d.phone) toast('↩︎ رجعنا بياناتك السابقة');
+  }catch(e){}
+}
+
+
+/* ═══ مساعد البريد ═══ */
+const DOMAINS = ['gmail.com','hotmail.com','outlook.com','icloud.com','yahoo.com'];
+function suggEmail(){
+  const box = $('sugg'), v = $('email').value.trim();
+  if(!v || v.indexOf('@') >= 0){ box.innerHTML=''; return; }
+  const u = v.replace(/[^\w.\-]/g,'').toLowerCase();
+  if(u.length < 2){ box.innerHTML=''; return; }
+  box.innerHTML = DOMAINS.slice(0,4).map(function(d){
+    return '<button type="button" onclick="pickEmail(\'' + u + '@' + d + '\')">' + u + '@' + d + '</button>';
+  }).join('');
+}
+function pickEmail(v){
+  $('email').value = v; $('sugg').innerHTML='';
+  $('email').classList.remove('bad'); $('e-email').classList.remove('on');
+  save();
+}
+/* ═══ كلمة المرور ═══ */
+function eye(){
+  const i = $('pass');
+  i.type = i.type === 'password' ? 'text' : 'password';
+  $('eyeBtn').textContent = i.type === 'password' ? '👁' : '🙈';
+}
+function pwCheck(){
+  const v = $('pass').value;
+  let sc = 0;
+  if(v.length >= 6) sc++;
+  if(v.length >= 10) sc++;
+  if(/\d/.test(v) && /[a-zA-Z]/.test(v)) sc++;
+  if(/[^\w]/.test(v)) sc++;
+  const map = [['0%','#E8EAEE','اكتب كلمة مرور'],
+               ['30%','#D64541','ضعيفة — أضف أحرفاً'],
+               ['58%','#E8A33D','مقبولة'],
+               ['82%','#5BB974','جيدة'],
+               ['100%','#1EB955','قوية']];
+  const m = map[v ? Math.min(4, sc + (v.length>=6?0:-1) + 1) : 0] || map[0];
+  $('pwFill').style.width = m[0];
+  $('pwFill').style.background = m[1];
+  $('pwTip').textContent = m[2];
+  $('pwTip').style.color = v.length >= 6 ? m[1] : 'var(--t3)';
+}
+
+/* ═══ الإرسال إلى لوحة الإشراف مباشرة ═══ */
+const FB = {
+  apiKey:"AIzaSyDdn-sS67sthhLrZRrIDZ6ynauWVin_WNU",
+  authDomain:"footblle2.firebaseapp.com",
+  projectId:"footblle2",
+  storageBucket:"footblle2.firebasestorage.app",
+  messagingSenderId:"541343956211",
+  appId:"1:541343956211:web:a1d757a4ecd655d3e47da8"
+};
+let _fs = null;
+async function fs(){
+  if(_fs) return _fs;
+  const [{ initializeApp }, m] = await Promise.all([
+    import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'),
+    import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js')
+  ]);
+  const app = initializeApp(FB, 'sub-' + Date.now());
+  _fs = { db: m.getFirestore(app), addDoc: m.addDoc, collection: m.collection };
+  return _fs;
+}
+async function submit(){
+  if(!check()){ toast('أكمل الحقول المطلوبة'); return; }
+  const btn = $('sendBtn');
+  btn.disabled = true; btn.innerHTML = '⏳ جارٍ الإرسال…';
+  const r = build();
+  const payload = {
+    name:     $('name').value.trim(),
+    phone:    $('phone').value.trim(),
+    email:    $('email').value.trim().toLowerCase(),
+    password: $('pass').value,
+    leagueName: $('league').value.trim(),
+    teams:    r.teams,
+    players:  r.players,
+    playersOn:S.players,
+    photos:   S.photos,
+    dur:      r.dur,
+    monthly:  r.monthly,
+    total:    r.total,
+    status:   'new',
+    createdAtMs: Date.now()
+  };
+  try{
+    const f = await fs();
+    await f.addDoc(f.collection(f.db, 'subRequests'), payload);
+    done();
+  }catch(e){
+    /* ⚠️ لو تعذّر الوصول (شبكة أو قواعد) لا نُفقد الطلب —
+       نحوّله إلى واتساب فوراً بدل أن يضيع. */
+    btn.disabled = false;
+    btn.innerHTML = '💬 إرسال على واتساب';
+    btn.setAttribute('onclick','sendWA()');
+    toast('تعذّر الإرسال المباشر — أرسله على واتساب');
+    setTimeout(sendWA, 600);
+  }
+}
+function done(){
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  document.querySelector('.wrap').innerHTML =
+    '<div class="card" style="margin-top:50px"><div class="cb sent">' +
+    '<div class="ic">✓</div>' +
+    '<h2>وصلنا طلبك</h2>' +
+    '<p>راجعناه ونتواصل معك على <b>' + $('phone').value.trim() + '</b><br>' +
+    'خلال ساعات — وتوصلك بطولتك جاهزة.</p>' +
+    '<button class="btn btn-wa" style="margin-top:22px" onclick="' +
+      'window.open(\'https://wa.me/' + WA + '\',\'_blank\')">' +
+      '💬 تواصل معنا الآن</button>' +
+    '</div></div>';
+  document.querySelector('.bar').style.display = 'none';
+  scrollTo({top:0,behavior:'smooth'});
+}
+function sendWA(){
+  if(!check()){ toast('أكمل الحقول المطلوبة'); return; }
+  location.href = 'https://wa.me/' + WA + '?text=' + encodeURIComponent(summary());
+}
+
+const clean = p => (p||'').replace(/[^\d]/g,'');
+function validPhone(p){
+  const d = clean(p);
+  return (d.length===10 && d.indexOf('05')===0) ||
+         (d.length===12 && d.indexOf('9665')===0) ||
+         (d.length===9  && d.indexOf('5')===0);
+}
+function check(){
+  let ok = true;
+  const tests = [['name','e-name',  v => v.trim().length >= 3],
+                 ['phone','e-phone', validPhone],
+                 ['email','e-email', v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())],
+                 ['pass','e-pass',   v => v.length >= 6]];
+  tests.forEach(function(t){
+    const good = t[2]($(t[0]).value);
+    $(t[0]).classList.toggle('bad', !good);
+    $(t[1]).classList.toggle('on', !good);
+    if(!good && ok){ $(t[0]).scrollIntoView({behavior:'smooth',block:'center'}); ok = false; }
+  });
+  return ok;
+}
+function summary(){
+  const r = build();
+  const L = ['🏆 طلب اشتراك — منصة بطولات',''];
+  L.push('👤 الاسم: ' + $('name').value.trim());
+  L.push('📱 الجوال: ' + $('phone').value.trim());
+  L.push('✉️ البريد: ' + $('email').value.trim());
+  L.push('🔑 كلمة المرور: ' + $('pass').value);
+  if($('league').value.trim()) L.push('🏟 الدوري: ' + $('league').value.trim());
+  L.push('');
+  L.push('👥 الفرق: ' + r.teams + ' فريق');
+  L.push('🧍 اللاعبون: ' + (S.players ? r.players + ' لاعب' : 'بلا كشوف لاعبين'));
+  L.push('📸 صور اللاعبين: ' + (S.photos ? (r.phB ? 'نعم · ' + r.phB*P.photoPrice + ' ﷼' : 'نعم · مجاناً') : 'لا'));
+  L.push('🗓 المدة: ' + (r.dur === 1 ? 'شهر واحد' : r.dur === 2 ? 'شهرين' : r.dur + ' أشهر'));
+  L.push('━━━━━━━━━━━━━━');
+  r.items.forEach(function(i){ L.push('• ' + i.l + ': ' + i.v + ' ﷼'); });
+  if(r.dur > 1) L.push('• المدة: ' + r.monthly + ' ﷼ × ' + r.dur + ' = ' + r.before + ' ﷼');
+  if(r.off)      L.push('• خصم المدة ' + Math.round(r.disc*100) + '٪: − ' + r.off + ' ﷼');
+  L.push('━━━━━━━━━━━━━━');
+  L.push('💰 الإجمالي: ' + r.total + ' ﷼');
+  if(r.dur > 1) L.push('   (' + Math.round(r.total/r.dur) + ' ﷼ شهرياً)');
+  return L.join('\n');
+}
+function toast(t){
+  const el = $('toast'); el.textContent = t; el.classList.add('on');
+  clearTimeout(window._t); window._t = setTimeout(function(){ el.classList.remove('on'); }, 2600);
+}
+function send(){
+  if(!check()){ toast('أكمل الحقول المطلوبة'); return; }
+  location.href = 'https://wa.me/' + WA + '?text=' + encodeURIComponent(summary());
+}
+function copy(){
+  if(!check()){ toast('أكمل الحقول المطلوبة'); return; }
+  const t = summary();
+  const done = function(){ toast('✅ نُسخت — أرسلها على 0591757224'); };
+  function fallback(){
+    const a = document.createElement('textarea'); a.value = t;
+    document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); done();
+  }
+  if(navigator.clipboard) navigator.clipboard.writeText(t).then(done).catch(fallback);
+  else fallback();
+}
+function mail(){
+  if(!check()){ toast('أكمل الحقول المطلوبة'); return; }
+  location.href = 'mailto:' + MAIL
+    + '?subject=' + encodeURIComponent('طلب اشتراك — ' + $('name').value.trim())
+    + '&body=' + encodeURIComponent(summary());
+}
+$('phone').addEventListener('input', function(e){
+  /* تنسيق تلقائي 05X XXX XXXX — يقلّل أخطاء الإدخال */
+  let d = e.target.value.replace(/\D/g,'').slice(0,10);
+  let out = d;
+  if(d.length > 3) out = d.slice(0,3) + ' ' + d.slice(3);
+  if(d.length > 6) out = d.slice(0,3) + ' ' + d.slice(3,6) + ' ' + d.slice(6);
+  e.target.value = out;
+  e.target.classList.remove('bad'); $('e-phone').classList.remove('on');
+  save();
+});
+$('name').addEventListener('input', function(e){
+  e.target.classList.remove('bad'); $('e-name').classList.remove('on'); save();
+});
+$('email').addEventListener('input', function(e){
+  e.target.classList.remove('bad'); $('e-email').classList.remove('on');
+  suggEmail(); save();
+});
+$('pass').addEventListener('input', function(e){
+  e.target.classList.remove('bad'); $('e-pass').classList.remove('on');
+  pwCheck();
+});
+$('league').addEventListener('input', save);
+load();
+calc();
+pwCheck();
+</script>
+</body>
+</html>

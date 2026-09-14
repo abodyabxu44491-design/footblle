@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>الصورة المصغّرة — منصة بطولات</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0b0c;font-family:Tajawal,sans-serif;color:#e8eaee;padding:26px 14px 90px}
+.wrap{max-width:1300px;margin:0 auto}
+.hd{text-align:center;margin-bottom:8px}
+.hd h1{font-size:19px;font-weight:900;color:#F0C84A}
+.hd p{font-size:12px;color:#7f8791;margin-top:5px}
+.tip{background:rgba(201,160,43,.06);border:1px solid rgba(201,160,43,.2);border-radius:12px;
+ padding:12px 15px;font-size:11.5px;color:#9aa0aa;line-height:1.95;margin:16px 0 26px}
+.tip b{color:#F0C84A}
+.item{margin-bottom:34px}
+.item-h{display:flex;align-items:center;gap:9px;margin-bottom:9px;flex-wrap:wrap}
+.item-n{width:25px;height:25px;border-radius:8px;background:rgba(201,160,43,.14);
+ border:1px solid rgba(201,160,43,.3);color:#F0C84A;font-size:11px;font-weight:900;
+ display:flex;align-items:center;justify-content:center}
+.item-t{font-size:13px;font-weight:800;flex:1}
+.item-b{padding:6px 13px;border-radius:9px;border:1px solid #24272c;background:#141618;
+ color:#c3c7ce;font-family:Tajawal,sans-serif;font-size:11.5px;font-weight:800;cursor:pointer}
+.item-b.pri{background:linear-gradient(145deg,#E8BE45,#C9A02B);color:#1a1200;border:none}
+.stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;
+ border:1px solid #24272c;background:#0d0e10}
+.canvas{position:absolute;top:0;right:0;width:1280px;height:720px;transform-origin:top right}
+
+/* ═══ الصورة المصغّرة ═══ */
+.tb{position:absolute;inset:0;overflow:hidden;background:#0a0c0e;
+ font-family:Tajawal,sans-serif;direction:rtl}
+.tb-bg{position:absolute;inset:0;
+ background:
+  radial-gradient(56% 78% at 78% 20%,rgba(201,160,43,.20),transparent 62%),
+  radial-gradient(48% 70% at 12% 88%,rgba(59,125,191,.16),transparent 64%),
+  linear-gradient(155deg,#101317,#08090b 70%)}
+.tb-bg::after{content:'';position:absolute;inset:0;
+ background:repeating-linear-gradient(115deg,transparent 0 58px,rgba(255,255,255,.012) 58px 60px)}
+
+/* ① */
+.tb1{display:flex;align-items:center;padding:0 62px;gap:40px}
+.tb-r{position:relative;z-index:2;flex:1;min-width:0}
+.tb-badge{display:inline-flex;align-items:center;gap:7px;font-size:16px;font-weight:900;
+ letter-spacing:.6px;color:#C9A02B;background:rgba(201,160,43,.1);
+ border:1px solid rgba(201,160,43,.3);border-radius:999px;padding:8px 18px;margin-bottom:22px}
+.tb-h{font-size:70px;font-weight:900;line-height:1.16;color:#F7F9FB;
+ letter-spacing:-2px;text-shadow:0 6px 40px rgba(0,0,0,.7)}
+.tb-h b{color:#F0C84A;text-shadow:0 0 46px rgba(240,200,74,.34)}
+.tb-h.center{text-align:center;font-size:60px}
+.tb-line{width:132px;height:4px;border-radius:4px;margin:24px 0;
+ background:linear-gradient(90deg,#F0C84A,rgba(201,160,43,0))}
+.tb-chips{display:flex;gap:10px;flex-wrap:wrap}
+.tb-chips span{display:inline-flex;align-items:center;gap:7px;font-size:16px;font-weight:800;
+ color:#cfd4db;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+ border-radius:12px;padding:10px 16px}
+.tb-chips svg{color:#C9A02B}
+.tb-cta{display:inline-block;margin-top:26px;font-size:19px;font-weight:900;color:#1a1200;
+ background:linear-gradient(145deg,#F0C84A,#C9A02B);border-radius:12px;padding:12px 30px;
+ box-shadow:0 10px 34px rgba(201,160,43,.34)}
+.tb-cta.wide{margin-top:28px;font-size:20px;padding:13px 40px}
+.tb-l{position:relative;z-index:2;flex:0 0 auto}
+.tb-glow{position:absolute;inset:-40px;border-radius:50%;z-index:-1;
+ background:radial-gradient(circle,rgba(201,160,43,.24),transparent 66%);filter:blur(30px)}
+.tb-phone{width:250px;background:#0e1013;border:2px solid #22262b;border-radius:26px;
+ padding:14px 12px;box-shadow:0 30px 70px rgba(0,0,0,.7);transform:rotate(-3deg)}
+.tb-phone.sm{width:190px;padding:11px 9px;border-radius:20px;transform:none}
+.tb-ph-head{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:900;
+ color:#e8eaee;padding-bottom:10px;border-bottom:1px solid #1e2126;margin-bottom:11px}
+.tb-ph-live{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:900;
+ color:#fff;background:#C0392B;border-radius:999px;padding:3px 10px;margin-bottom:9px}
+.tb-ph-live .d{width:5px;height:5px;border-radius:50%;background:#fff}
+.tb-ph-mc{display:flex;align-items:center;justify-content:space-between;gap:10px;
+ background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+ border-radius:13px;padding:11px;margin-bottom:11px}
+.tb-ph-sc{font-size:26px;font-weight:900;color:#F0C84A;font-variant-numeric:tabular-nums}
+.tb-ph-sc i{font-style:normal;color:#565c64;margin:0 3px;font-size:19px}
+.tb-ph-sc.sm{font-size:20px}
+.tb-ph-rows{display:flex;flex-direction:column;gap:6px}
+.tb-ph-rows div{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;
+ color:#c3c7ce;background:rgba(255,255,255,.03);border-radius:9px;padding:7px 9px}
+.tb-ph-rows span{width:18px;height:18px;border-radius:6px;background:rgba(201,160,43,.16);
+ color:#C9A02B;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.tb-ph-rows b{margin-inline-start:auto;color:#F0C84A;font-size:13px}
+.tb-ph-rows.sm div{font-size:11px;padding:6px 8px}
+
+/* ② */
+.tb2{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px}
+.tb-split{position:relative;z-index:2;display:flex;align-items:center;gap:38px}
+.tb-side{display:flex;flex-direction:column;align-items:center;gap:13px}
+.tb-side-t{font-size:15px;font-weight:900;color:#7f8791;letter-spacing:2px}
+.tb-side-t.gold{color:#C9A02B}
+.tb-side-s{font-size:14px;font-weight:800;color:#7f8791}
+.tb-side-s.gold{color:#F0C84A}
+.tb-paper{width:190px;height:200px;background:#e9e6df;border-radius:6px;padding:20px 16px;
+ display:flex;flex-direction:column;gap:14px;transform:rotate(-4deg);
+ box-shadow:0 22px 50px rgba(0,0,0,.6);filter:grayscale(.35) brightness(.86)}
+.tb-paper .ln{height:9px;border-radius:3px;background:#b9b3a6}
+.tb-paper .w1{width:100%}.tb-paper .w2{width:78%}.tb-paper .w3{width:60%}
+.tb-arrow{position:relative;z-index:2;width:58px;height:58px;border-radius:50%;
+ background:rgba(201,160,43,.1);border:1.5px solid rgba(201,160,43,.34);
+ display:flex;align-items:center;justify-content:center}
+.tb-h2{position:relative;z-index:2;font-size:46px;font-weight:900;color:#F7F9FB;letter-spacing:-1px}
+.tb-h2 b{color:#F0C84A}
+
+/* ③ */
+.tb3{display:flex;align-items:center;justify-content:center}
+.tb-c{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;
+ gap:20px;padding:0 60px}
+.tb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%}
+.tb-tile{display:flex;flex-direction:column;align-items:center;gap:9px;
+ background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.1);
+ border-radius:17px;padding:20px 12px;color:#C9A02B}
+.tb-tile span{font-size:16px;font-weight:800;color:#d7dae0}
+</style></head><body>
+<div class="wrap">
+  <div class="hd"><h1>🖼 الصورة المصغّرة — ثلاثة تصاميم</h1>
+  <p>١٢٨٠×٧٢٠ · نسبة ١٦:٩ · جاهزة لليوتيوب</p></div>
+  <div class="tip"><b>كيف تحفظها:</b> اضغط <b>«ملء الشاشة»</b> على التصميم الذي أعجبك،
+  ثم صوّر الشاشة (لقطة شاشة). أو افتح أدوات المتصفح واستعمل خيار
+  <b>Capture node screenshot</b> على العنصر — يعطيك ١٢٨٠×٧٢٠ بدقّة كاملة.
+  <br><br><b>الاختيار:</b> الأول للفيديو الكامل · الثاني للإعلان · الثالث لمن يبحث عن المزايا.</div>
+  <div class="item"><div class="item-h"><span class="item-n">1</span><span class="item-t">الأساسية — دوريك بمستوى المحترفين</span><button class="item-b pri" onclick="full('t1')">⛶ ملء الشاشة</button></div><div class="stage"><div class="canvas" id="t1">
+<div class="tb tb1">
+  <div class="tb-bg"></div>
+  <div class="tb-r">
+    <span class="tb-badge"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/><path d="M10 14h4M9 20h6M12 14v6"/></svg> منصة بطولات</span>
+    <h1 class="tb-h">دوريك بمستوى<br><b>المحترفين</b></h1>
+    <div class="tb-line"></div>
+    <div class="tb-chips">
+      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> جدول تلقائي</span>
+      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M8 3l4 3 4-3"/></svg> بثّ مباشر</span>
+      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M21 16l-5-5-9 9"/></svg> بطاقات جاهزة</span>
+    </div>
+    <div class="tb-cta">شرح كامل</div>
+  </div>
+  <div class="tb-l">
+    <div class="tb-phone">
+      <div class="tb-ph-head"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:#C9A02B" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/><path d="M10 14h4M9 20h6M12 14v6"/></svg><span>دوري النجوم</span></div>
+      <div class="tb-ph-live"><span class="d"></span>مباشر</div>
+      <div class="tb-ph-mc">
+        <span style="width:36px;height:36px;border-radius:10px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;background:linear-gradient(145deg,#3B7DBF,#3B7DBFbb);box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 2px 8px rgba(0,0,0,.45)">ه</span>
+        <div class="tb-ph-sc">2<i>:</i>1</div>
+        <span style="width:36px;height:36px;border-radius:10px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;background:linear-gradient(145deg,#D9A21B,#D9A21Bbb);box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 2px 8px rgba(0,0,0,.45)">ن</span>
+      </div>
+      <div class="tb-ph-rows">
+        <div><span>1</span>الهلال<b>9</b></div>
+        <div><span>2</span>الشباب<b>7</b></div>
+        <div><span>3</span>النصر<b>6</b></div>
+      </div>
+    </div>
+    <div class="tb-glow"></div>
+  </div>
+</div></div></div></div><div class="item"><div class="item-h"><span class="item-n">2</span><span class="item-t">الوجع — من الورقة إلى المنصة</span><button class="item-b pri" onclick="full('t2')">⛶ ملء الشاشة</button></div><div class="stage"><div class="canvas" id="t2">
+<div class="tb tb2">
+  <div class="tb-bg"></div>
+  <div class="tb-split">
+    <div class="tb-side bad">
+      <div class="tb-side-t">قبل</div>
+      <div class="tb-paper">
+        <div class="ln w1"></div><div class="ln w2"></div><div class="ln w3"></div>
+        <div class="ln w2"></div><div class="ln w1"></div>
+      </div>
+      <div class="tb-side-s">ورقة · واتس · إكسل</div>
+    </div>
+    <div class="tb-arrow"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" style="color:#C9A02B" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+    <div class="tb-side good">
+      <div class="tb-side-t gold">بعد</div>
+      <div class="tb-phone sm">
+        <div class="tb-ph-head"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="color:#C9A02B" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/><path d="M10 14h4M9 20h6M12 14v6"/></svg><span>دوري النجوم</span></div>
+        <div class="tb-ph-mc sm"><span style="width:28px;height:28px;border-radius:8px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;background:linear-gradient(145deg,#3B7DBF,#3B7DBFbb);box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 2px 8px rgba(0,0,0,.45)">ه</span><div class="tb-ph-sc sm">2<i>:</i>1</div><span style="width:28px;height:28px;border-radius:8px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;background:linear-gradient(145deg,#D9A21B,#D9A21Bbb);box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 2px 8px rgba(0,0,0,.45)">ن</span></div>
+        <div class="tb-ph-rows sm"><div><span>1</span>الهلال<b>9</b></div>
+        <div><span>2</span>الشباب<b>7</b></div></div>
+      </div>
+      <div class="tb-side-s gold">رابط واحد</div>
+    </div>
+  </div>
+  <h1 class="tb-h2">منصة <b>بطولات</b></h1>
+</div></div></div></div><div class="item"><div class="item-h"><span class="item-n">3</span><span class="item-t">المزايا — كلها تمشي لحالها</span><button class="item-b pri" onclick="full('t3')">⛶ ملء الشاشة</button></div><div class="stage"><div class="canvas" id="t3">
+<div class="tb tb3">
+  <div class="tb-bg"></div>
+  <div class="tb-c">
+    <span class="tb-badge"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/><path d="M10 14h4M9 20h6M12 14v6"/></svg> منصة بطولات</span>
+    <h1 class="tb-h center">كلها تمشي <b>لحالها</b></h1>
+    <div class="tb-grid">
+      <div class="tb-tile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5.5a3.2 3.2 0 0 1 0 6M17.5 20a6 6 0 0 0-2-4.4"/></svg><span>المجموعات</span></div><div class="tb-tile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>الجدول</span></div><div class="tb-tile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="6" height="4" rx="1"/><rect x="3" y="16" width="6" height="4" rx="1"/><rect x="15" y="10" width="6" height="4" rx="1"/><path d="M9 6h3v6h3M9 18h3v-6"/></svg><span>الإقصاء</span></div><div class="tb-tile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg><span>الترتيب</span></div><div class="tb-tile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="15" r="5"/><path d="M8.5 10.5L6 3h12l-2.5 7.5"/><path d="M12 13.2l.9 1.8 2 .3-1.4 1.4.3 2-1.8-1-1.8 1 .3-2L9 15.3l2-.3z"/></svg><span>الهدّافون</span></div><div class="tb-tile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M8 3l4 3 4-3"/></svg><span>البثّ</span></div>
+    </div>
+    <div class="tb-cta wide">شرح المنصة كامل</div>
+  </div>
+</div></div></div></div>
+</div>
+<script>
+function fit(){document.querySelectorAll('.stage').forEach(st=>{
+  const c=st.querySelector('.canvas');c.style.transform='scale('+(st.clientWidth/1280)+')';});}
+addEventListener('resize',fit);fit();setTimeout(fit,300);
+function full(id){
+  const el=document.getElementById(id).closest('.stage');
+  el.requestFullscreen?.();
+  setTimeout(()=>{const c=el.querySelector('.canvas');
+    c.style.transform='scale('+(el.clientWidth/1280)+')';},260);
+}
+addEventListener('fullscreenchange',()=>setTimeout(fit,260));
+</script></body></html>

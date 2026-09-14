@@ -18,6 +18,25 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+/* ✅︎ تصدير جسر Firestore — superadmin.js موديول، فمتغيّراته (db, doc, setDoc...)
+   غير مرئية للملفات العادية اللي تُحمَّل بعده بدون type="module"
+   (مثل superadmin-requests.js و handover.js). بدون هذا التصدير تظل
+   تلك الملفات تنتظر إلى الأبد شرطاً لا يتحقق أبداً، فلا تُحقن أقسامها
+   ولا تعمل ميزاتها إطلاقاً — رغم أن كل أكوادها سليمة. */
+window._db = db;
+window._firestoreCollection = collection;
+window._firestoreDoc        = doc;
+window._firestoreGetDoc     = getDoc;
+window._firestoreGetDocs    = getDocs;
+window._firestoreSetDoc     = setDoc;
+window._firestoreAddDoc     = addDoc;
+window._firestoreUpdateDoc  = updateDoc;
+window._firestoreDeleteDoc  = deleteDoc;
+window._firestoreOnSnapshot = onSnapshot;
+window._firestoreQuery      = query;
+window._firestoreOrderBy    = orderBy;
+window._firestoreWhere      = where;
+
 // ══ STATE ══
 const SITE_URL = location.origin + location.pathname.replace(/\/[^/]*$/, '/');
 /* ✅︎ تصدير — superadmin.js موديول، فـ SITE_URL غير مرئية لـ inline onclick.

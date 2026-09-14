@@ -1297,10 +1297,60 @@ body::after {
   color: var(--gold);
 }
 
+/* ✅︎ زر القائمة (☰) بالتوب بار — يظهر على الجوال فقط */
+.tb-menu {
+  display: none;
+  background: var(--card2);
+  border: 1px solid var(--border2);
+  color: var(--gold);
+  border-radius: 9px;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.tb-menu:active { background: var(--card3); }
+
+/* ✅︎ خلفية معتمة خلف الدرج — تُغلقه عند الضغط عليها */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  top: var(--topbar-h);
+  background: rgba(0, 0, 0, .55);
+  z-index: 90;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+body.drawer-open .drawer-backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 @media(max-width:768px) {
+  .tb-menu { display: flex; }
+
+  /* ✅︎ القائمة الجانبية تتحول لدرج منزلق من الجنب (زي صفحة الإدارة)
+     بدل الاختفاء الكامل — تعرض كل الأقسام دائمًا مهما زاد عددها */
   .sidebar {
-    display: none;
+    display: block;
+    position: fixed;
+    top: var(--topbar-h);
+    right: 0;
+    bottom: 0;
+    width: 250px;
+    max-width: 82vw;
+    z-index: 95;
+    transform: translateX(100%);
+    transition: transform .22s ease;
+    box-shadow: -8px 0 26px rgba(0,0,0,.5);
+    height: auto;
+    overflow-y: auto;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0));
   }
+  body.drawer-open .sidebar { transform: translateX(0); }
 
   .layout {
     display: block;
@@ -1315,7 +1365,7 @@ body::after {
   }
 
   .mob-nav {
-    display: flex;
+    display: none !important;
   }
 
   .frow {
@@ -1328,6 +1378,11 @@ body::after {
 
   .sub-summary-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* لا حاجة لمساحة سفلية إضافية بعد إزالة الشريط الثابت */
+  .main {
+    padding-bottom: 30px;
   }
 }
 

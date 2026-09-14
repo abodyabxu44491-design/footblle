@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <title>اشتراك منصة بطولات</title>
 <meta name="description" content="احسب تكلفة اشتراكك وأرسل طلبك في دقيقة.">
 <style>
@@ -16,7 +16,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);font-family:Tajawal,sans-serif;color:var(--t1);line-height:1.75;
- padding:0 0 200px;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+ padding:0 0 150px;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 .wrap{max-width:520px;margin:0 auto;padding:0 16px}
 
 .hero{text-align:center;padding:40px 0 26px}
@@ -472,6 +472,16 @@ body{background:var(--bg);font-family:Tajawal,sans-serif;color:var(--t1);line-he
     </div>
   </div>
 
+  <div class="card" style="padding:14px 16px">
+    <div style="font-size:11px;font-weight:800;color:var(--t3);text-align:center;margin-bottom:10px">
+      أو تواصل مباشرة بدون تعبئة النموذج
+    </div>
+    <div class="btn2">
+      <button class="btn-sm" onclick="sendWA()">💬 واتساب</button>
+      <button class="btn-sm" onclick="copy()">📋 نسخ الطلب</button>
+    </div>
+  </div>
+
   <div class="note">
     كل دوري <b>مستقل تماماً</b> — فرقه ولاعبوه وإعداداته وجمهوره، ولا يرى أحد بيانات أحد.<br>
     بعد الطلب تصلك بطولتك جاهزة: <b>بيانات دخولك · رابط إدارتك · رابط جمهورك</b>.<br>
@@ -486,6 +496,9 @@ body{background:var(--bg);font-family:Tajawal,sans-serif;color:var(--t1);line-he
   <div class="foot">عبدالله السكني — مبرمج منصة بطولات</div>
 </div>
 
+<!-- ✅︎ شريط سفلي ثابت واحد فقط — زر الإرسال الرئيسي وحده يبقى مثبّتاً
+     دائم الظهور أثناء التمرير. باقي الأزرار (واتساب/نسخ) صارت جزءاً
+     طبيعياً من محتوى الصفحة أعلاه بدل ازدحامها كلها بشريط واحد. -->
 <div class="bar"><div class="bar-in">
   <div class="bar-top">
     <span class="l" id="barL">شهر واحد</span>
@@ -495,10 +508,6 @@ body{background:var(--bg);font-family:Tajawal,sans-serif;color:var(--t1);line-he
     <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.5 14.2c-.2.6-1.2 1.2-1.7 1.2-.5.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6a11 11 0 0 1-4.2-3.8c-.3-.4-.8-1.2-.8-2.3s.6-1.6.8-1.8c.2-.2.4-.3.6-.3h.4c.1 0 .3 0 .5.4l.7 1.6c0 .1.1.3 0 .4l-.3.4-.3.3c-.1.1-.2.2-.1.4.1.2.5.9 1.1 1.4.8.7 1.4.9 1.6 1 .2.1.3.1.4 0l.6-.7c.1-.2.3-.2.4-.1l1.5.7c.2.1.4.2.4.3s0 .7-.2 1.2z"/></svg>
     إرسال الطلب
   </button>
-  <div class="btn2">
-    <button class="btn-sm" onclick="sendWA()">💬 واتساب</button>
-    <button class="btn-sm" onclick="copy()">📋 نسخ</button>
-  </div>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -881,5 +890,6 @@ load();
 calc();
 pwCheck();
 </script>
+<script src="./viewport-lock.js"></script>
 </body>
 </html>

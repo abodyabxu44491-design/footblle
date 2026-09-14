@@ -46,6 +46,12 @@ if('serviceWorker' in navigator) {
 <div id="app">
   <div class="topbar">
     <div class="tb-brand">
+      <!-- ✅︎ زر القائمة — يفتح التنقل الجانبي على الجوال (بديل الشريط السفلي القديم) -->
+      <button class="tb-menu" id="saMenuBtn" onclick="toggleSaDrawer()" aria-label="القائمة">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <path d="M3 6h18M3 12h18M3 18h18"/>
+        </svg>
+      </button>
       <img src="icon-192.png" style="width:38px;height:38px;object-fit:contain;border-radius:9px" alt=""/>
       <div>
         <div class="tb-title">منصة البطولات</div>
@@ -59,6 +65,25 @@ if('serviceWorker' in navigator) {
   </div>
 
   <div class="layout">
+    <!-- ✅︎ خلفية الدرج (جوال) -->
+    <div class="drawer-backdrop" id="saDrawerBackdrop" onclick="closeSaDrawer()"></div>
+    <script>
+      window.toggleSaDrawer = function () {
+        document.body.classList.toggle('drawer-open');
+      };
+      window.closeSaDrawer = function () {
+        document.body.classList.remove('drawer-open');
+      };
+      /* أغلق الدرج تلقائياً بعد اختيار أي قسم — وإلا يبقى المستخدم عالقاً في القائمة */
+      document.addEventListener('click', function (e) {
+        var item = e.target.closest('.sb-item');
+        if (item && window.innerWidth <= 768) window.closeSaDrawer();
+      }, true);
+      /* أغلقه عند تكبير الشاشة */
+      window.addEventListener('resize', function () {
+        if (window.innerWidth > 768) window.closeSaDrawer();
+      });
+    </script>
     <div class="sidebar">
       <div class="sb-sect">
         <div class="sb-lbl">الرئيسية</div>
@@ -393,16 +418,11 @@ if('serviceWorker' in navigator) {
     </div><!-- /main -->
   </div><!-- /layout -->
 
-  <nav class="mob-nav">
-    <button class="mn-item active" onclick="showPage('overview',null,this)"><span style="font-size:19px">📊</span>الرئيسية</button>
-    <button class="mn-item" onclick="showPage('leagues',null,this)"><img src="icon-192.png" style="width:22px;height:22px;object-fit:contain;border-radius:5px" alt=""/>البطولات</button>
-    <button class="mn-item" onclick="showPage('new-league',null,this)"><span style="font-size:19px">➕︎</span>جديدة</button>
-    <button class="mn-item" onclick="showPage('subs',null,this)"><span style="font-size:19px">💳</span>اشتراكات</button>
-    <button class="mn-item" onclick="showPage('users',null,this)"><span style="font-size:19px">👥</span>المستخدمون</button>
-    <button class="mn-item" onclick="showPage('analytics',null,this)"><span style="font-size:19px">📈</span>إحصائيات</button>
-    <button class="mn-item" onclick="showPage('platform',null,this)"><span style="font-size:19px">⚙︎️</span>إعدادات</button>
-    <button class="mn-item" onclick="showPage('security',null,this)"><span style="font-size:19px">🔒</span>الأمان</button>
-  </nav>
+  <!-- ✅︎ استُبدل الشريط السفلي القديم (مب-نافب) بالدرج الجانبي أعلاه —
+       كان شريطاً ثابتاً بقائمة يدوية قصيرة تنكسر وتلتف تحت لما تكثر
+       الأقسام (زي «طلبات الاشتراك» و«رابط الاشتراك»)، ولأنه ثابت ما
+       كان يقدر يعرض أي قسم يُضاف لاحقاً للسايدبار. الدرج الجانبي
+       يعرض كل الأقسام تلقائياً لأنه نفس القائمة الجانبية بالضبط. -->
 </div>
 
 <!-- ══ MODALS ══ -->

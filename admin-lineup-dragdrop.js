@@ -153,46 +153,46 @@ const DD_PITCH_SVGS = {
       overflow-y:auto;
     }
     .dd-modal-inner {
-      background:#0f1115;
+      background:var(--card,#1a1a1a);
       width:100%;max-width:640px;
       min-height:100vh;
       display:flex;flex-direction:column;
-      border-left:1px solid #1f2229;border-right:1px solid #1f2229;
+      border-left:1px solid var(--card3,#262626);border-right:1px solid var(--card3,#262626);
     }
     .dd-topbar {
       display:flex;align-items:center;justify-content:space-between;
       padding:14px 16px;
       background:#0a0b0e;
-      border-bottom:1px solid #1f2229;
+      border-bottom:1px solid var(--card3,#262626);
       position:sticky;top:0;z-index:10;
     }
-    .dd-title { font-size:14px;font-weight:900;color:#e8eaf0 }
+    .dd-title { font-size:14px;font-weight:900;color:var(--text,#efefef) }
     .dd-close {
-      background:#1a1d24;border:1px solid #262a34;color:#9aa0b0;
+      background:var(--card2,#202020);border:1px solid var(--card3,#262626);color:var(--muted2,#888);
       border-radius:8px;padding:7px 14px;font-family:Tajawal,sans-serif;
       font-size:12px;font-weight:600;cursor:pointer;
     }
     .dd-tabs {
       display:grid;grid-template-columns:1fr 1fr;
-      border-bottom:1px solid #1f2229;
+      border-bottom:1px solid var(--card3,#262626);
     }
     .dd-tab {
       padding:12px 8px;text-align:center;
       font-size:13px;font-weight:700;
-      background:#0f1115;color:#5a6070;
+      background:var(--card,#1a1a1a);color:var(--muted,#5a5a5a);
       border:none;cursor:pointer;font-family:Tajawal,sans-serif;
       border-bottom:2px solid transparent;transition:all .2s;
     }
-    .dd-tab.active { color:#C9A02B;border-bottom-color:#C9A02B;background:#0f1115 }
+    .dd-tab.active { color:#C9A02B;border-bottom-color:#C9A02B;background:var(--card,#1a1a1a) }
 
     /* اختيار التشكيلة */
     .dd-formations {
       display:flex;flex-wrap:wrap;gap:6px;
-      padding:12px 16px;border-bottom:1px solid #1f2229;
+      padding:12px 16px;border-bottom:1px solid var(--card3,#262626);
     }
     .dd-f-btn {
       padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;
-      border:1px solid #262a34;background:#14161b;color:#9aa0b0;
+      border:1px solid var(--card3,#262626);background:var(--card2,#202020);color:var(--muted2,#888);
       cursor:pointer;font-family:Tajawal,sans-serif;transition:all .2s;
     }
     .dd-f-btn.active {
@@ -202,7 +202,7 @@ const DD_PITCH_SVGS = {
     /* الملعب */
     .dd-pitch-wrap {
       padding:12px 16px;background:#08090b;
-      border-bottom:1px solid #1f2229;
+      border-bottom:1px solid var(--card3,#262626);
     }
     .dd-pitch {
       position:relative;
@@ -274,8 +274,8 @@ const DD_PITCH_SVGS = {
     }
     .dd-empty-dot .dd-avatar {
       background:rgba(255,255,255,.06);
-      padding:0;border:2px dashed #3a4050;
-      color:#5a6070;box-shadow:none;
+      padding:0;border:2px dashed var(--border2,#383838);
+      color:var(--muted,#5a5a5a);box-shadow:none;
     }
     .dd-empty-dot .dd-avatar::before{ display:none }
     .dd-player-dot.dragging .dd-avatar{ transform:scale(1.15) }
@@ -285,19 +285,19 @@ const DD_PITCH_SVGS = {
       padding:12px 16px 0;
     }
     .dd-list-title {
-      font-size:10px;color:#5a6070;letter-spacing:1px;
+      font-size:10px;color:var(--muted,#5a5a5a);letter-spacing:1px;
       font-weight:700;margin-bottom:8px;
       text-transform:uppercase;
     }
     .dd-player-row {
       display:flex;align-items:center;gap:8px;
       padding:10px;
-      background:#14161b;border:1px solid #1f2229;
+      background:var(--card2,#202020);border:1px solid var(--card3,#262626);
       border-radius:10px;margin-bottom:6px;
     }
     .dd-p-num {
       width:32px;height:32px;border-radius:8px;
-      background:#1a1d24;display:flex;align-items:center;justify-content:center;
+      background:var(--card2,#202020);display:flex;align-items:center;justify-content:center;
       flex-shrink:0;
     }
     .dd-p-num input {
@@ -307,36 +307,36 @@ const DD_PITCH_SVGS = {
     }
     .dd-p-name input {
       background:transparent;border:none;outline:none;
-      font-size:13px;font-weight:600;color:#e8eaf0;
+      font-size:13px;font-weight:600;color:var(--text,#efefef);
       font-family:Tajawal,sans-serif;width:100%;
     }
-    .dd-p-name input::placeholder { color:#3a3f50 }
+    .dd-p-name input::placeholder { color:var(--border2,#383838) }
     .dd-player-row { align-items:flex-start; }
     .dd-p-num, .dd-p-pos, .dd-p-status { margin-top:2px; }
     .dd-roster-select {
-      width:100%;background:#1a1d24;border:1px solid #262a34;
-      color:#7d8394;border-radius:7px;padding:5px 8px;
+      width:100%;background:var(--card2,#202020);border:1px solid var(--card3,#262626);
+      color:var(--muted2,#888);border-radius:7px;padding:5px 8px;
       font-family:Tajawal,sans-serif;font-size:10.5px;outline:none;
     }
     .dd-roster-select:focus { border-color:#C9A02B; color:#C9A02B; }
     .dd-p-pos select, .dd-p-status select {
-      background:#1a1d24;border:1px solid #262a34;
-      color:#9aa0b0;border-radius:7px;padding:5px 6px;
+      background:var(--card2,#202020);border:1px solid var(--card3,#262626);
+      color:var(--muted2,#888);border-radius:7px;padding:5px 6px;
       font-family:Tajawal,sans-serif;font-size:10px;outline:none;
     }
     .dd-add-sub {
       width:100%;padding:10px;margin:8px 0 16px;
-      background:transparent;border:1px dashed #262a34;
-      border-radius:10px;color:#5a6070;font-family:Tajawal,sans-serif;
+      background:transparent;border:1px dashed var(--card3,#262626);
+      border-radius:10px;color:var(--muted,#5a5a5a);font-family:Tajawal,sans-serif;
       font-size:12px;cursor:pointer;transition:all .2s;
     }
-    .dd-add-sub:active { background:#14161b }
+    .dd-add-sub:active { background:var(--card2,#202020) }
 
     /* Footer */
     .dd-footer {
       padding:14px 16px;
-      border-top:1px solid #1f2229;
-      position:sticky;bottom:0;background:#0f1115;
+      border-top:1px solid var(--card3,#262626);
+      position:sticky;bottom:0;background:var(--card,#1a1a1a);
       display:flex;gap:8px;
     }
     .dd-save-btn {
@@ -353,8 +353,8 @@ const DD_PITCH_SVGS = {
     .dd-bench-toggle.dd-bench-on{ border-color:rgba(39,174,96,.4); background:rgba(39,174,96,.12); color:#2ecc71 }
     .dd-bench-toggle:active{ opacity:.8 }
     .dd-cancel-btn {
-      padding:14px 18px;background:#14161b;
-      border:1px solid #262a34;color:#9aa0b0;
+      padding:14px 18px;background:var(--card2,#202020);
+      border:1px solid var(--card3,#262626);color:var(--muted2,#888);
       border-radius:12px;font-family:Tajawal,sans-serif;
       font-size:12px;cursor:pointer;
     }
@@ -496,8 +496,8 @@ function ddRenderBody() {
 
   // عرض معلوماتي فقط (بدون تغيير) — التحكم الفعلي من صفحة الإعدادات ← نظام التشكيلة
   const countInfo = `
-    <div style="padding:8px 16px;border-bottom:1px solid #1f2229;display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:10px;color:#5a6070">👕 نظام التشكيلة (من إعدادات البطولة)</div>
+    <div style="padding:8px 16px;border-bottom:1px solid var(--card3,#262626);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:10px;color:var(--muted,#5a5a5a)">👕 نظام التشكيلة (من إعدادات البطولة)</div>
       <div style="font-size:12px;font-weight:900;color:#C9A02B">${actualCount} لاعبين</div>
     </div>`;
 
@@ -530,7 +530,7 @@ function ddRenderBody() {
         </svg>
         <div id="ddPlayersOnPitch"></div>
       </div>
-      <div style="text-align:center;margin-top:8px;font-size:10px;color:#5a6070">
+      <div style="text-align:center;margin-top:8px;font-size:10px;color:var(--muted,#5a5a5a)">
         👆 اسحب اللاعبين لتغيير مواضعهم على الملعب
       </div>
     </div>
@@ -670,7 +670,7 @@ const el = document.getElementById('ddPlayersList');
       </div>
       <div class="dd-p-status">
         <select onchange="ddUpdatePlayer(${idxArg}, 'status', this.value)"
-          style="color:${p.status==='injured'?'#C0392B':p.status==='suspended'?'#C9A02B':p.status==='absent'?'#666':'#9aa0b0'}">
+          style="color:${p.status==='injured'?'#C0392B':p.status==='suspended'?'#C9A02B':p.status==='absent'?'#666':'var(--muted2,#888)'}">
           <option value="active"   ${p.status==='active'||!p.status?'selected':''}>✅ متاح</option>
           <option value="injured"  ${p.status==='injured'?'selected':''}>🤕 مصاب</option>
           <option value="suspended"${p.status==='suspended'?'selected':''}>🟨 موقوف</option>

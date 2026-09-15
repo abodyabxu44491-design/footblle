@@ -1621,7 +1621,12 @@ function computeGroupStats(teamIds, groupId) {
      **مباريات الإقصاء**. فريقان من نفس المجموعة يلتقيان لاحقاً في ربع
      النهائي فتُضاف نتيجتهما لجدول المجموعة وتفسده. نستبعد الإقصاء،
      ونحصر بـ groupId حين يكون مسجّلاً على المباراة (أدقّ من العضوية). */
+  /* ✅ نفس شرط الإدارة: النتيجة يجب أن تكون رقماً. بدونه كانت مباراة
+     بنتيجة null تمرّ إلى الفرع الأخير (لأن null>null و null<null كلاهما
+     false) فتُحتسب **تعادلاً** بنقطة لكل فريق — بينما لوحة الإدارة
+     تتجاهلها. (v338-audit) */
   matches.filter(m=>m.status==='finished' && !m.isKnockout && !m.knockoutRoundId
+                    && typeof m.homeScore==='number' && typeof m.awayScore==='number'
                     && (!groupId || !m.groupId || m.groupId===groupId)).forEach(m=>{
     if(teamIds.includes(m.homeId)&&teamIds.includes(m.awayId)) {
       const h=stats[m.homeId], a=stats[m.awayId];
@@ -5468,6 +5473,9 @@ function _teamCardCount(teamId, matchList) {
   let pts = 0;
   (matchList || matches).forEach(m => {
     if (m.status !== 'finished') return;
+    /* ✅ اللعب النظيف كاسرَ تعادلٍ للجدول يجب أن يحتسب بطاقات الدور
+       الدوري وحده — الجدول لا يشمل الإقصاء، فبطاقاته لا تشمله. */
+    if (m.isKnockout || m.knockoutRoundId) return;
     if (m.homeId !== teamId && m.awayId !== teamId) return;
     const side = m.homeId === teamId ? 'home' : 'away';
     const evs = _matchEvents(m);
@@ -5486,8 +5494,15 @@ function applyTiebreak(a, b, matchList) {
     .filter(r => r === 'draw' || _dis.indexOf(r) === -1);
   for (const rule of order) {
     if (rule === 'h2h') {
+      /* 🔴 المواجهات المباشرة كانت تشمل **مباريات الإقصاء** — أُصلح (v338-audit)
+         جدول الترتيب يستبعد الإقصاء صراحةً (في الإدارة والجمهور معاً)،
+         لكن كاسر التعادل الذي يرتّب هذا الجدول نفسه كان يحتسبها.
+         فلقاء الفريقين في نصف النهائي يغيّر ترتيبهما في الدور الدوري —
+         وهو تناقض مباشر مع تعريف الجدول. أضفنا الاستبعاد وشرط أن تكون
+         النتيجة رقماً، تطابقاً مع فلتر الجدول حرفياً. */
       const h2h = (matchList||matches).filter(m =>
-        m.status === 'finished' &&
+        m.status === 'finished' && !m.isKnockout && !m.knockoutRoundId &&
+        typeof m.homeScore === 'number' && typeof m.awayScore === 'number' &&
         ((m.homeId === a.id && m.awayId === b.id) ||
          (m.homeId === b.id && m.awayId === a.id))
       );
@@ -5854,7 +5869,17 @@ function renderStandings() {
      في «الدوري الموحّد» (جدول ثم إقصاء) كانت نتائج الإقصاء تُضاف لجدول
      الترتيب فتُفسده — الجدول يخصّ الدور الدوري وحده.
      وركلات الترجيح لا تُحتسب في الجدول إطلاقاً: المباراة تعادل. */
-  matches.filter(m => m.status === 'finished' && !m.isKnockout && !m.knockoutRoundId).forEach(m => {
+  /* 🔴 تباين بين اللوحة والجمهور — أُصلح (v338-audit)
+     لوحة الإدارة (recalcStandings) تشترط أن تكون النتيجة **رقماً**:
+        typeof m.homeScore === 'number' && typeof m.awayScore === 'number'
+     وهذا الشرط كان غائباً هنا. فمباراة موسومة `finished` ونتيجتها null
+     (إدخال ناقص، أو إنهاء بلا تسجيل نتيجة) تُعامَل معاملتين مختلفتين:
+        • الإدارة: تتجاهلها      → لا نقاط ولا «لعب»
+        • الجمهور: (null||0) → 0-0 → **تعادل**: نقطة لكل فريق و«لعب» لكليهما
+     فيرى الجمهور جدولاً بنقاط تخالف ما يراه المنظّم في لوحته — وهو أسوأ
+     ما قد يظهر في منصة بطولات. توحيد الشرط يُنهي التباين من جذره. */
+  matches.filter(m => m.status === 'finished' && !m.isKnockout && !m.knockoutRoundId
+                   && typeof m.homeScore === 'number' && typeof m.awayScore === 'number').forEach(m => {
     const h = statsMap[m.homeId], a = statsMap[m.awayId];
     if (!h || !a) return;
     h.p++; a.p++;
@@ -8638,6 +8663,15 @@ function renderPitchViewer(lineup, isAway) {
                 <div style="display:flex;align-items:center;gap:7px">
                   <span style="width:5px;height:15px;border-radius:3px;background:${isAway?'#C0392B':'var(--gold)'}"></span>
                   <span style="font-size:11px;font-weight:800;color:var(--t2)">${_vpPitchLabel(n)}</span>
+                  ${/* 🔮 وسم «التشكيلة المتوقّعة» — يضعه المنظّم من لوحة التشكيلة
+                        قبل المباراة، ويسقط تلقائياً بمجرّد أن يحفظها مؤكَّدة.
+                        نفس سلوك التطبيقات الرسمية: Predicted ← Confirmed.
+                        الغياب يعني «مؤكَّدة» كي لا تتأثر أي تشكيلة محفوظة سابقاً. */
+                    (lineup && lineup.predicted === true)
+                    ? `<span style="font-size:9.5px;font-weight:900;padding:2px 8px;border-radius:20px;
+                         background:rgba(201,160,43,.13);border:1px solid rgba(201,160,43,.34);
+                         color:var(--gold);white-space:nowrap">🔮 متوقّعة</span>`
+                    : ''}
                 </div>
                 ${formation ? `<div style="font-size:12.5px;font-weight:900;letter-spacing:1px;
                   color:${isAway?'#ff9a90':'#e6c157'};

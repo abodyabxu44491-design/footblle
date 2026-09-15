@@ -31,7 +31,7 @@
 (function () {
   'use strict';
 
-  var GOLD = '#C9A02B', GOLD2 = '#F0C84A';
+  var GOLD = '#C9A02B', GOLD2 = 'var(--gold2,#E8BE45)';
 
   /* ⚠️ admin.js يُحمَّل بـ type="module" — أي أنه يعمل **بعد** السكربتات
      العادية مهما كان ترتيبها في الصفحة. فتعريفاتنا لو طُبّقت فوراً دهسها
@@ -48,7 +48,7 @@
      ① أنواع الأحداث — مصدر واحد للأيقونة واللون والاسم
      ───────────────────────────────────────────────────────────── */
   var TYPES = {
-    goal:          { ic: '⚽', c: '#F0C84A', label: 'هدف',              goalish: true },
+    goal:          { ic: '⚽', c: 'var(--gold2,#E8BE45)', label: 'هدف',              goalish: true },
     own:           { ic: '⚽', c: '#e5533d', label: 'هدف عكسي',         goalish: true },
     /* ⚠️ 'penalty' في هذه المنصة = ركلة **ترجيح** لا ركلة جزاء أثناء اللعب.
        ركلة الجزاء المسجَّلة تُحفظ نوعها 'goal' مع علامة penalty:true.
@@ -56,7 +56,7 @@
     penalty:       { ic: '🥅', c: '#9b59b6', label: 'ركلة ترجيح', shootout: true },
     goalCancelled: { ic: '🚫', c: '#7a7a7a', label: 'هدف ملغى',         cancelled: true },
     penaltyMiss:   { ic: '🎯', c: '#C0392B', label: 'ركلة جزاء ضائعة' },
-    yellow:        { ic: '🟨', c: '#D9A21B', label: 'بطاقة صفراء' },
+    yellow:        { ic: '🟨', c: 'var(--gold,#C9A02B)', label: 'بطاقة صفراء' },
     red:           { ic: '🟥', c: '#C0392B', label: 'بطاقة حمراء' },
     sub:           { ic: '🔄', c: '#3498db', label: 'تبديل' },
     injury:        { ic: '🤕', c: '#e67e22', label: 'إصابة' },
@@ -130,16 +130,16 @@
     s.textContent = [
       '.etl{font-family:Tajawal,sans-serif;direction:rtl}',
       '.etl-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0 0 10px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:8px}',
-      '.etl-chip{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#9aa0aa;border-radius:999px;padding:5px 11px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;transition:.15s;white-space:nowrap}',
+      '.etl-chip{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:var(--muted2,#888);border-radius:999px;padding:5px 11px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;transition:.15s;white-space:nowrap}',
       '.etl-chip:hover{border-color:rgba(201,160,43,.4);color:#ccc}',
       '.etl-chip.on{background:rgba(201,160,43,.14);border-color:' + GOLD + ';color:' + GOLD2 + '}',
       '.etl-chip .etl-n{opacity:.65;font-weight:700;margin-inline-start:3px}',
       '.etl-ord{margin-inline-start:auto}',
       '.etl-sum{display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 10px;margin-bottom:10px;border-radius:12px;background:linear-gradient(135deg,rgba(201,160,43,.07),transparent);border:1px solid rgba(201,160,43,.16)}',
       '.etl-sum b{font-size:16px;font-weight:900;color:' + GOLD2 + '}',
-      '.etl-sum span{font-size:11px;font-weight:800;color:#cfd3da;max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-      '.etl-sum i{font-style:normal;color:#5a6070;font-size:13px}',
-      '.etl-half{display:flex;align-items:center;gap:8px;margin:14px 0 8px;font-size:10px;font-weight:900;color:#6a7080;letter-spacing:.6px}',
+      '.etl-sum span{font-size:11px;font-weight:800;color:var(--text,#efefef);max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.etl-sum i{font-style:normal;color:var(--muted,#5a5a5a);font-size:13px}',
+      '.etl-half{display:flex;align-items:center;gap:8px;margin:14px 0 8px;font-size:10px;font-weight:900;color:var(--muted,#5a5a5a);letter-spacing:.6px}',
       '.etl-half::before,.etl-half::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.07)}',
       '.etl-row{position:relative;display:flex;align-items:flex-start;gap:9px;padding:9px 11px 9px 9px;margin-bottom:6px;border-radius:12px;background:rgba(255,255,255,.022);border:1px solid rgba(255,255,255,.055);transition:.15s}',
       '.etl-row:hover{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.1)}',
@@ -151,46 +151,46 @@
       '.etl-row.etl-cancel .etl-min{color:#7a7a7a;background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.07)}',
       '.etl-ic{flex:0 0 auto;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;border-radius:8px;background:rgba(255,255,255,.04);margin-top:1px}',
       '.etl-main{flex:1;min-width:0}',
-      '.etl-nm{font-size:12.5px;font-weight:800;color:#e6e8ec;line-height:1.45;word-break:break-word}',
+      '.etl-nm{font-size:12.5px;font-weight:800;color:var(--text,#efefef);line-height:1.45;word-break:break-word}',
       '.etl-row.etl-cancel .etl-nm{color:#8a8a8a;text-decoration:line-through;text-decoration-color:#5a5a5a}',
-      '.etl-tag{display:inline-block;font-size:9px;font-weight:800;padding:1px 6px;border-radius:6px;margin-inline-start:5px;vertical-align:1px;background:rgba(255,255,255,.06);color:#9aa0aa}',
+      '.etl-tag{display:inline-block;font-size:9px;font-weight:800;padding:1px 6px;border-radius:6px;margin-inline-start:5px;vertical-align:1px;background:rgba(255,255,255,.06);color:var(--muted2,#888)}',
       '.etl-line{display:block;font-size:10.5px;font-weight:700;margin-top:3px;line-height:1.5}',
       '.etl-assist{color:#27ae60}',
-      '.etl-in{color:#2ecc71}.etl-out{color:#e05252}',
-      '.etl-note{color:#7f858f;font-weight:600}',
+      '.etl-in{color:#2ecc71}.etl-out{color:var(--red,#C0392B)}',
+      '.etl-note{color:var(--muted2,#888);font-weight:600}',
       '.etl-cancelled-tag{color:#D64541;font-weight:900}',
-      '.etl-team{display:block;font-size:9.5px;font-weight:700;color:#6a7080;margin-top:3px}',
+      '.etl-team{display:block;font-size:9.5px;font-weight:700;color:var(--muted,#5a5a5a);margin-top:3px}',
       '.etl-acts{flex:0 0 auto;display:flex;gap:4px;align-items:center;margin-top:1px}',
       '.etl-b{width:27px;height:27px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;border:1px solid;background:transparent;transition:.15s;padding:0}',
       '.etl-b:active{transform:scale(.92)}',
       '.etl-b-ed{border-color:rgba(201,160,43,.32);color:' + GOLD + ';background:rgba(201,160,43,.08)}',
       '.etl-b-cx{border-color:rgba(214,69,65,.3);color:#D64541;background:rgba(214,69,65,.07)}',
-      '.etl-b-un{border-color:rgba(46,158,91,.34);color:#2E9E5B;background:rgba(46,158,91,.09)}',
+      '.etl-b-un{border-color:rgba(46,158,91,.34);color:var(--green,#27AE60);background:rgba(46,158,91,.09)}',
       '.etl-b-del{border-color:rgba(192,57,43,.28);color:#C0392B;background:rgba(192,57,43,.06)}',
-      '.etl-empty{text-align:center;padding:22px 14px;color:#6a7080;font-size:11.5px;line-height:1.9}',
+      '.etl-empty{text-align:center;padding:22px 14px;color:var(--muted,#5a5a5a);font-size:11.5px;line-height:1.9}',
       '.etl-empty b{display:block;font-size:22px;margin-bottom:6px;opacity:.5}',
       /* نافذة التحرير */
       '.etl-ov{position:fixed;inset:0;z-index:100050;background:rgba(0,0,0,.78);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;font-family:Tajawal,sans-serif}',
       '@media(min-width:640px){.etl-ov{align-items:center}}',
-      '.etl-sheet{width:100%;max-width:440px;max-height:92vh;overflow-y:auto;background:#111318;border:1px solid #262a33;border-radius:20px 20px 0 0;padding:0 0 26px;animation:etlUp .24s ease}',
+      '.etl-sheet{width:100%;max-width:440px;max-height:92vh;overflow-y:auto;background:var(--card,#1a1a1a);border:1px solid var(--card3,#262626);border-radius:20px 20px 0 0;padding:0 0 26px;animation:etlUp .24s ease}',
       '@media(min-width:640px){.etl-sheet{border-radius:20px}}',
       '@keyframes etlUp{from{transform:translateY(26px);opacity:0}to{transform:translateY(0);opacity:1}}',
-      '.etl-sh-hd{position:sticky;top:0;z-index:2;padding:16px 18px 13px;border-bottom:1px solid #1f232b;background:linear-gradient(135deg,rgba(201,160,43,.13),rgba(201,160,43,.03)),#111318}',
-      '.etl-sh-hd h4{margin:0 0 3px;font-size:15.5px;font-weight:900;color:#e8eaf0}',
-      '.etl-sh-hd p{margin:0;font-size:11px;color:#818794}',
+      '.etl-sh-hd{position:sticky;top:0;z-index:2;padding:16px 18px 13px;border-bottom:1px solid var(--card2,#202020);background:linear-gradient(135deg,rgba(201,160,43,.13),rgba(201,160,43,.03)),var(--card,#1a1a1a)}',
+      '.etl-sh-hd h4{margin:0 0 3px;font-size:15.5px;font-weight:900;color:var(--text,#efefef)}',
+      '.etl-sh-hd p{margin:0;font-size:11px;color:var(--muted2,#888)}',
       '.etl-sh-bd{padding:14px 18px 0}',
       '.etl-f{margin-bottom:13px}',
-      '.etl-f>label{display:block;font-size:10.5px;font-weight:800;color:#818794;margin-bottom:5px}',
-      '.etl-inp{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:11px;border:1px solid #262a33;background:#0d0f13;color:#e6e8ec;font-size:13px;font-family:Tajawal,sans-serif}',
+      '.etl-f>label{display:block;font-size:10.5px;font-weight:800;color:var(--muted2,#888);margin-bottom:5px}',
+      '.etl-inp{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:11px;border:1px solid var(--card3,#262626);background:var(--dark,#121212);color:var(--text,#efefef);font-size:13px;font-family:Tajawal,sans-serif}',
       '.etl-inp:focus{outline:none;border-color:rgba(201,160,43,.55)}',
       '.etl-2{display:grid;grid-template-columns:1fr 1fr;gap:9px}',
       '.etl-seg{display:flex;gap:6px;flex-wrap:wrap}',
-      '.etl-seg button{flex:1;min-width:64px;padding:9px 4px;border-radius:10px;border:1px solid #262a33;background:#0d0f13;color:#9aa0aa;font-size:11px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif}',
+      '.etl-seg button{flex:1;min-width:64px;padding:9px 4px;border-radius:10px;border:1px solid var(--card3,#262626);background:var(--dark,#121212);color:var(--muted2,#888);font-size:11px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif}',
       '.etl-seg button.on{border-color:' + GOLD + ';background:rgba(201,160,43,.12);color:' + GOLD2 + '}',
       '.etl-pick{max-height:190px;overflow-y:auto;margin-top:7px}',
-      '.etl-sh-ft{display:flex;gap:9px;padding:14px 18px 0;position:sticky;bottom:0;background:#111318;border-top:1px solid #1f232b;margin-top:6px;padding-bottom:4px}',
+      '.etl-sh-ft{display:flex;gap:9px;padding:14px 18px 0;position:sticky;bottom:0;background:var(--card,#1a1a1a);border-top:1px solid var(--card2,#202020);margin-top:6px;padding-bottom:4px}',
       '.etl-ft-b{flex:1;padding:13px;border-radius:12px;font-size:13px;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer;border:1px solid transparent}',
-      '.etl-ft-cancel{background:transparent;border-color:#262a33;color:#818794}',
+      '.etl-ft-cancel{background:transparent;border-color:var(--card3,#262626);color:var(--muted2,#888)}',
       '.etl-ft-save{flex:2;background:linear-gradient(145deg,' + GOLD2 + ',' + GOLD + ');color:#1a1200}'
     ].join('\n');
     document.head.appendChild(s);
@@ -319,7 +319,7 @@
       var scored = (e.result === 'goal') || (e.result && e.result.result === 'goal');
       var pnm = liveName(tid, e.playerId, e.player || '');
       main = (pnm ? esc(pnm) : 'ركلة ترجيح') +
-        '<span class="etl-tag" style="color:' + (scored ? '#2E9E5B' : '#C0392B') + '">' +
+        '<span class="etl-tag" style="color:' + (scored ? 'var(--green,#27AE60)' : '#C0392B') + '">' +
         (scored ? '✓ سجّلت' : '✕ ضاعت') + '</span>';
       return '<div class="etl-row etl-' + sd + '" style="--etl-a:#9b59b6;opacity:.85">' +
         '<span class="etl-min">' + esc(minLabel(e)) + '</span>' +
@@ -550,7 +550,7 @@
          لا تُصحَّح إلا بحذف الهدف وإعادته. الآن يُعدَّل ويُمسح كغيره. */
       if (isGoal && assistEnabled()) {
         body +=
-          '<div class="etl-f"><label>👟 صانع الهدف <span style="color:#5a6070;font-weight:600">(اتركه فارغاً لإزالة الصناعة)</span></label>' +
+          '<div class="etl-f"><label>👟 صانع الهدف <span style="color:var(--muted,#5a5a5a);font-weight:600">(اتركه فارغاً لإزالة الصناعة)</span></label>' +
             '<input id="etl-assist" class="etl-inp" value="' + esc(e.assist || '') + '" placeholder="اسم الصانع"/>' +
             '<div id="etl-assist-pick" class="etl-pick"></div></div>';
       }
@@ -596,14 +596,14 @@
     async function fillPick(boxId, inputId, teamId) {
       var box = document.getElementById(boxId);
       if (!box || !teamId || !window._loadTeamRoster) return;
-      box.innerHTML = '<span style="font-size:11px;color:#6a7080">جارِ تحميل الكشف…</span>';
+      box.innerHTML = '<span style="font-size:11px;color:var(--muted,#5a5a5a)">جارِ تحميل الكشف…</span>';
       try {
         var roster = await window._loadTeamRoster(teamId);
         box.innerHTML = window._renderRosterPickButtons
           ? window._renderRosterPickButtons(roster, inputId, null)
           : '';
       } catch (err) {
-        box.innerHTML = '<span style="font-size:11px;color:#6a7080">تعذّر تحميل الكشف — اكتب الاسم يدوياً</span>';
+        box.innerHTML = '<span style="font-size:11px;color:var(--muted,#5a5a5a)">تعذّر تحميل الكشف — اكتب الاسم يدوياً</span>';
       }
     }
     if (isSub) {
@@ -733,7 +733,7 @@
       return e.type === 'yellow' || e.type === 'red' || e.type === 'sub' ||
              e.type === 'injury' || e.type === 'var';
     }).length;
-    return '<div style="text-align:center;padding:9px 8px;font-size:10.5px;color:#6a7080;' +
+    return '<div style="text-align:center;padding:9px 8px;font-size:10.5px;color:var(--muted,#5a5a5a);' +
       'background:rgba(255,255,255,.02);border-radius:9px;line-height:1.8">' +
       (n ? ('سُجّل ' + n + ' حدثاً — يظهر بترتيبه الزمني في «مجريات المباراة» بالأعلى، ومنه يُعدَّل ويُحذف.')
          : 'اضغط زرّاً بالأعلى لتسجيل حدث — سيظهر في «مجريات المباراة» في مكانه الزمني.') +

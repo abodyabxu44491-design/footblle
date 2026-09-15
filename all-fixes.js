@@ -83,6 +83,12 @@
              منها. كان مستثنى هنا أيضاً. */
           const sbZones = document.getElementById('sb-zones');
           if (sbZones) sbZones.style.display = (type === 'league' || type === 'swiss') ? 'flex' : 'none';
+          /* ✅ صفّ المناطق في فهرس الإعدادات يتبع الشريط الجانبي بنفس الشرط
+             — هذا الملف يغلّف _adaptAdminUIToType فيجب أن يطبّق القاعدة
+             نفسها، وإلا أعاد إظهار ما أخفته النواة. (v338-audit) */
+          var setrowZones2 = document.getElementById('setrow-zones');
+          if (setrowZones2) setrowZones2.style.display =
+            (type === 'league' || type === 'swiss') ? '' : 'none';
 
           // tiebreakCard — للدوري والمجموعات (كلاهما يحتاج حسم التعادل بالنقاط)
           const tiebreakCard = document.getElementById('tiebreakCard');

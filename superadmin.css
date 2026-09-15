@@ -921,6 +921,25 @@ body::after {
   border-color: var(--gold);
 }
 
+/* زر نسخ صغير داخل سطر معلومات (نافذة تفاصيل البطولة) */
+.ic-btn-mini {
+  background: var(--card3);
+  border: 1px solid var(--border2);
+  color: var(--gold);
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ic-btn-mini:active {
+  transform: scale(.9);
+}
+
 .frow {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1383,6 +1402,61 @@ body.drawer-open .drawer-backdrop {
   /* لا حاجة لمساحة سفلية إضافية بعد إزالة الشريط الثابت */
   .main {
     padding-bottom: 30px;
+  }
+
+  /* ✅︎ جدول المستخدمين/الاشتراكات يتحوّل لبطاقات على الجوال —
+     كان جدولاً بـ٦ أعمدة يخرج عن الشاشة ويحتاج تمرير جانبي ضيّق
+     ومزعج، وزر الإجراءات (display:flex على td) يكسر تناسق الصف. */
+  .sub-table thead {
+    display: none;
+  }
+  .sub-table, .sub-table tbody, .sub-table tr, .sub-table td {
+    display: block;
+    width: 100%;
+  }
+  .sub-table tr {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: var(--rs);
+    margin-bottom: 10px;
+    padding: 4px 0;
+  }
+  .sub-table tr:last-child {
+    margin-bottom: 0;
+  }
+  .sub-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    text-align: left;
+  }
+  .sub-table tr:hover td {
+    background: transparent;
+  }
+  .sub-table td:last-child {
+    border-bottom: none;
+  }
+  .sub-table td[data-label]::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  /* عمود الإجراءات: أزرار كاملة العرض بدل التزاحم */
+  .sub-table td.sa-td-actions {
+    justify-content: flex-start;
+  }
+  .sub-table td.sa-td-actions::before {
+    display: none;
+  }
+  .sub-table td.sa-td-actions > div {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
 

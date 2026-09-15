@@ -29,7 +29,7 @@
 (function () {
   'use strict';
 
-  var GOLD = '#C9A02B', GOLD2 = '#F0C84A';
+  var GOLD = '#C9A02B', GOLD2 = 'var(--gold2,#E8BE45)';
 
   /* ⚠️ admin.js و viewer.js يُحمَّلان بـ type="module" — أي أنهما يعملان
      **بعد** السكربتات العادية مهما كان ترتيبها. فأي دالّة نلفّها فوراً
@@ -346,57 +346,57 @@
       '.sp-off{text-align:center;padding:26px 18px;border:1px dashed rgba(201,160,43,.25);border-radius:16px;background:rgba(201,160,43,.03)}',
       '.sp-off .sp-ic{font-size:34px;opacity:.55;margin-bottom:10px}',
       '.sp-off h4{font-size:15px;font-weight:900;color:' + GOLD2 + ';margin-bottom:8px}',
-      '.sp-off p{font-size:12px;color:#818794;line-height:1.95;max-width:460px;margin:0 auto 16px}',
+      '.sp-off p{font-size:12px;color:var(--muted2,#888);line-height:1.95;max-width:460px;margin:0 auto 16px}',
       '.sp-cta{padding:12px 26px;border-radius:12px;border:none;background:linear-gradient(145deg,' + GOLD2 + ',' + GOLD + ');color:#1a1200;font-family:Tajawal,sans-serif;font-size:13px;font-weight:900;cursor:pointer}',
-      '.sp-grp{display:flex;align-items:center;gap:8px;margin:20px 0 10px;font-size:11px;font-weight:900;color:#6a7080;letter-spacing:.5px}',
+      '.sp-grp{display:flex;align-items:center;gap:8px;margin:20px 0 10px;font-size:11px;font-weight:900;color:var(--muted,#5a5a5a);letter-spacing:.5px}',
       '.sp-grp::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.07)}',
       '.sp-card{display:flex;align-items:center;gap:10px;padding:11px 12px;margin-bottom:7px;border-radius:13px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06)}',
       '.sp-card.ban{border-color:rgba(192,57,43,.28);background:rgba(192,57,43,.05)}',
       '.sp-card.warn{border-color:rgba(217,162,27,.26);background:rgba(217,162,27,.045)}',
-      '.sp-num{flex:0 0 auto;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;background:rgba(255,255,255,.05);color:#9aa0aa}',
+      '.sp-num{flex:0 0 auto;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;background:rgba(255,255,255,.05);color:var(--muted2,#888)}',
       '.sp-body{flex:1;min-width:0}',
-      '.sp-nm{font-size:13px;font-weight:900;color:#e6e8ec}',
-      '.sp-tm{font-size:10px;color:#6a7080;font-weight:700}',
+      '.sp-nm{font-size:13px;font-weight:900;color:var(--text,#efefef)}',
+      '.sp-tm{font-size:10px;color:var(--muted,#5a5a5a);font-weight:700}',
       '.sp-why{display:block;font-size:10.5px;font-weight:700;margin-top:3px;line-height:1.6}',
-      '.sp-why.ban{color:#e07070}.sp-why.warn{color:#D9A21B}',
-      '.sp-miss{display:block;font-size:10px;color:#818794;margin-top:2px}',
+      '.sp-why.ban{color:var(--red,#C0392B)}.sp-why.warn{color:var(--gold,#C9A02B)}',
+      '.sp-miss{display:block;font-size:10px;color:var(--muted2,#888);margin-top:2px}',
       '.sp-badge{flex:0 0 auto;font-size:10px;font-weight:900;padding:5px 10px;border-radius:999px}',
-      '.sp-badge.ban{background:rgba(192,57,43,.14);color:#e07070;border:1px solid rgba(192,57,43,.3)}',
-      '.sp-badge.warn{background:rgba(217,162,27,.13);color:#D9A21B;border:1px solid rgba(217,162,27,.3)}',
-      '.sp-pardon{flex:0 0 auto;padding:6px 10px;border-radius:9px;border:1px solid rgba(46,158,91,.3);background:rgba(46,158,91,.08);color:#2E9E5B;font-size:10.5px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif}',
-      '.sp-empty{text-align:center;padding:20px;color:#6a7080;font-size:12px;line-height:1.9}',
+      '.sp-badge.ban{background:rgba(192,57,43,.14);color:var(--red,#C0392B);border:1px solid rgba(192,57,43,.3)}',
+      '.sp-badge.warn{background:rgba(217,162,27,.13);color:var(--gold,#C9A02B);border:1px solid rgba(217,162,27,.3)}',
+      '.sp-pardon{flex:0 0 auto;padding:6px 10px;border-radius:9px;border:1px solid rgba(46,158,91,.3);background:rgba(46,158,91,.08);color:var(--green,#27AE60);font-size:10.5px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif}',
+      '.sp-empty{text-align:center;padding:20px;color:var(--muted,#5a5a5a);font-size:12px;line-height:1.9}',
       '.sp-strip{display:flex;align-items:flex-start;gap:9px;padding:11px 13px;border-radius:12px;margin-bottom:12px;background:rgba(192,57,43,.07);border:1px solid rgba(192,57,43,.26);font-family:Tajawal,sans-serif}',
-      '.sp-strip b{display:block;font-size:12px;font-weight:900;color:#e07070;margin-bottom:3px}',
-      '.sp-strip span{font-size:11px;color:#b9bec7;line-height:1.8}',
+      '.sp-strip b{display:block;font-size:12px;font-weight:900;color:var(--red,#C0392B);margin-bottom:3px}',
+      '.sp-strip span{font-size:11px;color:var(--muted2,#888);line-height:1.8}',
       /* نافذة الإعداد */
       '.sp-ov{position:fixed;inset:0;z-index:100060;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;font-family:Tajawal,sans-serif}',
       '@media(min-width:640px){.sp-ov{align-items:center}}',
-      '.sp-sheet{width:100%;max-width:480px;max-height:94vh;overflow-y:auto;background:#111318;border:1px solid #262a33;border-radius:20px 20px 0 0;animation:spUp .24s ease}',
+      '.sp-sheet{width:100%;max-width:480px;max-height:94vh;overflow-y:auto;background:var(--card,#1a1a1a);border:1px solid var(--card3,#262626);border-radius:20px 20px 0 0;animation:spUp .24s ease}',
       '@media(min-width:640px){.sp-sheet{border-radius:20px}}',
       '@keyframes spUp{from{transform:translateY(28px);opacity:0}to{transform:translateY(0);opacity:1}}',
-      '.sp-hd{position:sticky;top:0;z-index:2;padding:17px 18px 14px;border-bottom:1px solid #1f232b;background:linear-gradient(135deg,rgba(201,160,43,.14),rgba(201,160,43,.03)),#111318}',
-      '.sp-hd h4{margin:0 0 4px;font-size:16px;font-weight:900;color:#e8eaf0}',
-      '.sp-hd p{margin:0;font-size:11px;color:#818794;line-height:1.8}',
+      '.sp-hd{position:sticky;top:0;z-index:2;padding:17px 18px 14px;border-bottom:1px solid var(--card2,#202020);background:linear-gradient(135deg,rgba(201,160,43,.14),rgba(201,160,43,.03)),var(--card,#1a1a1a)}',
+      '.sp-hd h4{margin:0 0 4px;font-size:16px;font-weight:900;color:var(--text,#efefef)}',
+      '.sp-hd p{margin:0;font-size:11px;color:var(--muted2,#888);line-height:1.8}',
       '.sp-bd{padding:16px 18px 0}',
       '.sp-q{margin-bottom:18px}',
-      '.sp-q>label{display:block;font-size:12.5px;font-weight:900;color:#e6e8ec;margin-bottom:3px}',
-      '.sp-q>.sp-hint{display:block;font-size:10.5px;color:#6a7080;line-height:1.75;margin-bottom:8px}',
+      '.sp-q>label{display:block;font-size:12.5px;font-weight:900;color:var(--text,#efefef);margin-bottom:3px}',
+      '.sp-q>.sp-hint{display:block;font-size:10.5px;color:var(--muted,#5a5a5a);line-height:1.75;margin-bottom:8px}',
       '.sp-seg{display:flex;gap:6px;flex-wrap:wrap}',
-      '.sp-seg button{flex:1;min-width:56px;padding:11px 4px;border-radius:11px;border:1px solid #262a33;background:#0d0f13;color:#9aa0aa;font-size:12px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;transition:.15s}',
+      '.sp-seg button{flex:1;min-width:56px;padding:11px 4px;border-radius:11px;border:1px solid var(--card3,#262626);background:var(--dark,#121212);color:var(--muted2,#888);font-size:12px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;transition:.15s}',
       '.sp-seg button.on{border-color:' + GOLD + ';background:rgba(201,160,43,.13);color:' + GOLD2 + '}',
-      '.sp-sw{display:flex;align-items:center;gap:11px;padding:12px;border-radius:12px;background:#0d0f13;border:1px solid #1f232b;cursor:pointer;margin-bottom:9px}',
+      '.sp-sw{display:flex;align-items:center;gap:11px;padding:12px;border-radius:12px;background:var(--dark,#121212);border:1px solid var(--card2,#202020);cursor:pointer;margin-bottom:9px}',
       '.sp-sw .sp-sw-tx{flex:1;min-width:0}',
-      '.sp-sw .sp-sw-t{font-size:12.5px;font-weight:800;color:#e6e8ec}',
-      '.sp-sw .sp-sw-d{font-size:10.5px;color:#6a7080;line-height:1.7;margin-top:2px}',
-      '.sp-knob{flex:0 0 auto;width:42px;height:24px;border-radius:999px;background:#262a33;position:relative;transition:.18s}',
-      '.sp-knob::after{content:"";position:absolute;top:3px;inset-inline-end:3px;width:18px;height:18px;border-radius:50%;background:#6a7080;transition:.18s}',
+      '.sp-sw .sp-sw-t{font-size:12.5px;font-weight:800;color:var(--text,#efefef)}',
+      '.sp-sw .sp-sw-d{font-size:10.5px;color:var(--muted,#5a5a5a);line-height:1.7;margin-top:2px}',
+      '.sp-knob{flex:0 0 auto;width:42px;height:24px;border-radius:999px;background:var(--card3,#262626);position:relative;transition:.18s}',
+      '.sp-knob::after{content:"";position:absolute;top:3px;inset-inline-end:3px;width:18px;height:18px;border-radius:50%;background:var(--muted,#5a5a5a);transition:.18s}',
       '.sp-sw.on .sp-knob{background:rgba(201,160,43,.35)}',
       '.sp-sw.on .sp-knob::after{inset-inline-end:21px;background:' + GOLD2 + '}',
-      '.sp-prev{margin:4px 0 16px;padding:12px 14px;border-radius:12px;background:rgba(201,160,43,.05);border:1px solid rgba(201,160,43,.18);font-size:11.5px;color:#b9bec7;line-height:1.9}',
+      '.sp-prev{margin:4px 0 16px;padding:12px 14px;border-radius:12px;background:rgba(201,160,43,.05);border:1px solid rgba(201,160,43,.18);font-size:11.5px;color:var(--muted2,#888);line-height:1.9}',
       '.sp-prev b{color:' + GOLD2 + '}',
-      '.sp-ft{display:flex;gap:9px;padding:14px 18px 20px;position:sticky;bottom:0;background:#111318;border-top:1px solid #1f232b}',
+      '.sp-ft{display:flex;gap:9px;padding:14px 18px 20px;position:sticky;bottom:0;background:var(--card,#1a1a1a);border-top:1px solid var(--card2,#202020)}',
       '.sp-ft button{flex:1;padding:13px;border-radius:12px;font-size:13px;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer;border:1px solid transparent}',
-      '.sp-ft .sp-cancel{background:transparent;border-color:#262a33;color:#818794}',
+      '.sp-ft .sp-cancel{background:transparent;border-color:var(--card3,#262626);color:var(--muted2,#888)}',
       '.sp-ft .sp-save{flex:2;background:linear-gradient(145deg,' + GOLD2 + ',' + GOLD + ');color:#1a1200}'
     ].join('\n');
     document.head.appendChild(s);
@@ -622,7 +622,7 @@
           '<div class="sp-off">' +
             '<div class="sp-ic">⚖️</div>' +
             '<h4>' + (c.enabled ? 'النظام مفعَّل لكنه غير مُعدّ' : 'الإيقاف الآلي معطَّل') + '</h4>' +
-            '<p>ما دام معطَّلاً فحالة كل لاعب <b style="color:#e6e8ec">يدوية بالكامل</b> كما هي اليوم: ' +
+            '<p>ما دام معطَّلاً فحالة كل لاعب <b style="color:var(--text,#efefef)">يدوية بالكامل</b> كما هي اليوم: ' +
               'أنت من يضع «موقوف» في كشف الفريق، ولا تُحسب البطاقات ولا يُستنتج شيء.<br><br>' +
               'عند التفعيل تُفتح نافذة تختار فيها لائحتك: عتبة الصفراوات، ومدّة إيقاف الحمراء والطرد بإنذارين، ' +
               'وهل تُمسح الأرصدة عند التأهل للإقصاء. ولا يُطبَّق شيء قبل حفظها.</p>' +
@@ -645,27 +645,27 @@
       ['ظهوره للجمهور', c.showToPublic ? 'يظهر' : 'مخفي']
     ].map(function (r) {
       return '<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05)">' +
-        '<span style="font-size:11.5px;color:#818794">' + r[0] + '</span>' +
-        '<span style="font-size:11.5px;font-weight:800;color:#e6e8ec;text-align:left">' + r[1] + '</span></div>';
+        '<span style="font-size:11.5px;color:var(--muted2,#888)">' + r[0] + '</span>' +
+        '<span style="font-size:11.5px;font-weight:800;color:var(--text,#efefef);text-align:left">' + r[1] + '</span></div>';
     }).join('');
 
     host.innerHTML = head +
       '<div class="sp">' +
         '<div style="display:flex;gap:9px;margin-bottom:14px">' +
           '<div style="flex:1;text-align:center;padding:14px;border-radius:14px;background:rgba(192,57,43,.07);border:1px solid rgba(192,57,43,.24)">' +
-            '<div style="font-size:24px;font-weight:900;color:#e07070">' + s.suspended.length + '</div>' +
-            '<div style="font-size:10.5px;color:#818794;font-weight:700">موقوف الآن</div></div>' +
+            '<div style="font-size:24px;font-weight:900;color:var(--red,#C0392B)">' + s.suspended.length + '</div>' +
+            '<div style="font-size:10.5px;color:var(--muted2,#888);font-weight:700">موقوف الآن</div></div>' +
           '<div style="flex:1;text-align:center;padding:14px;border-radius:14px;background:rgba(217,162,27,.07);border:1px solid rgba(217,162,27,.24)">' +
-            '<div style="font-size:24px;font-weight:900;color:#D9A21B">' + s.warning.length + '</div>' +
-            '<div style="font-size:10.5px;color:#818794;font-weight:700">على حافة الإيقاف</div></div>' +
+            '<div style="font-size:24px;font-weight:900;color:var(--gold,#C9A02B)">' + s.warning.length + '</div>' +
+            '<div style="font-size:10.5px;color:var(--muted2,#888);font-weight:700">على حافة الإيقاف</div></div>' +
         '</div>' +
         '<div class="card"><div class="card-body">' + rows + '</div></div>' +
         '<div style="display:flex;gap:9px;margin-top:14px">' +
           '<button class="sp-cta" style="flex:2" onclick="spOpenSetup()">✎ تعديل اللائحة</button>' +
-          '<button style="flex:1;padding:12px;border-radius:12px;border:1px solid rgba(192,57,43,.3);background:rgba(192,57,43,.07);color:#e07070;font-family:Tajawal,sans-serif;font-weight:900;font-size:12.5px;cursor:pointer" onclick="spDisable()">إيقاف النظام</button>' +
+          '<button style="flex:1;padding:12px;border-radius:12px;border:1px solid rgba(192,57,43,.3);background:rgba(192,57,43,.07);color:var(--red,#C0392B);font-family:Tajawal,sans-serif;font-weight:900;font-size:12.5px;cursor:pointer" onclick="spDisable()">إيقاف النظام</button>' +
         '</div>' +
         '<div style="margin-top:14px;text-align:center">' +
-          '<button style="padding:11px 20px;border-radius:11px;border:1px solid #262a33;background:transparent;color:#9aa0aa;font-family:Tajawal,sans-serif;font-size:12px;font-weight:800;cursor:pointer" onclick="showPage(\'suspensions\',null)">عرض قائمة الموقوفين ←</button>' +
+          '<button style="padding:11px 20px;border-radius:11px;border:1px solid var(--card3,#262626);background:transparent;color:var(--muted2,#888);font-family:Tajawal,sans-serif;font-size:12px;font-weight:800;cursor:pointer" onclick="showPage(\'suspensions\',null)">عرض قائمة الموقوفين ←</button>' +
         '</div>' +
       '</div>';
   }
@@ -778,22 +778,22 @@
       body += '<div class="card"><div class="card-body" style="padding:4px 12px">' +
         withCards.map(function (p) {
           return '<div style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05)">' +
-            '<span style="flex:1;min-width:0;font-size:12px;font-weight:800;color:#e6e8ec;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-              esc(p.name) + ' <span style="font-size:10px;color:#6a7080;font-weight:600">' + esc(p.teamName) + '</span></span>' +
-            '<span style="font-size:10.5px;color:#D9A21B;font-weight:800">🟨 ' + p.yellowsTotal + '</span>' +
-            (p.redsTotal ? '<span style="font-size:10.5px;color:#e07070;font-weight:800">🟥 ' + p.redsTotal + '</span>' : '') +
-            '<span style="font-size:10px;color:#6a7080;font-weight:700;min-width:52px;text-align:left">رصيد ' + p.tally + '</span>' +
+            '<span style="flex:1;min-width:0;font-size:12px;font-weight:800;color:var(--text,#efefef);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+              esc(p.name) + ' <span style="font-size:10px;color:var(--muted,#5a5a5a);font-weight:600">' + esc(p.teamName) + '</span></span>' +
+            '<span style="font-size:10.5px;color:var(--gold,#C9A02B);font-weight:800">🟨 ' + p.yellowsTotal + '</span>' +
+            (p.redsTotal ? '<span style="font-size:10.5px;color:var(--red,#C0392B);font-weight:800">🟥 ' + p.redsTotal + '</span>' : '') +
+            '<span style="font-size:10px;color:var(--muted,#5a5a5a);font-weight:700;min-width:52px;text-align:left">رصيد ' + p.tally + '</span>' +
           '</div>';
         }).join('') + '</div></div>';
     }
 
     body += '<div style="margin-top:16px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.025);' +
-      'border:1px solid rgba(255,255,255,.06);font-size:11px;color:#818794;line-height:1.9">' +
-      'ℹ️ الإيقافات <b style="color:#e6e8ec">تُحسب ولا تُخزَّن</b>: أي تعديل على بطاقة — إلغاؤها أو تصحيح دقيقتها ' +
+      'border:1px solid rgba(255,255,255,.06);font-size:11px;color:var(--muted2,#888);line-height:1.9">' +
+      'ℹ️ الإيقافات <b style="color:var(--text,#efefef)">تُحسب ولا تُخزَّن</b>: أي تعديل على بطاقة — إلغاؤها أو تصحيح دقيقتها ' +
       'أو حذفها — يصحّح الإيقاف في اللحظة نفسها، فلا يبقى إيقاف يتيم لبطاقة لم تعد موجودة.' +
       '</div>' +
       '<div style="margin-top:10px;text-align:center">' +
-        '<button style="padding:11px 20px;border-radius:11px;border:1px solid #262a33;background:transparent;color:#9aa0aa;' +
+        '<button style="padding:11px 20px;border-radius:11px;border:1px solid var(--card3,#262626);background:transparent;color:var(--muted2,#888);' +
         'font-family:Tajawal,sans-serif;font-size:12px;font-weight:800;cursor:pointer" onclick="showPage(\'set-discipline\',null)">⚙︎ تعديل اللائحة</button>' +
       '</div>';
 
@@ -849,7 +849,7 @@
       it.setAttribute('onclick', "showPage('suspensions',this)");
       it.setAttribute('data-page', 'suspensions');
       it.innerHTML = '<span class="sb-icon">⚖️</span> الإيقافات ' +
-        '<span class="sb-badge" style="display:none;background:rgba(192,57,43,.18);color:#e07070">0</span>';
+        '<span class="sb-badge" style="display:none;background:rgba(192,57,43,.18);color:var(--red,#C0392B)">0</span>';
       teamsItem.parentNode.insertBefore(it, teamsItem.nextSibling);
     }
 
@@ -921,7 +921,7 @@
     var all = f.home.concat(f.away);
     if (!all.length) return '';
     var names = all.map(function (p) {
-      return esc(p.name) + ' <span style="color:#818794">(' + esc(p.teamName) + ')</span>';
+      return esc(p.name) + ' <span style="color:var(--muted2,#888)">(' + esc(p.teamName) + ')</span>';
     }).join(' · ');
     return '<div class="sp-strip"><span style="font-size:17px">🚫</span><div>' +
       '<b>موقوفون عن هذه المباراة — ' + all.length + '</b>' +
@@ -1005,7 +1005,7 @@
           d.innerHTML = '<div class="sp-strip" style="background:rgba(192,57,43,.06)">' +
             '<span style="font-size:17px">🚫</span><div><b>موقوفون عن هذه المباراة</b><span>' +
             all.map(function (p) {
-              return esc(p.name) + ' <span style="color:#818794">(' + esc(p.teamName) + ')</span>';
+              return esc(p.name) + ' <span style="color:var(--muted2,#888)">(' + esc(p.teamName) + ')</span>';
             }).join(' · ') + '</span></div></div>';
           body.insertBefore(d, body.firstChild);
         }, 150);

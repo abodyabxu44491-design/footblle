@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="robots" content="noindex,nofollow"/>
 <title>لوحة الإدارة — منصة البطولات</title>
 <meta name="theme-color" content="#080808"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -652,7 +653,7 @@ if('serviceWorker' in navigator) {
             <span class="set-badge" data-setkey="tie"></span>
             <span class="set-row-go"><i data-ic="chevronL"></i></span>
           </div>
-          <div class="set-row" onclick="showPage('zones',null)">
+          <div class="set-row" id="setrow-zones" onclick="showPage('zones',null)">
             <span class="set-row-ic"><i data-ic="target"></i></span>
             <div class="set-row-txt">
               <div class="set-row-t">مناطق الترتيب</div>
@@ -2366,14 +2367,14 @@ if('serviceWorker' in navigator) {
   };
 })();
 </script>
-<script type="module" src="./admin.js?v=333"></script>
+<script type="module" src="./admin.js?v=338"></script>
 <!-- نظام التشكيلات — Drag & Drop — يُحمّل بعد الأدمن مباشرة -->
-<script type="module" src="./admin-lineup-dragdrop.js?v=333"></script>
+<script type="module" src="./admin-lineup-dragdrop.js?v=338"></script>
 
 <!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
 
-<script src="./live-page-stats-fix.js?v=333"></script>
-<script src="./all-fixes.js?v=333"></script>
+<script src="./live-page-stats-fix.js?v=338"></script>
+<script src="./all-fixes.js?v=338"></script>
 <script>
 /* ===== timer-admin (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════
@@ -3067,8 +3068,8 @@ if('serviceWorker' in navigator) {
   console.log('[sponsor-admin] ✅︎ جاهز');
 })();
 </script>
-<script src="./cards-system.js?v=333"></script>
-<script src="./substitution-system.js?v=333"></script>
+<script src="./cards-system.js?v=338"></script>
+<script src="./substitution-system.js?v=338"></script>
 <script>
 // ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
 window.lvOpenLineupFromLive = function() {
@@ -3187,36 +3188,37 @@ window.openMatchLineup = function(matchId) {
   </div>
 </div>
 
-<script src="./timer-hotfix.js?v=333"></script>
-<script src="./tiebreak-rules.js?v=333"></script>
-<script src="./date-groups.js?v=333"></script>
+<script src="./timer-hotfix.js?v=338"></script>
+<script src="./tiebreak-rules.js?v=338"></script>
+<script src="./date-groups.js?v=338"></script>
 <script src="./match-core.js"></script>
-<script src="./admin-matches-tabs.js?v=333"></script>
-<script src="./groups-gate.js?v=333"></script>
-<script src="./league-logo.js?v=333"></script>
-<script src="./health-check.js?v=333"></script>
-<script src="./lock-guard.js?v=333"></script>
-<script src="./clock-sync.js?v=333"></script>
-<script src="./viewport-lock.js?v=333"></script>
-<script src="./pwa-install.js?v=333"></script>
+<script src="./admin-matches-tabs.js?v=338"></script>
+<script src="./groups-gate.js?v=338"></script>
+<script src="./league-logo.js?v=338"></script>
+<script src="./health-check.js?v=338"></script>
+<script src="./lock-guard.js?v=338"></script>
+<script src="./clock-sync.js?v=338"></script>
+<script src="./viewport-lock.js?v=338"></script>
+<script src="./pwa-install.js?v=338"></script>
 
 <!-- (شبكة أمان اللمس القديمة أُزيلت — النافذة الجديدة تربط أحداثها بالتفويض داخل admin.js) -->
-<script src="./back-nav.js?v=333"></script>
+<script src="./back-nav.js?v=338"></script>
 
 <!-- ⚽ مجريات المباراة الموحّدة — يُحمَّل آخر شيء كي تسبق تعريفاته
      كل من يعرّف _lpRenderEvents / _qrEventsHtml قبله -->
-<script src="./events-timeline.js?v=334"></script>
+<script src="./events-timeline.js?v=338"></script>
 
 <!-- ⚖️ الإيقاف الآلي بتراكم البطاقات — معطَّل افتراضياً، لا يعمل قبل إعداده -->
-<script src="./suspensions.js?v=335"></script>
+<script src="./suspensions.js?v=338"></script>
 
 <!-- 📋 القيم الافتراضية للمباريات — تُملأ في كل مباراة جديدة -->
-<script src="./match-defaults.js?v=336"></script>
+<script src="./match-defaults.js?v=338"></script>
 
 <!-- 🥅 ركلات الترجيح: مصدر ولوحة وصياغة واحدة -->
-<script src="./penalties-core.js?v=337"></script>
+<script src="./penalties-core.js?v=338"></script>
 
 <!-- 📦 حدود الاشتراك: أشرطة الاستهلاك والتنبيهات -->
 <script src="./subscription-quota.js?v=338"></script>
+  <script src="./lineup-plus.js?v=338"></script>
 </body>
 </html>

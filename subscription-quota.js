@@ -23,7 +23,7 @@
 (function () {
   'use strict';
 
-  var GOLD = '#C9A02B', GOLD2 = '#F0C84A';
+  var GOLD = '#C9A02B', GOLD2 = 'var(--gold2,#E8BE45)';
 
   function ready(fn, t) {
     t = t || 0;
@@ -174,33 +174,39 @@
       '.sq-hero-t b{font-size:15px;font-weight:900;color:' + GOLD2 + '}',
       '.sq-pill{margin-inline-start:auto;font-size:10.5px;font-weight:900;border-radius:999px;',
       ' padding:4px 12px;border:1px solid}',
-      '.sq-pill.ok{color:#2E9E5B;border-color:rgba(46,158,91,.4);background:rgba(46,158,91,.1)}',
-      '.sq-pill.warn{color:#D9A21B;border-color:rgba(217,162,27,.4);background:rgba(217,162,27,.1)}',
-      '.sq-pill.bad{color:#e07070;border-color:rgba(192,57,43,.4);background:rgba(192,57,43,.1)}',
+      '.sq-pill.ok{color:var(--green,#27AE60);border-color:rgba(46,158,91,.4);background:rgba(46,158,91,.1)}',
+      '.sq-pill.warn{color:var(--gold,#C9A02B);border-color:rgba(217,162,27,.4);background:rgba(217,162,27,.1)}',
+      '.sq-pill.bad{color:var(--red,#C0392B);border-color:rgba(192,57,43,.4);background:rgba(192,57,43,.1)}',
       '.sq-dates{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px}',
       '.sq-date{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);',
       ' border-radius:11px;padding:10px 12px}',
-      '.sq-date span{display:block;font-size:10px;color:#6a7080;font-weight:700}',
-      '.sq-date b{display:block;font-size:13.5px;font-weight:900;color:#e6e8ec;margin-top:2px}',
+      '.sq-date span{display:block;font-size:10px;color:var(--muted,#5a5a5a);font-weight:700}',
+      '.sq-date b{display:block;font-size:13.5px;font-weight:900;color:var(--text,#efefef);margin-top:2px}',
       '.sq-bars{display:flex;flex-direction:column;gap:13px}',
       '.sq-bar-h{display:flex;align-items:center;gap:8px;margin-bottom:7px}',
       '.sq-bar-h .ic{font-size:15px}',
-      '.sq-bar-h .l{font-size:13px;font-weight:800;color:#e6e8ec}',
+      '.sq-bar-h .l{font-size:13px;font-weight:800;color:var(--text,#efefef)}',
       '.sq-bar-h .v{margin-inline-start:auto;font-size:12.5px;font-weight:900;',
       ' font-variant-numeric:tabular-nums}',
       '.sq-track{height:10px;border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden}',
       '.sq-fill{height:100%;border-radius:99px;transition:width .5s cubic-bezier(.16,1,.3,1)}',
-      '.sq-left{font-size:10.5px;color:#6a7080;font-weight:700;margin-top:5px}',
+      '.sq-left{font-size:10.5px;color:var(--muted,#5a5a5a);font-weight:700;margin-top:5px}',
       '.sq-left b{font-weight:900}',
       '.sq-warn{display:flex;align-items:flex-start;gap:10px;padding:13px 15px;border-radius:13px;',
       ' background:rgba(192,57,43,.07);border:1px solid rgba(192,57,43,.3);margin-top:13px}',
-      '.sq-warn b{display:block;font-size:13px;font-weight:900;color:#e07070;margin-bottom:3px}',
-      '.sq-warn span{font-size:11.5px;color:#9aa0aa;line-height:1.85}',
+      '.sq-warn b{display:block;font-size:13px;font-weight:900;color:var(--red,#C0392B);margin-bottom:3px}',
+      '.sq-warn span{font-size:11.5px;color:var(--muted2,#888);line-height:1.85}',
       '.sq-wa{display:inline-flex;align-items:center;gap:7px;margin-top:10px;padding:10px 18px;',
       ' border-radius:11px;background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.35);',
       ' color:#25D366;font-size:12.5px;font-weight:900;cursor:pointer;font-family:Tajawal,sans-serif}',
-      '.sq-note{font-size:11px;color:#6a7080;line-height:1.9;margin-top:12px;padding:11px 13px;',
-      ' border-radius:11px;background:rgba(255,255,255,.022);border:1px solid rgba(255,255,255,.055)}'
+      '.sq-note{font-size:11px;color:var(--muted,#5a5a5a);line-height:1.9;margin-top:12px;padding:11px 13px;',
+      ' border-radius:11px;background:rgba(255,255,255,.022);border:1px solid rgba(255,255,255,.055)}',
+      '.sq-cred-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid rgba(255,255,255,.06)}',
+      '.sq-cred-row:first-of-type{border-top:none}',
+      '.sq-cred-l{font-size:10.5px;color:var(--muted,#5a5a5a);font-weight:700;min-width:66px;flex-shrink:0}',
+      '.sq-cred-v{flex:1;font-size:12px;font-weight:800;color:var(--text,#efefef);word-break:break-all}',
+      '.sq-cred-b{background:rgba(201,160,43,.12);border:1px solid rgba(201,160,43,.3);color:' + GOLD + ';',
+      ' border-radius:7px;width:26px;height:26px;flex-shrink:0;cursor:pointer;font-size:11px}'
     ].join('\n');
     document.head.appendChild(s);
   }
@@ -217,16 +223,16 @@
     if (!max) {
       return '<div><div class="sq-bar-h"><span class="ic">' + icon + '</span>' +
         '<span class="l">' + label + '</span>' +
-        '<span class="v" style="color:#2E9E5B">بلا حدّ</span></div>' +
+        '<span class="v" style="color:var(--green,#27AE60)">بلا حدّ</span></div>' +
         '<div class="sq-track"><div class="sq-fill" style="width:100%;' +
-        'background:linear-gradient(90deg,#2E9E5B,#4ade80);opacity:.35"></div></div>' +
+        'background:linear-gradient(90deg,var(--green,#27AE60),#4ade80);opacity:.35"></div></div>' +
         '<div class="sq-left">أُضيف <b>' + ar(used) + '</b> ' + unit + '</div></div>';
     }
     var pct = Math.min(100, used / max * 100);
     var left = Math.max(0, max - used);
-    var col = pct >= 100 ? ['#C0392B', '#e07070']
-            : pct >= 80  ? ['#D9A21B', '#F0C84A']
-            : ['#2E9E5B', '#4ade80'];
+    var col = pct >= 100 ? ['#C0392B', 'var(--red,#C0392B)']
+            : pct >= 80  ? ['var(--gold,#C9A02B)', 'var(--gold2,#E8BE45)']
+            : ['var(--green,#27AE60)', '#4ade80'];
     return '<div><div class="sq-bar-h"><span class="ic">' + icon + '</span>' +
       '<span class="l">' + label + '</span>' +
       '<span class="v" style="color:' + col[1] + '">' + ar(used) + ' / ' + ar(max) + '</span></div>' +
@@ -234,7 +240,7 @@
       'background:linear-gradient(90deg,' + col[0] + ',' + col[1] + ')"></div></div>' +
       '<div class="sq-left">' + (left
         ? ('يتبقّى <b style="color:' + col[1] + '">' + ar(left) + '</b> ' + unit)
-        : '<b style="color:#e07070">استُنفدت الحصّة</b>') + '</div></div>';
+        : '<b style="color:var(--red,#C0392B)">استُنفدت الحصّة</b>') + '</div></div>';
   }
 
   function daysLeft(end) {
@@ -243,10 +249,67 @@
     return isNaN(d) ? null : d;
   }
 
+  /* ─────────────────────────────────────────────────────────────
+     ⑤ب بيانات الدخول — تُجلب مرة واحدة من leagueAdmins/{uid}
+        (كلمة المرور الأصلية إن كانت محفوظة) ثم تُعرض بقسم الاشتراك
+     ───────────────────────────────────────────────────────────── */
+  var creds = { loaded: false, email: '', pass: '', shown: false };
+  async function loadCreds() {
+    if (creds.loaded) return;
+    creds.loaded = true;
+    try {
+      var info = window.league || {};
+      creds.email = info.ownerEmail || (window._authEmail || '');
+      var uid = info.ownerUid;
+      if (uid && window._firestoreGetDoc) {
+        var snap = await window._firestoreGetDoc(window._firestoreDoc(window._db, 'leagueAdmins', uid));
+        if (snap.exists()) creds.pass = snap.data().initialPassword || '';
+      }
+    } catch (e) {}
+    render();
+  }
+  window.sqTogglePass = function () {
+    creds.shown = !creds.shown;
+    render();
+  };
+  window.sqCopyCred = function (val) {
+    if (!val) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(val).then(function () {
+      if (window.showToast) window.showToast('تم النسخ', 'success');
+    });
+  };
+
+  /* ─────────────────────────────────────────────────────────────
+     ⑤ج إشعار «تمت إضافة مساحة لاعبين» — يظهر مرة واحدة فقط بعد ما
+        يزيد السوبر أدمن الحصّة، بشاشة الدخول وبقسم الاشتراك، ثم
+        يُعلَّم كمقروء بقاعدة البيانات فلا يتكرر.
+     ───────────────────────────────────────────────────────────── */
+  var boostChecked = false;
+  async function checkQuotaBoost() {
+    if (boostChecked) return;
+    var info = window.league || {};
+    var b = info.quotaBoost;
+    if (!b || b.seen) return;
+    boostChecked = true;
+    var n = ar(b.addedPlayers || 0);
+    if (window.showToast) window.showToast('🎉 تمت إضافة ' + n + ' مساحة لاعب إضافية لاشتراكك!', 'success');
+    try {
+      var lid = window._getLeagueId();
+      if (lid && window._firestoreSetDoc) {
+        await window._firestoreSetDoc(
+          window._firestoreDoc(window._db, 'leagues', lid),
+          { quotaBoost: { addedPlayers: b.addedPlayers || 0, addedAt: b.addedAt || Date.now(), seen: true } },
+          { merge: true });
+      }
+    } catch (e) {}
+  }
+
   function render() {
     var host = document.getElementById('page-set-sub');
     if (!host) return;
     css();
+    loadCreds();
+    checkQuotaBoost();
     var s = state();
     var info = window.league || window.leagueInfo || {};
     var sub  = info.subscription || {};
@@ -263,9 +326,17 @@
       'الفرق: ' + ar(s.teams) + (s.L.maxTeams ? ' / ' + ar(s.L.maxTeams) : '') + '\n' +
       'اللاعبون: ' + ar(s.players) + (s.L.maxPlayers ? ' / ' + ar(s.L.maxPlayers) : '');
 
+    var showBoost = info.quotaBoost && !info.quotaBoost.seen;
+
     host.innerHTML =
       '<div class="set-back" onclick="showPage(\'settings\',null)"><span>›</span> الإعدادات</div>' +
       '<div class="page-header"><div class="page-title">💳 الاشتراك</div>' +
+
+      (showBoost
+        ? '<div class="sq-warn" style="background:rgba(46,158,91,.08);border-color:rgba(46,158,91,.35);margin-top:12px;margin-bottom:0">' +
+          '<span style="font-size:19px">🎉</span><div><b style="color:var(--green,#27AE60)">تمت إضافة مساحة لاعبين!</b>' +
+          '<span>زِيدت حصّتك بـ<b style="color:var(--text,#efefef)"> ' + ar(info.quotaBoost.addedPlayers || 0) + ' </b>لاعب إضافي — تقدر تضيفهم الآن.</span></div></div>'
+        : '') +
       '<div class="page-sub">حالة اشتراكك وحدوده</div></div>' +
       '<div class="sq">' +
 
@@ -279,11 +350,28 @@
           bar('🧍', 'اللاعبون',   s.players, s.L.maxPlayers, 'لاعب') +
           '<div><div class="sq-bar-h"><span class="ic">📸</span>' +
             '<span class="l">صور اللاعبين</span>' +
-            '<span class="v" style="color:' + (s.L.photos ? '#2E9E5B' : '#6a7080') + '">' +
+            '<span class="v" style="color:' + (s.L.photos ? 'var(--green,#27AE60)' : 'var(--muted,#5a5a5a)') + '">' +
               (s.L.photos ? 'مفعّلة' : 'غير مفعّلة') + '</span></div>' +
             '<div class="sq-left">' + (s.L.photos
               ? ('أُضيف <b>' + ar(s.photos) + '</b> صورة')
               : 'غير متاحة في اشتراكك الحالي') + '</div></div>' +
+        '</div>' +
+      '</div>' +
+
+      /* بيانات الدخول — بريده وكلمة مروره، للمرجع السريع */
+      '<div class="sq-hero" style="padding:14px 16px">' +
+        '<div class="sq-hero-t" style="margin-bottom:10px"><span style="font-size:16px">🔑</span>' +
+          '<b style="font-size:12.5px">بيانات الدخول للوحة الإدارة</b></div>' +
+        '<div class="sq-cred-row"><span class="sq-cred-l">البريد</span>' +
+          '<span class="sq-cred-v" dir="ltr">' + esc(creds.email || '—') + '</span>' +
+          (creds.email ? '<button class="sq-cred-b" onclick="sqCopyCred(\'' + esc(creds.email).replace(/'/g,"\\'") + '\')">📋</button>' : '') +
+        '</div>' +
+        '<div class="sq-cred-row"><span class="sq-cred-l">كلمة المرور</span>' +
+          '<span class="sq-cred-v" dir="ltr">' + (creds.pass ? (creds.shown ? esc(creds.pass) : '••••••••') : 'غير محفوظة') + '</span>' +
+          (creds.pass ? (
+            '<button class="sq-cred-b" onclick="sqTogglePass()">' + (creds.shown ? '🙈' : '👁') + '</button>' +
+            '<button class="sq-cred-b" onclick="sqCopyCred(\'' + esc(creds.pass).replace(/'/g,"\\'") + '\')">📋</button>'
+          ) : '') +
         '</div>' +
       '</div>' +
 
@@ -307,14 +395,14 @@
         : near
         ? '<div class="sq-warn" style="background:rgba(217,162,27,.06);border-color:rgba(217,162,27,.3)">' +
           '<span style="font-size:19px">🔔</span><div>' +
-          '<b style="color:#D9A21B">اقتربت من الحدّ</b>' +
+          '<b style="color:var(--gold,#C9A02B)">اقتربت من الحدّ</b>' +
           '<span>تبقّى أقلّ من ٢٠٪ من حصّتك. لو تتوقّع زيادة، اطلبها قبل أن تحتاجها.</span>' +
           '<button class="sq-wa" onclick="window.open(\'' + waLink(msg) + '\',\'_blank\')">' +
           '💬 طلب زيادة</button></div></div>'
         : '') +
 
       '<div class="sq-note">ℹ️ الحصّة تُزاد في أي وقت بلا إعادة إنشاء ولا فقدان بيانات — ' +
-      'يُحسب <b style="color:#e6e8ec">الفرق فقط</b> للمدة المتبقّية من اشتراكك.</div>' +
+      'يُحسب <b style="color:var(--text,#efefef)">الفرق فقط</b> للمدة المتبقّية من اشتراكك.</div>' +
       '</div>';
   }
   function dcard(l, v) {
@@ -325,6 +413,22 @@
   /* ─────────────────────────────────────────────────────────────
      ⑥ الربط: المنع عند الإضافة + إعادة الرسم
      ───────────────────────────────────────────────────────────── */
+  /* مزامنة عدد اللاعبين الفعلي إلى مستند البطولة — admin.js يحدّث
+     teamsCount تلقائياً لكن لا يحدّث playersCount، وهذا الرقم يحتاجه
+     السوبر أدمن بنافذة تفاصيل البطولة (لا يرى الكشوف مباشرة). */
+  var lastSyncedPlayers = -1;
+  async function syncPlayersCount() {
+    try {
+      var n = usedPlayers();
+      if (n === lastSyncedPlayers) return;
+      var lid = window._getLeagueId();
+      if (!lid || !window._firestoreSetDoc) return;
+      await window._firestoreSetDoc(
+        window._firestoreDoc(window._db, 'leagues', lid), { playersCount: n }, { merge: true });
+      lastSyncedPlayers = n;
+    } catch (e) {}
+  }
+
   function wrap(name, kind, argN) {
     var t = 0;
     var iv = setInterval(function () {
@@ -337,7 +441,7 @@
           var msg = block(kind, n);
           if (msg) { await deny(msg); return; }
           var r = await orig.apply(this, arguments);
-          setTimeout(function () { flagSuper(); clearFlag(); render(); }, 400);
+          setTimeout(function () { flagSuper(); clearFlag(); render(); syncPlayersCount(); }, 400);
           return r;
         };
       } else if (t > 400) clearInterval(iv);
@@ -361,6 +465,13 @@
     /* ج) فحص دوريّ خفيف — يرفع الراية لو تجاوزت الحصّة بطريق آخر */
     setTimeout(function () { flagSuper(); clearFlag(); }, 4000);
     setInterval(function () { flagSuper(); clearFlag(); }, 120000);
+
+    /* د) إشعار زيادة الحصّة يظهر فور الدخول للوحة، مو بس عند فتح
+          قسم الاشتراك تحديداً — العميل يستحق يعرف فوراً. */
+    setTimeout(function () { checkQuotaBoost(); }, 2500);
+
+    /* هـ) مزامنة أولية لعدد اللاعبين (تفيد نافذة السوبر أدمن) */
+    setTimeout(function () { syncPlayersCount(); }, 5000);
   });
 
   console.log('[subscription-quota] v338 ✅');

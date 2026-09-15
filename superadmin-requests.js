@@ -57,16 +57,11 @@
   }
 
   function pitchText(name) {
-    var greet = name ? ('أهلاً ' + name + ' 👋\n\n') : 'السلام عليكم 👋\n\n';
+    var greet = name ? ('أهلاً ' + name + ' 👋\n') : 'السلام عليكم 👋\n';
     return greet +
-      'هذي صفحة اشتراك *منصة بطولات* — تدير دوريك كامل من جوالك:\n' +
-      '• جدولك يتولّد لك بمجموعاته وشجرته\n' +
-      '• الترتيب وقائمة الهدّافين يتحدّثان لحالهما\n' +
-      '• تدير مبارياتك مباشرة وتبثّها\n' +
-      '• وجمهورك يتابع كل شي من رابط واحد\n\n' +
-      'افتح الرابط، عبّئ بياناتك، وشوف التكلفة مباشرة:\n' +
+      'هذي صفحة الاشتراك بمنصة بطولات:\n' +
       subUrl() + '\n\n' +
-      'وأي سؤال أنا حاضر 💛';
+      'ادخلها وعبّي بياناتك وأرسل طلبك 👇';
   }
 
   window.saCopySubLink = function () {
@@ -564,10 +559,13 @@
     if (t === null) return;
     var p = prompt('الحد الأقصى للاعبين (' + (cur.maxPlayers || 0) + '):', cur.maxPlayers || 200);
     if (p === null) return;
+    var newMaxPlayers = parseInt(p, 10) || 0;
+    var addedPlayers = newMaxPlayers - (cur.maxPlayers || 0);
     try {
       await FS.setDoc(FS.doc(FS.db, 'leagues', lid), {
-        limits: { maxTeams: parseInt(t,10)||0, maxPlayers: parseInt(p,10)||0, photos: cur.photos !== false },
-        quotaAlert: null
+        limits: { maxTeams: parseInt(t,10)||0, maxPlayers: newMaxPlayers, photos: cur.photos !== false },
+        quotaAlert: null,
+        quotaBoost: addedPlayers > 0 ? { addedPlayers: addedPlayers, addedAt: Date.now(), seen: false } : null
       }, { merge: true });
       toast('✅ زِيدت حصّة ' + (l.name || lid));
     } catch (e) { toast('تعذّر التحديث', 'error'); }

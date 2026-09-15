@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0F1113">
+<meta name="robots" content="noindex,nofollow"/>
 <title>استوديو البثّ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -1292,7 +1293,9 @@ function listenForViewers(){
         await answerViewer(viewerId, data.offer);
       }
       if(ch.type==='removed' && viewerPeers[viewerId]){
+        try{ if(typeof viewerPeers[viewerId]._unsubIce==='function') viewerPeers[viewerId]._unsubIce(); }catch(e){}
         try{viewerPeers[viewerId].close()}catch(e){}
+        if(viewerPeers[viewerId]._counted){ viewerPeers[viewerId]._counted=false; }
         delete viewerPeers[viewerId];
         watcherCount=Math.max(0,watcherCount-1); updateWatchers();
       }
@@ -1364,14 +1367,38 @@ async function answerViewer(viewerId, offer){
   pc.onicecandidate = e=>{
     if(e.candidate) addDoc(bcandCol, e.candidate.toJSON()).catch(()=>{});
   };
+  /* ═══════════════════════════════════════════════════════════════
+     🔴 ثلاثة أعطال في دورة حياة اتصال المشاهد — أُصلحت (v338-audit)
+     ─────────────────────────────────────────────────────────────────
+     ① **عدّاد المشاهدين يتضخّم ولا يعود.** الإنقاص الوحيد كان عند حذف
+        مستند المشاهد من Firestore (ch.type==='removed'). لكن انهيار
+        الاتصال — إغلاق التبويب فجأة، انقطاع شبكة الجوال، أو تعليق
+        الصفحة في الخلفية — يترك المستند قائماً، فيسقط الإنقاص تماماً.
+        وأسوأ: عودة نفس المشاهد تُطلق 'connected' ثانيةً فيُحسب مرتين.
+        والعدد **يُنشر للجمهور** (watchers في مستند البث) فيرى الكل رقماً
+        متضخّماً لا يمتّ للواقع — ويُطلق تحذير «عدد كبير» بلا سبب.
+        الآن: علم واحد لكل اتصال (pc._counted) يضمن حسبة واحدة وإنقاصاً
+        واحداً مهما تكرّرت تقلّبات الحالة.
+
+     ② **الاتصال المنهار لا يُغلق.** كان delete وحده يزيل المرجع ويترك
+        RTCPeerConnection مفتوحاً بمرسلاته ومرشّحاته. في مباراة من ٩٠
+        دقيقة يتراكم العشرات على جهاز المذيع حتى يثقل البث نفسه.
+
+     ③ **مستمع ICE لكل مشاهد لا يُلغى أبداً** (انظر أسفل الدالّة) —
+        مستمع Firestore دائم لكل من دخل ولو لثانية.
+     ═══════════════════════════════════════════════════════════════ */
+  pc._counted = false;
   pc.onconnectionstatechange = ()=>{
     if(pc.connectionState==='connected'){
-      watcherCount++; updateWatchers();
+      if(!pc._counted){ pc._counted = true; watcherCount++; updateWatchers(); }
       _reapplyAllBitrates();   // أعد توزيع الجودة على الجميع
       $('connTag').classList.add('ok');
       $('connTag').innerHTML='<span class="cd"></span> متصل';
     }
     if(['failed','closed','disconnected'].includes(pc.connectionState)){
+      if(pc._counted){ pc._counted = false; watcherCount=Math.max(0,watcherCount-1); updateWatchers(); }
+      try{ if(typeof pc._unsubIce === 'function') pc._unsubIce(); }catch(e){}
+      try{ pc.close(); }catch(e){}
       if(viewerPeers[viewerId]){ delete viewerPeers[viewerId]; }
     }
   };
@@ -1387,7 +1414,9 @@ async function answerViewer(viewerId, offer){
 
   // استقبل ICE من المشاهد
   const vcandCol = collection(db,'liveStreams',streamId,'viewers',viewerId,'vcandidates');
-  onSnapshot(vcandCol, s=>{
+  /* ✅ نحتفظ بدالّة الإلغاء على الاتصال نفسه — كان هذا المستمع يبقى
+     حيّاً إلى الأبد لكل من دخل البث ولو لثانية واحدة. */
+  pc._unsubIce = onSnapshot(vcandCol, s=>{
     s.docChanges().forEach(c=>{
       if(c.type==='added'){
         pc.addIceCandidate(new RTCIceCandidate(c.doc.data())).catch(()=>{});

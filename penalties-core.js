@@ -31,7 +31,7 @@
 (function () {
   'use strict';
 
-  var GOLD = '#C9A02B', GOLD2 = '#F0C84A', PUR = '#9b59b6';
+  var GOLD = '#C9A02B', GOLD2 = 'var(--gold2,#E8BE45)', PUR = '#9b59b6';
   var GREEN = '#2ecc71', RED = '#e5533d';
 
   function ready(fn, tries) {
@@ -248,7 +248,7 @@
       '.pk{font-family:Tajawal,sans-serif;direction:rtl}',
       '.pk-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}',
       '.pk-hd b{font-size:13px;font-weight:900;color:' + PUR + '}',
-      '.pk-undo{padding:6px 12px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:transparent;color:#9aa0aa;font-size:10.5px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif}',
+      '.pk-undo{padding:6px 12px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:transparent;color:var(--muted2,#888);font-size:10.5px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif}',
       '.pk-undo:disabled{opacity:.35;cursor:default}',
       '.pk-sc{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:4px}',
       '.pk-sc-t{font-size:11px;color:#8a8a8a;font-weight:700;max-width:30vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
@@ -256,12 +256,12 @@
       '.pk-sc-n.win{color:' + GOLD2 + '}',
       '.pk-sep{font-size:16px;color:#5a5a5a}',
       '.pk-official{text-align:center;font-size:10.5px;color:#7a7a7a;font-weight:700;margin-bottom:12px}',
-      '.pk-official b{color:#c9ccd2}',
+      '.pk-official b{color:var(--text,#efefef)}',
       '.pk-phase{text-align:center;font-size:10px;font-weight:900;letter-spacing:.4px;margin-bottom:11px}',
       '.pk-phase.best5{color:' + PUR + '}.pk-phase.sudden{color:#e67e22}',
       '.pk-grid{margin-bottom:12px}',
       '.pk-line{display:flex;align-items:center;gap:8px;padding:5px 0}',
-      '.pk-line-t{flex:0 0 66px;font-size:10.5px;font-weight:800;color:#9aa0aa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.pk-line-t{flex:0 0 66px;font-size:10.5px;font-weight:800;color:var(--muted2,#888);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
       '.pk-line.turn .pk-line-t{color:' + GOLD2 + '}',
       '.pk-kicks{flex:1;display:flex;gap:4px;flex-wrap:wrap}',
       '.pk-k{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;border:2px solid;background:rgba(0,0,0,.2)}',
@@ -270,7 +270,7 @@
       '.pk-k.pend{border-color:rgba(255,255,255,.1);color:transparent;border-style:dashed}',
       '.pk-k.next{border-color:' + GOLD + ';color:' + GOLD + ';animation:pkPulse 1.4s ease-in-out infinite}',
       '@keyframes pkPulse{0%,100%{opacity:1}50%{opacity:.4}}',
-      '.pk-turn{text-align:center;font-size:11.5px;font-weight:900;color:#e6e8ec;margin-bottom:9px}',
+      '.pk-turn{text-align:center;font-size:11.5px;font-weight:900;color:var(--text,#efefef);margin-bottom:9px}',
       '.pk-turn span{color:' + GOLD2 + '}',
       '.pk-btns{display:grid;grid-template-columns:1fr 1fr;gap:9px}',
       '.pk-b{padding:13px 6px;border-radius:11px;border:1px solid;font-size:13px;font-weight:900;cursor:pointer;font-family:Tajawal,sans-serif}',
@@ -280,11 +280,11 @@
       '.pk-done{text-align:center;padding:14px 12px;border-radius:13px;background:rgba(201,160,43,.09);border:1px solid rgba(201,160,43,.28)}',
       '.pk-done .pk-tr{font-size:23px;margin-bottom:4px}',
       '.pk-done .pk-w{font-size:14.5px;font-weight:900;color:' + GOLD2 + '}',
-      '.pk-done .pk-why{font-size:10.5px;color:#818794;margin-top:3px}',
-      '.pk-first{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:11px;font-size:10px;color:#6a7080}',
+      '.pk-done .pk-why{font-size:10.5px;color:var(--muted2,#888);margin-top:3px}',
+      '.pk-first{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:11px;font-size:10px;color:var(--muted,#5a5a5a)}',
       '.pk-first button{padding:4px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:transparent;color:#8a8a8a;font-size:10px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif}',
       '.pk-first button.on{border-color:' + PUR + ';background:rgba(155,89,182,.14);color:#c39bd3}',
-      '.pk-empty{text-align:center;padding:16px;font-size:11px;color:#6a7080;line-height:1.9}',
+      '.pk-empty{text-align:center;padding:16px;font-size:11px;color:var(--muted,#5a5a5a);line-height:1.9}',
       /* شارة الحسم — تُستعمل في الجمهور والإدارة بصياغة واحدة */
       '.pk-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:900;background:rgba(201,160,43,.12);border:1px solid rgba(201,160,43,.3);color:' + GOLD2 + '}'
     ].join('\n');
@@ -540,17 +540,17 @@
       d.style.cssText = 'margin:0 0 14px;padding:13px 15px;border-radius:14px;' +
         'background:rgba(192,57,43,.07);border:1px solid rgba(192,57,43,.3);font-family:Tajawal,sans-serif';
       d.innerHTML =
-        '<div style="font-size:12.5px;font-weight:900;color:#e07070;margin-bottom:4px">' +
+        '<div style="font-size:12.5px;font-weight:900;color:var(--red,#C0392B);margin-bottom:4px">' +
           '⚠️ ' + list.length + ' مباراة نتيجتها الرسمية مدهوسة بنتيجة الترجيح</div>' +
-        '<div style="font-size:11px;color:#9aa0aa;line-height:1.85;margin-bottom:9px">' +
+        '<div style="font-size:11px;color:var(--muted2,#888);line-height:1.85;margin-bottom:9px">' +
           'إصدار سابق كان يحفظ نتيجة الترجيح مكان نتيجة المباراة، فظهر الرقم نفسه مرتين في البطاقات ' +
           'واختفى التعادل. الأهداف محفوظة في سجلّ الأحداث، فتُستعاد النتيجة الأصلية منها.' +
           (fixable < list.length
-            ? '<br><b style="color:#D9A21B">' + (list.length - fixable) + ' منها بلا أحداث محفوظة — تحتاج تصحيحاً يدوياً.</b>'
+            ? '<br><b style="color:var(--gold,#C9A02B)">' + (list.length - fixable) + ' منها بلا أحداث محفوظة — تحتاج تصحيحاً يدوياً.</b>'
             : '') +
         '</div>' +
         (fixable ? '<button id="pk-repair-btn" style="padding:10px 18px;border-radius:11px;border:none;' +
-          'background:linear-gradient(145deg,#F0C84A,#C9A02B);color:#1a1200;font-family:Tajawal,sans-serif;' +
+          'background:linear-gradient(145deg,var(--gold2,#E8BE45),#C9A02B);color:#1a1200;font-family:Tajawal,sans-serif;' +
           'font-size:12.5px;font-weight:900;cursor:pointer">↺ استعادة نتائج ' + fixable + ' مباراة</button>' : '');
       host.insertBefore(d, host.firstChild);
       var btn = document.getElementById('pk-repair-btn');
@@ -610,7 +610,7 @@
       '.vt-dot-pen.vt-pen-no{opacity:.72}',
       '.vt-pen-mark{position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);',
       '  width:13px;height:13px;border-radius:50%;display:flex;align-items:center;justify-content:center;',
-      '  border:1.5px solid var(--bg,#0d0f13);color:#fff;font-size:8px;font-weight:900;line-height:1}',
+      '  border:1.5px solid var(--bg,var(--dark,#121212));color:#fff;font-size:8px;font-weight:900;line-height:1}',
       '.vt-pen-ok .vt-pen-mark{background:#2ecc71}',
       '.vt-pen-no .vt-pen-mark{background:#e5533d}',
       '.vt-pen-mark svg{width:8px;height:8px;stroke:#fff;fill:none}',

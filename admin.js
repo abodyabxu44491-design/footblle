@@ -238,13 +238,59 @@ function getAuthError(code) {
   return map[code] || 'خطأ في تسجيل الدخول';
 }
 
+/* ════════════════════════════════════════════════════════════════════
+ *  🔐 تجاوز صلاحيات — أُصلح (v338-audit)
+ *  ──────────────────────────────────────────────────────────────────
+ *  كان هذا المستمع ينادي enterApp() لأي مستخدم مسجّل دخول، ويفحص سجلّ
+ *  leagueAdmins **فقط حين يكون LEAGUE_ID فارغاً**. وبما أن جلسة Firebase
+ *  تبقى محفوظة، فمنظّم البطولة (أ) يفتح
+ *      league-admin.html?id=بطولة-ب
+ *  فيدخل لوحة إدارة بطولة غيره كاملةً بلا أي فحص — وهو المسار الوحيد
+ *  الذي يسلكه أي مستخدم عائد (doLogin لا يعمل إلا في أول دخول).
+ *  كذلك كان المنظّم الموقوف (active:false) يدخل كالمعتاد.
+ *
+ *  القواعد على الخادم ترفض كتابته، لكن ذلك لا يكفي:
+ *    • يرى اللوحة بكل بياناتها وأزرارها فيظنّها بطولته.
+ *    • كل ضغطة ترجع «permission-denied» غامضة بلا تفسير.
+ *    • وفي أي نافذة تكون فيها القواعد غير منشورة أو ناقصة → اختراق فعلي.
+ *
+ *  الآن: نفس فحص doLogin بالضبط يُطبَّق على استعادة الجلسة.
+ *  ملاحظة توافق: مالك البطولة عبر leagues/{id}.ownerUid يُقبل أيضاً —
+ *  مطابقةً لـ isOwnerUid في firestore.rules — كي لا يُحبس مالك ضاع
+ *  سجلّ leagueAdmins الخاص به خارج بطولته.
+ * ════════════════════════════════════════════════════════════════════ */
 onAuthStateChanged(auth, async (user) => {
-  if(user) {
-    if(!LEAGUE_ID) {
-      const admDoc = await getDoc(doc(db, 'leagueAdmins', user.uid));
-      if(admDoc.exists()) { LEAGUE_ID = admDoc.data().leagueId; }
+  if (!user) return;
+  try {
+    const admDoc = await getDoc(doc(db, 'leagueAdmins', user.uid));
+    const rec = admDoc.exists() ? admDoc.data() : null;
+
+    if (!LEAGUE_ID) {
+      if (rec && rec.leagueId) LEAGUE_ID = rec.leagueId;
+      else { await signOut(auth); showLoginErr('لم يتم تحديد معرف البطولة من رابط الصفحة'); return; }
+    }
+
+    let allowed = !!rec && String(rec.leagueId) === String(LEAGUE_ID) && rec.active !== false;
+
+    // احتياط: مالك البطولة نفسه (ownerUid) حتى لو غاب سجلّ leagueAdmins
+    if (!allowed) {
+      try {
+        const lg = await getDoc(doc(db, 'leagues', LEAGUE_ID));
+        if (lg.exists() && lg.data().ownerUid === user.uid) allowed = true;
+      } catch (e) { /* تجاهل — يبقى allowed=false */ }
+    }
+
+    if (!allowed) {
+      await signOut(auth);
+      showLoginErr(rec && rec.active === false
+        ? 'حسابك موقوف — تواصل مع مسؤول المنصة'
+        : 'ليس لديك صلاحية إدارة هذه البطولة');
+      return;
     }
     enterApp();
+  } catch (e) {
+    /* فشل شبكة أو قواعد: لا ندخل اللوحة على أساس مجهول. */
+    showLoginErr('تعذّر التحقق من الصلاحية — تحقّق من الاتصال وأعد المحاولة');
   }
 });
 
@@ -1638,16 +1684,46 @@ window.addTeam = async function() {
   const insta = document.getElementById('newTeamInsta')?.value.trim() || '';
   const bio = document.getElementById('newTeamBio')?.value.trim() || '';
   try {
-    await addDoc(collection(db, 'leagues', LEAGUE_ID, 'teams'), {
+    /* ⏱ حارس زمني على الكتابة — أُضيف بعد بلاغ «زر الحفظ معلّق» (v338-audit)
+       ─────────────────────────────────────────────────────────────────
+       مع تفعيل الكاش المحلي الدائم (persistentLocalCache في رأس الملف)
+       لا يُحلّ وعد addDoc إلا بعد وصول الكتابة **للخادم**. فإن رفضتها
+       القواعد أو تعذّرت الشبكة، يبقى الوعد معلّقاً بلا رفض ولا قبول —
+       فلا يعمل catch ولا تظهر رسالة، ويبقى الزر على «جارٍ الحفظ…» بلا
+       نهاية. وهذا يطابق البلاغ حرفياً: النافذة تُملأ، يُضغط الحفظ،
+       ولا شيء يحدث إطلاقاً.
+
+       ملاحظة مهمة للمنظّم: الكتابة قد **تصل لاحقاً** حين يعود الاتصال
+       (هذا سلوك الكاش المحلي المقصود) — لذلك الرسالة تطلب التحقّق قبل
+       إعادة المحاولة، ولا تجزم بالفشل حتى لا يُضاف الفريق مرتين. */
+    const _write = addDoc(collection(db, 'leagues', LEAGUE_ID, 'teams'), {
       name, logo, shortName, coach, manager, stadium, founded,
       phone, insta, bio, color: selectedTeamColor,
       pts: 0, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0,
       order: teams.length, createdAt: serverTimestamp()
     });
+    const _timeout = new Promise((_, rej) =>
+      setTimeout(() => rej(new Error('__addteam_timeout__')), 12000));
+    await Promise.race([_write, _timeout]);
+
     closeModal('modal-team');
     resetTeamForm();
     showToast('✅︎ تمت إضافة ' + name, 'success');
-  } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+  } catch(e) {
+    if (e && e.message === '__addteam_timeout__') {
+      /* لا نغلق النافذة ولا نمسح الحقول — البيانات المكتوبة تبقى
+         أمام المنظّم فلا يُعيد كتابتها من الصفر. */
+      showToast('⏱ لم يصل ردّ الخادم. تحقّق من الاتصال ومن أن اشتراك البطولة ساري، ثم راجع قائمة الفرق قبل إعادة المحاولة.', 'error');
+      console.warn('[addTeam] انتهت المهلة — الكتابة قد تصل لاحقاً عند عودة الاتصال.');
+      return;
+    }
+    const code = (e && e.code) || '';
+    const msg = code === 'permission-denied'
+      ? '🚫 القواعد رفضت الإضافة — تأكّد أنك منظّم هذه البطولة وأن اشتراكها ساري وغير مقفلة.'
+      : 'خطأ: ' + (typeof window._trErr === 'function' ? window._trErr(e) : (e && e.message) || 'غير معروف');
+    showToast(msg, 'error');
+    console.error('[addTeam] فشل الحفظ:', e);
+  }
 };
 
 window.resetTeamForm = function() {
@@ -6055,6 +6131,44 @@ window.autoSchedule = async function() {
   showToast(`✅︎ تم توليد ${_tot} جولة — ${matchCount} مباراة${_dbl2 ? ' · ذهاب وإياب' : ''}`, 'success');
 };
 
+/* ════════════════════════════════════════════════════════════════════
+ *  🔴 «الدوري الموحّد» (swiss) كان بلا أي مولّد جدول — أُصلح (v338-audit)
+ *  ──────────────────────────────────────────────────────────────────
+ *  العطل كان مزدوجاً فلم ينجُ منه أي مسار:
+ *    ① الزرّ اليدوي #swissGenBtn في league-admin.html:460 ينادي
+ *       swissGenerateFixtures() — ولم تكن معرّفة في أي ملف من الـ٣٥.
+ *       اسمها مُدرَج في قائمة NAMES لحارس النقر المزدوج (admin.js:19195)
+ *       فبدت «موجودة»، لكن الضغط كان يرمي ReferenceError صامتاً.
+ *    ② التوليد التلقائي لا يغطّيه أصلاً: _lgAutoGenInner يخرج فوراً
+ *       إذا settings.type !== 'league'، والموزّع _autoGenerateMatchesIfReady
+ *       يعالج league/groups/knockout فقط.
+ *  النتيجة: منظّم بطولة «دوري موحّد» لا يستطيع توليد جدول إطلاقاً.
+ *
+ *  ✅ الحل: **إعادة استخدام** autoSchedule الموجودة أعلاه — لا نظام جديد.
+ *     فحصناها: خوارزمية round-robin محايدة تماماً تجاه نوع البطولة
+ *     (تعمل على مصفوفة teams وحدها)، وتحترم legMode للذهاب/الإياب،
+ *     وتمرّ بـ _lightMatch فتأخذ القيم الافتراضية للمباريات.
+ *     وهذا بالضبط ما يحتاجه الدوري الموحّد: جدول واحد تلتقي فيه كل
+ *     الفرق، ثم تُبنى شجرة الإقصاء من الترتيب (_HAS_BRACKET يشمل swiss).
+ *
+ *  فائدة إضافية: بصيرورتها window.* تلتقطها طبقتا الحماية القائمتان —
+ *  lock-guard (تمنع التوليد على بطولة مقفلة) وحارس النقر المزدوج.
+ * ════════════════════════════════════════════════════════════════════ */
+window.swissGenerateFixtures = async function () {
+  if (typeof window.autoSchedule !== 'function') {
+    showToast('تعذّر تحميل مولّد الجدول — حدّث الصفحة', 'error');
+    return;
+  }
+  return window.autoSchedule();
+};
+
+/* ⚠️ متروك عمداً بلا تعديل: التوليد **التلقائي** (عند اكتمال الفرق) ما
+   زال لا يشمل swiss. لم نُوصّله في هذه الجولة لأن autoSchedule تعرض
+   نافذة تأكيد، فوصلها بالمسار التلقائي يُقحم نافذة في لحظة لا يتوقعها
+   المنظّم — وهذا تغيير سلوك لا إصلاح عطل. الزرّ اليدوي يغطّي الحاجة
+   الآن، والتوصية في التقرير: استخراج نواة صامتة من autoSchedule
+   (مثل _lgAutoGenInner) ووصلها بالموزّع في تحديث مستقل ومُختبَر. */
+
 // ══ SETTINGS ══
 // ══ TIEBREAK UI ══
 const TIEBREAK_LABELS = {
@@ -6129,6 +6243,9 @@ window._teamCardCount = function(teamId, matchList) {
   let pts = 0;
   (matchList || window.matches || []).forEach(m => {
     if (m.status !== 'finished') return;
+    /* ✅ مطابقة لنسخة الجمهور: كاسر «اللعب النظيف» يخصّ الدور الدوري
+       وحده، والجدول لا يشمل الإقصاء فبطاقاته لا تشمله. (v338-audit) */
+    if (m.isKnockout || m.knockoutRoundId) return;
     if (m.homeId !== teamId && m.awayId !== teamId) return;
     const side = m.homeId === teamId ? 'home' : 'away';
     const evs = (m.liveData && Array.isArray(m.liveData.events)) ? m.liveData.events
@@ -6153,7 +6270,10 @@ window.applyTiebreak = function(a, b, matchList) {
   for (const rule of order) {
     if (rule === 'h2h') {
       let aP = 0, bP = 0;
-      ml.filter(m => m.status === 'finished' &&
+      /* 🔴 المواجهات المباشرة كانت تشمل مباريات الإقصاء — أُصلح (v338-audit).
+         مطابقة حرفية لفلتر الجدول: بلا إقصاء، وبنتيجة رقمية. */
+      ml.filter(m => m.status === 'finished' && !m.isKnockout && !m.knockoutRoundId &&
+        typeof m.homeScore === 'number' && typeof m.awayScore === 'number' &&
         ((m.homeId === a.id && m.awayId === b.id) || (m.homeId === b.id && m.awayId === a.id)))
         .forEach(m => {
           const aHome = m.homeId === a.id;
@@ -11499,6 +11619,16 @@ function _adaptAdminUIToType(type) {
   if (sbKnockout) sbKnockout.style.display = (type === 'knockout' || type === 'groups' || isSwiss) ? 'flex' : 'none';
   if (sbZones) sbZones.style.display = (type === 'league' || isSwiss) ? 'flex' : 'none';
 
+  /* 🔴 صفّ «مناطق الترتيب» في **فهرس الإعدادات** كان يظهر دائماً — أُصلح.
+     الشريط الجانبي (sb-zones أعلاه) كان يُخفى صحيحاً لغير الدوري/الموحّد،
+     لكن صفّه في الإعدادات لا id له ولا أحد يلمسه. فيراه منظّم بطولة
+     «مجموعات» أو «إقصاء» ويفتحه على محرّر مناطق لا جدول ترتيب يلوّنه —
+     قسم بلا معنى في نظامه. الآن يتبع الشريط الجانبي بنفس الشرط تماماً،
+     فلا يفترقان مهما تغيّر النوع. (المناطق تلوّن جدول الترتيب، والترتيب
+     موجود في «دوري نقاط» و«دوري موحّد» فقط — راجع _HAS_STANDINGS.) */
+  const setrowZones = document.getElementById('setrow-zones');
+  if (setrowZones) setrowZones.style.display = (type === 'league' || isSwiss) ? '' : 'none';
+
   // موبايل نافيجيشن — إخفاء زر الترتيب
   const mnStandings = document.querySelector('.mn-item[onclick*="standings"]');
   if (mnStandings) mnStandings.style.display = (type === 'league' || isSwiss) ? '' : 'none';
@@ -15883,26 +16013,53 @@ window.enterApp = function () {
 
   // ── Render groups ──
   // ✅︎ ترتيب حقيقي داخل المجموعة من نتائج المباريات الفعلية (بدل ترتيب الإضافة العشوائي)
-  function _computeGroupStats(teamIds) {
+  /* ═══════════════════════════════════════════════════════════════
+     🔴 ثلاثة فروق عن نسخة الجمهور (computeGroupStats) — أُصلحت (v338-audit)
+     ─────────────────────────────────────────────────────────────────
+     كان الفلتر هنا `m.status === 'finished'` وحده، فنتج عنه:
+
+      ① **مباريات الإقصاء تدخل جدول المجموعة.** فريقان من نفس المجموعة
+         يلتقيان لاحقاً في ربع النهائي، فتُضاف نتيجة الإقصاء لجدول
+         مجموعتهما. الجمهور يستبعدها صراحةً — فيختلف الجدولان.
+      ② **لا يُطابق بـ groupId.** الجمهور يفضّل المطابقة بـ groupId حين
+         يكون مسجّلاً (أدقّ من الاعتماد على عضوية الفريقين).
+      ③ **خصم النقاط الإداري مُهمَل تماماً.** فريق عليه خصم يظهر
+         للمنظّم بنقاطه كاملة وللجمهور منقوصة — والمنظّم هو من فرض
+         الخصم أصلاً فيراه غير مطبَّق في لوحته.
+
+     الأثر محدود بالعرض (هذا الترتيب يُستعمل في محرّر توزيع المجموعات
+     فقط، والتأهّل اختيار يدوي من المنظّم لا حساب آلي) — لكن أن يرى
+     المنظّم ترتيباً والجمهور ترتيباً آخر يهدم الثقة بالأرقام كلها.
+     ═══════════════════════════════════════════════════════════════ */
+  function _computeGroupStats(teamIds, groupId) {
     const stats = {};
     teamIds.forEach(id => { stats[id] = { pts:0, p:0, w:0, d:0, l:0, gf:0, ga:0 }; });
-    (window.matches||[]).filter(m => m.status === 'finished').forEach(m => {
+    (window.matches||[]).filter(m =>
+      m.status === 'finished' && !m.isKnockout && !m.knockoutRoundId &&
+      typeof m.homeScore === 'number' && typeof m.awayScore === 'number' &&
+      (!groupId || !m.groupId || m.groupId === groupId)
+    ).forEach(m => {
       if (!teamIds.includes(m.homeId) || !teamIds.includes(m.awayId)) return;
       const h = stats[m.homeId], a = stats[m.awayId];
       if (!h || !a) return;
       h.p++; a.p++;
-      h.gf += (m.homeScore||0); h.ga += (m.awayScore||0);
-      a.gf += (m.awayScore||0); a.ga += (m.homeScore||0);
-      if ((m.homeScore||0) > (m.awayScore||0)) { h.w++; h.pts += (window.settings?.winPts||3); a.l++; }
-      else if ((m.homeScore||0) < (m.awayScore||0)) { a.w++; a.pts += (window.settings?.winPts||3); h.l++; }
+      h.gf += m.homeScore; h.ga += m.awayScore;
+      a.gf += m.awayScore; a.ga += m.homeScore;
+      if (m.homeScore > m.awayScore) { h.w++; h.pts += (window.settings?.winPts||3); a.l++; }
+      else if (m.homeScore < m.awayScore) { a.w++; a.pts += (window.settings?.winPts||3); h.l++; }
       else { h.d++; a.d++; h.pts += (window.settings?.drawPts||1); a.pts += (window.settings?.drawPts||1); }
+    });
+    // ➖ خصم النقاط الإداري — مطابقةً لنسخة الجمهور
+    teamIds.forEach(id => {
+      const d = (typeof _deductionOf === 'function') ? _deductionOf(id) : 0;
+      if (d && stats[id]) stats[id].pts -= d;
     });
     return stats;
   }
 
-  function _sortGroupTeamsByStandings(gTeams) {
+  function _sortGroupTeamsByStandings(gTeams, groupId) {
     const ids = gTeams.map(t => t.id);
-    const stats = _computeGroupStats(ids);
+    const stats = _computeGroupStats(ids, groupId);
     return [...gTeams].sort((a, b) => {
       const sa = stats[a.id] || {}, sb = stats[b.id] || {};
       if ((sb.pts||0) !== (sa.pts||0)) return (sb.pts||0) - (sa.pts||0);
@@ -15926,7 +16083,7 @@ window.enterApp = function () {
 
     grid.innerHTML = _dndGroups.map(g => {
       const gTeamsRaw  = (window.teams || []).filter(t => (g.teamIds || []).includes(t.id));
-      const gTeams     = _sortGroupTeamsByStandings(gTeamsRaw); // ✅︎ مرتّبة فعلياً بالنقاط، لا بترتيب الإضافة
+      const gTeams     = _sortGroupTeamsByStandings(gTeamsRaw, g.id); // ✅︎ مرتّبة فعلياً بالنقاط، لا بترتيب الإضافة
       const qualify    = g.qualify || 2;
       const manualQ    = new Set(g.qualifiedTeamIds || []);
       const hasManualQ = manualQ.size > 0;
@@ -16597,12 +16754,12 @@ window.openRosterModal = async function(teamId) {
 
   modal.innerHTML = `
     <div style="
-      background:var(--card,#181818);border-radius:20px 20px 0 0;
+      background:var(--card,#1a1a1a);border-radius:20px 20px 0 0;
       width:100%;max-width:700px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;
     ">
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
-                  border-bottom:1px solid var(--border,#2a2a2a);flex-shrink:0">
+                  border-bottom:1px solid var(--border,#2c2c2c);flex-shrink:0">
         ${logoHtmlStr}
         <div style="flex:1">
           <div style="font-size:16px;font-weight:800">${team.name}</div>
@@ -16610,54 +16767,70 @@ window.openRosterModal = async function(teamId) {
         </div>
         <button onclick="openPhotoTrash()" title="سلّة الصور — ملفات تعذّر حذفها فوراً"
           style="background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.3);color:var(--gold,#C9A02B);
-                 font-size:14px;cursor:pointer;padding:6px 9px;border-radius:8px">🧹</button>
+                 font-size:11px;font-weight:800;cursor:pointer;padding:7px 11px;border-radius:9px;
+                 font-family:Tajawal,sans-serif;white-space:nowrap">🧹 سلّة الصور</button>
         <button onclick="closeRosterModal()"
           style="background:none;border:none;color:var(--muted,#888);font-size:22px;cursor:pointer;padding:4px">✕</button>
       </div>
 
-      <!-- Add Player Form -->
-      <div style="padding:14px 20px;border-bottom:1px solid var(--border,#2a2a2a);
-                  background:var(--card2,#1e1e1e);flex-shrink:0">
-        <div style="font-size:10px;color:var(--muted,#888);margin-bottom:10px;font-weight:700;letter-spacing:.5px">
-          ➕︎ إضافة لاعب جديد
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <!-- ══ إضافة لاعب — تخطيط ثابت لا يتكسّر على الجوال ══
+           🔴 كان صفاً واحداً بـ flex-wrap يضمّ ٥ عناصر (#, الاسم, المركز,
+              الحالة, زر الإضافة). على شاشة الجوال يلتفّ بترتيب عشوائي
+              فيهبط الزرّ وحده سطراً ويضيق حقل الاسم حتى يستحيل القراءة.
+           ✅ الآن شبكة من صفّين واضحين: الرقم+الاسم فوق (وهما الأكثر
+              استعمالاً)، والمركز+الحالة+الزر تحت بعرض ثابت — فلا يتغيّر
+              موضع أي عنصر مهما ضاقت الشاشة. -->
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border,#2c2c2c);
+                  background:var(--card2,#202020);flex-shrink:0">
+        <div style="font-size:10px;color:var(--gold,#C9A02B);margin-bottom:9px;
+                    font-weight:900;letter-spacing:.5px">➕︎ إضافة لاعب</div>
+
+        <div style="display:flex;gap:6px;margin-bottom:6px">
           <input type="number" id="rosterNumInput" placeholder="#" min="1" max="99"
             onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('rosterNameInput').focus();}"
-            style="width:52px;padding:9px 6px;text-align:center;background:var(--dark,#111);
-                   border:1px solid var(--border,#333);border-radius:8px;color:var(--text,#fff);
-                   font-family:Tajawal,sans-serif;font-size:13px;font-weight:700"/>
-          <input type="text" id="rosterNameInput" placeholder="اسم اللاعب — واضغط Enter لإضافة سريعة" 
+            style="width:58px;padding:10px 6px;text-align:center;background:var(--dark,#121212);
+                   border:1px solid var(--border,#2c2c2c);border-radius:9px;color:var(--text,#efefef);
+                   font-family:Tajawal,sans-serif;font-size:13px;font-weight:900"/>
+          <input type="text" id="rosterNameInput" placeholder="اسم اللاعب — ثم Enter"
             onkeydown="if(event.key==='Enter'){event.preventDefault();addRosterPlayer('${teamId}');}"
-            style="flex:1;min-width:140px;padding:9px 12px;background:var(--dark,#111);
-                   border:1px solid var(--border,#333);border-radius:8px;color:var(--text,#fff);
-                   font-family:Tajawal,sans-serif;font-size:13px"/>
+            style="flex:1;min-width:0;padding:10px 12px;background:var(--dark,#121212);
+                   border:1px solid var(--border,#2c2c2c);border-radius:9px;color:var(--text,#efefef);
+                   font-family:Tajawal,sans-serif;font-size:13px;font-weight:700"/>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px">
           <select id="rosterPosInput"
-            style="padding:9px 8px;background:var(--dark,#111);border:1px solid var(--border,#333);
-                   border-radius:8px;color:var(--muted,#aaa);font-family:Tajawal,sans-serif;font-size:12px">
+            style="min-width:0;padding:10px 8px;background:var(--dark,#121212);border:1px solid var(--border,#2c2c2c);
+                   border-radius:9px;color:var(--muted2,#888);font-family:Tajawal,sans-serif;font-size:12px">
             <option value="">المركز</option>
             ${ROSTER_POSITIONS.map(p => `<option value="${p.key}">${p.label}</option>`).join('')}
           </select>
           <select id="rosterStatusInput"
-            style="padding:9px 8px;background:var(--dark,#111);border:1px solid var(--border,#333);
-                   border-radius:8px;color:var(--muted,#aaa);font-family:Tajawal,sans-serif;font-size:12px">
+            style="min-width:0;padding:10px 8px;background:var(--dark,#121212);border:1px solid var(--border,#2c2c2c);
+                   border-radius:9px;color:var(--muted2,#888);font-family:Tajawal,sans-serif;font-size:12px">
             ${Object.entries(ROSTER_STATUS).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
           </select>
           <button onclick="addRosterPlayer('${teamId}')"
-            style="padding:9px 18px;background:var(--gold,#C9A02B);color:#000;border:none;
-                   border-radius:8px;font-family:Tajawal,sans-serif;font-size:13px;font-weight:700;
-                   cursor:pointer;white-space:nowrap">
-            إضافة
-          </button>
+            style="padding:10px 20px;background:var(--gold,#C9A02B);color:#1a1200;border:none;
+                   border-radius:9px;font-family:Tajawal,sans-serif;font-size:13px;font-weight:900;
+                   cursor:pointer;white-space:nowrap">إضافة</button>
         </div>
-        <!-- استيراد من ملف (قالب من الإعدادات) -->
-        <div style="display:flex;gap:6px;margin-top:8px">
+
+        <!-- ✅ بحث فوري — كشف من ٢٥ لاعباً كان يتطلّب تمريراً يدوياً بالكامل.
+             يعمل على الاسم والرقم والمركز، وبلا أي طلب للخادم. -->
+        <div style="display:flex;gap:6px;margin-top:9px">
+          <input type="text" id="rosterSearchInput" placeholder="🔎 بحث في الكشف — اسم أو رقم أو مركز"
+            oninput="rosterFilter(this.value)"
+            style="flex:1;min-width:0;padding:9px 12px;background:var(--dark,#121212);
+                   border:1px solid var(--border,#2c2c2c);border-radius:9px;color:var(--text,#efefef);
+                   font-family:Tajawal,sans-serif;font-size:12px"/>
           <input type="file" id="rosterImportFile-${teamId}" accept=".xlsx,.csv" style="display:none"
             onchange="importRosterFile('${teamId}', this)">
           <button onclick="document.getElementById('rosterImportFile-${teamId}').click()"
-            style="flex:1;padding:8px 10px;background:rgba(39,174,96,.12);color:#38d47f;
-                   border:1px solid rgba(39,174,96,.35);border-radius:8px;font-family:Tajawal,sans-serif;
-                   font-size:12px;font-weight:700;cursor:pointer">📥 استيراد لاعبين من ملف (Excel/CSV)</button>
+            title="استيراد لاعبين من ملف Excel أو CSV"
+            style="flex-shrink:0;padding:9px 14px;background:rgba(39,174,96,.12);color:var(--green,#27AE60);
+                   border:1px solid rgba(39,174,96,.35);border-radius:9px;font-family:Tajawal,sans-serif;
+                   font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">📥 استيراد</button>
         </div>
       </div>
 
@@ -16673,14 +16846,14 @@ window.openRosterModal = async function(teamId) {
       <div style="padding:12px 20px;border-top:1px solid var(--border,#2a2a2a);
                   display:flex;gap:8px;flex-shrink:0">
         <button onclick="importRosterToLineup('${teamId}')"
-          style="flex:1;padding:11px;background:var(--blue,#2980b9);color:#fff;border:none;
-                 border-radius:10px;font-family:Tajawal,sans-serif;font-size:13px;font-weight:700;cursor:pointer">
-          📋 استخدم القائمة في التشكيلة
+          style="flex:1;padding:12px;background:var(--blue,#2980B9);color:#fff;border:none;
+                 border-radius:10px;font-family:Tajawal,sans-serif;font-size:13px;font-weight:900;cursor:pointer">
+          📋 استخدم الكشف في التشكيلة
         </button>
         <button onclick="closeRosterModal()"
-          style="padding:11px 18px;background:var(--card2,#222);color:var(--muted,#888);
-                 border:1px solid var(--border,#333);border-radius:10px;
-                 font-family:Tajawal,sans-serif;font-size:13px;cursor:pointer">
+          style="padding:12px 20px;background:var(--card2,#202020);color:var(--muted2,#888);
+                 border:1px solid var(--border2,#383838);border-radius:10px;
+                 font-family:Tajawal,sans-serif;font-size:13px;font-weight:800;cursor:pointer">
           إغلاق
         </button>
       </div>
@@ -16695,7 +16868,61 @@ window.openRosterModal = async function(teamId) {
   loadRosterRealtime(teamId);
 };
 
+/* ═══════════════════════════════════════════════════════════════
+ *  🔎 بحث فوري داخل كشف اللاعبين — (v338)
+ *  ─────────────────────────────────────────────────────────────
+ *  كشف من ٢٥ لاعباً كان يتطلّب تمريراً يدوياً بالكامل للوصول للاعب
+ *  واحد. البحث هنا يعمل على الاسم والرقم والمركز معاً.
+ *
+ *  ⚠️ لا يمسّ منطق العرض إطلاقاً: يُخفي/يُظهر الصفوف المرسومة فقط
+ *     (display) بالاعتماد على سمات data-* التي يكتبها
+ *     renderRosterPlayerRow. فأي إعادة رسم لاحقة من المستمع اللحظي
+ *     تُعيد كل الصفوف ظاهرة — وهذا مقصود: البيانات الجديدة يجب أن
+ *     تُرى. ولذلك نُعيد تطبيق المرشّح بعد إعادة الرسم.
+ * ═══════════════════════════════════════════════════════════════ */
+window.rosterFilter = function (q) {
+  q = String(q || '').trim().toLowerCase();
+  window._rosterQuery = q;
+  const rows = document.querySelectorAll('#rosterListContainer .rp-row');
+  let shown = 0;
+  rows.forEach(r => {
+    const hit = !q
+      || (r.getAttribute('data-nm')  || '').indexOf(q) > -1
+      || (r.getAttribute('data-num') || '') === q
+      || (r.getAttribute('data-pos') || '').indexOf(q) > -1;
+    r.style.display = hit ? '' : 'none';
+    if (hit) shown++;
+  });
+
+  /* عناوين المجموعات (حرّاس/دفاع/…) تُخفى إن خلت من نتيجة — وإلا
+     بقيت عناوين معلّقة فوق فراغ فبدا الكشف مكسوراً. */
+  document.querySelectorAll('#rosterListContainer > div').forEach(grp => {
+    const inner = grp.querySelectorAll('.rp-row');
+    if (!inner.length) return;
+    const any = Array.prototype.some.call(inner, r => r.style.display !== 'none');
+    grp.style.display = any ? '' : 'none';
+  });
+
+  let note = document.getElementById('rosterNoHit');
+  if (q && shown === 0) {
+    if (!note) {
+      note = document.createElement('div');
+      note.id = 'rosterNoHit';
+      note.style.cssText = 'text-align:center;padding:26px 16px;color:var(--muted2,#888);font-size:12px;line-height:1.9';
+      document.getElementById('rosterListContainer')?.appendChild(note);
+    }
+    note.textContent = 'لا لاعب يطابق «' + q + '» في هذا الكشف.';
+    note.style.display = '';
+  } else if (note) { note.style.display = 'none'; }
+};
+
+/* يُعاد استدعاؤه بعد كل إعادة رسم كي لا يضيع البحث الجاري */
+window._rosterReapplyFilter = function () {
+  if (window._rosterQuery) window.rosterFilter(window._rosterQuery);
+};
+
 window.closeRosterModal = function() {
+  window._rosterQuery = '';   // وإلا فُتح كشف الفريق التالي مُرشَّحاً ببحث قديم
   const modal = document.getElementById('rosterModal');
   if(modal) modal.style.display = 'none';
   document.body.style.overflow = '';
@@ -16729,6 +16956,9 @@ function loadRosterRealtime(teamId) {
     }
 
     renderRosterList(teamId, players);
+    /* ✅ أعد تطبيق البحث الجاري — المستمع اللحظي يعيد رسم كل الصفوف،
+       فبدون هذا يختفي الترشيح فجأة أثناء كتابة المنظّم في حقل البحث. */
+    if (typeof window._rosterReapplyFilter === 'function') window._rosterReapplyFilter();
     // ✅ FIX: تعديل اسم لاعب (أو أي تغيير في الكشف) لازم ينعكس فوراً على
     //    جدول الهدافين — كان يفضل يعرض الاسم القديم لحد ما يصير تحديث
     //    غير مرتبط (مثل onSnapshot لمستند الفريق نفسه) يعيد رسمه صدفةً.
@@ -16792,9 +17022,12 @@ function renderRosterPlayerRow(p, teamId) {
   const groupColor = ROSTER_GROUP_COLORS[posMeta?.group || 'OTHER'];
 
   return `
-    <div id="roster-row-${p.id}" style="
+    <div id="roster-row-${p.id}" class="rp-row"
+      data-nm="${String(p.name || '').toLowerCase()}"
+      data-num="${p.number != null ? p.number : ''}"
+      data-pos="${String(p.position || '').toLowerCase()}" style="
       display:flex;align-items:center;gap:10px;padding:10px 12px;
-      background:var(--card2,#1e1e1e);border:1px solid var(--border,#2a2a2a);
+      background:var(--card2,#202020);border:1px solid var(--border,#2c2c2c);
       border-radius:10px;margin-bottom:6px;
       ${p.status !== 'active' ? 'opacity:.7' : ''}
     ">

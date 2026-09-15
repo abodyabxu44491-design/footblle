@@ -335,47 +335,142 @@ window.lockLeague = async function(id, lock) {
   } catch(e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
 };
 
+/* ✅︎ إضافة مساحة لاعبين إضافية — الطريقة الأسرع من داخل نافذة البطولة:
+   يسأل "كم لاعب تريد تضيفه؟" (إضافة فوق الموجود، لا استبدال)، يرفع
+   الحدّ، يمسح راية "استنفدت الحصّة" إن وجدت، ويترك للعميل إشعاراً
+   لطيفاً (quotaBoost) يظهر له تلقائياً بلوحته + بقسم الاشتراك. */
+window.hoAddPlayers = async function (id) {
+  const l = allLeagues.find(x => x.id === id);
+  if (!l) return;
+  const cur = l.limits || {};
+  const addStr = prompt('كم لاعباً إضافياً تريد إضافته لحصّة «' + (l.name || id) + '»؟\n\n(الحصّة الحالية: ' + (cur.maxPlayers || 0) + ' لاعب)', '50');
+  if (addStr === null) return;
+  const add = parseInt(addStr, 10);
+  if (!add || add <= 0) { showToast('اكتب رقماً صحيحاً أكبر من صفر', 'error'); return; }
+  const newMax = (cur.maxPlayers || 0) + add;
+  try {
+    await setDoc(doc(db, 'leagues', id), {
+      limits: { maxTeams: cur.maxTeams || 0, maxPlayers: newMax, photos: cur.photos !== false },
+      quotaAlert: null,
+      quotaBoost: { addedPlayers: add, addedAt: Date.now(), seen: false }
+    }, { merge: true });
+    showToast('✅︎ أُضيفت ' + add + ' مساحة لاعب — الحصّة الآن ' + newMax, 'success');
+    leagueActions(id); // إعادة رسم النافذة بالأرقام الجديدة
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
+/* ✅︎ حفظ تعديلات سريعة على بيانات البطولة (الاسم/الموسم) من نفس النافذة */
+window.saveLeagueQuickEdit = async function (id) {
+  const name = (document.getElementById('le-name') || {}).value?.trim();
+  const season = (document.getElementById('le-season') || {}).value?.trim();
+  if (!name) { showToast('اسم البطولة مطلوب', 'error'); return; }
+  try {
+    await updateDoc(doc(db, 'leagues', id), { name, season: season || '2025', updatedAt: serverTimestamp() });
+    showToast('✅︎ تم حفظ التعديلات', 'success');
+    leagueActions(id);
+  } catch (e) { showToast('خطأ: ' + window._trErr(e), 'error'); }
+};
+
 window.leagueActions = function(id) {
   const l = allLeagues.find(x => x.id === id);
   if(!l) return;
   const sub = allSubs.find(s => s.leagueId === id);
-  const subInfo = sub ? `${durationLabel(sub.startDate, sub.endDate)} · ينتهي ${sub.endDate || '—'}` : '⚠️ لا يوجد اشتراك';
+  const subInfo = sub ? `${durationLabel(sub.startDate, sub.endDate)} · ينتهي ${sub.endDate || '—'}` : 'لا يوجد اشتراك';
   const subColor = sub ? (sub.status === 'active' ? 'var(--green)' : 'var(--red)') : 'var(--orange)';
-  const buttonLabel = sub ? (sub.status === 'active' ? 'مباشر' : 'موقوف') : 'غير مشترك';
+  const cur = l.limits || {};
+  const teamsUsed = l.teamsCount || 0, playersUsed = l.playersCount || 0;
+  const teamsPct = cur.maxTeams ? Math.min(100, teamsUsed / cur.maxTeams * 100) : 0;
+  const playersPct = cur.maxPlayers ? Math.min(100, playersUsed / cur.maxPlayers * 100) : 0;
+  const barColor = p => p >= 100 ? 'var(--red)' : p >= 80 ? 'var(--orange)' : 'var(--green)';
+  const adminRec = allAdmins.find(a => a.id === l.ownerUid);
+  const hasPass = !!(adminRec && adminRec.initialPassword);
+
   document.getElementById('mal-title').textContent = '⚙︎️ ' + l.name;
   document.getElementById('mal-body').innerHTML = `
-    <div style="display:grid;gap:10px">
-      <div style="background:var(--card2);border-radius:10px;padding:12px 14px;font-size:11px;color:var(--muted2);line-height:1.9">
-        <div>🆔 المعرف: <strong style="color:var(--text);font-family:monospace">${l.id}</strong></div>
-        <div>👤 المالك: <strong style="color:var(--text)">${l.ownerName || '—'}</strong></div>
-        <div>📧 البريد: <strong style="color:var(--text)">${l.ownerEmail || '—'}</strong></div>
-        <div>📱 الواتساب: <strong style="color:var(--text)">${l.ownerPhone || '—'}</strong></div>
-        <div>💳 الاشتراك: <strong style="color:${subColor}">${subInfo}</strong></div>
-        <div>🔒 الحالة: <strong style="color:${l.locked ? 'var(--red)' : 'var(--green)'}">${l.locked ? 'مقفول' : 'مفتوح'}</strong></div>
+    <div style="display:grid;gap:14px">
+
+      <!-- ── معلومات عامة (قابلة للتعديل) ── -->
+      <div style="background:var(--card2);border-radius:12px;padding:14px">
+        <div style="font-size:10.5px;font-weight:800;color:var(--gold);margin-bottom:10px">معلومات البطولة</div>
+        <div style="display:grid;gap:8px;grid-template-columns:2fr 1fr">
+          <div><label style="font-size:9.5px;color:var(--muted2)">اسم البطولة</label>
+            <input id="le-name" class="fi" value="${(l.name||'').replace(/"/g,'&quot;')}" style="width:100%;margin-top:3px"/></div>
+          <div><label style="font-size:9.5px;color:var(--muted2)">الموسم</label>
+            <input id="le-season" class="fi" value="${(l.season||'2025').replace(/"/g,'&quot;')}" style="width:100%;margin-top:3px"/></div>
+        </div>
+        <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center;margin-top:9px" onclick="saveLeagueQuickEdit('${l.id}')">💾 حفظ التعديلات</button>
+        <hr style="border-color:var(--border);margin:12px 0"/>
+        <div style="display:grid;gap:6px;font-size:11px;color:var(--muted2);line-height:1.9">
+          <div>المعرّف: <strong style="color:var(--text);font-family:monospace">${l.id}</strong></div>
+          <div>المالك: <strong style="color:var(--text)">${l.ownerName || '—'}</strong></div>
+          <div style="display:flex;align-items:center;gap:6px">البريد: <strong style="color:var(--text)">${l.ownerEmail || '—'}</strong>
+            ${l.ownerEmail ? `<button class="ic-btn-mini" onclick="copyStr('${l.ownerEmail}')" title="نسخ">📋</button>` : ''}</div>
+          <div style="display:flex;align-items:center;gap:6px">الواتساب: <strong style="color:var(--text)">${l.ownerPhone || '—'}</strong>
+            ${l.ownerPhone ? `<button class="ic-btn-mini" onclick="copyStr('${l.ownerPhone}')" title="نسخ">📋</button>` : ''}</div>
+          <div>الاشتراك: <strong style="color:${subColor}">${subInfo}</strong></div>
+          <div>القفل: <strong style="color:${l.locked ? 'var(--red)' : 'var(--green)'}">${l.locked ? 'مقفولة' : 'مفتوحة'}</strong></div>
+        </div>
       </div>
-      <button class="btn btn-green" style="width:100%;justify-content:center" onclick="window.open('league-viewer.html?id=${l.id}','_blank')">👁 فتح صفحة الجمهور ↗︎</button>
-      <button class="btn btn-blue" style="width:100%;justify-content:center" onclick="window.open('league-admin.html?id=${l.id}','_blank')">⚙︎️ فتح لوحة الإدارة ↗︎</button>
-      <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="copyStr('league-viewer.html?id=${l.id}')">📋 نسخ رابط الجمهور</button>
-      <button class="btn" style="width:100%;justify-content:center;gap:7px;background:#141000;border:1px solid #6B4E00;color:#C9A02B" onclick="window.open('broadcaster.html?league=${l.id}','_blank')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M23 7l-7 5 7 5V7zM14 5H3a2 2 0 00-2 2v10a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2z"/></svg>فتح صفحة البثّ</button>
-      <button class="btn btn-outline" style="width:100%;justify-content:center;gap:7px" onclick="copyStr(SITE_URL + 'broadcaster.html?league=${l.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>نسخ رابط البثّ للمنظّم</button>
-      <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="hoOpen('${l.id}')">صفحة التسليم — عرض / طباعة</button>
-      <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="hoWA('${l.id}')">إرسال الروابط واتساب</button>
-      ${(() => {
-        const adminRec = allAdmins.find(a => a.id === l.ownerUid);
-        const hasPass = !!(adminRec && adminRec.initialPassword);
-        return hasPass ? '' : `
+
+      <!-- ── الحصّة (فرق ولاعبون) ── -->
+      <div style="background:var(--card2);border-radius:12px;padding:14px">
+        <div style="font-size:10.5px;font-weight:800;color:var(--gold);margin-bottom:10px">حصّة الاشتراك</div>
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+            <span>👥 الفرق</span><span style="font-weight:800">${teamsUsed} / ${cur.maxTeams || '∞'}</span>
+          </div>
+          <div style="height:7px;border-radius:99px;background:var(--card3);overflow:hidden">
+            <div style="height:100%;width:${teamsPct}%;background:${barColor(teamsPct)};border-radius:99px"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+            <span>🧍 اللاعبون</span><span style="font-weight:800">${playersUsed} / ${cur.maxPlayers || '∞'}</span>
+          </div>
+          <div style="height:7px;border-radius:99px;background:var(--card3);overflow:hidden">
+            <div style="height:100%;width:${playersPct}%;background:${barColor(playersPct)};border-radius:99px"></div>
+          </div>
+        </div>
+        <button class="btn btn-gold btn-sm" style="width:100%;justify-content:center;margin-top:12px" onclick="hoAddPlayers('${l.id}')">➕ إضافة مساحة لاعبين</button>
+      </div>
+
+      <!-- ── وصول سريع ── -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <button class="btn btn-outline btn-sm" style="justify-content:center;flex-direction:column;gap:4px;padding:10px 4px" onclick="window.open('league-viewer.html?id=${l.id}','_blank')">👁<span style="font-size:9.5px">الجمهور</span></button>
+        <button class="btn btn-outline btn-sm" style="justify-content:center;flex-direction:column;gap:4px;padding:10px 4px" onclick="window.open('league-admin.html?id=${l.id}','_blank')">⚙︎️<span style="font-size:9.5px">الإدارة</span></button>
+        <button class="btn btn-outline btn-sm" style="justify-content:center;flex-direction:column;gap:4px;padding:10px 4px" onclick="window.open('broadcaster.html?league=${l.id}','_blank')">🎥<span style="font-size:9.5px">البثّ</span></button>
+      </div>
+
+      <!-- ── تسليم البطولة ── -->
+      <div>
+        <div style="font-size:10.5px;font-weight:800;color:var(--gold);margin-bottom:8px">تسليم البطولة للعميل</div>
+        <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="hoShareLink('${l.id}')">🔗 نسخ رابط تسليم للمشاركة</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <button class="btn btn-outline btn-sm" style="justify-content:center" onclick="hoOpen('${l.id}')">عرض / PDF</button>
+          <button class="btn btn-outline btn-sm" style="justify-content:center" onclick="hoWA('${l.id}')">إرسال واتساب</button>
+        </div>
+      </div>
+
+      ${hasPass ? '' : `
       <div style="background:rgba(243,156,18,.08);border:1px solid rgba(243,156,18,.25);border-radius:10px;padding:10px 12px;font-size:10.5px;color:#e0a733;line-height:1.8">
-        ⚠️ كلمة المرور الأصلية لهذه البطولة غير محفوظة (بطولة قديمة قبل هذه الميزة) — Firebase لا يسمح باسترجاعها. استخدم أحد الخيارين تحت لاستعادة الوصول.
+        ⚠️ كلمة المرور الأصلية غير محفوظة (بطولة قديمة) — استخدم أحد الخيارين:
       </div>
-      <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="sendOwnerPasswordReset('${l.id}')">🔑 إرسال رابط تعيين كلمة مرور جديدة للمنظّم</button>
-      <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="updateStoredPassword('${l.id}')">✏️ تسجيل كلمة المرور يدوياً (بعد ما يخبرك بها المنظّم)</button>`;
-      })()}
-      <hr style="border-color:var(--border);margin:4px 0"/>
-      ${l.locked
-        ? `<button class="btn btn-green" style="width:100%;justify-content:center" onclick="lockLeague('${l.id}',false)">🔓 فتح قفل البطولة</button>`
-        : `<button class="btn" style="width:100%;justify-content:center;background:var(--orange);color:#fff" onclick="lockLeague('${l.id}',true)">🔒 قفل البطولة (منع التعديل)</button>`
-      }
-      <button class="btn btn-red" style="width:100%;justify-content:center" onclick="deleteLeague('${l.id}')">🗑 حذف البطولة نهائياً</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn btn-outline btn-sm" style="justify-content:center" onclick="sendOwnerPasswordReset('${l.id}')">🔑 رابط تعيين جديدة</button>
+        <button class="btn btn-outline btn-sm" style="justify-content:center" onclick="updateStoredPassword('${l.id}')">✏️ تسجيل يدوي</button>
+      </div>`}
+
+      <!-- ── منطقة الخطر ── -->
+      <div style="border:1px solid var(--red);border-radius:12px;padding:12px">
+        <div style="font-size:10.5px;font-weight:800;color:var(--red);margin-bottom:9px">منطقة الخطر</div>
+        <div style="display:grid;gap:8px">
+          ${l.locked
+            ? `<button class="btn btn-green btn-sm" style="width:100%;justify-content:center" onclick="lockLeague('${l.id}',false)">🔓 فتح قفل البطولة</button>`
+            : `<button class="btn btn-sm" style="width:100%;justify-content:center;background:var(--orange);color:#fff" onclick="lockLeague('${l.id}',true)">🔒 قفل البطولة (منع التعديل)</button>`
+          }
+          <button class="btn btn-red btn-sm" style="width:100%;justify-content:center" onclick="deleteLeague('${l.id}')">🗑 حذف البطولة نهائياً</button>
+        </div>
+      </div>
     </div>`;
   openModal('modal-league-actions');
 };
@@ -549,15 +644,15 @@ function renderSubs() {
     const text = st === 'soon' ? `${days} يوم` : lbl;
     const isDone = st === 'cancelled';
     return `<tr>
-      <td style="font-weight:700">${s.leagueName || s.leagueId || '—'}</td>
-      <td style="color:var(--muted2)">${s.ownerName || '—'}</td>
-      <td style="color:var(--muted2);font-size:10px">${durationLabel(s.startDate, s.endDate)}</td>
-      <td><span class="${cls}">${s.endDate || '—'}</span></td>
-      <td><span style="font-size:10px" class="${cls}">${text}</span></td>
-      <td style="display:flex;gap:5px">
+      <td data-label="البطولة" style="font-weight:700">${s.leagueName || s.leagueId || '—'}</td>
+      <td data-label="المالك" style="color:var(--muted2)">${s.ownerName || '—'}</td>
+      <td data-label="المدة" style="color:var(--muted2);font-size:10px">${durationLabel(s.startDate, s.endDate)}</td>
+      <td data-label="ينتهي"><span class="${cls}">${s.endDate || '—'}</span></td>
+      <td data-label="الحالة"><span style="font-size:10px" class="${cls}">${text}</span></td>
+      <td class="sa-td-actions"><div style="display:flex;gap:5px">
         <button class="btn btn-gold btn-xs" onclick="renewSub('${s.id}')">تجديد</button>
         <button class="btn btn-red btn-xs" onclick="cancelSub('${s.id}')" ${isDone ? 'disabled style="opacity:.4;cursor:not-allowed"' : ''}>إلغاء</button>
-      </td>
+      </div></td>
     </tr>`;
   }).join('');
 }
@@ -692,14 +787,14 @@ function renderUsers(users) {
     const [subClass, subText] = subMap[st] || subMap.expired;
     return `
     <tr>
-      <td style="font-weight:700">${u.ownerName || '—'}</td>
-      <td style="color:var(--muted2);font-family:monospace;font-size:10px">${u.email || '—'}</td>
-      <td style="color:var(--muted2)">${u.leagueName || u.leagueId || '—'}</td>
-      <td><span class="plan-badge ${subClass}">${subText}</span></td>
-      <td><span style="font-size:9px;padding:2px 8px;border-radius:10px;background:${u.active !== false ? 'var(--green2)' : 'var(--red2)'};color:${u.active !== false ? 'var(--green)' : 'var(--red)'};border:1px solid ${u.active !== false ? 'var(--green)' : 'var(--red)'}">${u.active !== false ? '🟢 نشط' : '⚫ موقوف'}</span></td>
-      <td style="display:flex;gap:5px">
+      <td data-label="الاسم" style="font-weight:700">${u.ownerName || '—'}</td>
+      <td data-label="البريد" style="color:var(--muted2);font-family:monospace;font-size:10px">${u.email || '—'}</td>
+      <td data-label="البطولة" style="color:var(--muted2)">${u.leagueName || u.leagueId || '—'}</td>
+      <td data-label="الاشتراك"><span class="plan-badge ${subClass}">${subText}</span></td>
+      <td data-label="الحالة"><span style="font-size:9px;padding:2px 8px;border-radius:10px;background:${u.active !== false ? 'var(--green2)' : 'var(--red2)'};color:${u.active !== false ? 'var(--green)' : 'var(--red)'};border:1px solid ${u.active !== false ? 'var(--green)' : 'var(--red)'}">${u.active !== false ? '🟢 نشط' : '⚫ موقوف'}</span></td>
+      <td class="sa-td-actions"><div style="display:flex;gap:5px">
         <button class="btn btn-red btn-xs" onclick="deleteUser('${u.id}')">حذف</button>
-      </td>
+      </div></td>
     </tr>
   `;
   }).join('');
@@ -1016,6 +1111,38 @@ function _hoData(id) {
 }
 window.hoOpen = (id) => window.openHandover(_hoData(id));
 window.hoWA   = (id) => window.sendHandoverWA(_hoData(id));
+
+/* ✅︎ رابط تسليم قابل للمشاركة — بديل الـ PDF الوحيد المتاح سابقاً.
+   يولّد رمزاً عشوائياً طويلاً غير قابل للتخمين، يحفظ نسخة من بيانات
+   التسليم تحته بقاعدة البيانات (handoverLinks/{token})، ويعطيك رابط
+   ثابت (handover-view.html?t=…) تقدر ترسله للعميل مباشرة — يفتح له
+   نفس صفحة التسليم الأنيقة بأزرار حقيقية تعمل، بدل صورة PDF ثابتة. */
+window.hoShareLink = async function (id) {
+  try {
+    const d = _hoData(id);
+    const token = (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)))
+      .replace(/-/g, '');
+    const payload = {
+      name: d.name, owner: d.owner, phone: d.phone, email: d.email,
+      pass: d.pass, season: d.season, logo: d.logo,
+      viewerUrl: SITE_URL + 'league-viewer.html?id=' + id,
+      adminUrl:  SITE_URL + 'league-admin.html?id='  + id,
+      broadcastUrl: SITE_URL + 'broadcaster.html?league=' + id,
+      leagueId: id,
+      createdAt: serverTimestamp()
+    };
+    await setDoc(doc(db, 'handoverLinks', token), payload);
+    const link = SITE_URL + 'handover-view.html?t=' + token;
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(link);
+      showToast('✅︎ تم نسخ رابط التسليم — أرسله للعميل مباشرة', 'success');
+    } else {
+      prompt('انسخ رابط التسليم:', link);
+    }
+  } catch (e) {
+    showToast('خطأ: ' + window._trErr(e), 'error');
+  }
+};
 
 window.sendWALeague = function(name, id, phone) {
   const viewerUrl = SITE_URL + 'league-viewer.html?id=' + id;

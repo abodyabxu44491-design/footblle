@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<title>تسليم البطولة — منصة بطولات</title>
+<meta name="robots" content="noindex,nofollow"/>
+<link rel="icon" href="icon-192.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Tajawal,-apple-system,"Segoe UI",Arial,sans-serif;background:#0a0b0e;background-image:radial-gradient(circle at 50% -10%,#231c0c,#0a0b0e 55%);color:#f3f4f6;padding:28px 14px 40px;line-height:1.6;min-height:100vh}
+.wrap{max-width:640px;margin:0 auto}
+.card{background:#14161c;border:1px solid #262a34;border-radius:22px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.55)}
+.hd{background:linear-gradient(160deg,rgba(201,160,43,.24),rgba(201,160,43,.03) 60%);padding:38px 24px 30px;text-align:center;border-bottom:1px solid #262a34;position:relative;overflow:hidden}
+.hd::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(201,160,43,.22),transparent 65%);pointer-events:none}
+.hd::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,rgba(201,160,43,.5),transparent)}
+.hd>*{position:relative}
+.badge-top{display:inline-flex;align-items:center;gap:7px;background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.35);color:#2ecc71;border-radius:999px;padding:6px 15px 6px 12px;font-size:10.5px;font-weight:900;margin-bottom:18px}
+.badge-top i{width:7px;height:7px;border-radius:50%;background:#2ecc71;box-shadow:0 0 8px #2ecc71;display:inline-block}
+.trust{display:flex;justify-content:center;gap:18px;margin-top:20px;flex-wrap:wrap}
+.trust div{font-size:10.5px;color:#9aa0ae;display:flex;align-items:center;gap:5px;font-weight:500}
+.trust svg{color:#C9A02B;flex-shrink:0}
+.lg{width:92px;height:92px;margin:0 auto 18px;border-radius:24px;background:linear-gradient(160deg,#1c1f28,#101217);border:1px solid #33291090;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 12px 32px rgba(201,160,43,.22), inset 0 1px 0 rgba(255,255,255,.04)}
+.lg img{width:100%;height:100%;object-fit:contain;padding:10px}
+.lg svg{color:#C9A02B}
+h1{font-size:24px;font-weight:900;color:#F0C84A;margin-bottom:7px;letter-spacing:-.2px}
+.sub{font-size:12.5px;color:#8b90a0;font-weight:500}
+.bd{padding:24px 22px 20px}
+.sec{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:900;color:#C9A02B;letter-spacing:.6px;margin:24px 0 11px;padding-right:10px;border-right:3px solid #C9A02B}
+.sec:first-child{margin-top:0}
+.row{display:flex;align-items:center;gap:10px;background:#191c23;border:1px solid #262a34;border-radius:12px;padding:12px 14px;margin-bottom:8px;transition:border-color .2s}
+.row-pass{border-color:#3a3320;background:#1c1a12}
+.row-l{font-size:11px;color:#8b90a0;min-width:74px;flex-shrink:0;font-weight:500}
+.row-v{flex:1;font-size:13.5px;font-weight:700;word-break:break-all;min-width:0;color:#f3f4f6;letter-spacing:.2px}
+.row-b{display:flex;gap:6px;flex-shrink:0}
+.ic-btn{background:rgba(201,160,43,.12);border:1px solid rgba(201,160,43,.3);color:#C9A02B;border-radius:8px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.ic-btn:active{transform:scale(.92)}
+.ic-btn.done{background:rgba(46,204,113,.16);border-color:rgba(46,204,113,.4);color:#2ecc71}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;text-decoration:none;border-radius:13px;padding:14px;font-size:14px;font-weight:900;margin-bottom:9px;font-family:Tajawal,sans-serif;border:none;cursor:pointer;width:100%}
+.b1{background:linear-gradient(135deg,#F0C84A,#C9A02B);color:#14110a;box-shadow:0 10px 26px rgba(201,160,43,.28)}
+.b2{background:rgba(255,255,255,.05);border:1px solid #2c313d;color:#eee}
+.b3{background:#141000;border:1px solid #6B4E00;color:#C9A02B}
+.warn{display:flex;gap:10px;align-items:flex-start;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.25);border-radius:13px;padding:14px 15px;margin-top:18px;font-size:11.5px;color:#ff9b8f;line-height:1.8}
+.warn svg{flex-shrink:0;margin-top:2px}
+.steps{counter-reset:s;list-style:none}
+.steps li{counter-increment:s;position:relative;padding:10px 36px 10px 0;font-size:12.5px;color:#c8ccd6;border-bottom:1px solid #1e222a}
+.steps li:last-child{border:0}
+.steps li::before{content:counter(s);position:absolute;right:0;top:9px;width:23px;height:23px;background:rgba(201,160,43,.14);border:1px solid rgba(201,160,43,.3);color:#C9A02B;border-radius:50%;font-size:10.5px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.ft{text-align:center;padding:18px;font-size:10.5px;color:#5a5f6b;border-top:1px solid #262a34;line-height:1.8}
+.ft b{color:#8b90a0}
+.pbtn{margin-top:14px}
+.state{max-width:400px;margin:80px auto;text-align:center;color:#8b90a0;font-size:13px}
+.state .spin{width:34px;height:34px;border:3px solid #262a34;border-top-color:#C9A02B;border-radius:50%;margin:0 auto 16px;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  body{background:#ffffff!important;color:#1a1a1a!important;padding:0!important}
+  .wrap{max-width:100%!important}
+  .card{background:#fff!important;border:1px solid #d8d8d8!important;box-shadow:none!important;border-radius:14px!important}
+  .hd{background:#fdf6e3!important;border-bottom:2px solid #C9A02B!important;padding:26px 22px 22px!important}
+  .hd::before,.hd::after{display:none!important}
+  .badge-top{background:#e8f8ee!important;border:1px solid #2ecc71!important;color:#1a7a42!important}
+  .badge-top i{background:#2ecc71!important;box-shadow:none!important}
+  .lg{background:#fff!important;border:2px solid #C9A02B!important;box-shadow:none!important}
+  .lg svg{color:#a9791a!important}
+  h1{color:#8a6d1d!important}
+  .sub{color:#5a5442!important}
+  .trust{border-top:1px solid #e6d8ab!important;padding-top:14px!important;margin-top:16px!important}
+  .trust div{color:#4a4438!important;font-weight:700!important}
+  .trust svg{color:#a9791a!important}
+  .sec{color:#8a6d1d!important;border-right-color:#C9A02B!important}
+  .row{background:#fafafa!important;border:1px solid #e2e2e2!important}
+  .row-pass{background:#fdf6e3!important;border:1.5px solid #C9A02B!important}
+  .row-l{color:#6b6558!important}
+  .row-v{color:#111!important;font-weight:800!important}
+  .row-b,.noprint{display:none!important}
+  .steps li{color:#2a2a2a!important;border-color:#e8e8e8!important}
+  .steps li::before{background:#fdf6e3!important;border:1px solid #C9A02B!important;color:#8a6d1d!important}
+  .warn{background:#fff2f1!important;border:1px solid #e78a80!important;color:#7a241a!important}
+  .warn svg{color:#c0392b!important}
+  .warn b{color:#7a241a!important}
+  .ft{color:#6b6558!important;border-top:1px solid #e2e2e2!important}
+  .ft b{color:#3a352c!important}
+  .card,.hd,.bd,.row,.sec{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="wrap">
+  <div class="state" id="state">
+    <div class="spin"></div>
+    جارٍ تحميل بيانات التسليم…
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+ *  handover-view.html — نسخة قابلة للمشاركة من صفحة التسليم
+ *  ───────────────────────────────────────────────────────────────────
+ *  بديل صفحة التسليم المنبثقة (كانت تُعرض بنافذة مؤقتة فقط، فلا
+ *  يمكن مشاركتها إلا بحفظها PDF). هذي صفحة حقيقية برابط ثابت:
+ *  السوبر أدمن يولّد رمزاً عشوائياً غير قابل للتخمين (؟t=) ويرسله
+ *  للعميل، فيفتح نفس التصميم الأنيق بأزرار تعمل فعلياً — بدون فقدان
+ *  التفاعلية اللي تسببها الـ PDF.
+ * ═══════════════════════════════════════════════════════════════════ */
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+var ICON = {
+  trophy: '<svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z"/><path d="M7 5H4a1 1 0 0 0-1 1c0 2.5 1.6 4.3 4 4.8M17 5h3a1 1 0 0 1 1 1c0 2.5-1.6 4.3-4 4.8"/></svg>',
+  broadcast: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M19.1 4.9c3.9 3.9 3.9 10.3 0 14.2M7.8 16.2C5.5 13.9 5.5 10.1 7.8 7.8M16.2 7.8c2.3 2.3 2.3 6.1 0 8.4M12 12v.01"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>',
+  cloud: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H8a5 5 0 1 1 1.3-9.8 4.5 4.5 0 0 1 8.6 1.9A3.5 3.5 0 0 1 17.5 19z"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>',
+  check: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L1.8 18a1.8 1.8 0 0 0 1.6 2.7h17.2a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.8 1.8 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+  external: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg>',
+  eyeLine: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+  cam: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>'
+};
+
+function cp(b, t) {
+  navigator.clipboard.writeText(t).then(function () {
+    var o = b.innerHTML; b.innerHTML = ICON.check; b.classList.add('done');
+    setTimeout(function () { b.innerHTML = o; b.classList.remove('done'); }, 1400);
+  });
+}
+window.cp = cp;
+
+function row(label, value, opts) {
+  opts = opts || {};
+  if (!value) return '';
+  var id = 'f' + Math.random().toString(36).slice(2, 9);
+  var btns = '';
+  if (opts.copyable) {
+    btns += '<button class="ic-btn cp" onclick="cp(this,\'' + esc(value).replace(/'/g, "\\'") + '\')" aria-label="نسخ">' + ICON.copy + '</button>';
+  }
+  return '<div class="row' + (opts.pass ? ' row-pass' : '') + '">' +
+    '<div class="row-l">' + esc(label) + '</div>' +
+    '<div class="row-v"' + (opts.dir ? ' dir="ltr"' : '') + ' id="' + id + '">' + esc(value) + '</div>' +
+    (btns ? '<div class="row-b">' + btns + '</div>' : '') +
+  '</div>';
+}
+
+function renderState(html) {
+  document.getElementById('wrap').innerHTML = '<div class="state">' + html + '</div>';
+}
+
+function renderCard(d) {
+  document.getElementById('wrap').innerHTML =
+    '<div class="card">' +
+    '<div class="hd">' +
+      '<div class="badge-top"><i></i> بطولة مُفعّلة وجاهزة</div>' +
+      '<div class="lg">' + (d.logo ? '<img src="' + esc(d.logo) + '" alt=""/>' : ICON.trophy) + '</div>' +
+      '<h1>' + esc(d.name) + '</h1>' +
+      '<div class="sub">بطولة جاهزة &middot; موسم ' + esc(d.season || '2025') + '</div>' +
+      '<div class="trust"><div>' + ICON.broadcast + ' بث مباشر</div><div>' + ICON.cloud + ' نسخ احتياطي</div><div>' + ICON.lock + ' آمن ومشفّر</div></div>' +
+    '</div>' +
+    '<div class="bd">' +
+      '<div class="sec">بيانات المنظّم</div>' +
+      row('الاسم', d.owner) +
+      row('الواتساب', d.phone, { dir: true }) +
+
+      '<div class="sec">الدخول للوحة الإدارة</div>' +
+      row('البريد', d.email, { dir: true, copyable: true }) +
+      row('كلمة المرور', d.pass, { dir: true, pass: true, copyable: true }) +
+
+      '<div class="sec">الروابط</div>' +
+      row('الجمهور', d.viewerUrl, { dir: true, copyable: true }) +
+      row('الإدارة', d.adminUrl, { dir: true, copyable: true }) +
+      row('استوديو البثّ', d.broadcastUrl, { dir: true, copyable: true }) +
+
+      '<div class="sec">فتح مباشر</div>' +
+      '<a class="btn b1" href="' + esc(d.adminUrl) + '" target="_blank">' + ICON.external + ' فتح لوحة الإدارة</a>' +
+      '<a class="btn b2" href="' + esc(d.viewerUrl) + '" target="_blank">' + ICON.eyeLine + ' معاينة صفحة الجمهور</a>' +
+      '<a class="btn b3" href="' + esc(d.broadcastUrl) + '" target="_blank">' + ICON.cam + ' فتح استوديو البثّ</a>' +
+
+      '<div class="sec">خطوات البداية</div>' +
+      '<ol class="steps">' +
+        '<li>افتح لوحة الإدارة وسجّل الدخول بالبريد وكلمة المرور أعلاه</li>' +
+        '<li>أكمل معالج إعداد البطولة (يظهر تلقائياً أول مرة)</li>' +
+        '<li>اختر نظام بطولتك من المعالج — دوري أو مجموعات أو خروج مغلوب</li>' +
+        '<li>أضف الفرق المشاركة</li>' +
+        '<li>ستتولّد المباريات تلقائياً بالجولات مرتّبة</li>' +
+        '<li>شارك رابط الجمهور مع الجميع لمتابعة البث المباشر</li>' +
+      '</ol>' +
+
+      '<div class="warn">' + ICON.warn +
+        '<div><b>تنبيه أمني:</b> غيّر كلمة المرور بعد أول دخول من الإعدادات. ' +
+        'لا تشارك بيانات الدخول مع أحد — من يملكها يتحكم بالبطولة كاملة.</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="ft">منصة بطولات — نظام إدارة بطولات متكامل<br><b>تطوير وبرمجة عبدالله السكني</b> &middot; ' + new Date().toLocaleDateString('ar') + '</div>' +
+    '</div>' +
+    '<button class="btn b2 noprint pbtn" onclick="window.print()">' + ICON.external + ' طباعة / حفظ PDF</button>';
+}
+
+var FB = {
+  apiKey:"AIzaSyDdn-sS67sthhLrZRrIDZ6ynauWVin_WNU",
+  authDomain:"footblle2.firebaseapp.com",
+  projectId:"footblle2",
+  storageBucket:"footblle2.firebasestorage.app",
+  messagingSenderId:"541343956211",
+  appId:"1:541343956211:web:a1d757a4ecd655d3e47da8"
+};
+
+(async function boot() {
+  var token = new URLSearchParams(location.search).get('t');
+  if (!token) { renderState('هذا الرابط غير مكتمل — تأكد من نسخه كاملاً.'); return; }
+  try {
+    var [{ initializeApp }, m] = await Promise.all([
+      import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js')
+    ]);
+    var app = initializeApp(FB, 'ho-' + Date.now());
+    var db  = m.getFirestore(app);
+    var snap = await m.getDoc(m.doc(db, 'handoverLinks', token));
+    if (!snap.exists()) {
+      renderState('هذا الرابط غير صالح أو تم إلغاؤه. تواصل مع من أرسله لك للحصول على رابط جديد.');
+      return;
+    }
+    renderCard(snap.data());
+  } catch (e) {
+    renderState('تعذّر تحميل البيانات، تأكد من اتصالك بالإنترنت وأعد المحاولة.');
+  }
+})();
+</script>
+</body>
+</html>

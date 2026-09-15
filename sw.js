@@ -33,6 +33,7 @@ const SHELL = [
   './match-defaults.js',
   './penalties-core.js',
   './subscription-quota.js',
+  './lineup-plus.js',
   './manifest.json',
   './manifest-viewer.json',
   './icon-192.png',
@@ -148,8 +149,19 @@ async function staleWhileRevalidate(request) {
     return res;
   }).catch(() => null);
 
-  const out = cached || await fetchPromise;
-  if (script && out && _looksLikeHtml(out)) return null;
+  let out = cached || await fetchPromise;
+
+  /* 🔴 كان هنا `return null` — وهو أسوأ من العطل الذي يحرسه.
+     الـ Promise المُمرَّر لـ respondWith يجب أن يُنهى بكائن Response؛
+     فـ null يجعل المتصفح يعتبر الطلب **فشل شبكة** فلا يُحمَّل الملف
+     إطلاقاً، بدل أن يتجاوز النسخة الفاسدة ويجلب السليمة.
+     النتيجة كانت صفحة بيضاء/ميزات ميتة بسبب نسخة HTML مسمومة في الكاش.
+     الآن: نُسقط المدخلة المسمومة من الكاش ونعيد المحاولة من الشبكة. */
+  if (script && out && _looksLikeHtml(out)) {
+    console.warn('[SW] نسخة مخزَّنة فاسدة (HTML مكان JS) — تُحذف ويُعاد الجلب:', request.url);
+    try { await cache.delete(request); } catch (e) {}
+    out = null;
+  }
   return out || fetch(request);
 }
 

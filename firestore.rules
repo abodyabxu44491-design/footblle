@@ -36,10 +36,25 @@ service cloud.firestore {
              && exists(/databases/$(database)/documents/leagueAdmins/$(request.auth.uid));
     }
 
-    // السوبر أدمن: مسجّل دخول وليس له سجلّ منظّم بطولة.
-    // هذا هو نفس التمييز المستعمل في بقية القواعد ضمناً.
+    /* ⛔ ثغرة تصعيد صلاحيات — أُصلحت (v338-audit)
+       ────────────────────────────────────────────────────────────────
+       كانت:  isSuperAdmin() = signedIn() && !hasAdminRec()
+       أي «كل مستخدم مسجّل دخول وليس منظّم بطولة = سوبر أدمن».
+
+       لماذا كانت خطيرة:
+         مزوّد Email/Password مفعّل، و firebaseConfig منشور في الواجهة
+         (لا مفرّ من ذلك). فأي شخص ينسخ الإعدادات من مصدر الصفحة وينفّذ
+         createUserWithEmailAndPassword من الطرفية يحصل على حساب بلا
+         سجلّ leagueAdmins → يصير «سوبر أدمن» فوراً، فيقرأ كل
+         subRequests (وفيها كلمات مرور العملاء) ويحذف/ينشئ handoverLinks.
+
+       الآن: مصدر الحقيقة الوحيد هو مستند admins/{uid} بحقل role،
+       وهو نفس ما تفحصه superadmin.js سطر 121 — فتتطابق الواجهة
+       مع الخادم بدل أن يفترض كل منهما شيئاً مختلفاً. */
     function isSuperAdmin() {
-      return signedIn() && !hasAdminRec();
+      return signedIn()
+             && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+             && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'superadmin';
     }
 
     // منظّم هذه البطولة تحديداً (ونشط)
@@ -68,8 +83,15 @@ service cloud.firestore {
        بدون فحص الحالة هنا، المنظّم المنتهي اشتراكه يحذف
        #lockedOverlay من DevTools (سطر واحد) ويواصل الكتابة —
        لأن الحجب كان بصرياً فقط: classList.add('show'). */
+    /* 🔴 السوبر أدمن أُضيف هنا: حذف بطولة في superadmin.js:551 يحذف
+       مجموعاتها الفرعية (live/match وغيرها)، وكانت كلها تُرفض لأن
+       canManage تفحص سجلّ leagueAdmins وحده.
+       ⚠️ ترتيب المعاملات مقصود: isSuperAdmin() آخراً كي لا تُقيَّم —
+       ولا تُحتسب قراءتها — إلا حين يفشل مسار المنظّم العادي. كل get()
+       داخل القواعد قراءة مُحاسَبة، والمنظّم هو ٩٩٪ من الكتابات. */
     function canManage(lid) {
-      return (ownsLeague(lid) || isOwnerUid(lid)) && leagueActive(lid);
+      return ((ownsLeague(lid) || isOwnerUid(lid)) && leagueActive(lid))
+             || isSuperAdmin();
     }
 
     // مستند البطولة نفسه — مسموح حتى لو موقوفة (وإلا استحال التجديد)
@@ -77,10 +99,45 @@ service cloud.firestore {
       return ownsLeague(lid) || isOwnerUid(lid);
     }
 
-    // ── سجلّات المنظّمين ──────────────────────────────────────
+    /* ── سجلّ السوبر أدمن ─────────────────────────────────────
+       🔴 كانت هذه المجموعة **غائبة تماماً** عن القواعد، فتسقط على
+          match /{document=**} { allow read, write: if false }.
+          النتيجة: superadmin.js:121 يستدعي
+            getDoc(doc(db,'admins',uid))
+          فيُرفض بـ permission-denied، ويلتقطه catch فيعرض
+          «خطأ في تسجيل الدخول» — أي أن **دخول السوبر أدمن كان مستحيلاً
+          بعد نشر هذه القواعد**، مع رسالة مضلّلة توحي بخطأ في كلمة المرور.
+       القراءة: لسجلّه هو فقط. الكتابة: من Firebase Console حصراً. */
+    match /admins/{uid} {
+      allow read:  if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    /* ── إعدادات المنصة المركزية ──────────────────────────────
+       🔴 كانت غائبة أيضاً → savePlatformSettings() في السوبر أدمن
+          كانت تفشل دائماً، و broadcaster.html لا يقرأ hlsServer أبداً
+          فيسقط البث للقيم الافتراضية بصمت.
+       القراءة: للمسجّلين فقط — الحقول تضمّ hlsServer/hlsCdn وقد تحمل
+       مفاتيح بثّ، فلا تُفتح للجمهور. الكتابة: السوبر أدمن وحده. */
+    match /settings/{docId} {
+      allow read:  if signedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    /* ── سجلّات المنظّمين ─────────────────────────────────────
+       🔴 كانت `write: if false` والتعليق يقول «السوبر أدمن / Console فقط».
+          لكن لوحة السوبر أدمن **ليست** Console: هي صفحة ويب تستعمل Web SDK،
+          وقواعد الأمان تسري عليها بالكامل. فكانت هذه الأسطر تفشل دائماً:
+            superadmin.js:954  setDoc(leagueAdmins/{uid})   ← إنشاء منظّم
+            superadmin.js:519  setDoc(... initialPassword)  ← تغيير كلمة مرور
+            superadmin.js:806  deleteDoc(leagueAdmins/{id}) ← حذف منظّم
+          أي أن **إنشاء أي بطولة جديدة كان مستحيلاً**.
+       (القواعد لا تسري على Admin SDK — لذلك لو نُقلت هذه العمليات
+        لاحقاً إلى Cloud Functions يمكن إرجاع هذا السطر إلى false.) */
     match /leagueAdmins/{uid} {
       allow read:  if signedIn() && request.auth.uid == uid;
-      allow write: if false;   // السوبر أدمن / Console فقط
+      allow read:  if isSuperAdmin();
+      allow write: if isSuperAdmin();
     }
 
     // ── البطولات ─────────────────────────────────────────────
@@ -94,12 +151,17 @@ service cloud.firestore {
          يُمنع منعاً باتّاً: suspended → active  (فكّ إيقاف اشتراكه بنفسه). */
       /* ✅ ولا يفكّ القفل عن نفسه: locked يبقى كما هو (أو false أول مرة).
             فكّ القفل من صلاحية السوبر أدمن وحده. */
+      /* ⚠️ تحصين: `resource.data.ownerUid` مباشرةً يرمي خطأ تقييم لو كان
+         الحقل غائباً — وأي بطولة قديمة أُنشئت قبل إضافة ownerUid ستُرفض
+         كل تعديلاتها بلا سبب ظاهر (بما فيها quotaAlert الذي يكتبه
+         subscription-quota.js). .get() بقيمة افتراضية يجعل الشرط يقارن
+         «الغائب بالغائب» فينجح، ويظل يمنع **تغيير** المالك متى وُجد. */
       allow update: if canEditLeagueDoc(lid)
-                    && request.resource.data.ownerUid == resource.data.ownerUid
+                    && request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '')
                     && (
-                         request.resource.data.status == resource.data.status
-                         || (resource.data.status == 'active'
-                             && request.resource.data.status == 'archived')
+                         request.resource.data.get('status', '') == resource.data.get('status', '')
+                         || (resource.data.get('status', '') == 'active'
+                             && request.resource.data.get('status', '') == 'archived')
                        )
                     && (
                          !('locked' in resource.data)
@@ -107,7 +169,14 @@ service cloud.firestore {
                          : request.resource.data.get('locked', false) == resource.data.locked
                        );
 
-      allow create, delete: if false;   // السوبر أدمن فقط
+      /* 🔴 كانت `if false` — فكانت تمنع superadmin.js:352 و :947
+            (إنشاء بطولة) و:558 (حذفها) وهي جوهر عمل اللوحة.
+         + `allow update: if isSuperAdmin()` ضرورية أيضاً: قيود قاعدة
+           update أعلاه (منع تغيير status/locked/ownerUid) مكتوبة لضبط
+           **المنظّم**، وهي نفسها تمنع السوبر أدمن من فكّ القفل أو
+           التجديد أو نقل الملكية — وهي صلاحياته الأساسية. */
+      allow create, delete: if isSuperAdmin();
+      allow update: if isSuperAdmin();
 
       match /matches/{mid} {
         allow read:  if true;
@@ -134,14 +203,33 @@ service cloud.firestore {
         allow write: if canManage(lid);
       }
 
-      // الجمهور المجهول ينشئ توكن إشعاراته فقط — بلا قراءة
+      /* الجمهور ينشئ توكن إشعاراته فقط — بلا قراءة.
+         🔴 كان `allow create` وحده: لكن viewer.js:6247 يستعمل setDoc
+            على معرّف التوكن نفسه. في أول تسجيل = create (ينجح)، وفي كل
+            إعادة تسجيل لاحقة (نفس التوكن) = **update** فيُرفض. والخطأ
+            مبتلَع في catch بـ console.warn، فتتعطّل إشعارات الزوّار
+            العائدين بصمت تام. أضفنا update مع تثبيت أن التوكن لا يتغيّر. */
       match /notifTokens/{token} {
         allow create: if true;
-        allow read, update, delete: if false;
+        allow update: if request.resource.data.get('token', '') == token;
+        allow read, delete: if false;
       }
 
+      /* سلة صور اللاعبين المحذوفة — بيانات تشغيلية داخلية للمنظّم،
+         لا شأن للجمهور بها. (كانت مكشوفة عبر الـ wildcard أدناه.) */
+      match /photoTrash/{docId} {
+        allow read:  if canEditLeagueDoc(lid);
+        allow write: if canManage(lid);
+      }
+
+      /* ⚠️ قاعدة عامة لأي مجموعة فرعية أخرى (scorers, live, وما يُضاف لاحقاً).
+         🔴 الخلل المُصلَح: قواعد Firestore **تُجمَع بـ OR** — كل مسار
+            مطابق يُمنح صلاحيته. فهذه القاعدة بـ `read: if true` كانت
+            تُبطل مفعول `read: if false` المكتوب أعلاه لـ notifTokens
+            وتجعل توكنات إشعارات كل الجمهور مقروءة للعالم.
+            الاستثناء الصريح أدناه هو الطريقة الصحيحة الوحيدة لتقييدها. */
       match /{sub}/{docId} {
-        allow read:  if true;
+        allow read:  if !(sub in ['notifTokens', 'photoTrash']);
         allow write: if canManage(lid);
       }
     }
@@ -166,9 +254,34 @@ service cloud.firestore {
       allow read, update, delete: if isSuperAdmin();
     }
 
+    /* ── روابط صفحة التسليم القابلة للمشاركة ──────────────────
+       المعرّف {token} نفسه عشوائي طويل غير قابل للتخمين (يُنشأ
+       بالسوبر أدمن) — امتلاك الرابط هو "التصريح" (نفس أسلوب أي
+       رابط مشاركة على الإنترنت). لذلك القراءة بمعرّف محدد فقط
+       مسموحة للجميع، لكن السرد الكامل (list) ممنوع نهائياً حتى
+       لا يقدر أحد يستعرض كل الروابط. الإنشاء/الحذف للسوبر أدمن فقط
+       (الحذف = إلغاء صلاحية الرابط لو تسرّب). */
+    match /handoverLinks/{token} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    /* ── الاشتراكات ──────────────────────────────────────────
+       🔶 كانت `read: if signedIn()` — أي أن أي منظّم بطولة واحدة يقرأ
+          اشتراكات **كل** عملاء المنصة: بريدهم، مبالغهم، تواريخهم.
+          تسريب تجاري صريح يكبر مع كل عميل جديد.
+       الآن: المنظّم يقرأ اشتراك بطولته هو، والسوبر أدمن يقرأ الكل.
+       ملاحظة توافق: sid قد يساوي معرّف البطولة أو يحمل حقل leagueId —
+       ندعم الشكلين كي لا تنكسر البيانات القائمة. */
     match /subscriptions/{sid} {
-      allow read:  if signedIn();
-      allow write: if false;
+      allow read:  if isSuperAdmin()
+                   || (hasAdminRec() && adminRec().leagueId == sid)
+                   || (hasAdminRec() && resource.data.get('leagueId', '') == adminRec().leagueId);
+      /* 🔴 كانت `if false` فتمنع superadmin.js:966 و:1028 (إنشاء اشتراك)
+            و:693 (تجديد) و:716 (إلغاء) و:733 (وسم كمنتهٍ). أي أن دورة
+            الاشتراكات كلها — وهي مصدر دخل المنصة — كانت معطّلة. */
+      allow write: if isSuperAdmin();
     }
 
     /* ── البثّ المباشر (WebRTC signaling) ──────────────────────

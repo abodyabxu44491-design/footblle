@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  var GOLD = '#C9A02B', GOLD2 = '#F0C84A';
+  var GOLD = '#C9A02B', GOLD2 = 'var(--gold2,#E8BE45)';
 
   function ready(fn, tries) {
     tries = tries || 0;
@@ -105,46 +105,46 @@
       '.md{font-family:Tajawal,sans-serif}',
       '.md-top{display:flex;align-items:center;gap:11px;padding:13px 14px;border-radius:14px;margin-bottom:16px;background:linear-gradient(135deg,rgba(201,160,43,.1),rgba(201,160,43,.02));border:1px solid rgba(201,160,43,.2);cursor:pointer}',
       '.md-top .md-tx{flex:1;min-width:0}',
-      '.md-top .md-t{font-size:13px;font-weight:900;color:#e8eaf0}',
-      '.md-top .md-d{font-size:10.5px;color:#818794;margin-top:2px;line-height:1.65}',
-      '.md-knob{flex:0 0 auto;width:44px;height:25px;border-radius:999px;background:#262a33;position:relative;transition:.18s}',
-      '.md-knob::after{content:"";position:absolute;top:3px;inset-inline-end:3px;width:19px;height:19px;border-radius:50%;background:#6a7080;transition:.18s}',
+      '.md-top .md-t{font-size:13px;font-weight:900;color:var(--text,#efefef)}',
+      '.md-top .md-d{font-size:10.5px;color:var(--muted2,#888);margin-top:2px;line-height:1.65}',
+      '.md-knob{flex:0 0 auto;width:44px;height:25px;border-radius:999px;background:var(--card3,#262626);position:relative;transition:.18s}',
+      '.md-knob::after{content:"";position:absolute;top:3px;inset-inline-end:3px;width:19px;height:19px;border-radius:50%;background:var(--muted,#5a5a5a);transition:.18s}',
       '.md-top.on .md-knob{background:rgba(201,160,43,.35)}',
       '.md-top.on .md-knob::after{inset-inline-end:22px;background:' + GOLD2 + '}',
-      '.md-grp{margin-bottom:14px;border:1px solid #1f232b;border-radius:15px;overflow:hidden;background:#111318}',
-      '.md-grp-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;background:rgba(255,255,255,.022);border-bottom:1px solid #1f232b}',
-      '.md-grp-h span:first-child{font-size:12.5px;font-weight:900;color:#e6e8ec}',
+      '.md-grp{margin-bottom:14px;border:1px solid var(--card2,#202020);border-radius:15px;overflow:hidden;background:var(--card,#1a1a1a)}',
+      '.md-grp-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;background:rgba(255,255,255,.022);border-bottom:1px solid var(--card2,#202020)}',
+      '.md-grp-h span:first-child{font-size:12.5px;font-weight:900;color:var(--text,#efefef)}',
       '.md-cnt{font-size:10px;font-weight:800;color:' + GOLD + ';background:rgba(201,160,43,.1);border:1px solid rgba(201,160,43,.2);border-radius:999px;padding:3px 9px}',
       '.md-grp-b{padding:6px 14px 12px}',
       '.md-f{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.045)}',
       '.md-grp-b .md-f:last-child{border-bottom:none}',
       '.md-ic{flex:0 0 auto;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;background:rgba(255,255,255,.04)}',
-      '.md-l{flex:0 0 72px;font-size:11.5px;font-weight:800;color:#9aa0aa}',
-      '.md-in{flex:1;min-width:0;padding:9px 11px;border-radius:10px;border:1px solid #262a33;background:#0d0f13;color:#e6e8ec;font-size:12.5px;font-family:Tajawal,sans-serif}',
+      '.md-l{flex:0 0 72px;font-size:11.5px;font-weight:800;color:var(--muted2,#888)}',
+      '.md-in{flex:1;min-width:0;padding:9px 11px;border-radius:10px;border:1px solid var(--card3,#262626);background:var(--dark,#121212);color:var(--text,#efefef);font-size:12.5px;font-family:Tajawal,sans-serif}',
       '.md-in:focus{outline:none;border-color:rgba(201,160,43,.55)}',
       '.md-in.set{border-color:rgba(201,160,43,.3);background:rgba(201,160,43,.035)}',
-      '.md-hint{font-size:10px;color:#6a7080;padding:0 0 8px 0;line-height:1.7}',
+      '.md-hint{font-size:10px;color:var(--muted,#5a5a5a);padding:0 0 8px 0;line-height:1.7}',
       '.md-acts{display:flex;gap:9px;margin-top:4px}',
       '.md-b{flex:1;padding:13px;border-radius:12px;font-size:13px;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer;border:1px solid transparent}',
       '.md-b-save{flex:2;background:linear-gradient(145deg,' + GOLD2 + ',' + GOLD + ');color:#1a1200}',
       '.md-b-apply{background:transparent;border-color:rgba(201,160,43,.32);color:' + GOLD2 + '}',
-      '.md-sum{padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.022);border:1px solid rgba(255,255,255,.06);font-size:11px;color:#818794;line-height:1.9;margin-top:14px}',
+      '.md-sum{padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.022);border:1px solid rgba(255,255,255,.06);font-size:11px;color:var(--muted2,#888);line-height:1.9;margin-top:14px}',
       '.md-sum b{color:' + GOLD2 + '}',
       /* نافذة التطبيق على الموجود */
       '.md-ov{position:fixed;inset:0;z-index:100070;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;font-family:Tajawal,sans-serif}',
       '@media(min-width:640px){.md-ov{align-items:center}}',
-      '.md-sheet{width:100%;max-width:430px;max-height:92vh;overflow-y:auto;background:#111318;border:1px solid #262a33;border-radius:20px 20px 0 0}',
+      '.md-sheet{width:100%;max-width:430px;max-height:92vh;overflow-y:auto;background:var(--card,#1a1a1a);border:1px solid var(--card3,#262626);border-radius:20px 20px 0 0}',
       '@media(min-width:640px){.md-sheet{border-radius:20px}}',
-      '.md-sh-h{padding:16px 18px 13px;border-bottom:1px solid #1f232b;background:linear-gradient(135deg,rgba(201,160,43,.13),transparent)}',
-      '.md-sh-h h4{margin:0 0 3px;font-size:15.5px;font-weight:900;color:#e8eaf0}',
-      '.md-sh-h p{margin:0;font-size:11px;color:#818794;line-height:1.75}',
+      '.md-sh-h{padding:16px 18px 13px;border-bottom:1px solid var(--card2,#202020);background:linear-gradient(135deg,rgba(201,160,43,.13),transparent)}',
+      '.md-sh-h h4{margin:0 0 3px;font-size:15.5px;font-weight:900;color:var(--text,#efefef)}',
+      '.md-sh-h p{margin:0;font-size:11px;color:var(--muted2,#888);line-height:1.75}',
       '.md-sh-b{padding:15px 18px 0}',
-      '.md-opt{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:12px;border:1px solid #262a33;background:#0d0f13;margin-bottom:8px;cursor:pointer}',
+      '.md-opt{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:12px;border:1px solid var(--card3,#262626);background:var(--dark,#121212);margin-bottom:8px;cursor:pointer}',
       '.md-opt.on{border-color:' + GOLD + ';background:rgba(201,160,43,.08)}',
-      '.md-dot{flex:0 0 auto;width:17px;height:17px;border-radius:50%;border:2px solid #3a3f4a;margin-top:2px}',
-      '.md-opt.on .md-dot{border-color:' + GOLD + ';background:' + GOLD + ';box-shadow:inset 0 0 0 3px #111318}',
-      '.md-opt .md-ot{font-size:12.5px;font-weight:800;color:#e6e8ec}',
-      '.md-opt .md-od{font-size:10.5px;color:#6a7080;line-height:1.7;margin-top:2px}',
+      '.md-dot{flex:0 0 auto;width:17px;height:17px;border-radius:50%;border:2px solid var(--border2,#383838);margin-top:2px}',
+      '.md-opt.on .md-dot{border-color:' + GOLD + ';background:' + GOLD + ';box-shadow:inset 0 0 0 3px var(--card,#1a1a1a)}',
+      '.md-opt .md-ot{font-size:12.5px;font-weight:800;color:var(--text,#efefef)}',
+      '.md-opt .md-od{font-size:10.5px;color:var(--muted,#5a5a5a);line-height:1.7;margin-top:2px}',
       '.md-sh-f{display:flex;gap:9px;padding:14px 18px 20px}'
     ].join('\n');
     document.head.appendChild(s);
@@ -294,7 +294,7 @@
         '<div class="md-sh-h"><h4>↧ تطبيق على المباريات الموجودة</h4>' +
           '<p>القيم الحالية في الصفحة هي التي ستُطبَّق — احفظ أولاً إن غيّرتها.</p></div>' +
         '<div class="md-sh-b">' +
-          '<div style="font-size:11px;font-weight:900;color:#818794;margin-bottom:7px">على أي مباريات؟</div>' +
+          '<div style="font-size:11px;font-weight:900;color:var(--muted2,#888);margin-bottom:7px">على أي مباريات؟</div>' +
           '<div class="md-opt on" data-g="scope" data-v="upcoming" onclick="mdPick(this)">' +
             '<div class="md-dot"></div><div><div class="md-ot">غير المنتهية فقط</div>' +
             '<div class="md-od">القادمة والمباشرة. المنتهية تُترك كما هي — بياناتها صارت جزءاً من سجلّ البطولة.</div></div></div>' +
@@ -302,7 +302,7 @@
             '<div class="md-dot"></div><div><div class="md-ot">كل المباريات</div>' +
             '<div class="md-od">بما فيها المنتهية.</div></div></div>' +
 
-          '<div style="font-size:11px;font-weight:900;color:#818794;margin:15px 0 7px">وماذا عن الحقول المملوءة؟</div>' +
+          '<div style="font-size:11px;font-weight:900;color:var(--muted2,#888);margin:15px 0 7px">وماذا عن الحقول المملوءة؟</div>' +
           '<div class="md-opt on" data-g="mode" data-v="empty" onclick="mdPick(this)">' +
             '<div class="md-dot"></div><div><div class="md-ot">الفارغة فقط</div>' +
             '<div class="md-od">لا يُمسّ حقل فيه قيمة. الخيار الآمن.</div></div></div>' +
@@ -312,10 +312,10 @@
 
           '<div id="md-apply-prev" style="margin-top:14px;padding:11px 13px;border-radius:12px;' +
             'background:rgba(201,160,43,.06);border:1px solid rgba(201,160,43,.18);font-size:11.5px;' +
-            'color:#b9bec7;line-height:1.85"></div>' +
+            'color:var(--muted2,#888);line-height:1.85"></div>' +
         '</div>' +
         '<div class="md-sh-f">' +
-          '<button class="md-b" style="background:transparent;border-color:#262a33;color:#818794" onclick="mdCloseApply()">إلغاء</button>' +
+          '<button class="md-b" style="background:transparent;border-color:var(--card3,#262626);color:var(--muted2,#888)" onclick="mdCloseApply()">إلغاء</button>' +
           '<button class="md-b md-b-save" onclick="mdRunApply()">↧ تطبيق</button>' +
         '</div>' +
       '</div>';

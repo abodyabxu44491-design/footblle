@@ -1117,8 +1117,52 @@ window.hoWA   = (id) => window.sendHandoverWA(_hoData(id));
    التسليم تحته بقاعدة البيانات (handoverLinks/{token})، ويعطيك رابط
    ثابت (handover-view.html?t=…) تقدر ترسله للعميل مباشرة — يفتح له
    نفس صفحة التسليم الأنيقة بأزرار حقيقية تعمل، بدل صورة PDF ثابتة. */
+/* ═══════════════════════════════════════════════════════════════════
+ *  🔧 تشخيص صلاحية السوبر أدمن — أُضيف (v338.3)
+ *  ─────────────────────────────────────────────────────────────────
+ *  بلاغ: «نسخ رابط صفحة التسليم» يرجع خطأ صلاحية.
+ *  قاعدة handoverLinks تسمح بالإنشاء لـ isSuperAdmin() فقط، وهي في
+ *  القواعد الجديدة تعني: وجود مستند admins/{uid} بحقل role='superadmin'.
+ *
+ *  المشكلة أن رسالة permission-denied عامة، فلا يعرف المنظّم أيّ سبب:
+ *    (أ) مستند admins/{uid} غير موجود أصلاً — وهو الأرجح.
+ *    (ب) موجود لكن حقل role ليس 'superadmin' (خطأ إملائي أو نوع خاطئ).
+ *    (ج) القواعد القديمة ما زالت منشورة، وفيها isSuperAdmin تعني
+ *        «مسجّل دخول وليس له سجلّ leagueAdmins» — فإن كان حساب السوبر
+ *        أدمن نفسه مالكاً لبطولة (له سجلّ في leagueAdmins) سقطت صلاحيته.
+ *
+ *  هذا الفحص المسبق يقرأ admins/{uid} قبل الكتابة ويقول للمستخدم
+ *  بالضبط ماذا ينقصه وأين ينشئه — بدل «خطأ» مبهم.
+ *  (القراءة مسموحة لصاحب السجلّ نفسه، فلا تُضيف أي كشف بيانات.)
+ * ═══════════════════════════════════════════════════════════════════ */
+async function _assertSuperAdmin() {
+  const u = auth.currentUser;
+  if (!u) return 'انتهت جلستك — سجّل الدخول من جديد';
+  try {
+    const snap = await getDoc(doc(db, 'admins', u.uid));
+    if (!snap.exists()) {
+      return 'صلاحية السوبر أدمن غير مفعّلة لهذا الحساب.\n\n'
+           + 'افتح Firebase Console ← Firestore Database ← أنشئ مجموعة «admins» '
+           + 'ومستنداً معرّفه:\n' + u.uid
+           + '\nوبداخله حقل نصّي role = superadmin';
+    }
+    if (snap.data().role !== 'superadmin') {
+      return 'مستند admins موجود لكن قيمة الحقل role ليست «superadmin».\n\n'
+           + 'القيمة الحالية: ' + JSON.stringify(snap.data().role)
+           + '\nصحّحها في Firebase Console (نصّ، حروف صغيرة، بلا مسافات).';
+    }
+    return null;   // الصلاحية سليمة
+  } catch (e) {
+    /* تعذّرت القراءة: غالباً قواعد قديمة لا تعرف مجموعة admins. */
+    return 'تعذّر التحقّق من صلاحيتك. الأرجح أن قواعد Firestore الجديدة '
+         + 'لم تُنشر بعد — انشر ملف firestore.rules ثم أعد المحاولة.';
+  }
+}
+
 window.hoShareLink = async function (id) {
   try {
+    const why = await _assertSuperAdmin();
+    if (why) { alert('⚠️ تعذّر إنشاء رابط التسليم\n\n' + why); return; }
     const d = _hoData(id);
     const token = (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)))
       .replace(/-/g, '');
@@ -1129,7 +1173,15 @@ window.hoShareLink = async function (id) {
       adminUrl:  SITE_URL + 'league-admin.html?id='  + id,
       broadcastUrl: SITE_URL + 'broadcaster.html?league=' + id,
       leagueId: id,
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
+      /* ⏳ انتهاء صلاحية — أُضيف (v338.3)
+         handoverLinks قاعدته `allow get: if true` (لا بدّ من ذلك: العميل
+         يفتح الرابط بلا حساب)، والمستند يحوي كلمة مرور الإدارة. فإن
+         أُعيد توجيه الرابط في مجموعة واتساب بقيت مكشوفة **للأبد**.
+         الآن ينتهي بعد ١٤ يوماً — مدّة كافية لتسليم العميل، ثم يصير
+         الرابط بلا قيمة. صفحة handover-view تفحص هذا الحقل وترفض
+         عرض البيانات بعده. */
+      expiresAt: Date.now() + 14 * 24 * 60 * 60 * 1000
     };
     await setDoc(doc(db, 'handoverLinks', token), payload);
     const link = SITE_URL + 'handover-view.html?t=' + token;
@@ -1140,7 +1192,15 @@ window.hoShareLink = async function (id) {
       prompt('انسخ رابط التسليم:', link);
     }
   } catch (e) {
-    showToast('خطأ: ' + window._trErr(e), 'error');
+    if (e && e.code === 'permission-denied') {
+      alert('🚫 رفضت قواعد Firestore إنشاء رابط التسليم.\n\n'
+          + 'تأكّد أن ملف firestore.rules المُحدَّث منشور، وأن مستند '
+          + 'admins/' + (auth.currentUser ? auth.currentUser.uid : '{uid}')
+          + ' يحمل role = superadmin.');
+    } else {
+      showToast('خطأ: ' + window._trErr(e), 'error');
+    }
+    console.error('[hoShareLink]', e);
   }
 };
 
@@ -1265,3 +1325,101 @@ window.addEventListener('beforeinstallprompt', (e) => {
   deferredPromptSA = e;
   // يمكن إضافة زر تثبيت للأندرويد مستقبلاً
 });
+
+/* ═══════════════════════════════════════════════════════════════════
+ *  🩺 الفحص الذاتي للصلاحيات — v338.3
+ *  ─────────────────────────────────────────────────────────────────
+ *  سبب وجوده: أخطاء الصلاحية في Firestore ترجع رسالة واحدة عامة
+ *  (permission-denied) لكل الأسباب الممكنة. فالمستخدم يرى «خطأ» ولا
+ *  يعرف هل المشكلة في حسابه أم في القواعد أم في بيانات قديمة.
+ *
+ *  هذا الفحص يجرّب الاحتمالات واحداً واحداً ويقول الجواب مباشرةً:
+ *    ① هل سجلّ admins/{uid} موجود وصحيح؟  (هو ما يفحصه كود الدخول)
+ *    ② هل توجد نسخة leagueAdmins/{uid} تُسقط صلاحيتك مع القواعد
+ *       القديمة؟ (القديمة تعرّف السوبر أدمن بـ «ليس له سجلّ منظّم»)
+ *    ③ هل القواعد الجديدة منشورة فعلاً؟ نستدلّ بكتابة اختبارية على
+ *       handoverLinks ثم نحذفها فوراً — وهي المسار نفسه الذي اشتُكي
+ *       منه، فنختبر الواقع لا نظنّه.
+ *
+ *  كل الفحوص للقراءة عدا (③) وهو يكتب مستنداً مؤقتاً ويحذفه في finally.
+ * ═══════════════════════════════════════════════════════════════════ */
+window.saSelfCheck = async function () {
+  const u = auth.currentUser;
+  if (!u) { alert('انتهت جلستك — سجّل الدخول من جديد.'); return; }
+
+  const L = [];
+  let mustDeploy = false, mustDelete = false;
+
+  L.push('🩺 فحص صلاحيات السوبر أدمن');
+  L.push('─────────────────────────────');
+  L.push('الحساب: ' + (u.email || '—'));
+  L.push('UID: ' + u.uid);
+  L.push('');
+
+  // ① سجلّ الصلاحية
+  try {
+    const a = await getDoc(doc(db, 'admins', u.uid));
+    if (!a.exists()) {
+      L.push('❌ admins/{uid} غير موجود — وهذا يمنع الدخول أصلاً.');
+    } else if (a.data().role !== 'superadmin') {
+      L.push('❌ admins/{uid} موجود لكن role = ' + JSON.stringify(a.data().role));
+      L.push('   المطلوب نصّاً: superadmin');
+    } else {
+      L.push('✅ سجلّ الصلاحية سليم (admins/{uid}.role = superadmin)');
+    }
+  } catch (e) {
+    L.push('⚠️ تعذّرت قراءة admins/{uid} — القواعد الجديدة غالباً غير منشورة.');
+    mustDeploy = true;
+  }
+
+  // ② تعارض سجلّ المنظّم
+  try {
+    const la = await getDoc(doc(db, 'leagueAdmins', u.uid));
+    if (la.exists()) {
+      mustDelete = true;
+      L.push('⚠️ يوجد leagueAdmins/' + u.uid + ' مرتبط ببطولة: ' +
+             (la.data().leagueId || '—'));
+      L.push('   مع القواعد القديمة هذا **يُسقط** صلاحيتك كسوبر أدمن.');
+      L.push('   (القواعد الجديدة لا تتأثر به إطلاقاً.)');
+    } else {
+      L.push('✅ لا يوجد سجلّ منظّم يتعارض مع حسابك');
+    }
+  } catch (e) {
+    L.push('⚠️ تعذّرت قراءة leagueAdmins/{uid}');
+  }
+
+  // ③ اختبار حقيقي على المسار المُشتكى منه
+  const probe = '__selfcheck_' + Date.now();
+  let wrote = false;
+  try {
+    await setDoc(doc(db, 'handoverLinks', probe), { probe: true, at: Date.now() });
+    wrote = true;
+    L.push('✅ صلاحية إنشاء روابط التسليم تعمل — القواعد تقبل كتابتك');
+  } catch (e) {
+    mustDeploy = true;
+    L.push('❌ رُفضت كتابة رابط التسليم (' + ((e && e.code) || 'خطأ') + ')');
+    L.push('   هذا هو سبب رسالة «لا توجد صلاحية» التي واجهتها.');
+  } finally {
+    if (wrote) { try { await deleteDoc(doc(db, 'handoverLinks', probe)); } catch (e) {} }
+  }
+
+  L.push('');
+  L.push('─────── الخلاصة ───────');
+  if (!mustDeploy && !mustDelete) {
+    L.push('🎉 كل شيء سليم — لا إجراء مطلوب منك.');
+  } else {
+    if (mustDeploy) {
+      L.push('👈 إجراء مطلوب: انشر ملف firestore.rules الجديد.');
+      L.push('   Firebase Console ← Firestore Database ← Rules');
+      L.push('   الصق محتوى firestore.rules ثم Publish.');
+      L.push('   (أو من الطرفية: firebase deploy --only firestore:rules)');
+    }
+    if (mustDelete && !mustDeploy) {
+      L.push('👈 اختياري: احذف leagueAdmins/' + u.uid + ' — لم يعد له أثر');
+      L.push('   بعد نشر القواعد الجديدة.');
+    }
+  }
+
+  alert(L.join('\n'));
+  console.log(L.join('\n'));
+};

@@ -8028,7 +8028,16 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
     if (!isUpcoming && window.vStatsOn()) tabs.push({id:'stats', label:'الإحصائيات'});
     /* نظام التشكيلات قسم اختياري: لا يظهر تبويبه للجمهور إلا إذا فعّله
        المنظّم من «الأقسام المفعّلة» — كبقية الأقسام الاختيارية. */
-    if (window.settings && window.settings.showLineups === true) tabs.push({id:'lineup', label:'التشكيلات'});
+    /* ✅ اسم التبويب يتبع حالة التشكيلة (v338.3):
+       ما دامت إحدى التشكيلتين موسومة `predicted` فالمعروض توقُّع لا
+       واقع — فيجب أن يقول العنوان ذلك صراحةً، لا أن يوهم الجمهور بأنها
+       التشكيلة الرسمية. وبمجرد أن يحفظها المنظّم مؤكَّدة يسقط الوسم
+       ويعود الاسم «التشكيلات» تلقائياً — كالتطبيقات الرسمية. */
+    if (window.settings && window.settings.showLineups === true) {
+      const _hp = (m.homeLineup && m.homeLineup.predicted === true);
+      const _ap = (m.awayLineup && m.awayLineup.predicted === true);
+      tabs.push({ id:'lineup', label: (_hp || _ap) ? 'التشكيلة المتوقّعة' : 'التشكيلات' });
+    }
     tabs.push({id:'h2h', label:'المواجهات'});
 
     // كشف الإحصائيات — يدعم تنسيقَين:
@@ -8668,9 +8677,16 @@ function renderPitchViewer(lineup, isAway) {
                         نفس سلوك التطبيقات الرسمية: Predicted ← Confirmed.
                         الغياب يعني «مؤكَّدة» كي لا تتأثر أي تشكيلة محفوظة سابقاً. */
                     (lineup && lineup.predicted === true)
-                    ? `<span style="font-size:9.5px;font-weight:900;padding:2px 8px;border-radius:20px;
+                    ? `<span title="${(lineup.predictedNote || 'تشكيلة متوقّعة').replace(/"/g,'&quot;')}"
+                         style="font-size:9.5px;font-weight:900;padding:2px 8px;border-radius:20px;
                          background:rgba(201,160,43,.13);border:1px solid rgba(201,160,43,.34);
                          color:var(--gold);white-space:nowrap">🔮 متوقّعة</span>`
+                    : ''}
+                  ${/* سياق التوقُّع — يوضّح للجمهور أنها مبنيّة على مباريات
+                       سابقة لا تخميناً من فراغ. يظهر فقط حين يوجد نصّ. */
+                    (lineup && lineup.predicted === true && lineup.predictedNote)
+                    ? `<span style="font-size:9px;font-weight:700;color:var(--t3);white-space:nowrap">
+                         ${String(lineup.predictedNote).replace(/</g,'&lt;')}</span>`
                     : ''}
                 </div>
                 ${formation ? `<div style="font-size:12.5px;font-weight:900;letter-spacing:1px;

@@ -259,38 +259,101 @@ function getAuthError(code) {
  *  مطابقةً لـ isOwnerUid في firestore.rules — كي لا يُحبس مالك ضاع
  *  سجلّ leagueAdmins الخاص به خارج بطولته.
  * ════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+ *  🔧 مراجعة v338.3 — تصحيح تشدُّد الفحص السابق
+ *  ─────────────────────────────────────────────────────────────────
+ *  الفحص الذي أُضيف في v338-audit أغلق ثغرة حقيقية (منظّم يفتح لوحة
+ *  بطولة غيره بتغيير ?id=)، لكنه أحدث عطلين لم يكونا في الحسبان:
+ *
+ *  ① **السوبر أدمن مُنع من الدخول لأي بطولة.** لا سجلّ له في
+ *     leagueAdmins ولا هو ownerUid، فسقط في فرع «غير مصرّح» —
+ *     وهو صاحب الصلاحية العليا على المنصة كلها.
+ *
+ *  ② **الجلسة تُمحى عند أي تعثّر.** كان signOut(auth) يُستدعى في كل
+ *     حالة عدم سماح. وقراءة leagueAdmins قد تفشل لأسباب عابرة تماماً:
+ *     انقطاع لحظي، أو الكاش المحلي لم يُهيَّأ بعد، أو مهلة شبكة.
+ *     فتُدمَّر جلسة سليمة ويُطالَب المنظّم بتسجيل الدخول من جديد في
+ *     كل مرة — وهو بالضبط ما اشتُكي منه.
+ *
+ *  القاعدة المصحَّحة: **لا نُخرج المستخدم إلا عند رفض قاطع ومؤكَّد.**
+ *  أما الغموض (شبكة/قواعد/مهلة) فنعامله بإعادة المحاولة، لا بالطرد.
+ * ═══════════════════════════════════════════════════════════════════ */
+
+/* استمرارية الجلسة: صريحة بدل الاعتماد على الافتراضي.
+   indexedDB أمتن من localStorage في متصفحات الجوال (سفاري يمسح
+   localStorage مع تنظيف البيانات، وتطبيق PWA قد يعمل في سياق منفصل). */
+try {
+  const { setPersistence, indexedDBLocalPersistence, browserLocalPersistence } =
+    await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+  await setPersistence(auth, indexedDBLocalPersistence)
+    .catch(() => setPersistence(auth, browserLocalPersistence))
+    .catch(() => {});
+} catch (e) { /* الافتراضي (local) يبقى ساري المفعول */ }
+
+let _authTries = 0;
+
 onAuthStateChanged(auth, async (user) => {
   if (!user) return;
+
+  /* ① السوبر أدمن: يدخل أي بطولة. هذا هو المسار الذي يستعمله زرّ
+     «فتح لوحة البطولة» في لوحة السوبر أدمن، وكان مسدوداً تماماً. */
+  try {
+    const sa = await getDoc(doc(db, 'admins', user.uid));
+    if (sa.exists() && sa.data().role === 'superadmin') {
+      if (!LEAGUE_ID) { showLoginErr('لم يتم تحديد معرف البطولة من رابط الصفحة'); return; }
+      window._IS_SUPERADMIN = true;
+      enterApp();
+      return;
+    }
+  } catch (e) { /* ليس سوبر أدمن أو تعذّرت القراءة — نكمل كمنظّم */ }
+
   try {
     const admDoc = await getDoc(doc(db, 'leagueAdmins', user.uid));
     const rec = admDoc.exists() ? admDoc.data() : null;
 
     if (!LEAGUE_ID) {
       if (rec && rec.leagueId) LEAGUE_ID = rec.leagueId;
-      else { await signOut(auth); showLoginErr('لم يتم تحديد معرف البطولة من رابط الصفحة'); return; }
+      else { showLoginErr('لم يتم تحديد معرف البطولة من رابط الصفحة'); return; }
     }
 
     let allowed = !!rec && String(rec.leagueId) === String(LEAGUE_ID) && rec.active !== false;
 
     // احتياط: مالك البطولة نفسه (ownerUid) حتى لو غاب سجلّ leagueAdmins
+    let ownerCheckFailed = false;
     if (!allowed) {
       try {
         const lg = await getDoc(doc(db, 'leagues', LEAGUE_ID));
         if (lg.exists() && lg.data().ownerUid === user.uid) allowed = true;
-      } catch (e) { /* تجاهل — يبقى allowed=false */ }
+      } catch (e) { ownerCheckFailed = true; }
     }
 
-    if (!allowed) {
+    if (allowed) { _authTries = 0; enterApp(); return; }
+
+    /* ② رفض قاطع فقط: السجلّ موجود ويقول صراحةً إن البطولة غيره أو
+       إن الحساب موقوف. عندها — وعندها فقط — نُخرجه. */
+    const definitive = !!rec && !ownerCheckFailed;
+    if (definitive) {
       await signOut(auth);
-      showLoginErr(rec && rec.active === false
+      showLoginErr(rec.active === false
         ? 'حسابك موقوف — تواصل مع مسؤول المنصة'
         : 'ليس لديك صلاحية إدارة هذه البطولة');
       return;
     }
-    enterApp();
+
+    /* غياب السجلّ قد يعني قاعدة لم تُنشر أو قراءة لم تصل — لا نطرده.
+       نعيد المحاولة مرتين ثم نكتفي برسالة تُبقي الجلسة سليمة. */
+    if (_authTries++ < 2) {
+      /* ملاحظة: لا نسجّل مستمعاً جديداً هنا — onAuthStateChanged يُطلَق
+         تلقائياً عند تحديث التوكن، وتسجيل مستمع في كل محاولة تسريب. */
+      showLoginErr('جارٍ التحقق من الصلاحية… لحظات ثم حدّث الصفحة');
+      setTimeout(() => { try { auth.currentUser && auth.currentUser.getIdToken(true); } catch (e) {} }, 1200);
+      return;
+    }
+    showLoginErr('تعذّر التحقق من صلاحيتك. جلستك محفوظة — تحقّق من الاتصال وحدّث الصفحة');
+
   } catch (e) {
-    /* فشل شبكة أو قواعد: لا ندخل اللوحة على أساس مجهول. */
-    showLoginErr('تعذّر التحقق من الصلاحية — تحقّق من الاتصال وأعد المحاولة');
+    /* فشل شبكة أو قواعد: لا ندخل اللوحة، ولا نمحو الجلسة أيضاً. */
+    showLoginErr('تعذّر التحقق من الصلاحية — تحقّق من الاتصال وحدّث الصفحة');
   }
 });
 

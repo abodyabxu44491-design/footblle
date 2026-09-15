@@ -1,57 +1,99 @@
 /* ═══════════════════════════════════════════════════════════════════
- *  lineup-plus.js — v338
- *  تطوير نظام التشكيلات القائم (لا نظام جديد)
+ *  lineup-plus.js — v338.2  (إعادة تصميم كاملة)
+ *  تطوير نظام التشكيلات القائم في admin-lineup-dragdrop.js
  *  ───────────────────────────────────────────────────────────────────
- *  ما كان موجوداً في admin-lineup-dragdrop.js ويبقى كما هو:
- *    • رسم الملعب والسحب والإفلات
- *    • الخطط (4-3-3 …) وعدد اللاعبين والدكة
- *    • الحفظ إلى matches/{id}.homeLineup / awayLineup
+ *  ما يبقى كما هو (لا نلمسه): الملعب، السحب والإفلات، الخطط، الدكة،
+ *  والحفظ إلى matches/{id}.homeLineup / awayLineup.
  *
- *  ما يضيفه هذا الملف فوقه:
- *    ① لوحة «كشف الفريق» كاملة — كل لاعبي الفريق أمامك دفعة واحدة،
- *       تضغط اللاعب فيدخل أول خانة فاضية. بدل فتح قائمة منسدلة داخل
- *       كل خانة على حدة (١١ فتحة × ١١ بحث في كل مباراة).
- *    ② «نسخ آخر تشكيلة» — أغلب الفرق تلعب بنفس التشكيلة تقريباً،
- *       فينسخها بضغطة ثم يعدّل ما تغيّر فقط.
- *    ③ «تشكيلة متوقّعة» — تُنشر قبل المباراة بوسم واضح للجمهور،
- *       وعند التأكيد يسقط الوسم وتصير التشكيلة الرسمية (كالتطبيقات
- *       الرسمية: Predicted → Confirmed).
+ *  ما يضيفه هذا الملف:
+ *    ① لوحة كشف كاملة — مجمَّعة حسب المركز، ببحث فوري ومرشّحات وعدّاد تقدّم.
+ *    ② اختصارات: ملء تلقائي · نسخ آخر تشكيلة · تفريغ.
+ *    ③ تشكيلة متوقّعة تُنشر للجمهور بوسم، ثم تصير مؤكَّدة.
  *
- *  ⚠️ قاعدة التصميم هنا: **لا يلمس هذا الملف أي متغيّر داخلي**.
- *     admin-lineup-dragdrop.js يُحمَّل كـ type="module"، فمتغيّراته
- *     (_ddSide, _ddRosterHome, _ddHomeData …) غير مرئية لنا أصلاً.
- *     لذلك نعمل حصراً عبر:
- *       • الواجهة العامة: window._ddPickRosterPlayer / ddUpdatePlayer /
- *         ddAddSub / ddSaveToFirebase
- *       • وما يرسمه هو في الـ DOM (صفوف .dd-player-row وقوائم
- *         .dd-roster-select التي تحوي الكشف كاملاً أصلاً)
- *     الفائدة: أي تعديل مستقبلي على النظام الأصلي لا يكسر هذا الملف،
- *     ولو غاب هذا الملف يعمل النظام الأصلي كما كان بالضبط.
+ *  🔴 إصلاح v338.2 — «نسخ آخر تشكيلة» لم يكن يعمل إطلاقاً:
+ *     كانت النسخة السابقة تستنتج المباراة بمطابقة عنوان النافذة مع
+ *     m.homeName / m.awayName — **وهذان الحقلان غير موجودين** في مستند
+ *     المباراة أصلاً. الأسماء تأتي من teams.find(id) وقت الرسم فقط.
+ *     فكان البحث يفشل دائماً وتظهر «تعذّر تحديد الفريق».
+ *     الآن: نغلّف window.openLineupDragDrop(matchId) ونلتقط المعرّف من
+ *     مصدره مباشرة — لا تخمين ولا مطابقة نصوص.
+ *     وأُضيف كذلك ضبط الخطة قبل النسخ، وإلا اختلف عدد الخانات عن عدد
+ *     اللاعبين المنسوخين فسقط بعضهم بصمت.
+ *
+ *  ⚠️ قاعدة التصميم: admin-lineup-dragdrop.js يُحمَّل كـ type="module"،
+ *     فمتغيّراته الداخلية غير مرئية لنا. نعمل حصراً عبر الواجهة العامة
+ *     (openLineupDragDrop · _ddPickRosterPlayer · ddUpdatePlayer ·
+ *     ddAddSub · ddChangeFormation · ddSaveToFirebase) وعبر ما يرسمه
+ *     في الـ DOM. فلو حُذف هذا الملف عاد النظام الأصلي كما كان بالضبط.
  * ═══════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
 
   var GOLD = 'var(--gold,#C9A02B)', GOLD2 = 'var(--gold2,#E8BE45)';
 
-  /* ─────────────────────────────────────────────────────────────
-     أدوات
-     ───────────────────────────────────────────────────────────── */
+  var _matchId = null;      // المباراة المفتوحة — يُلتقط من الغلاف
+  var _predicted = false;
+  var _query = '';
+  var _posFilter = '';
+  var _painting = false;   // حارس ضد إعادة الرسم المتداخلة
+  var _captain  = { home: '', away: '' };   // اسم الكابتن لكل جهة
+
+  function $(id) { return document.getElementById(id); }
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-  function $(id) { return document.getElementById(id); }
+  function toast(t, k) {
+    if (typeof window.showToast === 'function') window.showToast(t, k || 'success');
+  }
+  function norm(s) { return String(s || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
 
-  /* الكشف الكامل يُقرأ من القائمة المنسدلة التي يرسمها النظام الأصلي.
-     لا نعيد جلبه من Firestore — فذلك تكرار لطلب موجود، وقد يختلف عنه. */
+  /* ─── التقاط المباراة من مصدرها (بدل تخمينها من العنوان) ─── */
+  function hookOpener() {
+    var orig = window.openLineupDragDrop;
+    if (typeof orig !== 'function' || orig.__lpHooked) return;
+    var wrapped = function (matchId) {
+      _matchId = matchId || null;
+      _predicted = false;
+      _query = ''; _posFilter = '';
+      /* استرجع الكابتن والوسم المحفوظَين فلا يضيعان عند إعادة الفتح */
+      var mm = (window.matches || []).filter(function (x) { return x && x.id === matchId; })[0];
+      _captain = {
+        home: (mm && mm.homeLineup && mm.homeLineup.captain) || '',
+        away: (mm && mm.awayLineup && mm.awayLineup.captain) || ''
+      };
+      _predicted = !!(mm && ((mm.homeLineup && mm.homeLineup.predicted) ||
+                             (mm.awayLineup && mm.awayLineup.predicted)));
+      return orig.apply(this, arguments);
+    };
+    wrapped.__lpHooked = true;
+    window.openLineupDragDrop = wrapped;
+    window.openLineupModal = wrapped;   // الاسم المرادف في النظام الأصلي
+  }
+
+  function theMatch() {
+    if (!_matchId) return null;
+    return (window.matches || []).filter(function (m) { return m && m.id === _matchId; })[0] || null;
+  }
+  function currentSide() {
+    var t = $('ddTabAway');
+    return (t && t.classList.contains('active')) ? 'away' : 'home';
+  }
+  function currentTeamId() {
+    var m = theMatch();
+    if (!m) return null;
+    return currentSide() === 'home' ? m.homeId : m.awayId;
+  }
+
+  /* ─── قراءة الكشف من القائمة التي يرسمها النظام الأصلي ───
+     لا نعيد جلبه من Firestore: ذلك طلب مكرّر وقد يختلف عمّا يعرضه النظام. */
   function readRoster() {
     var sel = document.querySelector('#ddPlayersList .dd-roster-select');
     if (!sel) return [];
     var out = [];
     Array.prototype.forEach.call(sel.options, function (o) {
-      if (!o.value) return;                    // تخطّي «اختر من لاعبي الفريق…»
-      var label = o.textContent || '';
-      var num = '', name = label, pos = '';
+      if (!o.value) return;
+      var label = o.textContent || '', num = '', name = label, pos = '';
       var mNum = label.match(/^#(\d+)\s*—\s*/);
       if (mNum) { num = mNum[1]; name = label.slice(mNum[0].length); }
       var mPos = name.match(/\s·\s([^·]+)$/);
@@ -61,7 +103,21 @@
     return out;
   }
 
-  /* صفوف التشكيلة الحالية كما هي في الـ DOM */
+  /* تصنيف المركز — يعتمد على النصّ العربي كما يعرضه النظام الأصلي */
+  function groupOf(pos) {
+    var p = String(pos || '');
+    if (/حارس/.test(p)) return 'GK';
+    if (/ظهير|قلب دفاع|مدافع|دفاع/.test(p)) return 'DF';
+    if (/وسط|جناح|صانع/.test(p)) return 'MF';
+    if (/مهاجم|رأس حربة|هداف/.test(p)) return 'FW';
+    return 'OT';
+  }
+  var GROUPS = [
+    { k: 'GK', t: 'حرّاس المرمى' }, { k: 'DF', t: 'الدفاع' },
+    { k: 'MF', t: 'الوسط' },       { k: 'FW', t: 'الهجوم' },
+    { k: 'OT', t: 'بلا مركز' }
+  ];
+
   function rows() {
     return Array.prototype.slice.call(
       document.querySelectorAll('#ddPlayersList .dd-player-row'));
@@ -74,111 +130,187 @@
     var d = r.getAttribute('data-idx');
     return (d && d.indexOf('sub-') === 0) ? d : parseInt(d, 10);
   }
-  function isSubRow(r) {
-    var d = r.getAttribute('data-idx') || '';
-    return d.indexOf('sub-') === 0;
+  function isSub(r) {
+    return (r.getAttribute('data-idx') || '').indexOf('sub-') === 0;
   }
-
-  /* الأسماء المستعملة حالياً — للمقارنة مع الكشف */
-  function usedNames() {
+  function usedSet() {
     var s = {};
-    rows().forEach(function (r) {
-      var n = rowName(r);
-      if (n) s[n.replace(/\s+/g, ' ').toLowerCase()] = true;
-    });
+    rows().forEach(function (r) { var n = rowName(r); if (n) s[norm(n)] = true; });
     return s;
   }
 
   /* ─────────────────────────────────────────────────────────────
-     ① لوحة كشف الفريق
+     اللوحة
      ───────────────────────────────────────────────────────────── */
-  function renderPanel() {
+  function render() {
     var host = $('ddPlayersList');
     if (!host) return;
 
-    var roster = readRoster();
-    var panel = $('lpRosterPanel');
+    var panel = $('lpPanel');
     if (!panel) {
       panel = document.createElement('div');
-      panel.id = 'lpRosterPanel';
+      panel.id = 'lpPanel';
       host.parentNode.insertBefore(panel, host);
     }
 
+    var roster = readRoster();
+    /* حمّل الصور مرة واحدة ثم أعد الرسم — الرسم الأول بلا صور فوراً
+       (لا انتظار)، والثاني بالصور حين تصل. */
+    loadRosterDetails(currentTeamId(), function () {
+      if ($('lpPanel') && !_painting) { _painting = true; try { render(); } finally { _painting = false; } }
+    });
     if (!roster.length) {
       panel.innerHTML =
-        '<div class="lp-panel"><div class="lp-empty">لا يوجد كشف لاعبين لهذا الفريق بعد — ' +
+        '<div class="lp-w"><div class="lp-empty">لا يوجد كشف لاعبين لهذا الفريق.<br>' +
         'أضفه من «الفرق ← كشف اللاعبين» ليظهر هنا كاملاً.</div></div>';
       return;
     }
 
-    var used = usedNames();
-    var free = rows().filter(function (r) { return !isSubRow(r) && !rowName(r); }).length;
+    var used = usedSet();
+    var starters = rows().filter(function (r) { return !isSub(r); });
+    var filled = starters.filter(function (r) { return !!rowName(r); }).length;
+    var total = starters.length;
+    var inCount = roster.filter(function (p) { return used[norm(p.name)]; }).length;
 
-    var chips = roster.map(function (p) {
-      var on = !!used[(p.name || '').replace(/\s+/g, ' ').toLowerCase()];
-      return '<button type="button" class="lp-chip' + (on ? ' on' : '') + '" ' +
-        'data-pid="' + esc(p.id) + '" data-pname="' + esc(p.name) + '" ' +
-        'title="' + (on ? 'مُضاف — اضغط للإزالة' : 'اضغط للإضافة') + '">' +
-        (p.number !== '' ? '<span class="lp-n">' + esc(p.number) + '</span>' : '<span class="lp-n lp-n0">—</span>') +
-        '<span class="lp-nm">' + esc(p.name) + '</span>' +
-        (p.position ? '<span class="lp-ps">' + esc(p.position) + '</span>' : '') +
-        '<span class="lp-tick">' + (on ? '✓' : '+') + '</span></button>';
+    var vis = roster.filter(function (p) {
+      if (_posFilter && groupOf(p.position) !== _posFilter) return false;
+      if (!_query) return true;
+      return norm(p.name).indexOf(_query) > -1 ||
+             String(p.number) === _query ||
+             norm(p.position).indexOf(_query) > -1;
+    });
+
+    var byG = {};
+    vis.forEach(function (p) { (byG[groupOf(p.position)] = byG[groupOf(p.position)] || []).push(p); });
+
+    var body = GROUPS.map(function (g) {
+      var list = byG[g.k];
+      if (!list || !list.length) return '';
+      return '<div class="lp-g">' +
+        '<div class="lp-gt">' + g.t + ' <span>' + list.length + '</span></div>' +
+        '<div class="lp-chips">' + list.map(function (p) { return chip(used, p); }).join('') + '</div>' +
+      '</div>';
     }).join('');
+    if (!body) body = '<div class="lp-empty">لا لاعب يطابق البحث.</div>';
+
+    var counts = {};
+    roster.forEach(function (p) {
+      var g = groupOf(p.position); counts[g] = (counts[g] || 0) + 1;
+    });
+    var filters = '<button type="button" class="lp-f' + (_posFilter ? '' : ' on') +
+      '" data-f="">الكل <span>' + roster.length + '</span></button>' +
+      GROUPS.filter(function (g) { return counts[g.k]; }).map(function (g) {
+        return '<button type="button" class="lp-f' + (_posFilter === g.k ? ' on' : '') +
+          '" data-f="' + g.k + '">' + g.t + ' <span>' + counts[g.k] + '</span></button>';
+      }).join('');
 
     panel.innerHTML =
-      '<div class="lp-panel">' +
+      '<div class="lp-w">' +
         '<div class="lp-head">' +
-          '<div class="lp-title">كشف الفريق <span class="lp-cnt">' + roster.length + '</span></div>' +
-          '<div class="lp-free">' + (free ? free + ' خانة فاضية' : 'اكتملت الخانات') + '</div>' +
+          '<div class="lp-ttl">كشف الفريق</div>' +
+          '<div class="lp-prog">' +
+            '<span class="lp-pn' + (filled >= total ? ' ok' : '') + '">' + filled + '</span>' +
+            '<span class="lp-ps">/ ' + total + ' أساسي</span>' +
+          '</div>' +
         '</div>' +
-        '<div class="lp-hint">اضغط اللاعب ليدخل أول خانة فاضية · اضغطه ثانيةً ليخرج</div>' +
-        '<div class="lp-chips">' + chips + '</div>' +
-        '<div class="lp-tools">' +
-          '<button type="button" class="lp-btn" id="lpFillAll">ملء الخانات بالترتيب</button>' +
-          '<button type="button" class="lp-btn" id="lpCopyLast">نسخ آخر تشكيلة</button>' +
-          '<button type="button" class="lp-btn lp-btn-d" id="lpClearAll">تفريغ الكل</button>' +
+        '<div class="lp-bar"><div class="lp-fill" style="width:' +
+          (total ? Math.min(100, Math.round(filled / total * 100)) : 0) + '%"></div></div>' +
+        '<input type="text" class="lp-search" id="lpQ" placeholder="🔎 بحث — اسم أو رقم أو مركز" value="' +
+          esc(_query) + '"/>' +
+        '<div class="lp-filters">' + filters + '</div>' +
+        '<div class="lp-hint">اضغط اللاعب ليدخل أول خانة فاضية · اضغطه ثانيةً ليخرج · ' +
+          'المُضاف حالياً: <b>' + inCount + '</b></div>' +
+        '<div class="lp-list">' + body + '</div>' +
+        '<div class="lp-acts">' +
+          '<button type="button" class="lp-b lp-b1" id="lpFill">⚡ ملء الخانات</button>' +
+          '<button type="button" class="lp-b" id="lpCopy">📋 نسخ آخر تشكيلة</button>' +
+          '<button type="button" class="lp-b" id="lpSuggest">🎯 اقترح خطة</button>' +
+          '<button type="button" class="lp-b lp-bd" id="lpClear">✕ تفريغ</button>' +
         '</div>' +
       '</div>';
 
-    panel.querySelectorAll('.lp-chip').forEach(function (b) {
+    var q = $('lpQ');
+    if (q) q.addEventListener('input', function () {
+      _query = norm(this.value); render(); restoreFocus();
+    });
+    panel.querySelectorAll('.lp-f').forEach(function (b) {
+      b.addEventListener('click', function () {
+        _posFilter = b.getAttribute('data-f') || ''; render();
+      });
+    });
+    panel.querySelectorAll('.lp-card').forEach(function (b) {
       b.addEventListener('click', function () {
         onChip(b.getAttribute('data-pid'), b.getAttribute('data-pname'));
       });
     });
-    var f = $('lpFillAll'), c = $('lpCopyLast'), x = $('lpClearAll');
-    if (f) f.addEventListener('click', fillAll);
+    var a = $('lpFill'), c = $('lpCopy'), x = $('lpClear');
+    if (a) a.addEventListener('click', fillAll);
     if (c) c.addEventListener('click', copyLast);
     if (x) x.addEventListener('click', clearAll);
+    var sg = $('lpSuggest');
+    if (sg) sg.addEventListener('click', function () {
+      var r = suggestFormation();
+      if (!r) { toast('لا مراكز مسجّلة في الكشف — أضفها من كشف اللاعبين'); return; }
+      var msg = 'كشفك: ' + r.c.DF + ' دفاع · ' + r.c.MF + ' وسط · ' + r.c.FW + ' هجوم\n\n' +
+                'الخطة الأنسب: ' + r.f + '\n\nتطبيقها الآن؟';
+      if (!confirm(msg)) return;
+      try { window.ddChangeFormation(r.f); } catch (e) {}
+      refresh(); toast('طُبّقت خطة ' + r.f);
+    });
   }
 
-  /* إضافة/إزالة لاعب */
+  function restoreFocus() {
+    var q = $('lpQ');
+    if (q) { q.focus(); try { q.setSelectionRange(q.value.length, q.value.length); } catch (e) {} }
+  }
+
+  /* بطاقة لاعب — صورة حقيقية + اسم + رقم + مركز.
+     كانت سطراً نصّياً باهتاً؛ الآن تُقرأ بلمحة كبطاقة تطبيق رسمي. */
+  function chip(used, p) {
+    var on = !!used[norm(p.name)];
+    var d = detailsOf(p.name);
+    var pos = p.position || d.position || '';
+    var inactive = d.status && d.status !== 'active';
+    return '<button type="button" class="lp-card' + (on ? ' on' : '') +
+      (inactive ? ' off' : '') + '" ' +
+      'data-pid="' + esc(p.id) + '" data-pname="' + esc(p.name) + '">' +
+      avatar(p.name, p.number, 34) +
+      '<span class="lp-txt">' +
+        '<span class="lp-nm">' + esc(p.name) + '</span>' +
+        '<span class="lp-meta">' +
+          (p.number !== '' ? '<b>#' + esc(p.number) + '</b>' : '') +
+          (pos ? '<span>' + esc(pos) + '</span>' : '') +
+          (inactive ? '<i class="lp-off">غير متاح</i>' : '') +
+        '</span>' +
+      '</span>' +
+      '<span class="lp-tk">' +
+        (norm(_captain[currentSide()]) === norm(p.name) ? '<b class="lp-cap">C</b>' : (on ? '✓' : '+')) +
+      '</span></button>';
+  }
+
   function onChip(pid, pname) {
-    var key = (pname || '').replace(/\s+/g, ' ').toLowerCase();
-    var match = rows().filter(function (r) {
-      return rowName(r).replace(/\s+/g, ' ').toLowerCase() === key;
-    })[0];
-
-    if (match) {                       // موجود → أزِله
-      var idx = rowIdx(match);
-      try {
-        window.ddUpdatePlayer(idx, 'name', '');
-        window.ddUpdatePlayer(idx, 'number', '');
-      } catch (e) {}
-      refresh();
-      return;
+    var key = norm(pname);
+    var hit = rows().filter(function (r) { return norm(rowName(r)) === key; })[0];
+    if (hit) {
+      var i = rowIdx(hit);
+      try { window.ddUpdatePlayer(i, 'name', ''); window.ddUpdatePlayer(i, 'number', ''); } catch (e) {}
+      refresh(); return;
     }
-
-    var empty = rows().filter(function (r) { return !isSubRow(r) && !rowName(r); })[0];
-    if (!empty) {                      // لا خانة أساسية → أضِفه بديلاً
+    var empty = rows().filter(function (r) { return !isSub(r) && !rowName(r); })[0];
+    if (!empty) {
+      /* ④ سقف البدلاء: كان بلا حدّ فيمكن إضافة عشرات. الحدّ ١٢ يطابق
+         أوسع لوائح المسابقات، ونحذّر بدل المنع المطلق. */
+      if (rows().filter(isSub).length >= 12) {
+        toast('بلغت ١٢ بديلاً — أزل أحدهم قبل الإضافة', 'error');
+        return;
+      }
       try { window.ddAddSub(); } catch (e) {}
       setTimeout(function () {
-        var subs = rows().filter(isSubRow);
-        var last = subs[subs.length - 1];
+        var subs = rows().filter(isSub), last = subs[subs.length - 1];
         if (last && window._ddPickRosterPlayer) {
           try { window._ddPickRosterPlayer(rowIdx(last), pid); } catch (e) {}
         }
-        refresh();
-        toast('أُضيف ' + pname + ' إلى البدلاء');
+        refresh(); toast('أُضيف ' + pname + ' إلى البدلاء');
       }, 60);
       return;
     }
@@ -186,218 +318,545 @@
     refresh();
   }
 
-  /* ملء كل الخانات الفاضية بالترتيب من الكشف */
   function fillAll() {
-    var roster = readRoster(), used = usedNames(), i = 0;
-    var empties = rows().filter(function (r) { return !isSubRow(r) && !rowName(r); });
+    var roster = readRoster(), used = usedSet(), i = 0;
+    var empties = rows().filter(function (r) { return !isSub(r) && !rowName(r); });
     if (!empties.length) { toast('لا توجد خانات فاضية'); return; }
-
     empties.forEach(function (r) {
-      while (i < roster.length &&
-             used[(roster[i].name || '').replace(/\s+/g, ' ').toLowerCase()]) i++;
+      while (i < roster.length && used[norm(roster[i].name)]) i++;
       if (i >= roster.length) return;
       var p = roster[i++];
-      used[(p.name || '').replace(/\s+/g, ' ').toLowerCase()] = true;
+      used[norm(p.name)] = true;
       try { window._ddPickRosterPlayer(rowIdx(r), p.id); } catch (e) {}
     });
-    refresh();
-    toast('مُلئت الخانات من الكشف');
+    refresh(); toast('مُلئت الخانات من الكشف');
   }
 
   function clearAll() {
     rows().forEach(function (r) {
-      if (isSubRow(r)) return;
-      var idx = rowIdx(r);
-      try {
-        window.ddUpdatePlayer(idx, 'name', '');
-        window.ddUpdatePlayer(idx, 'number', '');
-      } catch (e) {}
+      if (isSub(r)) return;
+      var i = rowIdx(r);
+      try { window.ddUpdatePlayer(i, 'name', ''); window.ddUpdatePlayer(i, 'number', ''); } catch (e) {}
     });
-    refresh();
-    toast('فُرّغت الخانات');
+    refresh(); toast('فُرّغت الخانات');
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     ② نسخ آخر تشكيلة لنفس الفريق
-     ───────────────────────────────────────────────────────────── */
-  function currentSide() {
-    var t = $('ddTabAway');
-    return (t && t.classList.contains('active')) ? 'away' : 'home';
-  }
-  /* معرّف الفريق الحالي — نستنتجه من المباراة المفتوحة في window.matches */
-  function currentTeamId() {
-    var ms = window.matches || [];
-    var open = ms.filter(function (m) { return m && m.__ddOpen; })[0];
-    // النظام الأصلي لا يضع علامة، فنعتمد على عنوان النافذة كحلّ أخير
-    if (!open) {
-      var ttl = document.querySelector('.dd-title');
-      var txt = ttl ? ttl.textContent : '';
-      var mm = ms.filter(function (m) {
-        return txt.indexOf(m.homeName || '~') > -1 && txt.indexOf(m.awayName || '~') > -1;
-      })[0];
-      open = mm || null;
-    }
-    if (!open) return null;
-    return currentSide() === 'home' ? open.homeId : open.awayId;
-    }
-
+  /* ─── نسخ آخر تشكيلة (مُصلَحة) ─── */
   function copyLast() {
     var tid = currentTeamId();
-    if (!tid) { toast('تعذّر تحديد الفريق — احفظ ثم أعد الفتح'); return; }
+    if (!tid) { toast('تعذّر تحديد الفريق — أغلق النافذة وأعد فتحها', 'error'); return; }
 
-    var ms = (window.matches || []).slice().sort(function (a, b) {
+    var cur = theMatch();
+    var ms = (window.matches || []).filter(function (m) {
+      return m && m.id !== (cur && cur.id) && (m.homeId === tid || m.awayId === tid);
+    }).sort(function (a, b) {
       return String(b.date || '').localeCompare(String(a.date || '')) ||
              ((b.round || 0) - (a.round || 0));
     });
+
     var src = null;
     for (var i = 0; i < ms.length; i++) {
-      var m = ms[i];
-      var lu = (m.homeId === tid) ? m.homeLineup : (m.awayId === tid) ? m.awayLineup : null;
+      var lu = (ms[i].homeId === tid) ? ms[i].homeLineup : ms[i].awayLineup;
       if (lu && lu.players && lu.players.length) { src = lu; break; }
     }
-    if (!src) { toast('لا توجد تشكيلة سابقة لهذا الفريق'); return; }
+    if (!src) { toast('لا توجد تشكيلة سابقة محفوظة لهذا الفريق'); return; }
 
-    var starters = src.players.filter(function (p) { return !p.isSub; });
-    var target = rows().filter(function (r) { return !isSubRow(r); });
-    target.forEach(function (r, i) {
-      var p = starters[i];
-      if (!p) return;
-      var idx = rowIdx(r);
-      try {
-        window.ddUpdatePlayer(idx, 'name', p.name || '');
-        window.ddUpdatePlayer(idx, 'number', p.number || '');
-        if (p.position) window.ddUpdatePlayer(idx, 'position', p.position);
-      } catch (e) {}
-    });
-    refresh();
-    toast('نُسخت آخر تشكيلة — عدّل ما تغيّر فقط');
+    /* الخطة أولاً — وإلا اختلف عدد الخانات عن عدد اللاعبين فسقط بعضهم بصمت */
+    if (src.formation && typeof window.ddChangeFormation === 'function') {
+      try { window.ddChangeFormation(src.formation); } catch (e) {}
+    }
+
+    setTimeout(function () {
+      var st = src.players.filter(function (p) { return !p.isSub; });
+      var tg = rows().filter(function (r) { return !isSub(r); });
+      var n = 0;
+      tg.forEach(function (r, i) {
+        var p = st[i];
+        if (!p) return;
+        var idx = rowIdx(r);
+        try {
+          window.ddUpdatePlayer(idx, 'name', p.name || '');
+          window.ddUpdatePlayer(idx, 'number', p.number || '');
+          if (p.position) window.ddUpdatePlayer(idx, 'position', p.position);
+          n++;
+        } catch (e) {}
+      });
+      refresh();
+      toast(n ? ('نُسخ ' + n + ' لاعباً — عدّل ما تغيّر فقط') : 'تعذّر النسخ',
+            n ? 'success' : 'error');
+    }, 140);
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     ③ التشكيلة المتوقّعة
-     ───────────────────────────────────────────────────────────── */
-  var _predicted = false;
+  /* ═══════════════════════════════════════════════════════════════
+     ترتيب التذييل — أُعيد بناؤه (v338.3)
+     ─────────────────────────────────────────────────────────────
+     ① **حُذف زرّ «إظهار البدلاء للجمهور»**: البدلاء جزء من التشكيلة،
+        وإخفاؤهم خيار لا يطلبه أحد عملياً بينما يشغل عرض التذييل ويُربك.
+        لا نحذفه من النظام الأصلي — نُثبّته على «مفعَّل» ثم نُخفيه، فتبقى
+        بنية البيانات (showBench) كما هي ولا ينكسر شيء عند الجمهور.
+     ② زرّا «حفظ» و«متوقّعة» صارا بنفس القياس والتنسيق جنباً إلى جنب،
+        بدل زرّ ضخم وآخر صغير بشكل مختلف.
+     ═══════════════════════════════════════════════════════════════ */
+  function forceBenchOn() {
+    var btn = $('ddBenchToggle');
+    if (!btn || btn.dataset.lpDone) return;
+    var txt = ($('ddBenchToggleTxt') || {}).textContent || '';
+    // «إظهار البدلاء للجمهور: لا» ← فعّلها مرّة واحدة
+    if (/\bلا\b/.test(txt) && typeof window.ddToggleBench === 'function') {
+      try { window.ddToggleBench(); } catch (e) {}
+    }
+    btn.dataset.lpDone = '1';
+    btn.style.display = 'none';
+  }
 
-  function renderPredictedToggle() {
+  /* ─── التشكيلة المتوقّعة ─── */
+  function predToggle() {
     var foot = document.querySelector('.dd-footer');
-    if (!foot || $('lpPredWrap')) return;
-    var w = document.createElement('button');
-    w.type = 'button';
-    w.id = 'lpPredWrap';
-    w.className = 'lp-pred';
-    foot.insertBefore(w, foot.firstChild);
-    w.addEventListener('click', function () {
-      _predicted = !_predicted;
-      paintPred();
+    if (!foot) return;
+    forceBenchOn();
+    if ($('lpPred')) return;
+    foot.classList.add('lp-foot');
+    var b = document.createElement('button');
+    b.type = 'button'; b.id = 'lpPred'; b.className = 'lp-pred';
+    var save = foot.querySelector('.dd-save-btn');
+    if (save) foot.insertBefore(b, save); else foot.insertBefore(b, foot.firstChild);
+    b.addEventListener('click', function () {
+      _predicted = !_predicted; paintPred();
       toast(_predicted
-        ? 'ستُنشر كـ «تشكيلة متوقّعة» — يظهر الوسم للجمهور'
+        ? 'ستُنشر كـ «تشكيلة متوقّعة» — يتغيّر اسم القسم عند الجمهور'
         : 'ستُنشر كتشكيلة رسمية مؤكَّدة');
     });
     paintPred();
   }
   function paintPred() {
-    var w = $('lpPredWrap');
-    if (!w) return;
-    w.classList.toggle('on', _predicted);
-    w.innerHTML = (_predicted ? '🔮 ' : '✅ ') +
-      (_predicted ? 'تُنشر كمتوقّعة' : 'تُنشر كمؤكَّدة');
-    var b = document.querySelector('.dd-save-btn');
-    if (b && !b.disabled) {
-      b.textContent = _predicted ? '💾 نشر التشكيلة المتوقّعة' : '💾 حفظ للجمهور';
+    var b = $('lpPred');
+    if (!b) return;
+    b.classList.toggle('on', _predicted);
+    b.innerHTML = '<span class="lp-pi">' + (_predicted ? '🔮' : '✅') + '</span>' +
+                  '<span>' + (_predicted ? 'متوقّعة' : 'مؤكَّدة') + '</span>';
+    var s = document.querySelector('.dd-save-btn');
+    if (s && !s.disabled) {
+      s.innerHTML = '<span class="lp-pi">💾</span><span>' +
+        (_predicted ? 'نشر المتوقّعة' : 'حفظ للجمهور') + '</span>';
     }
   }
 
-  /* نغلّف الحفظ: نترك النظام الأصلي يكتب كل شيء، ثم نلحق الوسم فقط.
-     لا نعيد بناء cleanPlayers ولا نلمس بنية البيانات — فأي تطوير
-     لاحق على الحفظ الأصلي يبقى ساري المفعول تلقائياً. */
   function wrapSave() {
     var orig = window.ddSaveToFirebase;
     if (typeof orig !== 'function' || orig.__lpWrapped) return;
-    var wrapped = async function () {
-      var mid = null, side = currentSide();
-      var ttl = document.querySelector('.dd-title');
-      var txt = ttl ? ttl.textContent : '';
-      var mm = (window.matches || []).filter(function (m) {
-        return txt.indexOf(m.homeName || '~') > -1 && txt.indexOf(m.awayName || '~') > -1;
-      })[0];
-      if (mm) mid = mm.id;
+    var w = async function () {
+      var side = currentSide(), mid = _matchId;
+
+      /* ① تحقّق قبل النشر — تحذير لا منع. المنظّم قد يقصد تشكيلة ناقصة
+         (إصابة لحظية مثلاً)، فنعرض ما وجدناه ونترك القرار له. */
+      var warns = validate();
+      if (warns.length) {
+        var ok = confirm('⚠️ راجع التشكيلة قبل نشرها للجمهور:\n\n' +
+                         warns.join('\n') +
+                         '\n\nهل تريد النشر رغم ذلك؟');
+        if (!ok) { 
+          var btn = document.querySelector('.dd-save-btn');
+          if (btn) { btn.disabled = false; paintPred(); }
+          return;
+        }
+      }
 
       var r = await orig.apply(this, arguments);
-
-      // إلحاق الوسم بعد نجاح الحفظ الأصلي — لا يعطّله لو فشل
       try {
         if (mid && window._db && window._firestoreDoc && window._firestoreUpdateDoc) {
           var lid = window._getLeagueId && window._getLeagueId();
           if (lid) {
             var patch = {};
-            patch[(side === 'home' ? 'homeLineup' : 'awayLineup') + '.predicted'] = _predicted;
-            patch['lineupPredicted'] = _predicted;
+            var pre = (side === 'home' ? 'homeLineup' : 'awayLineup');
+            patch[pre + '.predicted'] = _predicted;
+            /* 🅒 الكابتن — إكمال ميزة نصف مبنيّة (v338.3):
+               صفحة الجمهور تقرأ lineup.captain وترسم شارة (C) منذ البداية
+               (viewer.js:3133 و:8560)، لكن لوحة الإدارة لم تكن تملك أي
+               طريقة لتعيينه — فبقي الحقل فارغاً أبداً والشارة لا تظهر قط.
+               نكتبه هنا بنفس الاسم الذي يتوقّعه العارض تماماً. */
+            patch[pre + '.captain'] = _captain[side] || '';
+            /* ⑤ سياق التوقُّع — التطبيقات الرسمية تكتب مصدر توقّعها.
+               نحسب عدد المباريات السابقة التي بُني عليها، فيعرف الجمهور
+               أن الرقم ليس تخميناً من فراغ. يُكتب فقط حين تكون متوقّعة. */
+            patch[pre + '.predictedNote'] = _predicted ? _predNote(side) : '';
             await window._firestoreUpdateDoc(
               window._firestoreDoc(window._db, 'leagues', lid, 'matches', mid), patch);
           }
         }
-      } catch (e) { /* الوسم إضافة تجميلية — لا نُفشل الحفظ لأجله */ }
+      } catch (e) { /* الوسم تجميلي — لا يُفشل الحفظ */ }
       return r;
     };
-    wrapped.__lpWrapped = true;
-    window.ddSaveToFirebase = wrapped;
+    w.__lpWrapped = true;
+    window.ddSaveToFirebase = w;
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     تشغيل
-     ───────────────────────────────────────────────────────────── */
-  function toast(t) {
-    if (typeof window.showToast === 'function') window.showToast(t, 'success');
+  /* ═══════════════════════════════════════════════════════════════
+     منتقي تبديل اللاعب — أُضيف (v338.3)
+     ─────────────────────────────────────────────────────────────
+     الطلب: «لو عملت تشكيلة وأضغط على لاعب أغيّره بلاعب ثاني».
+     سابقاً كان التبديل يتطلّب تفريغ الخانة يدوياً ثم البحث في اللوحة.
+     الآن: ضغطة على خانة مشغولة تفتح قائمة الكشف بالصور، واللاعبون
+     المستعملون أصلاً معلَّمون فلا يتكرّر أحد.
+     نعمل عبر _ddPickRosterPlayer نفسها — لا مساس بالنظام الأصلي. */
+  function openSwap(rowEl) {
+    var cur = rowName(rowEl);
+    var idx = rowIdx(rowEl);
+    var roster = readRoster();
+    if (!roster.length) { toast('لا يوجد كشف لهذا الفريق'); return; }
+    var used = usedSet();
+
+    var ov = document.createElement('div');
+    ov.className = 'lp-ov';
+    ov.innerHTML =
+      '<div class="lp-sheet">' +
+        '<div class="lp-sh-head">' +
+          '<div><div class="lp-sh-t">' + (cur ? 'تبديل اللاعب' : 'اختيار لاعب') + '</div>' +
+          (cur ? '<div class="lp-sh-s">الحالي: ' + esc(cur) + '</div>' : '') + '</div>' +
+          '<button type="button" class="lp-sh-x">✕</button>' +
+        '</div>' +
+        '<input type="text" class="lp-search" id="lpSwapQ" placeholder="🔎 ابحث عن لاعب"/>' +
+        '<div class="lp-sh-list" id="lpSwapList"></div>' +
+        (cur ? '<div class="lp-sh-acts">' +
+                 '<button type="button" class="lp-b lp-b1" id="lpSwapCap">🅒 ' +
+                   (norm(_captain[currentSide()]) === norm(cur) ? 'إلغاء الكابتن' : 'تعيين كابتن') +
+                 '</button>' +
+                 '<button type="button" class="lp-b lp-bd" id="lpSwapClear">✕ إفراغ الخانة</button>' +
+               '</div>' : '') +
+      '</div>';
+    document.body.appendChild(ov);
+
+    function paint(q) {
+      q = norm(q);
+      var list = roster.filter(function (p) {
+        if (!q) return true;
+        return norm(p.name).indexOf(q) > -1 || String(p.number) === q ||
+               norm(p.position).indexOf(q) > -1;
+      });
+      var el = ov.querySelector('#lpSwapList');
+      if (!list.length) { el.innerHTML = '<div class="lp-empty">لا نتيجة</div>'; return; }
+      el.innerHTML = list.map(function (p) {
+        var isCur = norm(p.name) === norm(cur);
+        var taken = !isCur && !!used[norm(p.name)];
+        var d = detailsOf(p.name);
+        var pos = p.position || d.position || '';
+        return '<button type="button" class="lp-card' + (isCur ? ' on' : '') +
+          (taken ? ' off' : '') + '" data-pid="' + esc(p.id) + '">' +
+          avatar(p.name, p.number, 36) +
+          '<span class="lp-txt"><span class="lp-nm">' + esc(p.name) + '</span>' +
+          '<span class="lp-meta">' + (p.number !== '' ? '<b>#' + esc(p.number) + '</b>' : '') +
+          (pos ? '<span>' + esc(pos) + '</span>' : '') +
+          (taken ? '<i class="lp-off">مُستعمَل</i>' : '') + '</span></span>' +
+          '<span class="lp-tk">' + (isCur ? '●' : taken ? '' : '+') + '</span></button>';
+      }).join('');
+      el.querySelectorAll('.lp-card').forEach(function (b) {
+        b.addEventListener('click', function () {
+          try { window._ddPickRosterPlayer(idx, b.getAttribute('data-pid')); } catch (e) {}
+          close(); refresh();
+        });
+      });
+    }
+    function close() { try { ov.remove(); } catch (e) {} }
+
+    ov.querySelector('.lp-sh-x').addEventListener('click', close);
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    var cp = ov.querySelector('#lpSwapCap');
+    if (cp) cp.addEventListener('click', function () {
+      var sd = currentSide();
+      _captain[sd] = (norm(_captain[sd]) === norm(cur)) ? '' : cur;
+      toast(_captain[sd] ? ('🅒 ' + cur + ' كابتن الفريق') : 'أُلغي تعيين الكابتن');
+      close(); refresh();
+    });
+    var cl = ov.querySelector('#lpSwapClear');
+    if (cl) cl.addEventListener('click', function () {
+      try {
+        window.ddUpdatePlayer(idx, 'name', '');
+        window.ddUpdatePlayer(idx, 'number', '');
+      } catch (e) {}
+      close(); refresh();
+    });
+    var q = ov.querySelector('#lpSwapQ');
+    q.addEventListener('input', function () { paint(this.value); });
+    paint('');
+    setTimeout(function () { try { q.focus(); } catch (e) {} }, 80);
   }
-  function refresh() {
-    // النظام الأصلي يعيد رسم القائمة بعد كل تعديل — ننتظر دورة ثم نعيد اللوحة
-    setTimeout(renderPanel, 40);
+
+  /* اجعل كل خانة قابلة للنقر لفتح المنتقي.
+     نستهدف منطقة الاسم وحدها كي لا نبتلع نقرات أزرار النظام الأصلي
+     (الحذف، السحب، تغيير الرقم) — فتبقى كلها تعمل كما هي. */
+  function wireRows() {
+    rows().forEach(function (r) {
+      var cell = r.querySelector('.dd-p-name');
+      if (!cell || cell.dataset.lpWired) return;
+      cell.dataset.lpWired = '1';
+      cell.style.cursor = 'pointer';
+      cell.title = 'اضغط لاختيار أو تبديل اللاعب';
+      var inp = cell.querySelector('input[type="text"]');
+      if (inp) {
+        inp.setAttribute('readonly', 'readonly');
+        inp.style.cursor = 'pointer';
+        inp.addEventListener('focus', function () { try { this.blur(); } catch (e) {} });
+      }
+      cell.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        openSwap(r);
+      });
+    });
   }
+
+  /* ═══════════════════════════════════════════════════════════════
+     ② الملعب التفاعلي — أُضيف (v338.3)
+     ─────────────────────────────────────────────────────────────
+     كان التعديل في قائمة تحت الملعب، والملعب للعرض فقط. الآن الضغط
+     على أي مركز في الملعب يفتح منتقي اللاعبين مباشرة — كالتطبيقات
+     الرسمية. وبلا مساس بمحرّك الملعب: نقاطه تحمل data-idx أصلاً،
+     فنربط النقر بها ونحوّله للصفّ المقابل في القائمة.
+
+     ⚠️ السحب والإفلات يبقى يعمل: نميّز النقر عن السحب بالمسافة —
+     تحرّك أكثر من ٦ بكسل = سحب فلا نفتح المنتقي. */
+  function wirePitch() {
+    var dots = document.querySelectorAll('.dd-player-dot');
+    Array.prototype.forEach.call(dots, function (d) {
+      if (d.dataset.lpWired) return;
+      d.dataset.lpWired = '1';
+      var sx = 0, sy = 0, moved = false;
+      function down(e) {
+        var t = (e.touches && e.touches[0]) || e;
+        sx = t.clientX; sy = t.clientY; moved = false;
+      }
+      function move(e) {
+        var t = (e.touches && e.touches[0]) || e;
+        if (Math.abs(t.clientX - sx) > 6 || Math.abs(t.clientY - sy) > 6) moved = true;
+      }
+      function up() {
+        if (moved) return;
+        var idx = d.getAttribute('data-idx');
+        var row = rows().filter(function (r) {
+          return String(r.getAttribute('data-idx')) === String(idx);
+        })[0];
+        if (row) setTimeout(function () { openSwap(row); }, 10);
+      }
+      d.addEventListener('mousedown', down);
+      d.addEventListener('mousemove', move);
+      d.addEventListener('mouseup', up);
+      d.addEventListener('touchstart', down, { passive: true });
+      d.addEventListener('touchmove', move, { passive: true });
+      d.addEventListener('touchend', up);
+      d.style.cursor = 'pointer';
+    });
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     ① التحقّق قبل النشر — أُضيف (v338.3)
+     ─────────────────────────────────────────────────────────────
+     الحفظ الأصلي يفحص وجود المباراة والبطولة فقط. فكان يمكن نشر
+     تشكيلة بسبعة لاعبين، أو بحارسَي مرمى، أو برقمَي قميص متكرّرين —
+     وتظهر كذلك للجمهور مباشرة. وهذا أسوأ نوع خطأ في منصة بطولات:
+     لا يُسقط شيئاً، بل ينشر معلومة غلط باسم البطولة.
+     نفحص هنا ونُخيّر المنظّم — لا نمنعه، فقد يقصد تشكيلة ناقصة. */
+  function validate() {
+    var st = rows().filter(function (r) { return !isSub(r); });
+    var names = [], nums = [], gk = 0, empty = 0, dup = [], dupNum = [];
+    st.forEach(function (r) {
+      var n = rowName(r);
+      if (!n) { empty++; return; }
+      if (names.indexOf(norm(n)) > -1) dup.push(n); else names.push(norm(n));
+      var ni = r.querySelector('.dd-p-num input');
+      var v = ni ? String(ni.value || '').trim() : '';
+      if (v) { if (nums.indexOf(v) > -1) dupNum.push(v); else nums.push(v); }
+      var d = detailsOf(n);
+      var ps = r.querySelector('.dd-p-pos select, .dd-p-pos input');
+      var pv = (ps ? ps.value : '') || d.position || '';
+      if (/حارس|GK/i.test(pv)) gk++;
+    });
+    var w = [];
+    if (empty) w.push('• ' + empty + ' خانة أساسية فاضية');
+    if (dup.length) w.push('• لاعب مكرَّر: ' + dup.join('، '));
+    if (dupNum.length) w.push('• رقم قميص مكرَّر: ' + dupNum.join('، '));
+    if (gk === 0) w.push('• لا يوجد حارس مرمى في التشكيلة');
+    if (gk > 1) w.push('• عدد حرّاس المرمى: ' + gk);
+    var subs = rows().filter(isSub).length;
+    if (subs > 12) w.push('• عدد البدلاء ' + subs + ' — أكثر من المعتاد (١٢)');
+    return w;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     ③ اقتراح الخطة من مراكز الكشف — أُضيف (v338.3)
+     ─────────────────────────────────────────────────────────────
+     بدل أن يخمّن المنظّم، نعدّ مدافعيه ووسطه ومهاجميه ونقترح الخطة
+     التي تناسب كشفه فعلاً. اقتراح لا إلزام — زرّ واحد يطبّقه. */
+  function suggestFormation() {
+    var roster = readRoster();
+    var c = { DF: 0, MF: 0, FW: 0 };
+    roster.forEach(function (p) {
+      var g = groupOf(p.position || (detailsOf(p.name).position || ''));
+      if (c[g] != null) c[g]++;
+    });
+    if (!c.DF && !c.MF && !c.FW) return null;
+    var opts = ['4-3-3', '4-4-2', '3-5-2', '5-3-2', '4-2-3-1'];
+    var best = null, bestScore = -1;
+    opts.forEach(function (f) {
+      var parts = f.split('-').map(Number);
+      var d = parts[0], fw = parts[parts.length - 1];
+      var mf = parts.slice(1, -1).reduce(function (a, b) { return a + b; }, 0);
+      // كلّما قلّ العجز عن المتاح كان أنسب
+      var score = -(Math.max(0, d - c.DF) + Math.max(0, mf - c.MF) + Math.max(0, fw - c.FW));
+      if (score > bestScore) { bestScore = score; best = f; }
+    });
+    return { f: best, c: c };
+  }
+
+  function _predNote(side) {
+    var m = theMatch();
+    if (!m) return 'تشكيلة متوقّعة';
+    var tid = side === 'home' ? m.homeId : m.awayId;
+    var n = (window.matches || []).filter(function (x) {
+      if (!x || x.id === m.id) return false;
+      if (x.homeId !== tid && x.awayId !== tid) return false;
+      var lu = x.homeId === tid ? x.homeLineup : x.awayLineup;
+      return !!(lu && lu.players && lu.players.length && lu.predicted !== true);
+    }).length;
+    return n ? ('متوقّعة بناءً على آخر ' + n + ' مباراة للفريق') : 'تشكيلة متوقّعة';
+  }
+
+  function refresh() { setTimeout(function () { render(); wireRows(); wirePitch(); }, 45); }
 
   function css() {
     if ($('lp-css')) return;
     var s = document.createElement('style');
     s.id = 'lp-css';
     s.textContent = [
-      '.lp-panel{background:var(--card2,#202020);border:1px solid var(--border2,#383838);border-radius:14px;padding:12px;margin-bottom:12px;font-family:Tajawal,sans-serif}',
-      '.lp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}',
-      '.lp-title{font-size:12.5px;font-weight:900;color:' + GOLD2 + '}',
-      '.lp-cnt{display:inline-block;min-width:20px;text-align:center;font-size:10px;padding:1px 6px;border-radius:20px;background:rgba(201,160,43,.12);color:' + GOLD + ';margin-inline-start:5px}',
-      '.lp-free{font-size:10.5px;font-weight:800;color:var(--muted2,#888)}',
-      '.lp-hint{font-size:10px;color:var(--muted,#5a5a5a);margin-bottom:9px;line-height:1.7}',
-      '.lp-chips{display:flex;flex-wrap:wrap;gap:6px;max-height:190px;overflow-y:auto}',
-      '.lp-chip{display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:10px;cursor:pointer;',
-      '  background:var(--card3,#262626);border:1px solid var(--border,#2c2c2c);color:var(--text,#efefef);',
-      '  font-family:Tajawal,sans-serif;font-size:11.5px;font-weight:700;transition:all .13s}',
-      '.lp-chip:active{transform:scale(.97)}',
-      '.lp-chip.on{background:rgba(201,160,43,.10);border-color:rgba(201,160,43,.42);color:' + GOLD2 + '}',
-      '.lp-n{min-width:19px;text-align:center;font-size:10px;font-weight:900;padding:1px 4px;border-radius:5px;background:rgba(255,255,255,.06);color:var(--muted2,#888)}',
-      '.lp-chip.on .lp-n{background:rgba(201,160,43,.18);color:' + GOLD + '}',
-      '.lp-n0{opacity:.45}',
-      '.lp-ps{font-size:9.5px;font-weight:800;color:var(--muted,#5a5a5a)}',
-      '.lp-tick{font-size:11px;font-weight:900;opacity:.75}',
-      '.lp-tools{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}',
-      '.lp-btn{flex:1;min-width:104px;padding:8px 10px;border-radius:9px;cursor:pointer;',
-      '  background:var(--card3,#262626);border:1px solid var(--border2,#383838);color:var(--text,#efefef);',
-      '  font-family:Tajawal,sans-serif;font-size:11px;font-weight:800}',
-      '.lp-btn:active{background:rgba(255,255,255,.05)}',
-      '.lp-btn-d{color:var(--red,#C0392B);border-color:rgba(192,57,43,.32)}',
-      '.lp-pred{padding:9px 13px;border-radius:10px;cursor:pointer;font-family:Tajawal,sans-serif;',
-      '  font-size:11.5px;font-weight:900;border:1px solid var(--border2,#383838);',
-      '  background:var(--card3,#262626);color:var(--muted2,#888)}',
+      '#lpPanel{font-family:Tajawal,sans-serif}',
+      '.lp-w{background:var(--card2,#202020);border:1px solid var(--border2,#383838);border-radius:15px;padding:13px;margin-bottom:12px}',
+      '.lp-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}',
+      '.lp-ttl{font-size:13px;font-weight:900;color:' + GOLD2 + '}',
+      '.lp-prog{display:flex;align-items:baseline;gap:4px}',
+      '.lp-pn{font-size:17px;font-weight:900;color:var(--muted2,#888)}',
+      '.lp-pn.ok{color:var(--green,#27AE60)}',
+      '.lp-ps{font-size:10px;font-weight:800;color:var(--muted,#5a5a5a)}',
+      '.lp-bar{height:3px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden;margin-bottom:11px}',
+      '.lp-fill{height:100%;background:' + GOLD + ';transition:width .25s}',
+      '.lp-search{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;margin-bottom:8px;background:var(--dark,#121212);border:1px solid var(--border,#2c2c2c);color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:12px}',
+      '.lp-filters{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}',
+      '.lp-f{padding:5px 10px;border-radius:20px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:10.5px;font-weight:800;background:var(--card3,#262626);border:1px solid var(--border,#2c2c2c);color:var(--muted2,#888)}',
+      '.lp-f.on{background:rgba(201,160,43,.13);border-color:rgba(201,160,43,.4);color:' + GOLD2 + '}',
+      '.lp-f span{opacity:.6;font-size:9.5px}',
+      '.lp-hint{font-size:10px;color:var(--muted,#5a5a5a);margin-bottom:9px;line-height:1.75}',
+      '.lp-hint b{color:' + GOLD + '}',
+      '.lp-list{max-height:230px;overflow-y:auto;margin:-2px -3px 0;padding:2px 3px}',
+      '.lp-g{margin-bottom:9px}',
+      '.lp-gt{font-size:9.5px;font-weight:900;color:var(--muted,#5a5a5a);margin-bottom:5px;letter-spacing:.4px}',
+      '.lp-gt span{opacity:.55}',
+      '.lp-chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px}',
+      /* بطاقة اللاعب */
+      '.lp-card{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:11px;cursor:pointer;text-align:start;background:var(--card3,#262626);border:1px solid var(--border,#2c2c2c);color:var(--text,#efefef);font-family:Tajawal,sans-serif;transition:all .12s;overflow:hidden}',
+      '.lp-card:active{transform:scale(.97)}',
+      '.lp-card.on{background:rgba(201,160,43,.1);border-color:rgba(201,160,43,.45)}',
+      '.lp-card.off{opacity:.5}',
+      '.lp-av{flex-shrink:0;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--card2,#202020);border:1px solid var(--border2,#383838)}',
+      '.lp-av img{width:100%;height:100%;object-fit:cover;display:block}',
+      '.lp-av-t{font-size:11px;font-weight:900;color:var(--muted2,#888)}',
+      '.lp-card.on .lp-av{border-color:rgba(201,160,43,.5)}',
+      '.lp-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}',
+      '.lp-nm{font-size:11.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.lp-card.on .lp-nm{color:' + GOLD2 + '}',
+      '.lp-meta{display:flex;align-items:center;gap:5px;font-size:9.5px;color:var(--muted,#5a5a5a);font-weight:700}',
+      '.lp-meta b{color:var(--muted2,#888);font-weight:900}',
+      '.lp-off{font-style:normal;color:var(--red,#C0392B)}',
+      /* التذييل */
+      '.dd-footer.lp-foot{display:flex;gap:7px;align-items:stretch;flex-wrap:wrap}',
+      '.dd-footer.lp-foot .dd-save-btn,.dd-footer.lp-foot .lp-pred,.dd-footer.lp-foot .dd-cancel-btn{flex:1;min-width:104px;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 10px;border-radius:12px;font-family:Tajawal,sans-serif;font-size:12px;font-weight:900;cursor:pointer;line-height:1;margin:0}',
+      '.lp-pi{font-size:13px}',
+      /* منتقي التبديل */
+      '.lp-ov{position:fixed;inset:0;z-index:100020;background:rgba(0,0,0,.72);display:flex;align-items:flex-end;justify-content:center;padding:0;animation:lpIn .16s ease}',
+      '@keyframes lpIn{from{opacity:0}to{opacity:1}}',
+      '.lp-sheet{width:100%;max-width:520px;max-height:82vh;display:flex;flex-direction:column;gap:9px;background:var(--card,#1a1a1a);border:1px solid var(--border2,#383838);border-bottom:none;border-radius:20px 20px 0 0;padding:15px 15px calc(15px + env(safe-area-inset-bottom,0px));font-family:Tajawal,sans-serif}',
+      '.lp-sh-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}',
+      '.lp-sh-t{font-size:14px;font-weight:900;color:' + GOLD2 + '}',
+      '.lp-sh-s{font-size:10.5px;font-weight:700;color:var(--muted2,#888);margin-top:2px}',
+      '.lp-sh-x{background:var(--card2,#202020);border:1px solid var(--border2,#383838);color:var(--text,#efefef);width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;flex-shrink:0}',
+      '.lp-sh-list{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;padding:2px}',
+      '.lp-sh-list .lp-card.off{pointer-events:none}',
+      '.lp-sh-acts{display:flex;gap:6px}',
+      '.lp-cap{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:' + GOLD + ';color:#1a1200;font-size:9.5px;font-weight:900}',
+      '.lp-n{min-width:18px;text-align:center;font-size:9.5px;font-weight:900;padding:1px 4px;border-radius:5px;background:rgba(255,255,255,.06);color:var(--muted2,#888)}',
+      '.lp-n.z{opacity:.4}',
+      '.lp-tk{font-size:11px;font-weight:900;opacity:.7}',
+      '.lp-acts{display:flex;gap:5px;margin-top:11px;flex-wrap:wrap}',
+      '.lp-b{flex:1;min-width:98px;padding:9px 8px;border-radius:10px;cursor:pointer;background:var(--card3,#262626);border:1px solid var(--border2,#383838);color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:11px;font-weight:800}',
+      '.lp-b:active{background:rgba(255,255,255,.05)}',
+      '.lp-b1{background:rgba(201,160,43,.12);border-color:rgba(201,160,43,.4);color:' + GOLD2 + '}',
+      '.lp-bd{color:var(--red,#C0392B);border-color:rgba(192,57,43,.3)}',
+      '.lp-empty{text-align:center;padding:22px 12px;color:var(--muted2,#888);font-size:11.5px;line-height:1.9}',
+      '.lp-pred{border:1px solid var(--border2,#383838);background:var(--card3,#262626);color:var(--muted2,#888);white-space:nowrap}',
       '.lp-pred.on{background:rgba(201,160,43,.12);border-color:rgba(201,160,43,.42);color:' + GOLD2 + '}'
     ].join('');
     document.head.appendChild(s);
   }
 
-  /* نراقب فتح نافذة التشكيلة بدل الاستقصاء الدائم */
+  /* ═══ الكشف الكامل بالصور ═══
+     القائمة المنسدلة التي يرسمها النظام الأصلي نصّ فقط — لا صور ولا
+     تفاصيل. فنقرأ الكشف مرة واحدة لكل فريق ونحتفظ به، كي يظهر اللاعب
+     بصورته ومركزه ورقمه في منتقي اللاعبين. (onSnapshot لأن getDocs غير
+     مكشوف على window؛ ونلغيه فور وصول أول لقطة فلا يبقى مستمع مفتوح.) */
+  var _photoCache = {};   // teamId -> { اسم مطبَّع: {photo, position, number} }
+
+  function loadRosterDetails(teamId, cb) {
+    if (!teamId) { cb && cb(); return; }
+    if (_photoCache[teamId]) { cb && cb(); return; }
+    var w = window;
+    if (!w._db || !w._firestoreCollection || !w._firestoreOnSnapshot || !w._getLeagueId) { cb && cb(); return; }
+    var lid = w._getLeagueId && w._getLeagueId();
+    if (!lid) { cb && cb(); return; }
+    _photoCache[teamId] = {};   // احجز المكان فلا يتكرّر الطلب
+    try {
+      var unsub = w._firestoreOnSnapshot(
+        w._firestoreCollection(w._db, 'leagues', lid, 'teams', teamId, 'roster'),
+        function (snap) {
+          var map = {};
+          snap.forEach(function (d) {
+            var v = d.data() || {};
+            map[norm(v.name)] = {
+              photo: v.photo || '', position: v.position || '',
+              number: (v.number != null ? v.number : ''), status: v.status || 'active'
+            };
+          });
+          _photoCache[teamId] = map;
+          try { unsub && unsub(); } catch (e) {}   // لقطة واحدة تكفي
+          cb && cb();
+        },
+        function () { try { unsub && unsub(); } catch (e) {} cb && cb(); }
+      );
+    } catch (e) { cb && cb(); }
+  }
+
+  function detailsOf(name) {
+    var tid = currentTeamId();
+    var m = tid && _photoCache[tid];
+    return (m && m[norm(name)]) || {};
+  }
+
+  function avatar(name, num, size) {
+    var d = detailsOf(name), sz = size || 30;
+    if (d.photo) {
+      return '<span class="lp-av" style="width:' + sz + 'px;height:' + sz + 'px">' +
+             '<img src="' + esc(d.photo) + '" alt="" loading="lazy"/></span>';
+    }
+    var initial = String(name || '؟').trim().charAt(0) || '؟';
+    return '<span class="lp-av lp-av-t" style="width:' + sz + 'px;height:' + sz + 'px">' +
+           esc(num !== '' && num != null ? num : initial) + '</span>';
+  }
+
   function boot() {
     css();
+    hookOpener();
     new MutationObserver(function () {
+      hookOpener();                       // النظام الأصلي وحدة مؤجَّلة — قد يتأخر تعريفه
       if (!$('ddPlayersList')) return;
       wrapSave();
-      renderPredictedToggle();
-      if (!$('lpRosterPanel')) renderPanel();
+      predToggle();
+      if (!$('lpPanel')) render();
+      wireRows();
+      wirePitch();
     }).observe(document.body, { childList: true, subtree: true });
   }
 
@@ -405,5 +864,5 @@
     document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  window._lpRenderRosterPanel = renderPanel;   // للتشخيص عند الحاجة
+  window._lpRender = render;   // للتشخيص
 })();

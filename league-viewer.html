@@ -466,7 +466,21 @@ if('serviceWorker' in navigator) {
     else if (ph === 'extratime2') ref = d.et2StartedAt;
     var ms = tsMs(ref);
     if (ms == null) return d.phaseSeconds || 0;
-    return Math.max(0, Math.floor((nowMs() - ms) / 1000));
+    var secs = Math.max(0, Math.floor((nowMs() - ms) / 1000));
+    /* 🔴 انحراف بين نسختَي TimerCore — أُصلح (v338.6)
+       ─────────────────────────────────────────────────────────────
+       هذه الحماية كانت موجودة في نسخة **لوحة الإدارة** وحدها
+       (league-admin.html) وغائبة هنا. النتيجة أن مباراة نسي المنظّم
+       إنهاءها — أو أغلق الصفحة وبقيت `live` — تعرض للمنظّم ساعة
+       كحدّ أقصى، بينما يرى **الجمهور** دقائق خيالية تتراكم بلا سقف:
+       ساعات ثم أيام على شاشة «مباشر».
+       وهذا أسوأ موضع للانحراف: الجمهور أكثر من يراه، وهو من لا
+       يملك تصحيحه.
+       نُطابق نسخة الإدارة حرفياً — سقف ساعة لأي فترة واحدة (شوط
+       كامل + بدل ضائع سخيّ). */
+    var HARD_CAP = 60 * 60;
+    if (secs > HARD_CAP) return HARD_CAP;
+    return secs;
   }
 
   /* ── الحالة الكاملة للعداد — يستخدمها الأدمن والجمهور بالتساوي ──
@@ -1237,7 +1251,8 @@ if('serviceWorker' in navigator) {
   new MutationObserver(function(){hydrate();}).observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
-<script defer src="./viewer-emoji-svg.js?v=338"></script>
+<script src="./standings-core.js?v=338"></script>
+  <script defer src="./viewer-emoji-svg.js?v=338"></script>
 <script type="module" src="./viewer.js?v=338"></script>
 <script defer src="./all-fixes.js?v=338"></script>
 <script>

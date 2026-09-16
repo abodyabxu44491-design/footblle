@@ -1,0 +1,119 @@
+<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+<link rel="stylesheet" href="_admin-before.css">
+<style>
+html,body{{margin:0;background:#0d0d0d;font-family:Tajawal,-apple-system,"Segoe UI",Arial,sans-serif}}
+/* نعرض النافذة ثابتة بدل overlay ملء الشاشة كي تُصوَّر كاملة */
+.mcv2-overlay{{position:static!important;background:transparent!important;
+  backdrop-filter:none!important;display:block!important;padding:10px}}
+.mcv2-sheet{{max-height:none!important;height:auto!important}}
+.mcv2-sbody{{overflow:visible!important;max-height:none!important}}
+</style></head><body>
+<div class="mcv2-overlay"><div class="mcv2-sheet-outer">
+<div class="mcv2-sheet" style="border-color:#27ae6033">
+  
+  <div class="mcv2-sbody">
+
+    <div style="background:rgba(39,174,96,.06);border:1px solid rgba(39,174,96,.2);border-radius:10px;padding:9px 12px;margin-bottom:14px;font-size:11px;color:#7fcf9f;line-height:1.7">
+      💡 لمباراة انتهت فعلياً بدون بث مباشر — سجّل كل شيء واضغط نشر، تظهر للجمهور فوراً كمباراة منتهية.
+    </div>
+
+    <!-- التاريخ والملعب -->
+<div class="mcv2-g2">
+      <div class="mcv2-fld"><label class="mcv2-lbl">📅 التاريخ</label><input class="mcv2-inp" type="date" id="qr-date-M1" value="2026-09-16"/></div>
+      <div class="mcv2-fld"><label class="mcv2-lbl">🏟️ الملعب</label><input class="mcv2-inp" id="qr-venue-M1" value="ملعب الأمير فيصل" placeholder="ملعب الحارة"/></div>
+    </div>
+
+    <!-- النتيجة -->
+    <div class="mcv2-score-board" style="background:linear-gradient(135deg,#0d1a0d,#0d0d0d);border:1px solid #27ae6033;margin-top:10px">
+      <div style="font-size:10px;color:#555;font-weight:700;letter-spacing:.5px;margin-bottom:12px">⚽ النتيجة (الوقت الأصلي)</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px">
+        <div style="flex:1;text-align:center">
+          <div style="font-size:13px;font-weight:900;color:#eee;margin-bottom:8px">الهلال</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+            <button class="mcv2-adj mcv2-adj-m" onclick="mcv2QAdjS('M1','home',-1)">−</button>
+            <div style="font-size:44px;font-weight:900;color:#C9A02B;font-family:Tajawal,sans-serif;min-width:52px;text-align:center;line-height:1" id="qr-score-home-M1">2</div>
+            <button class="mcv2-adj mcv2-adj-p" onclick="mcv2QAdjS('M1','home',1)">+</button>
+          </div>
+        </div>
+        <div style="font-size:22px;color:#333">—</div>
+        <div style="flex:1;text-align:center">
+          <div style="font-size:13px;font-weight:900;color:#eee;margin-bottom:8px">النصر</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+            <button class="mcv2-adj mcv2-adj-m" onclick="mcv2QAdjS('M1','away',-1)">−</button>
+            <div style="font-size:44px;font-weight:900;color:#C9A02B;font-family:Tajawal,sans-serif;min-width:52px;text-align:center;line-height:1" id="qr-score-away-M1">1</div>
+            <button class="mcv2-adj mcv2-adj-p" onclick="mcv2QAdjS('M1','away',1)">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- وقت إضافي / ركلات ترجيح — للإقصاء فقط -->
+    
+    <div id="qr-et-box-M1" style="display:;margin-top:8px;padding:10px 12px;background:#161616;border-radius:10px;border:1px solid rgba(243,156,18,.2)">
+      <div style="font-size:10px;color:#D35400;margin-bottom:6px">⏱ النتيجة أعلاه تُعتبر بعد الوقت الإضافي (٩٠+١٥+١٥)</div>
+    </div>
+    <div id="qr-pen-box-M1" style="display:;margin-top:8px;padding:10px 12px;background:#161616;border-radius:10px;border:1px solid rgba(155,89,182,.25)">
+      <div style="font-size:10px;color:#9b59b6;font-weight:700;margin-bottom:10px">🥅 ركلات الترجيح — سجّل كل ركلة</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:10px;color:#aaa;text-align:center;font-weight:700;margin-bottom:6px">الهلال · <span id="qr-pen-sc-home-M1">0</span></div>
+          <div style="display:flex;gap:5px">
+            <button onclick="qrPenShot('M1','home','goal')" style="flex:1;padding:8px;border-radius:8px;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.35);color:#2ecc71;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">✅ سجّل</button>
+            <button onclick="qrPenShot('M1','home','miss')" style="flex:1;padding:8px;border-radius:8px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">❌ ضيّع</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#aaa;text-align:center;font-weight:700;margin-bottom:6px">النصر · <span id="qr-pen-sc-away-M1">0</span></div>
+          <div style="display:flex;gap:5px">
+            <button onclick="qrPenShot('M1','away','goal')" style="flex:1;padding:8px;border-radius:8px;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.35);color:#2ecc71;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">✅ سجّل</button>
+            <button onclick="qrPenShot('M1','away','miss')" style="flex:1;padding:8px;border-radius:8px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">❌ ضيّع</button>
+          </div>
+        </div>
+      </div>
+      <div id="qr-pen-list-M1" style="margin-top:10px"></div>
+      <button onclick="qrPenUndo('M1')" style="margin-top:8px;width:100%;padding:7px;border-radius:8px;background:transparent;border:1px solid #333;color:#888;font-size:10px;cursor:pointer;font-family:Tajawal,sans-serif">↩ تراجع عن آخر ركلة</button>
+    </div>
+
+    <!-- ✅︎ سجل الأهداف — يُضاف بزر (+) في لوحة النتيجة أعلاه (نفس نظام البث) -->
+    <div class="mcv2-sec" style="color:#C9A02B">⚽ سجل الأهداف</div>
+    <div id="qr-events-M1" style="background:#111;border-radius:10px;padding:8px 10px"></div>
+    <input type="hidden" id="qr-hsc-M1" value=""/>
+    <input type="hidden" id="qr-asc-M1" value=""/>
+
+    <!-- 🟨 بطاقات وتبديلات -->
+    <div class="mcv2-sec" style="color:#e67e22">بطاقات وتبديلات</div>
+    <div style="background:#111;border-radius:10px;padding:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:10px;color:#888;text-align:center;font-weight:700;margin-bottom:2px">الهلال</div>
+          <button onclick="qrAddCard('M1','home','yellow')" style="padding:8px;border-radius:9px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:#f1c40f;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#f1c40f;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة صفراء</button>
+          <button onclick="qrAddCard('M1','home','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#e74c3c;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة حمراء</button>
+          <button onclick="qrAddSub('M1','home')" style="padding:8px;border-radius:9px;background:rgba(52,152,219,.1);border:1px solid rgba(52,152,219,.3);color:#3498db;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"> تبديل</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:10px;color:#888;text-align:center;font-weight:700;margin-bottom:2px">النصر</div>
+          <button onclick="qrAddCard('M1','away','yellow')" style="padding:8px;border-radius:9px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:#f1c40f;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#f1c40f;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة صفراء</button>
+          <button onclick="qrAddCard('M1','away','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#e74c3c;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة حمراء</button>
+          <button onclick="qrAddSub('M1','away')" style="padding:8px;border-radius:9px;background:rgba(52,152,219,.1);border:1px solid rgba(52,152,219,.3);color:#3498db;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"> تبديل</button>
+        </div>
+      </div>
+      <div id="qr-cardevents-M1" style="margin-top:10px"></div>
+    </div>
+
+    <!-- الإحصائيات الكاملة (نفس تصميم صفحة البث) -->
+    <div class="mcv2-sec" style="color:#2980B9">📊 الإحصائيات الكاملة</div>
+    <div style="background:#111;border-radius:10px;padding:8px 10px"></div>
+
+    <!-- رجل المباراة + ملخص -->
+    <div class="mcv2-sec" style="color:#C9A02B">🏅 رجل المباراة</div>
+    <div class="mcv2-fld" style="display:flex;gap:8px;align-items:center">
+      <input class="mcv2-inp" id="qr-mom-M1" value="سالم الدوسري" placeholder="اسم اللاعب" style="flex:1"/>
+      <button type="button" onclick="window.openMOMPickerToField('M1','qr-mom-M1')" style="flex-shrink:0;padding:9px 12px;border-radius:10px;background:linear-gradient(145deg,#e6c157,#b8860b);border:none;color:#1a1200;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer;white-space:nowrap">🌟 اختر</button>
+    </div>
+    <div class="mcv2-sec" style="color:#666">📝 ملخص المباراة</div>
+    <div class="mcv2-fld"><textarea class="mcv2-inp" id="qr-sum-M1" rows="2" style="resize:none" placeholder="أبرز أحداث المباراة...">مباراة قوية حسمها هدف في الدقيقة 88</textarea></div>
+
+    <button class="mcv2-sbtn mcv2-sbtn-green" onclick="mcv2SaveQuickResult('M1')">🚀 نشر النتيجة للجمهور</button>
+  </div>
+</div></div></div>
+</body></html>

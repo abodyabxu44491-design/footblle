@@ -34,6 +34,7 @@ const SHELL = [
   './penalties-core.js',
   './subscription-quota.js',
   './lineup-plus.js',
+  './standings-core.js',
   './manifest.json',
   './manifest-viewer.json',
   './icon-192.png',

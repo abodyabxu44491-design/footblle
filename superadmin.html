@@ -92,6 +92,7 @@ if('serviceWorker' in navigator) {
         <div class="sb-item active" onclick="showPage('overview',this)"><span class="sb-icon">📊</span>نظرة عامة</div>
         <div class="sb-item" onclick="showPage('leagues',this)"><span class="sb-icon"><img src="icon-192.png" style="width:20px;height:20px;object-fit:contain;border-radius:5px;vertical-align:middle" alt=""/></span>البطولات<span class="sb-badge bg-gold" id="leaguesBadge">0</span></div>
         <div class="sb-item" onclick="showPage('subs',this)"><span class="sb-icon">💳</span>الاشتراكات<span class="sb-badge bg-green" id="subsBadge">0</span></div>
+        <div class="sb-item" onclick="showPage('pricing',this)"><span class="sb-icon">﷼</span> التسعير والعروض</div>
       </div>
       <div class="sb-sect">
         <div class="sb-lbl">الإدارة</div>
@@ -111,7 +112,7 @@ if('serviceWorker' in navigator) {
       <!-- ══ OVERVIEW ══ -->
       <div class="section active" id="page-overview">
         <div class="ph">
-          <div class="ph-title">📊 نظرة عامة على المنصة</div>
+          <div class="ph-title">نظرة عامة على المنصة</div>
           <div class="ph-sub" id="lastUpdate">جاري التحديث...</div>
         </div>
         <div class="stats-grid">
@@ -139,7 +140,7 @@ if('serviceWorker' in navigator) {
 
         <div class="card" style="margin-bottom:16px">
           <div class="card-hd">
-            <div class="card-title">🔴 الدوريات النشطة الآن</div>
+            <div class="card-title">الدوريات النشطة الآن</div>
             <button class="btn btn-outline btn-sm" onclick="showPage('leagues',null)">عرض الكل</button>
           </div>
           <div id="activeLeaguesQuick"><div class="loader"><div class="spin"></div></div></div>
@@ -147,7 +148,7 @@ if('serviceWorker' in navigator) {
 
         <div class="card" style="margin-bottom:16px">
           <div class="card-hd">
-            <div class="card-title">⚠️ اشتراكات تنتهي قريباً</div>
+            <div class="card-title">اشتراكات تنتهي قريباً</div>
             <button class="btn btn-outline btn-sm" onclick="showPage('subs',null)">إدارة</button>
           </div>
           <div id="expiringSubsOverview"><div class="loader"><div class="spin"></div></div></div>
@@ -173,9 +174,115 @@ if('serviceWorker' in navigator) {
       </div>
 
       <!-- ══ SUBSCRIPTIONS ══ -->
+      <!-- ══ التسعير والعروض — قسم جديد (v338.4) ══ -->
+      <div class="section" id="page-pricing">
+        <div class="ph">
+          <div class="ph-title">التسعير والعروض</div>
+          <div class="ph-sub">تحكّم كامل بأسعار صفحة الاشتراك وعروضها وأكواد الخصم</div>
+        </div>
+
+        <div class="card">
+          <div class="card-hd"><div class="card-title">الأسعار الأساسية</div></div>
+          <div class="card-bd">
+            <div class="frow">
+              <div class="fg"><label>سعر الاشتراك الشهري (﷼)</label><input class="fi" type="number" id="pr_base" min="0"/></div>
+              <div class="fg"><label>الفرق المشمولة</label><input class="fi" type="number" id="pr_teamsIncluded" min="0"/></div>
+            </div>
+            <div class="frow">
+              <div class="fg"><label>كتلة الفرق الإضافية</label><input class="fi" type="number" id="pr_teamsBlock" min="1"/></div>
+              <div class="fg"><label>سعر الكتلة (﷼)</label><input class="fi" type="number" id="pr_teamsPrice" min="0"/></div>
+            </div>
+            <div class="fhint">اجعل السعر صفراً لتصير الإضافة مجانية.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hd"><div class="card-title">اللاعبون</div></div>
+          <div class="card-bd">
+            <div class="frow">
+              <div class="fg"><label>اللاعبون المشمولون</label><input class="fi" type="number" id="pr_playersIncluded" min="0"/></div>
+              <div class="fg"><label>كتلة اللاعبين</label><input class="fi" type="number" id="pr_playersBlock" min="1"/></div>
+            </div>
+            <div class="fg"><label>سعر الكتلة (﷼)</label><input class="fi" type="number" id="pr_playersPrice" min="0"/></div>
+            <label class="pr-sw"><input type="checkbox" id="pr_playersOff"/>
+              <span>إخفاء قسم اللاعبين من صفحة الاشتراك</span></label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hd"><div class="card-title">صور اللاعبين</div></div>
+          <div class="card-bd">
+            <div class="frow">
+              <div class="fg"><label>الصور المجانية</label><input class="fi" type="number" id="pr_photoFree" min="0"/></div>
+              <div class="fg"><label>كتلة الصور</label><input class="fi" type="number" id="pr_photoBlock" min="1"/></div>
+            </div>
+            <div class="fg"><label>سعر الكتلة (﷼)</label><input class="fi" type="number" id="pr_photoPrice" min="0"/></div>
+            <label class="pr-sw"><input type="checkbox" id="pr_photosOff"/>
+              <span>إخفاء قسم الصور من صفحة الاشتراك</span></label>
+            <div class="fhint">لجعل الصور مجانية بالكامل: اجعل «سعر الكتلة» صفراً.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hd"><div class="card-title">خصم المدّة</div></div>
+          <div class="card-bd">
+            <div class="frow">
+              <div class="fg"><label>خصم ٣ أشهر (٪)</label><input class="fi" type="number" id="pr_t3" min="0" max="90"/></div>
+              <div class="fg"><label>خصم ٦ أشهر (٪)</label><input class="fi" type="number" id="pr_t6" min="0" max="90"/></div>
+            </div>
+            <div class="fg"><label>خصم السنة (٪)</label><input class="fi" type="number" id="pr_t12" min="0" max="90"/></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hd"><div class="card-title">عرض بمناسبة</div></div>
+          <div class="card-bd">
+            <label class="pr-sw"><input type="checkbox" id="pr_promoOn"/>
+              <span>تفعيل العرض على صفحة الاشتراك</span></label>
+            <div class="fg"><label>عنوان العرض</label><input class="fi" id="pr_promoTitle" placeholder="عرض اليوم الوطني"/></div>
+            <div class="fg"><label>وصف مختصر</label><input class="fi" id="pr_promoNote" placeholder="خصم إضافي على كل الاشتراكات"/></div>
+            <div class="frow">
+              <div class="fg"><label>نوع الخصم</label>
+                <select class="fs" id="pr_promoType"><option value="pct">نسبة ٪</option><option value="flat">مبلغ ﷼</option></select>
+              </div>
+              <div class="fg"><label>القيمة</label><input class="fi" type="number" id="pr_promoValue" min="0"/></div>
+            </div>
+            <div class="frow">
+              <div class="fg"><label>من تاريخ</label><input class="fi" type="date" id="pr_promoFrom"/></div>
+              <div class="fg"><label>إلى تاريخ</label><input class="fi" type="date" id="pr_promoTo"/></div>
+            </div>
+            <div class="fhint">خارج المدّة لا يظهر العرض حتى لو كان مفعّلاً.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title">أكواد الخصم</div>
+            <button class="btn btn-outline btn-sm" onclick="prAddCode()">إضافة كود</button>
+          </div>
+          <div class="card-bd"><div id="pr_codes"></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-hd"><div class="card-title">رابط صفحة الاشتراك</div></div>
+          <div class="card-bd">
+            <div class="fg"><input class="fi" id="pr_link" readonly dir="ltr"/></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-gold" style="flex:1;min-width:130px" onclick="prShareLink()">مشاركة الرابط</button>
+              <button class="btn btn-outline" style="flex:1;min-width:120px" onclick="window.open(document.getElementById('pr_link').value,'_blank')">معاينة</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:9px;margin-top:16px;flex-wrap:wrap">
+          <button class="btn btn-gold" style="flex:2;min-width:160px" onclick="savePricing()">حفظ التسعير</button>
+          <button class="btn btn-outline" style="flex:1;min-width:120px" onclick="loadPricingAdmin()">استرجاع</button>
+        </div>
+      </div>
+
       <div class="section" id="page-subs">
         <div class="ph">
-          <div class="ph-title">💳 إدارة الاشتراكات</div>
+          <div class="ph-title">إدارة الاشتراكات</div>
           <div class="ph-sub">تحكم كامل في خطط الاشتراك والمدفوعات</div>
           <div class="ph-actions">
             <button class="btn btn-gold" onclick="openModal('modal-new-sub')">➕︎ اشتراك جديد</button>
@@ -200,7 +307,7 @@ if('serviceWorker' in navigator) {
           </div>
         </div>
         <div class="card">
-          <div class="card-hd"><div class="card-title">📋 قائمة الاشتراكات</div></div>
+          <div class="card-hd"><div class="card-title">قائمة الاشتراكات</div></div>
           <div style="overflow-x:auto">
             <table class="sub-table">
               <thead>
@@ -218,12 +325,12 @@ if('serviceWorker' in navigator) {
       <!-- ══ NEW LEAGUE ══ -->
       <div class="section" id="page-new-league">
         <div class="ph">
-          <div class="ph-title">➕︎ إنشاء بطولة جديدة</div>
+          <div class="ph-title">إنشاء بطولة جديدة</div>
           <div class="ph-sub">أنشئ بطولة وأرسل الروابط وبيانات الدخول لصاحبها</div>
         </div>
 
         <div class="card">
-          <div class="card-hd"><div class="card-title">📋 معلومات البطولة</div></div>
+          <div class="card-hd"><div class="card-title">معلومات البطولة</div></div>
           <div class="card-bd">
             <div class="fg"><label>اسم البطولة <span class="required">*</span></label><input class="fi" id="nl_name" placeholder="مثال: دوري حارة الروضة"/></div>
             <div class="frow">
@@ -239,7 +346,7 @@ if('serviceWorker' in navigator) {
         </div>
 
         <div class="card" style="margin-top:14px">
-          <div class="card-hd"><div class="card-title">👤 بيانات صاحب الدوري</div></div>
+          <div class="card-hd"><div class="card-title">بيانات صاحب الدوري</div></div>
           <div class="card-bd">
             <div class="frow">
               <div class="fg"><label>الاسم <span class="required">*</span></label><input class="fi" id="nl_owner" placeholder="محمد أحمد"/></div>
@@ -255,7 +362,7 @@ if('serviceWorker' in navigator) {
         </div>
 
         <div class="card" style="margin-top:14px">
-          <div class="card-hd"><div class="card-title">💳 مدة الاشتراك</div></div>
+          <div class="card-hd"><div class="card-title">مدة الاشتراك</div></div>
           <div class="card-bd">
             <div class="dur-grid" id="nl_durations">
               <div class="dur-card selected" onclick="selectDuration(this,1,'nl')"><div class="dur-icon">📅</div><div class="dur-name">شهر</div><div class="dur-sub">1 شهر</div></div>
@@ -302,7 +409,7 @@ if('serviceWorker' in navigator) {
       <!-- ══ USERS ══ -->
       <div class="section" id="page-users">
         <div class="ph">
-          <div class="ph-title">👥 المستخدمون</div>
+          <div class="ph-title">المستخدمون</div>
           <div class="ph-sub">أصحاب الدوريات المسجلون</div>
         </div>
         <div class="card">
@@ -319,21 +426,21 @@ if('serviceWorker' in navigator) {
       <!-- ══ ANALYTICS ══ -->
       <div class="section" id="page-analytics">
         <div class="ph">
-          <div class="ph-title">📈 الإحصائيات</div>
+          <div class="ph-title">الإحصائيات</div>
           <div class="ph-sub">تحليل أداء المنصة</div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
           <div class="card">
-            <div class="card-hd"><div class="card-title">🏆 توزيع البطولات حسب النوع</div></div>
+            <div class="card-hd"><div class="card-title">توزيع البطولات حسب النوع</div></div>
             <div class="card-bd"><div class="chart-bar" id="typeChart"></div></div>
           </div>
           <div class="card">
-            <div class="card-hd"><div class="card-title">💳 حالة الاشتراكات</div></div>
+            <div class="card-hd"><div class="card-title">حالة الاشتراكات</div></div>
             <div class="card-bd"><div class="chart-bar" id="planChart"></div></div>
           </div>
         </div>
         <div class="card">
-          <div class="card-hd"><div class="card-title">📋 ملخص المنصة</div></div>
+          <div class="card-hd"><div class="card-title">ملخص المنصة</div></div>
           <div class="card-bd">
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
               <div style="text-align:center;padding:14px;background:var(--card2);border-radius:10px">
@@ -356,12 +463,12 @@ if('serviceWorker' in navigator) {
       <!-- ══ PLATFORM SETTINGS ══ -->
       <div class="section" id="page-platform">
         <div class="ph">
-          <div class="ph-title">⚙︎️ إعدادات المنصة</div>
+          <div class="ph-title">إعدادات المنصة</div>
           <div class="ph-sub">إعدادات عامة تؤثر على كل البطولات</div>
         </div>
         <div style="display:grid;gap:14px">
           <div class="card">
-            <div class="card-hd"><div class="card-title">🌐 معلومات المنصة</div></div>
+            <div class="card-hd"><div class="card-title">معلومات المنصة</div></div>
             <div class="card-bd">
               <div class="fg"><label>اسم المنصة</label><input class="fi" id="platformName" value="منصة البطولات"/></div>
               <div class="fg"><label>التوقيع الثابت على الصور</label><input class="fi" id="platformSig" value="منصة البطولات"/></div>
@@ -369,7 +476,7 @@ if('serviceWorker' in navigator) {
             </div>
           </div>
           <div class="card">
-            <div class="card-hd"><div class="card-title">🎛 إعدادات البطولات</div></div>
+            <div class="card-hd"><div class="card-title">إعدادات البطولات</div></div>
             <div class="card-bd">
               <div class="toggle-row" onclick="toggleSw(this)" data-key="allowNew"><div class="tg-info"><div class="tg-name">السماح بإنشاء بطولات جديدة</div><div class="tg-desc">إذا أُغلق لن يستطيع أحد إنشاء بطولة</div></div><div class="tg-sw on"></div></div>
               <div class="toggle-row" onclick="toggleSw(this)" data-key="publicView"><div class="tg-info"><div class="tg-name">عرض صفحة الجمهور للجميع</div><div class="tg-desc">إذا أُغلق تصبح الصفحات خاصة</div></div><div class="tg-sw on"></div></div>
@@ -378,7 +485,7 @@ if('serviceWorker' in navigator) {
             </div>
           </div>
           <div class="card">
-            <div class="card-hd"><div class="card-title">📡 خادم البث (للآلاف — مركزي)</div></div>
+            <div class="card-hd"><div class="card-title">خادم البث (للآلاف — مركزي)</div></div>
             <div class="card-bd">
               <p style="color:#8a93a5;font-size:12.5px;line-height:1.7;margin:0 0 12px">
                 اضبطه <b>مرة واحدة</b> ويسري على <b>كل البطولات تلقائياً</b>. المذيع في أي بطولة يضغط «بدء البث» فقط — لا يرى أي إعداد.
@@ -395,12 +502,12 @@ if('serviceWorker' in navigator) {
       <!-- ══ SECURITY ══ -->
       <div class="section" id="page-security">
         <div class="ph">
-          <div class="ph-title">🔒 الأمان</div>
+          <div class="ph-title">الأمان</div>
           <div class="ph-sub">حماية المنصة والحسابات</div>
         </div>
         <div style="display:grid;gap:14px">
           <div class="card">
-            <div class="card-hd"><div class="card-title">🔑 تغيير كلمة مرور Super Admin</div></div>
+            <div class="card-hd"><div class="card-title">تغيير كلمة مرور Super Admin</div></div>
             <div class="card-bd">
               <div class="fg"><label>كلمة المرور الجديدة</label><input class="fi" type="password" id="newPass1" placeholder="••••••••"/></div>
               <div class="fg"><label>تأكيد كلمة المرور</label><input class="fi" type="password" id="newPass2" placeholder="••••••••"/></div>
@@ -408,7 +515,7 @@ if('serviceWorker' in navigator) {
             </div>
           </div>
           <div class="card">
-            <div class="card-hd"><div class="card-title">📧 بريد Super Admin الحالي</div></div>
+            <div class="card-hd"><div class="card-title">بريد Super Admin الحالي</div></div>
             <div class="card-bd">
               <div style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;font-size:12px;font-family:monospace" id="currentAdminEmail">—</div>
               <div class="fhint" style="margin-top:8px">لتغيير البريد يجب إعادة الإعداد من Firebase Console</div>

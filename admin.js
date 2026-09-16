@@ -1226,26 +1226,26 @@ window.openChangePassword = function() {
   ov.id = 'cpw-ov';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
   ov.innerHTML = `
-    <div style="background:#141414;border:1px solid #2a2a2a;border-radius:18px;padding:22px;width:100%;max-width:380px" onclick="event.stopPropagation()">
-      <div style="font-size:16px;font-weight:900;color:#eee;margin-bottom:4px;font-family:Tajawal,sans-serif">${window.Icon?window.Icon('lock',17):''} تغيير كلمة المرور</div>
-      <div style="font-size:11px;color:#888;margin-bottom:18px;font-family:Tajawal,sans-serif">${email || 'حساب إدارة الدوري'}</div>
+    <div style="background:var(--dark,#121212);border:1px solid var(--border,#2c2c2c);border-radius:18px;padding:22px;width:100%;max-width:380px" onclick="event.stopPropagation()">
+      <div style="font-size:16px;font-weight:900;color:var(--text,#efefef);margin-bottom:4px;font-family:Tajawal,sans-serif">${window.Icon?window.Icon('lock',17):''} تغيير كلمة المرور</div>
+      <div style="font-size:11px;color:var(--muted2,#888);margin-bottom:18px;font-family:Tajawal,sans-serif">${email || 'حساب إدارة الدوري'}</div>
 
-      <label style="font-size:11px;color:#888;font-family:Tajawal,sans-serif">كلمة المرور الحالية</label>
-      <input id="cpw-old" type="password" autocomplete="current-password" placeholder="••••••••" style="width:100%;margin:5px 0 14px;padding:12px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
+      <label style="font-size:11px;color:var(--muted2,#888);font-family:Tajawal,sans-serif">كلمة المرور الحالية</label>
+      <input id="cpw-old" type="password" autocomplete="current-password" placeholder="••••••••" style="width:100%;margin:5px 0 14px;padding:12px;border-radius:10px;border:1px solid var(--border2,#383838);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif"/>
 
-      <label style="font-size:11px;color:#888;font-family:Tajawal,sans-serif">كلمة المرور الجديدة (6 أحرف على الأقل)</label>
-      <input id="cpw-new1" type="password" autocomplete="new-password" placeholder="••••••••" style="width:100%;margin:5px 0 14px;padding:12px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
+      <label style="font-size:11px;color:var(--muted2,#888);font-family:Tajawal,sans-serif">كلمة المرور الجديدة (6 أحرف على الأقل)</label>
+      <input id="cpw-new1" type="password" autocomplete="new-password" placeholder="••••••••" style="width:100%;margin:5px 0 14px;padding:12px;border-radius:10px;border:1px solid var(--border2,#383838);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif"/>
 
-      <label style="font-size:11px;color:#888;font-family:Tajawal,sans-serif">تأكيد كلمة المرور الجديدة</label>
-      <input id="cpw-new2" type="password" autocomplete="new-password" placeholder="••••••••" style="width:100%;margin:5px 0 8px;padding:12px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
+      <label style="font-size:11px;color:var(--muted2,#888);font-family:Tajawal,sans-serif">تأكيد كلمة المرور الجديدة</label>
+      <input id="cpw-new2" type="password" autocomplete="new-password" placeholder="••••••••" style="width:100%;margin:5px 0 8px;padding:12px;border-radius:10px;border:1px solid var(--border2,#383838);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif"/>
 
-      <div id="cpw-err" style="font-size:11px;color:#e74c3c;min-height:16px;margin-bottom:10px;font-family:Tajawal,sans-serif"></div>
+      <div id="cpw-err" style="font-size:11px;color:var(--red,#C0392B);min-height:16px;margin-bottom:10px;font-family:Tajawal,sans-serif"></div>
 
       <div style="display:flex;gap:8px">
-        <button onclick="document.getElementById('cpw-ov').remove()" style="flex:1;padding:12px;border-radius:10px;border:1px solid #333;background:#222;color:#aaa;font-family:Tajawal,sans-serif;cursor:pointer">إلغاء</button>
+        <button onclick="document.getElementById('cpw-ov').remove()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border2,#383838);background:#222;color:var(--muted2,#888);font-family:Tajawal,sans-serif;cursor:pointer">إلغاء</button>
         <button id="cpw-save" onclick="saveNewPassword()" style="flex:2;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#F0C84A,#C9A02B);color:#000;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer">حفظ كلمة المرور</button>
       </div>
-      <div style="font-size:10px;color:#666;margin-top:12px;line-height:1.7;font-family:Tajawal,sans-serif">بعد التغيير، لن تُقبل كلمة المرور القديمة للدخول لهذه الصفحة.</div>
+      <div style="font-size:10px;color:var(--muted,#5a5a5a);margin-top:12px;line-height:1.7;font-family:Tajawal,sans-serif">بعد التغيير، لن تُقبل كلمة المرور القديمة للدخول لهذه الصفحة.</div>
     </div>`;
   ov.onclick = () => ov.remove();
   document.body.appendChild(ov);
@@ -1996,7 +1996,7 @@ function _renderForceTeamsGate(total) {
       </div>
 
       <!-- التقدّم -->
-      <div style="background:var(--card2,#1a1a1a);border:1px solid var(--border2,#2a2a2a);
+      <div style="background:var(--card2,#1a1a1a);border:1px solid var(--border2,var(--border,#2c2c2c));
                   border-radius:14px;padding:14px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted,#888);margin-bottom:8px">
           <span>التقدّم</span>
@@ -2026,14 +2026,14 @@ function _renderForceTeamsGate(total) {
 
       <!-- الفرق المضافة -->
       ${have ? `
-      <div style="background:var(--card2,#1a1a1a);border:1px solid var(--border2,#2a2a2a);
+      <div style="background:var(--card2,#1a1a1a);border:1px solid var(--border2,var(--border,#2c2c2c));
                   border-radius:14px;overflow:hidden;margin-bottom:16px">
-        <div style="padding:10px 13px;border-bottom:1px solid var(--border,#1f1f1f);
+        <div style="padding:10px 13px;border-bottom:1px solid var(--border,var(--card2,#202020));
                     font-size:11px;font-weight:800;color:var(--muted,#888)">الفرق المضافة</div>
         <div style="max-height:38vh;overflow-y:auto">
           ${teams.map((t, i) => `
             <div style="display:flex;align-items:center;gap:9px;padding:9px 13px;
-                        border-bottom:1px solid var(--border,#1f1f1f)">
+                        border-bottom:1px solid var(--border,var(--card2,#202020))">
               <span style="width:20px;font-size:10px;font-weight:800;color:var(--muted,#888);text-align:center">${i+1}</span>
               <span style="flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--text,#eee);
                            overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</span>
@@ -2088,8 +2088,8 @@ window.fgBulkOpen = function() {
   ov.id = 'fgBulkOv';
   ov.style.cssText = 'position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;justify-content:center;font-family:Tajawal,sans-serif';
   ov.innerHTML = `
-    <div style="width:100%;max-width:440px;background:var(--card,#141414);
-                border:1px solid var(--border2,#2a2a2a);border-radius:18px 18px 0 0;padding:16px">
+    <div style="width:100%;max-width:440px;background:var(--card,var(--dark,#121212));
+                border:1px solid var(--border2,var(--border,#2c2c2c));border-radius:18px 18px 0 0;padding:16px">
       <div style="font-size:14px;font-weight:900;color:var(--gold,#C9A02B);margin-bottom:5px">لصق قائمة الفرق</div>
       <div style="font-size:10.5px;color:var(--muted,#888);line-height:1.8;margin-bottom:12px">
         اسم فريق في كل سطر. الأسماء المكرّرة أو الموجودة تُتجاهَل تلقائياً.</div>
@@ -2255,7 +2255,7 @@ window._renderRosterPickButtons = function(players, inputId, excludeNames) {
         <img src="${p.photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover"></span>`;
     }
     // ظلّ لاعب — أوضح من حرف مجرّد، ويمنع اللبس بين المتشابهين بالاسم
-    return `<span style="${base}background:rgba(255,255,255,.05);border:1px solid var(--border2,#2a2a2a)">
+    return `<span style="${base}background:rgba(255,255,255,.05);border:1px solid var(--border2,var(--border,#2c2c2c))">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle cx="12" cy="8" r="3.6" fill="#6b7280"/>
         <path d="M4.5 20c0-4 3.4-6.4 7.5-6.4s7.5 2.4 7.5 6.4" fill="#6b7280"/>
@@ -2560,7 +2560,7 @@ function renderMatchCard(m) {
     <button onclick="mcv2OpenInfo('${m.id}')" style="width:100%;padding:13px;border-radius:12px;border:1px solid rgba(201,160,43,.4);background:rgba(201,160,43,.12);color:#C9A02B;font-weight:900;font-size:12.5px;cursor:pointer;font-family:Tajawal,sans-serif">
       🔓 تفعيل المباراة للجمهور
     </button>` : `
-    <div style="text-align:center;padding:10px;border-radius:12px;background:rgba(255,255,255,.03);color:#666;font-size:11px">
+    <div style="text-align:center;padding:10px;border-radius:12px;background:rgba(255,255,255,.03);color:var(--muted,#5a5a5a);font-size:11px">
       بانتظار حسم الطرف الثاني من الشجرة أولاً
     </div>`}
   </div>
@@ -2581,12 +2581,12 @@ function renderMatchCard(m) {
   <div style="padding:16px;display:flex;align-items:center;gap:10px">
     <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
       <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,.03);overflow:hidden;opacity:.7">${logoHtml(homeTeam.logo, 40, 10)}</div>
-      <div style="font-size:12px;font-weight:700;color:#999;text-align:center;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${homeTeam.name}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--muted2,#888);text-align:center;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${homeTeam.name}</div>
     </div>
     <div style="font-size:13px;font-weight:900;color:#555">VS</div>
     <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
       <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,.03);overflow:hidden;opacity:.7">${logoHtml(awayTeam.logo, 40, 10)}</div>
-      <div style="font-size:12px;font-weight:700;color:#999;text-align:center;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${awayTeam.name}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--muted2,#888);text-align:center;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${awayTeam.name}</div>
     </div>
   </div>
   <div style="padding:0 14px 14px;display:flex;gap:8px">
@@ -2661,7 +2661,7 @@ function renderMatchCard(m) {
   const displayAwayScore = m.awayScore;
 
   return `
-<div class="mcv2-card ${cardCls}" id="mcard_${m.id}" style="position:relative;background:#0e0e0e;border:1px solid ${isLive ? 'rgba(192,57,43,.3)' : '#1f1f1f'};border-radius:20px;overflow:hidden;margin-bottom:12px;box-shadow:${isLive ? '0 0 25px rgba(192,57,43,.1)' : '0 2px 10px rgba(0,0,0,.2)'}">
+<div class="mcv2-card ${cardCls}" id="mcard_${m.id}" style="position:relative;background:#0e0e0e;border:1px solid ${isLive ? 'rgba(192,57,43,.3)' : 'var(--card2,#202020)'};border-radius:20px;overflow:hidden;margin-bottom:12px;box-shadow:${isLive ? '0 0 25px rgba(192,57,43,.1)' : '0 2px 10px rgba(0,0,0,.2)'}">
 
   <!-- Header -->
   <div style="padding:12px 16px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1a1a;background:linear-gradient(135deg,#121212,#0e0e0e)">
@@ -3447,14 +3447,14 @@ window._qeOpenEventModal = async function(matchId, type, icon, teamName, side) {
   // ✅︎ خانة الصانع: فقط للهدف العادي وعند تفعيل الخيار من الإعدادات
   const _showAssist = (type === 'goal') && !!(window.settings && window.settings.showAssistPicker);
   const _assistHtml = _showAssist
-    ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border2,#2a2a2a)">
+    ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border2,var(--border,#2c2c2c))">
          <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
            <span style="font-size:14px">👟</span>
            <span style="font-size:11px;font-weight:800;color:var(--green,#27ae60)">من صنع الهدف؟</span>
            <span style="font-size:9px;color:var(--muted,#888)">(اختياري)</span>
          </div>
          <input id="qeEvAssist" placeholder="اكتب أو اختر الصانع من القائمة بالأسفل"
-           style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border2,#2a2a2a);background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
+           style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border2,var(--border,#2c2c2c));background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
          <div id="qeEvAssistBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
            <span style="font-size:11px;color:var(--muted,#888)">جارِ تحميل قائمة اللاعبين...</span>
          </div>
@@ -3464,13 +3464,13 @@ window._qeOpenEventModal = async function(matchId, type, icon, teamName, side) {
     ? `<div id="qeSubPickerBox">${window._subBuildPickerHtml ? window._subBuildPickerHtml(matchId, side) : ''}</div>`
     : `<div style="font-size:10px;color:var(--muted,#888);margin-bottom:5px">اسم اللاعب</div>
        <input id="qeEvPlayer" placeholder="اكتب أو اختر لاعباً من القائمة بالأسفل"
-         style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border2,#2a2a2a);background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
+         style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border2,var(--border,#2c2c2c));background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
        <div id="qeEvRosterBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
          <span style="font-size:11px;color:var(--muted,#888)">جارِ تحميل قائمة لاعبي ${teamName}...</span>
        </div>${_assistHtml}`;
 
   ov.innerHTML = `
-    <div style="width:100%;max-width:340px;background:var(--card,#111);border:1px solid var(--border2,#2a2a2a);border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
+    <div style="width:100%;max-width:340px;background:var(--card,#111);border:1px solid var(--border2,var(--border,#2c2c2c));border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
       <div style="font-size:15px;font-weight:900;color:var(--gold,#C9A02B);text-align:center;margin-bottom:4px">${icon} ${titles[type] || 'حدث'}</div>
       <div style="font-size:11px;color:var(--muted,#888);text-align:center;margin-bottom:12px">${teamName}</div>
 
@@ -3478,11 +3478,11 @@ window._qeOpenEventModal = async function(matchId, type, icon, teamName, side) {
 
       <div style="font-size:10px;color:var(--muted,#888);margin:10px 0 5px">الدقيقة</div>
       <input id="qeEvMinute" type="number" min="1" max="130" value="1"
-        style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border2,#2a2a2a);background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
+        style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border2,var(--border,#2c2c2c));background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
         <button onclick="document.getElementById('qeEvOverlay').remove()"
-          style="padding:11px;border-radius:9px;border:1px solid var(--border2,#2a2a2a);background:transparent;color:var(--muted,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">إلغاء</button>
+          style="padding:11px;border-radius:9px;border:1px solid var(--border2,var(--border,#2c2c2c));background:transparent;color:var(--muted,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">إلغاء</button>
         <button onclick="qeCommitEvent('${matchId}','${type}','${icon}','${String(teamName).replace(/'/g, "\\'")}','${side}')"
           style="padding:11px;border-radius:9px;border:none;background:var(--gold,#C9A02B);color:#000;font-family:Tajawal,sans-serif;font-weight:900;font-size:12px;cursor:pointer">✅︎ إضافة</button>
       </div>
@@ -3773,7 +3773,7 @@ window.deleteMatch = async function(id) {
 
   // تحذير مفصّل للمباريات المنتهية — الحذف يمسح كل شيء نهائياً
   const desc = isFin
-    ? `<b style="color:#e74c3c">${label}</b><br><br>
+    ? `<b style="color:var(--red,#C0392B)">${label}</b><br><br>
        سيتم حذف المباراة <b>نهائياً</b> بكل تفاصيلها:
        <div style="margin:10px 0;padding:10px 14px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.25);border-radius:10px;font-size:12px;line-height:2;color:#e08e8e">
          • النتيجة وكل الأهداف وأصحابها<br>
@@ -3781,7 +3781,7 @@ window.deleteMatch = async function(id) {
          • التشكيلات والإحصائيات والمعلومات
        </div>
        سيُعاد حساب الترتيب والهدّافين <b>كأن المباراة لم تُلعب أبداً</b>.<br>
-       <b style="color:#e74c3c">لا يمكن التراجع عن هذا الإجراء.</b>`
+       <b style="color:var(--red,#C0392B)">لا يمكن التراجع عن هذا الإجراء.</b>`
     : `<b>${label}</b><br><br>سيتم حذف هذه المباراة. لا يمكن التراجع.`;
 
   _showDeleteSheet(
@@ -4006,7 +4006,7 @@ window.renderZonesEditor = function() {
 
   host.innerHTML = _zoneDraft.map((r, i) => `
     <div style="margin-bottom:10px;padding:11px;background:var(--card3,#1a1a1a);
-                border:1px solid var(--border2,#2a2a2a);border-radius:11px;
+                border:1px solid var(--border2,var(--border,#2c2c2c));border-radius:11px;
                 border-right:3px solid ${r.color}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
         <input class="form-input" value="${(r.label||'').replace(/"/g,'&quot;')}"
@@ -4303,7 +4303,7 @@ window.openDeductionModal = function(teamId) {
   ov.style.cssText = 'position:fixed;inset:0;z-index:100004;background:rgba(0,0,0,.82);display:flex;align-items:flex-end;justify-content:center';
   ov.innerHTML = `
     <div style="width:100%;max-width:440px;max-height:90vh;overflow-y:auto;
-                background:var(--card,#141414);border:1px solid var(--border2,#2a2a2a);
+                background:var(--card,var(--dark,#121212));border:1px solid var(--border2,var(--border,#2c2c2c));
                 border-radius:18px 18px 0 0;padding:16px;font-family:Tajawal,sans-serif">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         <span>${(window.logoHtml||(l=>''))(t.logo, 30, 7)}</span>
@@ -4334,7 +4334,7 @@ window.openDeductionModal = function(teamId) {
         ${PRESETS.map(pr => `
           <button onclick="document.getElementById('dedReason').value='${pr}'"
             style="padding:5px 9px;border-radius:7px;cursor:pointer;background:transparent;
-                   border:1px solid var(--border2,#2a2a2a);color:var(--muted,#888);
+                   border:1px solid var(--border2,var(--border,#2c2c2c));color:var(--muted,#888);
                    font-family:Tajawal,sans-serif;font-size:10px">${pr}</button>`).join('')}
       </div>
 
@@ -4523,7 +4523,7 @@ function _adminStatRow(s, i, unit, color) {
   }
   const avatar = photo
     ? `<div style="position:relative;width:38px;height:38px;flex-shrink:0">
-         <div style="width:38px;height:38px;border-radius:50%;overflow:hidden;background:var(--card2);border:1.5px solid var(--border,#2a2a2a)">
+         <div style="width:38px;height:38px;border-radius:50%;overflow:hidden;background:var(--card2);border:1.5px solid var(--border,var(--border,#2c2c2c))">
            <img src="${photo}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">
          </div>
          ${s.teamLogo ? `<div style="position:absolute;bottom:-2px;left:-2px;width:17px;height:17px;border-radius:50%;overflow:hidden;background:var(--card);border:1.5px solid var(--card);display:flex;align-items:center;justify-content:center">${logoHtml(s.teamLogo,14,3)}</div>` : ''}
@@ -5346,7 +5346,7 @@ function _mmLogo(t) {
   if (lg) return `<span style="${base}display:flex;align-items:center;justify-content:center;font-size:26px">${lg}</span>`;
   const ch = String((t && t.name) || '؟').trim().charAt(0);
   return `<span style="${base}display:flex;align-items:center;justify-content:center;background:var(--card3,#1b1b1b);
-    border:1px solid var(--border2,#2a2a2a);font-size:18px;font-weight:900;color:var(--muted,#888)">${ch}</span>`;
+    border:1px solid var(--border2,var(--border,#2c2c2c));font-size:18px;font-weight:900;color:var(--muted,#888)">${ch}</span>`;
 }
 function _mmSide(id, side) {
   const t = id ? teams.find(x => x.id === id) : null;
@@ -5618,7 +5618,7 @@ function _qpLogo(t) {
   if (lg) return `<span style="${b}display:flex;align-items:center;justify-content:center;font-size:16px">${lg}</span>`;
   const ch = String(t.name || '؟').trim().charAt(0);
   return `<span style="${b}display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);
-    border:1px solid var(--border2,#2a2a2a);font-size:12px;font-weight:900;color:var(--muted,#888)">${ch}</span>`;
+    border:1px solid var(--border2,var(--border,#2c2c2c));font-size:12px;font-weight:900;color:var(--muted,#888)">${ch}</span>`;
 }
 
 window.qpRender = function () {
@@ -6907,7 +6907,7 @@ window.confirmDialog = function (opts) {
         <div style="font-size:15px;font-weight:900;color:${color};text-align:center;margin-bottom:8px">${o.title || 'تأكيد'}</div>
         <div style="font-size:12px;color:var(--muted2,#aaa);text-align:center;line-height:1.8;white-space:pre-line;margin-bottom:16px">${o.message || ''}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <button id="cdCancel" style="padding:12px;border-radius:10px;border:1px solid var(--border2,#2a2a2a);background:transparent;color:var(--muted,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">${o.cancelText || 'إلغاء'}</button>
+          <button id="cdCancel" style="padding:12px;border-radius:10px;border:1px solid var(--border2,var(--border,#2c2c2c));background:transparent;color:var(--muted,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">${o.cancelText || 'إلغاء'}</button>
           <button id="cdOk" style="padding:12px;border-radius:10px;border:none;background:${color};color:#fff;font-family:Tajawal,sans-serif;font-weight:900;font-size:12px;cursor:pointer">${o.confirmText || 'تأكيد'}</button>
         </div>
       </div>`;
@@ -8632,12 +8632,12 @@ window.pkOpen = async function (matchId, side, source) {
 
   const box = document.getElementById('pkRoster');
   if (box && teamId) {
-    box.innerHTML = '<span style="font-size:11px;color:#888">جارِ تحميل كشف ' + (team.name || '') + '…</span>';
+    box.innerHTML = '<span style="font-size:11px;color:var(--muted2,#888)">جارِ تحميل كشف ' + (team.name || '') + '…</span>';
     try {
       const roster = await window._loadTeamRoster(teamId);
       box.innerHTML = window._renderRosterPickButtons(roster, 'pkPlayer', null);
     } catch (e) {
-      box.innerHTML = '<span style="font-size:11px;color:#888">تعذّر تحميل الكشف — اكتب الاسم يدوياً</span>';
+      box.innerHTML = '<span style="font-size:11px;color:var(--muted2,#888)">تعذّر تحميل الكشف — اكتب الاسم يدوياً</span>';
     }
   }
 };
@@ -8759,12 +8759,12 @@ window.lpOpenOwnGoal = async function (matchId, side) {
 
   const box = document.getElementById('ogRoster');
   if (box && scorerTeamId) {
-    box.innerHTML = '<span style="font-size:11px;color:#888">جارِ تحميل كشف ' + (scorerTeam.name || '') + '…</span>';
+    box.innerHTML = '<span style="font-size:11px;color:var(--muted2,#888)">جارِ تحميل كشف ' + (scorerTeam.name || '') + '…</span>';
     try {
       const roster = await window._loadTeamRoster(scorerTeamId);
       box.innerHTML = window._renderRosterPickButtons(roster, 'ogPlayer', null);
     } catch (e) {
-      box.innerHTML = '<span style="font-size:11px;color:#888">تعذّر تحميل الكشف — اكتب الاسم يدوياً</span>';
+      box.innerHTML = '<span style="font-size:11px;color:var(--muted2,#888)">تعذّر تحميل الكشف — اكتب الاسم يدوياً</span>';
     }
   }
 };
@@ -8918,7 +8918,7 @@ window._lpLoadEventRoster = async function (matchId) {
   const m = matches.find(x => x.id === matchId) || {};
   const teamId = side === 'home' ? m.homeId : m.awayId;
   if (!teamId) { box.innerHTML = ''; return; }
-  box.innerHTML = '<span style="font-size:11px;color:#888">جارِ تحميل الكشف…</span>';
+  box.innerHTML = '<span style="font-size:11px;color:var(--muted2,#888)">جارِ تحميل الكشف…</span>';
   try {
     const roster = await window._loadTeamRoster(teamId);
     /* المطرود ببطاقة حمراء يُستبعد من البطاقات — لا يمكن أن ينال أخرى.
@@ -8927,7 +8927,7 @@ window._lpLoadEventRoster = async function (matchId) {
       ? window._redCardedNames(m.events, side) : null;
     box.innerHTML = window._renderRosterPickButtons(roster, 'lp-evplayer-' + matchId, exclude);
   } catch (e) {
-    box.innerHTML = '<span style="font-size:11px;color:#888">تعذّر تحميل الكشف — اكتب الاسم يدوياً</span>';
+    box.innerHTML = '<span style="font-size:11px;color:var(--muted2,#888)">تعذّر تحميل الكشف — اكتب الاسم يدوياً</span>';
   }
 };
 
@@ -9045,7 +9045,7 @@ window._lpRenderEvents = function _lpRenderEvents(matchId) {
         <div class="lp-ev-min">${ev.minute}'</div>
         <div class="lp-ev-icon">🚫</div>
         <div class="lp-ev-desc">
-          <strong style="text-decoration:line-through;color:#888">${_pName || 'هدف بلا اسم'}</strong>
+          <strong style="text-decoration:line-through;color:var(--muted2,#888)">${_pName || 'هدف بلا اسم'}</strong>
           · ${ev.teamName || ''}
           <span style="display:block;font-size:10px;color:#D64541;font-weight:800;margin-top:2px">تم إلغاء الهدف</span>
         </div>
@@ -9091,34 +9091,34 @@ window.lpEditEvent = function(matchId, id) {
     ? st.homeId : (ev.team === 'away' || ev.side === 'away' ? st.awayId : null));
 
   const body = isSub
-    ? `<label style="font-size:11px;color:#888">الداخل ▲</label>
-       <input id="lp-ee-in" value="${(ev.playerIn||ev.player2||'').replace(/"/g,'&quot;')}" style="width:100%;margin:4px 0 12px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
-       <label style="font-size:11px;color:#888">الخارج ▼</label>
-       <input id="lp-ee-out" value="${(ev.playerOut||ev.player||'').replace(/"/g,'&quot;')}" style="width:100%;margin:4px 0 12px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>`
+    ? `<label style="font-size:11px;color:var(--muted2,#888)">الداخل ▲</label>
+       <input id="lp-ee-in" value="${(ev.playerIn||ev.player2||'').replace(/"/g,'&quot;')}" style="width:100%;margin:4px 0 12px;padding:11px;border-radius:10px;border:1px solid var(--border2,#383838);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif"/>
+       <label style="font-size:11px;color:var(--muted2,#888)">الخارج ▼</label>
+       <input id="lp-ee-out" value="${(ev.playerOut||ev.player||'').replace(/"/g,'&quot;')}" style="width:100%;margin:4px 0 12px;padding:11px;border-radius:10px;border:1px solid var(--border2,#383838);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif"/>`
     /* 🔴 كانت نافذة التعديل تقول للهدف العكسي «لا يُنسب للاعب» وتُخفي
        الحقل — فلا سبيل لتصحيح اسم من سجّله. صار يُنسب فعلاً، فيُعرض حقله
        كغيره مع توضيح أن المسجِّل من الفريق الآخر. */
-    : `<label style="font-size:11px;color:#888">${
+    : `<label style="font-size:11px;color:var(--muted2,#888)">${
           isOwn ? 'من سجّل الهدف العكسي (من الفريق الآخر)'
         : (ev.type==='goal'||ev.type==='penalty') ? 'صاحب الهدف'
         : ev.type==='penaltyMiss' ? 'منفّذ الركلة الضائعة' : 'اسم اللاعب'}</label>
-         <input id="lp-ee-player" value="${(ev.player||'').replace(/"/g,'&quot;')}" placeholder="اكتب أو اختر من القائمة" style="width:100%;margin:4px 0 8px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
+         <input id="lp-ee-player" value="${(ev.player||'').replace(/"/g,'&quot;')}" placeholder="اكتب أو اختر من القائمة" style="width:100%;margin:4px 0 8px;padding:11px;border-radius:10px;border:1px solid var(--border2,#383838);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif"/>
          <div id="lp-ee-roster" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;max-height:170px;overflow-y:auto">
-           <span style="font-size:11px;color:#666">جارِ تحميل لاعبي الفريق...</span>
+           <span style="font-size:11px;color:var(--muted,#5a5a5a)">جارِ تحميل لاعبي الفريق...</span>
          </div>`;
 
   const ov = document.createElement('div');
   ov.id = 'lp-editev-ov';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
   ov.innerHTML = `
-    <div style="background:#141414;border:1px solid #2a2a2a;border-radius:18px;padding:20px;width:100%;max-width:360px" onclick="event.stopPropagation()">
-      <div style="font-size:15px;font-weight:900;color:#eee;margin-bottom:4px;font-family:Tajawal,sans-serif">تعديل: ${typeLabel}</div>
-      <div style="font-size:11px;color:#888;margin-bottom:16px">${ev.teamName || ''}</div>
+    <div style="background:var(--dark,#121212);border:1px solid var(--border,#2c2c2c);border-radius:18px;padding:20px;width:100%;max-width:360px" onclick="event.stopPropagation()">
+      <div style="font-size:15px;font-weight:900;color:var(--text,#efefef);margin-bottom:4px;font-family:Tajawal,sans-serif">تعديل: ${typeLabel}</div>
+      <div style="font-size:11px;color:var(--muted2,#888);margin-bottom:16px">${ev.teamName || ''}</div>
       ${body}
-      <label style="font-size:11px;color:#888">الدقيقة</label>
-      <input id="lp-ee-min" type="number" value="${ev.minute || ''}" style="width:100%;margin:4px 0 16px;padding:11px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif"/>
+      <label style="font-size:11px;color:var(--muted2,#888)">الدقيقة</label>
+      <input id="lp-ee-min" type="number" value="${ev.minute || ''}" style="width:100%;margin:4px 0 16px;padding:11px;border-radius:10px;border:1px solid var(--border2,#383838);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif"/>
       <div style="display:flex;gap:8px">
-        <button onclick="document.getElementById('lp-editev-ov').remove()" style="flex:1;padding:12px;border-radius:10px;border:1px solid #333;background:#222;color:#aaa;font-family:Tajawal,sans-serif;cursor:pointer">إلغاء</button>
+        <button onclick="document.getElementById('lp-editev-ov').remove()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border2,#383838);background:#222;color:var(--muted2,#888);font-family:Tajawal,sans-serif;cursor:pointer">إلغاء</button>
         <button onclick="lpSaveEditEvent('${matchId}',${id})" style="flex:2;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#F0C84A,#C9A02B);color:#000;font-weight:900;font-family:Tajawal,sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">${window.Icon?window.Icon('save',14):''} حفظ التعديل</button>
       </div>
     </div>`;
@@ -9139,7 +9139,7 @@ window.lpEditEvent = function(matchId, id) {
       const inp = document.getElementById('lp-ee-player');
       if (!box || !inp) return;
       if (!roster || !roster.length) {
-        box.innerHTML = '<span style="font-size:11px;color:#666">لا يوجد كشف لاعبين لهذا الفريق</span>';
+        box.innerHTML = '<span style="font-size:11px;color:var(--muted,#5a5a5a)">لا يوجد كشف لاعبين لهذا الفريق</span>';
         return;
       }
       // القائمة الموحّدة نفسها (صور · صفوف · عمودان) بدل أزرار قديمة مختلفة
@@ -9530,7 +9530,7 @@ setInterval(() => {
       padding: 14px 16px; position: sticky; top: 0; z-index: 100;
     }
     .lp-close-btn {
-      background: var(--card3,#1a1a1a); border: 1px solid var(--border2,#2a2a2a);
+      background: var(--card3,#1a1a1a); border: 1px solid var(--border2,var(--border,#2c2c2c));
       color: var(--muted,#666); border-radius: 8px; padding: 7px 12px;
       font-family: Tajawal,sans-serif; font-size: 12px; cursor: pointer; white-space: nowrap;
     }
@@ -9564,7 +9564,7 @@ setInterval(() => {
     .lp-sb-toprow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .lp-status-badge {
       padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 800;
-      background: var(--card3,#1a1a1a); border: 1px solid var(--border2,#2a2a2a); color: var(--muted,#888);
+      background: var(--card3,#1a1a1a); border: 1px solid var(--border2,var(--border,#2c2c2c)); color: var(--muted,#888);
       letter-spacing: .2px;
     }
     .lp-status-badge.lp-s-live { background: rgba(220,50,50,.15); border-color: rgba(220,50,50,.4); color: #E0554a; }
@@ -9605,7 +9605,7 @@ setInterval(() => {
     .lp-btn-start { background: linear-gradient(135deg,#1a7a3a,#27ae60); border-color: #27ae60; color: #fff; }
     .lp-btn-pause { background: rgba(243,156,18,.12); border-color: rgba(243,156,18,.4); color: #E08a1e; }
     .lp-btn-resume { background: rgba(39,174,96,.15); border: 1px solid rgba(39,174,96,.5); color:#27ae60; }
-    .lp-btn-ht  { background: var(--card2,#141414); border-color: var(--border2,#2a2a2a); color: var(--text,#ccc); }
+    .lp-btn-ht  { background: var(--card2,var(--dark,#121212)); border-color: var(--border2,var(--border,#2c2c2c)); color: var(--text,#ccc); }
     .lp-btn-et  { background: rgba(243,156,18,.1); border-color: rgba(243,156,18,.35); color: #E08a1e; }
     .lp-btn-pen { background: rgba(155,89,182,.12); border-color: rgba(155,89,182,.4); color: #9b59b6; }
     .lp-btn-end { background: linear-gradient(135deg,#b3342a,#C0392B); border-color: #C0392B; color: #fff; }
@@ -9615,14 +9615,14 @@ setInterval(() => {
 
 
     /* Score controls */
-    .lp-score-controls { background: var(--card,#111); border: 1px solid var(--border2,#2a2a2a); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+    .lp-score-controls { background: var(--card,#111); border: 1px solid var(--border2,var(--border,#2c2c2c)); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
     .lp-sc-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border,#1a1a1a); }
     .lp-sc-row:last-child { border-bottom: none; }
     .lp-sc-team { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--text,#eee); flex: 1; }
     .lp-sc-btns { display: flex; gap: 8px; }
 
     /* Events grid */
-    .lp-events-grid { background: var(--card,#111); border: 1px solid var(--border2,#2a2a2a); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+    .lp-events-grid { background: var(--card,#111); border: 1px solid var(--border2,var(--border,#2c2c2c)); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
     .lp-eg-label { font-size: 11px; font-weight: 700; color: var(--muted2,#555); letter-spacing: 1px; margin-bottom: 10px; }
     .lp-eg-btns { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
     .lp-ev-btn { padding: 10px 6px; border-radius: 10px; font-family: Tajawal,sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid; text-align: center; }
@@ -9634,9 +9634,9 @@ setInterval(() => {
     .lp-ev-var { background: rgba(127,140,141,.08); border-color: rgba(127,140,141,.25); color: #7f8c8d; }
 
     /* Events log */
-    .lp-events-log { background: var(--card,#111); border: 1px solid var(--border2,#2a2a2a); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+    .lp-events-log { background: var(--card,#111); border: 1px solid var(--border2,var(--border,#2c2c2c)); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
     .lp-log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 11px; font-weight: 700; color: var(--muted2,#555); }
-    .lp-clear-btn { background: transparent; border: 1px solid var(--border2,#2a2a2a); color: var(--muted,#666); border-radius: 6px; padding: 3px 8px; font-size: 10px; cursor: pointer; font-family: Tajawal,sans-serif; }
+    .lp-clear-btn { background: transparent; border: 1px solid var(--border2,var(--border,#2c2c2c)); color: var(--muted,#666); border-radius: 6px; padding: 3px 8px; font-size: 10px; cursor: pointer; font-family: Tajawal,sans-serif; }
     .lp-events-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
     .lp-ev-item { display: grid; grid-template-columns: 28px 24px 1fr 22px; align-items: center; gap: 6px; background: var(--card2,#111); border-radius: 8px; padding: 7px 8px; }
     .lp-ev-min { font-size: 10px; font-weight: 700; color: var(--gold,#C9A02B); }
@@ -9647,12 +9647,12 @@ setInterval(() => {
     .lp-no-events { text-align: center; padding: 16px; color: var(--muted,#666); font-size: 11px; }
 
     /* Stream */
-    .lp-stream-section { background: var(--card,#111); border: 1px solid var(--border2,#2a2a2a); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+    .lp-stream-section { background: var(--card,#111); border: 1px solid var(--border2,var(--border,#2c2c2c)); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
     .lp-stream-label { font-size: 11px; font-weight: 700; color: var(--muted2,#555); letter-spacing: 1px; margin-bottom: 10px; }
     .lp-platforms { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-    .lp-plt { padding: 7px 12px; border-radius: 9px; font-family: Tajawal,sans-serif; font-size: 11px; font-weight: 700; cursor: pointer; background: var(--card2,#111); border: 1px solid var(--border2,#2a2a2a); color: var(--muted,#666); transition: all .15s; }
+    .lp-plt { padding: 7px 12px; border-radius: 9px; font-family: Tajawal,sans-serif; font-size: 11px; font-weight: 700; cursor: pointer; background: var(--card2,#111); border: 1px solid var(--border2,var(--border,#2c2c2c)); color: var(--muted,#666); transition: all .15s; }
     .lp-plt.lp-plt-active, .lp-plt.sel-yt { border-color: var(--gold,#C9A02B); color: var(--gold,#C9A02B); background: var(--gold2,rgba(201,160,43,.08)); }
-    .lp-stream-input { width: 100%; box-sizing: border-box; background: var(--card2,#111); border: 1px solid var(--border2,#2a2a2a); border-radius: 10px; padding: 10px 12px; color: var(--text,#eee); font-family: Tajawal,sans-serif; font-size: 12px; margin-bottom: 6px; }
+    .lp-stream-input { width: 100%; box-sizing: border-box; background: var(--card2,#111); border: 1px solid var(--border2,var(--border,#2c2c2c)); border-radius: 10px; padding: 10px 12px; color: var(--text,#eee); font-family: Tajawal,sans-serif; font-size: 12px; margin-bottom: 6px; }
     .lp-stream-hint { font-size: 10px; color: var(--muted,#666); margin-bottom: 10px; }
     .lp-stream-activate { width: 100%; padding: 11px; background: linear-gradient(135deg,rgba(220,50,50,.15),rgba(220,50,50,.08)); border: 1px solid rgba(220,50,50,.35); border-radius: 10px; color: #C0392B; font-family: Tajawal,sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; }
     .lp-stream-active-bar { display: flex; align-items: center; gap: 8px; background: rgba(39,174,96,.08); border: 1px solid rgba(39,174,96,.25); border-radius: 10px; padding: 10px 12px; margin-top: 8px; }
@@ -9662,11 +9662,11 @@ setInterval(() => {
 
     /* Side cards */
     .lp-col-side { display: flex; flex-direction: column; gap: 12px; }
-    .lp-info-card { background: var(--card,#111); border: 1px solid var(--border2,#2a2a2a); border-radius: 14px; padding: 14px; }
+    .lp-info-card { background: var(--card,#111); border: 1px solid var(--border2,var(--border,#2c2c2c)); border-radius: 14px; padding: 14px; }
     .lp-ic-title { font-size: 11px; font-weight: 700; color: var(--gold,#C9A02B); letter-spacing: 1px; margin-bottom: 12px; }
     .lp-ic-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
     .lp-ic-row label { font-size: 10px; color: var(--muted,#666); }
-    .lp-ic-input { background: var(--card2,#111); border: 1px solid var(--border2,#2a2a2a); border-radius: 8px; padding: 8px 10px; color: var(--text,#eee); font-family: Tajawal,sans-serif; font-size: 12px; width: 100%; box-sizing: border-box; }
+    .lp-ic-input { background: var(--card2,#111); border: 1px solid var(--border2,var(--border,#2c2c2c)); border-radius: 8px; padding: 8px 10px; color: var(--text,#eee); font-family: Tajawal,sans-serif; font-size: 12px; width: 100%; box-sizing: border-box; }
     .lp-ic-input:focus { border-color: var(--gold3,#3a2e00); outline: none; }
 
     /* Lineup: تُدار خارجيًا الآن عبر أداة السحب والإفلات — بقي فقط زر فتحها + زر الحفظ العام */
@@ -9688,12 +9688,12 @@ setInterval(() => {
     .lp-atmodal-half { font-size: 11px; color: var(--muted,#666); text-align: center; }
     .lp-evmodal-row { display: flex; flex-direction: column; gap: 5px; }
     .lp-evmodal-row label { font-size: 11px; color: var(--muted,#666); }
-    .lp-evmodal-input, .lp-evmodal-sel { background: var(--card2,#111); border: 1px solid var(--border2,#2a2a2a); border-radius: 10px; padding: 10px 12px; color: var(--text,#eee); font-family: Tajawal,sans-serif; font-size: 13px; }
+    .lp-evmodal-input, .lp-evmodal-sel { background: var(--card2,#111); border: 1px solid var(--border2,var(--border,#2c2c2c)); border-radius: 10px; padding: 10px 12px; color: var(--text,#eee); font-family: Tajawal,sans-serif; font-size: 13px; }
     .lp-evmodal-btns { display: flex; gap: 10px; margin-top: 4px; }
-    .lp-evmodal-btns button { flex: 1; padding: 12px; border-radius: 12px; font-family: Tajawal,sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; background: var(--card3,#1a1a1a); border: 1px solid var(--border2,#2a2a2a); color: var(--muted,#666); }
+    .lp-evmodal-btns button { flex: 1; padding: 12px; border-radius: 12px; font-family: Tajawal,sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; background: var(--card3,#1a1a1a); border: 1px solid var(--border2,var(--border,#2c2c2c)); color: var(--muted,#666); }
     .lp-evmodal-confirm { background: linear-gradient(135deg,var(--gold2,rgba(201,160,43,.2)),var(--gold3,#3a2e00)) !important; border-color: var(--gold,#C9A02B) !important; color: var(--gold,#C9A02B) !important; flex: 2 !important; }
     .lp-atmodal-quick { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
-    .lp-atmodal-quick button { background: var(--card3,#1a1a1a); border: 1px solid var(--border2,#2a2a2a); border-radius: 10px; padding: 10px; font-size: 14px; font-weight: 900; color: var(--text,#eee); font-family: Tajawal,sans-serif; cursor: pointer; }
+    .lp-atmodal-quick button { background: var(--card3,#1a1a1a); border: 1px solid var(--border2,var(--border,#2c2c2c)); border-radius: 10px; padding: 10px; font-size: 14px; font-weight: 900; color: var(--text,#eee); font-family: Tajawal,sans-serif; cursor: pointer; }
 
     @keyframes pulse {
       0%,100% { opacity: 1; } 50% { opacity: .4; }
@@ -9918,7 +9918,7 @@ window._penPickShooter = function(matchId, side, result) {
   const btns = players.length
     ? players.map(p => `<button onclick="window._penChoose('${matchId}','${side}','${result}','${String(p.name).replace(/'/g,"\\'")}')"
         style="display:flex;align-items:center;gap:6px;padding:9px 10px;border-radius:9px;
-        border:1px solid var(--border2,#2a2a2a);background:var(--card2,#1a1a1a);color:var(--text,#eee);
+        border:1px solid var(--border2,var(--border,#2c2c2c));background:var(--card2,#1a1a1a);color:var(--text,#eee);
         font-family:Tajawal,sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-align:right;width:100%">
         <span style="min-width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:5px;background:rgba(255,255,255,.06);font-size:10px;font-weight:900;color:var(--gold,#C9A02B)">${p.number||'—'}</span>
         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>
@@ -9929,12 +9929,12 @@ window._penPickShooter = function(matchId, side, result) {
   ov.id = 'penPickOverlay';
   ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:18px';
   ov.innerHTML = `
-    <div style="width:100%;max-width:320px;background:var(--card,#111);border:1px solid var(--border2,#2a2a2a);border-radius:16px;padding:16px;font-family:Tajawal,sans-serif;max-height:80vh;display:flex;flex-direction:column">
+    <div style="width:100%;max-width:320px;background:var(--card,#111);border:1px solid var(--border2,var(--border,#2c2c2c));border-radius:16px;padding:16px;font-family:Tajawal,sans-serif;max-height:80vh;display:flex;flex-direction:column">
       <div style="font-size:14px;font-weight:900;color:${resColor};text-align:center;margin-bottom:2px">${resLabel} الركلة</div>
       <div style="font-size:11px;color:var(--muted,#888);text-align:center;margin-bottom:12px">اختر اللاعب (أو تخطَّ)</div>
       <div style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1">${btns}</div>
       <button onclick="window._penChoose('${matchId}','${side}','${result}','')"
-        style="margin-top:12px;padding:10px;border-radius:9px;border:1px solid var(--border2,#2a2a2a);background:transparent;color:var(--muted,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">
+        style="margin-top:12px;padding:10px;border-radius:9px;border:1px solid var(--border2,var(--border,#2c2c2c));background:transparent;color:var(--muted,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">
         تخطّي (بدون اسم)
       </button>
     </div>`;
@@ -10176,17 +10176,17 @@ window.lpOpenPauseReason = function(matchId) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px">
         ${window.LP_PAUSE_REASONS.map(r => `
           <button type="button" onclick="lpPickPauseReason('${r.label}')"
-            style="padding:10px 6px;border-radius:10px;border:1px solid var(--border2,#2a2a2a);background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer;text-align:center">
+            style="padding:10px 6px;border-radius:10px;border:1px solid var(--border2,var(--border,#2c2c2c));background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer;text-align:center">
             <div style="margin-bottom:4px;display:flex;justify-content:center">${_ic(r.icon,18)}</div>${r.label}
           </button>`).join('')}
       </div>
 
       <input id="lpPauseReasonInput" maxlength="60" placeholder="أو اكتب سبباً آخر..."
-        style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border2,#2a2a2a);background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
+        style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border2,var(--border,#2c2c2c));background:var(--card2,#1a1a1a);color:var(--text,#eee);font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
         <button onclick="lpConfirmPause('${matchId}', true)"
-          style="padding:12px;border-radius:10px;border:1px solid var(--border2,#2a2a2a);background:transparent;color:var(--muted,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">تخطّي</button>
+          style="padding:12px;border-radius:10px;border:1px solid var(--border2,var(--border,#2c2c2c));background:transparent;color:var(--muted,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">تخطّي</button>
         <button onclick="lpConfirmPause('${matchId}', false)"
           style="padding:12px;border-radius:10px;border:none;background:#D35400;color:#fff;font-family:Tajawal,sans-serif;font-weight:900;font-size:12px;cursor:pointer">⏸️ إيقاف</button>
       </div>
@@ -10924,8 +10924,8 @@ function _injectV2CSS() {
 
     /* ══ Stats ══ */
     .lp-stats-card {
-      background:var(--card2,#161616);
-      border:1px solid var(--border2,#2a2a2a);
+      background:var(--card2,var(--card,#1a1a1a));
+      border:1px solid var(--border2,var(--border,#2c2c2c));
       border-radius:14px; padding:14px; margin:10px 0;
     }
     .lp-stats-header {
@@ -10952,7 +10952,7 @@ function _injectV2CSS() {
     .lp-stat-side-away { flex-direction:row-reverse; }
     .lp-stat-btn {
       width:26px; height:26px; border-radius:6px;
-      background:var(--card3,#1a1a1a); border:1px solid var(--border2,#2a2a2a);
+      background:var(--card3,#1a1a1a); border:1px solid var(--border2,var(--border,#2c2c2c));
       color:var(--text,#eee); font-size:14px; font-weight:900; cursor:pointer;
       display:flex; align-items:center; justify-content:center; line-height:1;
       font-family:Tajawal,sans-serif;
@@ -10986,7 +10986,7 @@ function _injectV2CSS() {
     .lp-pen-vs { font-size:13px; color:var(--muted,#666); font-weight:700; }
     .lp-pen-undo-btn {
       width:100%; margin-top:10px; padding:8px; background:var(--card3,#1a1a1a);
-      border:1px solid var(--border2,#2a2a2a); border-radius:8px;
+      border:1px solid var(--border2,var(--border,#2c2c2c)); border-radius:8px;
       color:var(--muted,#666); font-size:11px; cursor:pointer; font-family:Tajawal,sans-serif;
     }
     .lp-pen-goal  { color:#27ae60; }
@@ -11143,50 +11143,95 @@ async function checkSubscription() {
 }
 
 // ══ عرض تفاصيل الاشتراك في صفحة الإعدادات ══
+/* ═══════════════════════════════════════════════════════════════════
+ *  لوحة الاشتراك — أُعيد بناؤها (v338.4)
+ *  ─────────────────────────────────────────────────────────────────
+ *  عطلان كانا يُفرغان «الأيام المتبقية»:
+ *    ① شريط التقدّم كان يبني التواريخ بـ new Date(sub.startDate) مباشرة.
+ *       صيغة "YYYY-MM-DD" تُفسَّر UTC بينما المقارنة محلية، و"DD/MM/YYYY"
+ *       ترجع Invalid Date — فيخرج pct = NaN ويختفي الشريط. نستعمل
+ *       _subEndLocal الموجود أصلاً فتتوحّد الصيغة في كل المسارات.
+ *    ② الحالة 'expired' لم تكن مُعالَجة: اشتراك موسوم منتهياً وتاريخه
+ *       لم يحن بعد كان يظهر «نشط» بأيام موجبة.
+ *  والتصميم صار خطّاً زمنياً: الرقم بطلاً، والتواريخ طرفَي الخطّ.
+ * ═══════════════════════════════════════════════════════════════════ */
 function renderSubscriptionInfo(sub, diff) {
-  const statusEl = document.getElementById('subInfoStatus');
-  const startEl  = document.getElementById('subInfoStart');
-  const endEl    = document.getElementById('subInfoEnd');
-  const daysEl   = document.getElementById('subInfoDays');
-  const barEl    = document.getElementById('subInfoBar');
-  const noteEl   = document.getElementById('subInfoNote');
-  if(!statusEl) return;
+  const $g = (id) => document.getElementById(id);
+  const statusEl = $g('subInfoStatus'), startEl = $g('subInfoStart'),
+        endEl    = $g('subInfoEnd'),    daysEl  = $g('subInfoDays'),
+        barEl    = $g('subInfoBar'),    noteEl  = $g('subInfoNote'),
+        unitEl   = $g('subInfoUnit'),   dotEnd  = $g('subInfoDotEnd');
+  if (!statusEl) return;
 
-  if(!sub) {
-    statusEl.textContent = '⚠️ لا يوجد اشتراك';
-    statusEl.style.color = 'var(--red)';
-    startEl.textContent = '—';
-    endEl.textContent = '—';
-    daysEl.textContent = '—';
-    if(barEl) barEl.style.width = '0%';
-    if(noteEl) noteEl.textContent = 'تواصل مع مسؤول المنصة لتفعيل اشتراك لهذه البطولة.';
+  const setAll = (num, unit, state, color, note, pct) => {
+    if (daysEl)   { daysEl.textContent = num; daysEl.style.color = color; }
+    if (unitEl)   unitEl.textContent = unit;
+    if (statusEl) {
+      statusEl.textContent = state;
+      statusEl.style.color = color;
+      statusEl.style.borderColor = color;
+      statusEl.style.background = 'transparent';
+    }
+    if (barEl)  { barEl.style.width = (pct || 0) + '%'; barEl.style.background = color; }
+    if (dotEnd) dotEnd.style.background = color;
+    if (noteEl) noteEl.textContent = note;
+  };
+
+  if (!sub) {
+    if (startEl) startEl.textContent = '—';
+    if (endEl)   endEl.textContent   = '—';
+    setAll('—', 'بلا اشتراك', 'غير مفعّل', 'var(--red)',
+           'تواصل مع مسؤول المنصة لتفعيل اشتراك لهذه البطولة.', 0);
     return;
   }
 
-  const d = typeof diff === 'number' ? diff : 999;
-  let statusText = '🟢 نشط', statusColor = 'var(--green)';
-  if(sub.status === 'cancelled') { statusText = '⚫ ملغى'; statusColor = 'var(--muted2)'; }
-  else if(d <= 0) { statusText = '🔴 منتهي'; statusColor = 'var(--red)'; }
-  else if(d <= 7) { statusText = '⚠️ ينتهي قريباً'; statusColor = 'var(--orange)'; }
+  const fmt = (v) => {
+    const d = window._subEndLocal(v);
+    if (!d || isNaN(d)) return (v || '—');
+    return d.getFullYear() + '-' +
+           String(d.getMonth() + 1).padStart(2, '0') + '-' +
+           String(d.getDate()).padStart(2, '0');
+  };
+  if (startEl) startEl.textContent = fmt(sub.startDate);
+  if (endEl)   endEl.textContent   = fmt(sub.endDate);
 
-  statusEl.textContent = statusText;
-  statusEl.style.color = statusColor;
-  startEl.textContent = sub.startDate || '—';
-  endEl.textContent = sub.endDate || '—';
-  daysEl.textContent = d > 0 && d < 999 ? d + ' يوم' : (d <= 0 ? 'منتهي' : '—');
-  daysEl.style.color = statusColor;
+  const d = (typeof diff === 'number' && isFinite(diff))
+    ? diff
+    : window._subDaysLeft(sub.endDate);
 
-  if(barEl && sub.startDate && sub.endDate) {
-    const total = (new Date(sub.endDate) - new Date(sub.startDate)) / (1000*60*60*24);
-    const passed = (now => now - new Date(sub.startDate))(new Date()) / (1000*60*60*24);
-    const pct = total > 0 ? Math.min(100, Math.max(0, (passed / total) * 100)) : 0;
-    barEl.style.width = pct + '%';
-    barEl.style.background = statusColor;
+  // ② الحالة المعلنة تسبق الحساب — الملغى والمنتهي لا يُعرضان نشطَين
+  if (sub.status === 'cancelled') {
+    setAll('—', 'اشتراك ملغى', 'ملغى', 'var(--muted2)',
+           'أُلغي هذا الاشتراك. تواصل مع مسؤول المنصة.', 100);
+    return;
   }
-  if(noteEl) {
-    noteEl.textContent = d <= 7 && d > 0
-      ? 'اشتراكك على وشك الانتهاء — تواصل مع مسؤول المنصة للتجديد.'
-      : (d <= 0 ? 'انتهى الاشتراك — تواصل مع مسؤول المنصة للتجديد فوراً.' : 'اشتراكك نشط وكل شيء يعمل بشكل طبيعي.');
+  if (sub.status === 'expired' || d <= 0) {
+    const late = d < 0 ? Math.abs(d) : 0;
+    setAll(late ? late : '0', late ? 'يوم على الانتهاء' : 'ينتهي اليوم', 'منتهي',
+           'var(--red)', 'انتهى الاشتراك — تواصل مع مسؤول المنصة للتجديد فوراً.', 100);
+    return;
+  }
+
+  // ① نسبة التقدّم بتواريخ محلية موحّدة
+  let pct = 0;
+  const st = window._subEndLocal(sub.startDate), en = window._subEndLocal(sub.endDate);
+  if (st && en && !isNaN(st) && !isNaN(en) && en > st) {
+    pct = Math.min(100, Math.max(0, ((Date.now() - st.getTime()) / (en.getTime() - st.getTime())) * 100));
+  }
+
+  if (d >= 999) {
+    setAll('∞', 'بلا تاريخ انتهاء', 'نشط', 'var(--green)',
+           'اشتراك مفتوح بلا تاريخ انتهاء محدّد.', 0);
+    return;
+  }
+  const unit = d === 1 ? 'يوم واحد متبقٍّ' : (d === 2 ? 'يومان متبقيان'
+             : (d <= 10 ? 'أيام متبقية' : 'يوماً متبقياً'));
+  if (d <= 7) {
+    setAll(d, unit, 'ينتهي قريباً', 'var(--orange)',
+           'اشتراكك على وشك الانتهاء — تواصل مع مسؤول المنصة للتجديد.', pct);
+  } else {
+    setAll(d, unit, 'نشط', 'var(--green)',
+           'اشتراكك نشط وكل شيء يعمل بشكل طبيعي.', pct);
   }
 }
 
@@ -13225,7 +13270,7 @@ window.adminOpenStatusPicker = function(groupId, teamId) {
   ov.style.cssText = 'position:fixed;inset:0;z-index:100003;background:rgba(0,0,0,.82);display:flex;align-items:flex-end;justify-content:center';
   ov.innerHTML = `
     <div style="width:100%;max-width:440px;max-height:88vh;overflow-y:auto;
-                background:var(--card,#141414);border:1px solid var(--border2,#2a2a2a);
+                background:var(--card,var(--dark,#121212));border:1px solid var(--border2,var(--border,#2c2c2c));
                 border-radius:18px 18px 0 0;padding:16px;font-family:Tajawal,sans-serif">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
         <span style="font-size:20px">${typeof logoHtml === 'function' ? logoHtml(t.logo, 30, 7) : ''}</span>
@@ -13249,7 +13294,7 @@ window.adminOpenStatusPicker = function(groupId, teamId) {
           style="display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:11px;
                  padding:11px 12px;margin-bottom:7px;border-radius:11px;cursor:pointer;
                  background:${on ? s.color + '14' : 'var(--card3,#1a1a1a)'};
-                 border:1px solid ${on ? s.color + '5c' : 'var(--border2,#2a2a2a)'}">
+                 border:1px solid ${on ? s.color + '5c' : 'var(--border2,var(--border,#2c2c2c))'}">
           <span style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;
                        justify-content:center;background:${s.color}1a;border:1px solid ${s.color}3d">
             ${_statusIcon(s, 16)}</span>
@@ -13258,7 +13303,7 @@ window.adminOpenStatusPicker = function(groupId, teamId) {
             <div style="font-size:9.5px;color:var(--muted,#888);margin-top:2px">${s.desc}</div>
           </div>
           <span style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-                       border:1.5px solid ${on ? s.color : 'var(--border2,#2a2a2a)'};
+                       border:1.5px solid ${on ? s.color : 'var(--border2,var(--border,#2c2c2c))'};
                        background:${on ? s.color : 'transparent'}">
             ${on && window.Icon ? window.Icon('check', 11, '#fff') : ''}</span>
         </div>`;
@@ -13494,11 +13539,11 @@ window.openGroupAssign = function (groupId) {
   ov.id = 'gaOverlay';
   ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);display:flex;align-items:flex-end;justify-content:center;padding:0';
   ov.innerHTML = `
-    <div style="width:100%;max-width:520px;background:var(--card,#111);border:1px solid var(--border2,#2a2a2a);border-radius:20px 20px 0 0;padding:18px;max-height:86vh;display:flex;flex-direction:column;font-family:Tajawal,sans-serif">
+    <div style="width:100%;max-width:520px;background:var(--card,#111);border:1px solid var(--border2,var(--border,#2c2c2c));border-radius:20px 20px 0 0;padding:18px;max-height:86vh;display:flex;flex-direction:column;font-family:Tajawal,sans-serif">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <div style="font-size:16px;font-weight:900;color:var(--gold,#C9A02B)">${g.icon || '👥'} ${g.name}</div>
         <button onclick="document.getElementById('gaOverlay').remove()"
-          style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border2,#2a2a2a);background:transparent;color:var(--muted,#888);cursor:pointer;font-size:15px">✕</button>
+          style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border2,var(--border,#2c2c2c));background:transparent;color:var(--muted,#888);cursor:pointer;font-size:15px">✕</button>
       </div>
       <div style="font-size:11px;color:var(--muted,#888);margin-bottom:12px">
         اختر الفرق — <span id="gaCount" style="color:var(--gold,#C9A02B);font-weight:900">${current.size}</span>${cap ? ' / ' + cap : ''}
@@ -13508,7 +13553,7 @@ window.openGroupAssign = function (groupId) {
           const on = current.has(t.id);
           return `<button type="button" id="ga_${t.id}" onclick="gaToggle('${groupId}','${t.id}',${cap})"
             style="display:flex;align-items:center;gap:10px;padding:11px;border-radius:12px;cursor:pointer;text-align:right;
-            border:1px solid ${on ? 'var(--gold,#C9A02B)' : 'var(--border2,#2a2a2a)'};
+            border:1px solid ${on ? 'var(--gold,#C9A02B)' : 'var(--border2,var(--border,#2c2c2c))'};
             background:${on ? 'rgba(201,160,43,.12)' : 'var(--card2,#1a1a1a)'}">
             <span style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;overflow:hidden">${logoHtml(t.logo, 24, 6)}</span>
             <span style="flex:1;font-size:13px;font-weight:700;color:var(--text,#eee)">${t.name}</span>
@@ -13540,7 +13585,7 @@ window.gaToggle = function (groupId, teamId, cap) {
   const btn = document.getElementById('ga_' + teamId);
   const tick = document.getElementById('gatick_' + teamId);
   if (btn) {
-    btn.style.borderColor = on ? 'var(--gold,#C9A02B)' : 'var(--border2,#2a2a2a)';
+    btn.style.borderColor = on ? 'var(--gold,#C9A02B)' : 'var(--border2,var(--border,#2c2c2c))';
     btn.style.background = on ? 'rgba(201,160,43,.12)' : 'var(--card2,#1a1a1a)';
   }
   if (tick) tick.textContent = on ? '✅︎' : '⚪';
@@ -13714,7 +13759,7 @@ window.swissOpenStatusPicker = function(teamId) {
   ov.style.cssText = 'position:fixed;inset:0;z-index:100003;background:rgba(0,0,0,.82);display:flex;align-items:flex-end;justify-content:center';
   ov.innerHTML = `
     <div style="width:100%;max-width:440px;max-height:88vh;overflow-y:auto;
-                background:var(--card,#141414);border:1px solid var(--border2,#2a2a2a);
+                background:var(--card,var(--dark,#121212));border:1px solid var(--border2,var(--border,#2c2c2c));
                 border-radius:18px 18px 0 0;padding:16px;font-family:Tajawal,sans-serif">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
         <span>${(window.logoHtml||(l=>''))(t.logo, 30, 7)}</span>
@@ -13736,7 +13781,7 @@ window.swissOpenStatusPicker = function(teamId) {
           style="display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:11px;
                  padding:11px 12px;margin-bottom:7px;border-radius:11px;cursor:pointer;
                  background:${on ? st.color + '14' : 'var(--card3,#1a1a1a)'};
-                 border:1px solid ${on ? st.color + '5c' : 'var(--border2,#2a2a2a)'}">
+                 border:1px solid ${on ? st.color + '5c' : 'var(--border2,var(--border,#2c2c2c))'}">
           <span style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;
                        justify-content:center;background:${st.color}1a;border:1px solid ${st.color}3d">
             ${_statusIcon(st, 16)}</span>
@@ -13745,7 +13790,7 @@ window.swissOpenStatusPicker = function(teamId) {
             <div style="font-size:9.5px;color:var(--muted,#888);margin-top:2px">${st.desc}</div>
           </div>
           <span style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-                       border:1.5px solid ${on ? st.color : 'var(--border2,#2a2a2a)'};
+                       border:1.5px solid ${on ? st.color : 'var(--border2,var(--border,#2c2c2c))'};
                        background:${on ? st.color : 'transparent'}">
             ${on && window.Icon ? window.Icon('check', 11, '#fff') : ''}</span>
         </div>`;
@@ -14589,10 +14634,10 @@ function _openBracketTeamPicker(pool, roundId, slotIdx) {
   const rows = pool.length ? pool.map(t => `
     <div onclick="_adminPickBracketTeam('${roundId}',${slotIdx},'${t.id}')" style="padding:12px 14px;border-bottom:1px solid #1f2229;display:flex;gap:10px;align-items:center;cursor:pointer">
       <div style="width:26px;flex-shrink:0">${logoHtml(t.logo, 22, 5)}</div>
-      <div style="flex:1;color:#eee;font-size:13px">${t.name}</div>
-      <div style="font-size:10px;color:#888">${t.groupName}</div>
+      <div style="flex:1;color:var(--text,#efefef);font-size:13px">${t.name}</div>
+      <div style="font-size:10px;color:var(--muted2,#888)">${t.groupName}</div>
     </div>`).join('')
-    : `<div style="text-align:center;padding:30px 14px;color:#888;font-size:12px;line-height:1.8">
+    : `<div style="text-align:center;padding:30px 14px;color:var(--muted2,#888);font-size:12px;line-height:1.8">
         ${/* 🔴 الرسالة كانت تُحيل دائماً إلى «صفحة المجموعات» — وهي غير
              موجودة في «الدوري الموحّد». فالمنظّم يحدّد المتأهلين من جدول
              الترتيب ثم يفتح الخانة فتخبره أن يذهب لمكان لا وجود له. */''}
@@ -14618,7 +14663,7 @@ function _openBracketTeamPicker(pool, roundId, slotIdx) {
     <div style="background:#111318;border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:70vh;display:flex;flex-direction:column">
       <div style="padding:14px 16px;border-bottom:1px solid #1f2229;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
         <div style="color:#C9A02B;font-weight:900;font-size:13px">${title}</div>
-        <button onclick="_closeBracketPicker()" style="background:none;border:none;color:#888;font-size:18px;cursor:pointer">✕</button>
+        <button onclick="_closeBracketPicker()" style="background:none;border:none;color:var(--muted2,#888);font-size:18px;cursor:pointer">✕</button>
       </div>
       <div style="overflow-y:auto">${rows}</div>
     </div>`;
@@ -14747,14 +14792,14 @@ window.openKoSchedule = function() {
   const rows = groups.map(g => `
     <div style="margin-bottom:14px">
       <div style="font-size:10.5px;font-weight:900;color:var(--gold,#C9A02B);
-                  padding:6px 0;border-bottom:1px solid var(--border,#1f1f1f);margin-bottom:8px">
+                  padding:6px 0;border-bottom:1px solid var(--border,var(--card2,#202020));margin-bottom:8px">
         ${g.round.name} <span style="color:var(--muted,#888);font-weight:600">· ${g.ms.length} مباراة</span>
       </div>
       ${g.ms.map(m => {
         const lg = _legOf(m);
         return `
         <div style="margin-bottom:9px;padding:9px;background:var(--card3,#1a1a1a);
-                    border:1px solid var(--border2,#2a2a2a);border-radius:9px">
+                    border:1px solid var(--border2,var(--border,#2c2c2c));border-radius:9px">
           <div style="font-size:11.5px;font-weight:700;color:var(--text,#eee);margin-bottom:7px;
                       overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
             ${_nm(m.homeId, m.homeName)} <span style="color:var(--muted,#888)">ضد</span> ${_nm(m.awayId, m.awayName)}
@@ -14777,9 +14822,9 @@ window.openKoSchedule = function() {
   ov.style.cssText = 'position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,.82);display:flex;align-items:flex-end;justify-content:center';
   ov.innerHTML = `
     <div style="width:100%;max-width:520px;max-height:92vh;display:flex;flex-direction:column;
-                background:var(--card,#141414);border:1px solid var(--border2,#2a2a2a);
+                background:var(--card,var(--dark,#121212));border:1px solid var(--border2,var(--border,#2c2c2c));
                 border-radius:18px 18px 0 0;font-family:Tajawal,sans-serif">
-      <div style="flex-shrink:0;padding:15px 16px;border-bottom:1px solid var(--border,#1f1f1f)">
+      <div style="flex-shrink:0;padding:15px 16px;border-bottom:1px solid var(--border,var(--card2,#202020))">
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div>
             <div style="font-size:14px;font-weight:900;color:var(--gold,#C9A02B)">📅 مواعيد مباريات الشجرة</div>
@@ -14813,7 +14858,7 @@ window.openKoSchedule = function() {
       <div style="flex:1;overflow-y:auto;padding:14px 16px">${rows}</div>
 
       <div style="flex-shrink:0;display:grid;grid-template-columns:1fr 2fr;gap:8px;
-                  padding:12px 16px;border-top:1px solid var(--border,#1f1f1f);background:var(--card2,#161616)">
+                  padding:12px 16px;border-top:1px solid var(--border,var(--card2,#202020));background:var(--card2,var(--card,#1a1a1a))">
         <button onclick="document.getElementById('koScheduleOv').remove()"
           style="padding:12px;border-radius:10px;border:1px solid var(--border,#333);background:transparent;
                  color:var(--muted,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">إلغاء</button>
@@ -15650,7 +15695,7 @@ function injectAdminCSS() {
       width:100%; height:var(--abm-h); box-sizing:border-box; z-index:1;
       display:flex; flex-direction:column;
       background:var(--card,#0f1216);
-      border:1px solid var(--border2,#2a2a2a); border-radius:8px;
+      border:1px solid var(--border2,var(--border,#2c2c2c)); border-radius:8px;
       overflow:visible; cursor:pointer; position:relative;
       transition:border-color .15s;
     }
@@ -15660,13 +15705,13 @@ function injectAdminCSS() {
     .ab-box.ab-done { border-color:rgba(201,160,43,.24); }
     .ab-box.ab-pending { border-style:dashed; border-color:rgba(201,160,43,.32); }
     .ab-box.ab-live { border-color:rgba(192,57,43,.55); }
-    .ab-box.ab-empty { background:rgba(255,255,255,.015); border-color:var(--border,#1f1f1f); }
+    .ab-box.ab-empty { background:rgba(255,255,255,.015); border-color:var(--border,var(--card2,#202020)); }
     .ab-box.ab-waiting { cursor:default; }
 
     .ab-team { display:flex; align-items:center; gap:8px; padding:0 9px;
       flex:1 1 0; min-height:0; position:relative; }
-    .ab-sep { height:1px; background:var(--border,#1f1f1f); flex:0 0 1px; }
-    .ab-box.ab-empty .ab-team + .ab-team { border-top:1px solid var(--border,#1f1f1f); }
+    .ab-sep { height:1px; background:var(--border,var(--card2,#202020)); flex:0 0 1px; }
+    .ab-box.ab-empty .ab-team + .ab-team { border-top:1px solid var(--border,var(--card2,#202020)); }
     .ab-team.ab-winner { background:rgba(201,160,43,.09); }
     .ab-team.ab-winner .ab-name { color:var(--gold,#C9A02B); font-weight:900; }
     .ab-team.ab-winner .ab-score { color:var(--gold,#C9A02B); }
@@ -15678,7 +15723,7 @@ function injectAdminCSS() {
       align-items:center; justify-content:center; }
     .ab-logo img { width:22px; height:22px; object-fit:cover; border-radius:5px; }
     .ab-crest-tbd { width:22px; height:22px; display:flex; align-items:center; justify-content:center;
-      border-radius:5px; background:rgba(255,255,255,.04); border:1px dashed var(--border2,#2a2a2a);
+      border-radius:5px; background:rgba(255,255,255,.04); border:1px dashed var(--border2,var(--border,#2c2c2c));
       color:var(--muted,#888); opacity:.6; }
     .ab-name { flex:1; min-width:0; font-size:11.5px; font-weight:800; color:var(--text,#eee);
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -15709,7 +15754,7 @@ function injectAdminCSS() {
     .abm-third-m{font-size:15px;line-height:1}
     .abm-third-t{font-size:11px;font-weight:900;color:#C69B62}
     .abm-third-s{font-size:9px;font-weight:700;color:var(--muted,#888);
-      border:1px solid var(--border2,#2a2a2a);border-radius:20px;padding:2px 8px}
+      border:1px solid var(--border2,var(--border,#2c2c2c));border-radius:20px;padding:2px 8px}
     .abm-third .abm-grid{display:flex;justify-content:center}
 
     /* الحجم العادي: نُبطل تكبير بطاقة النهائي ونُبقي تخطيطها */
@@ -15739,8 +15784,8 @@ function injectAdminCSS() {
     .btf-third .btf-mid{padding:0 8px}
 
     /* ══ شريط المتأهلين الموحّد (بديل الشريطين المكرّرين) ══ */
-    .kq-bar { margin-bottom:14px; padding:13px 14px; background:var(--card2,#141414);
-      border:1px solid var(--border2,#2a2a2a); border-radius:12px; }
+    .kq-bar { margin-bottom:14px; padding:13px 14px; background:var(--card2,var(--dark,#121212));
+      border:1px solid var(--border2,var(--border,#2c2c2c)); border-radius:12px; }
     .kq-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
     .kq-t { font-size:12px; font-weight:800; color:var(--text,#eee); }
     .kq-s { font-size:10px; color:var(--muted,#888); margin-top:3px; line-height:1.7; }
@@ -15759,7 +15804,7 @@ function injectAdminCSS() {
     .kq-actions { display:flex; gap:7px; margin-top:11px; }
     .kq-src { flex:1; padding:10px; border-radius:9px; font-family:Tajawal,sans-serif;
       font-size:11.5px; font-weight:700; cursor:pointer;
-      border:1px solid var(--border,#1f1f1f); background:transparent; color:var(--muted,#888); }
+      border:1px solid var(--border,var(--card2,#202020)); background:transparent; color:var(--muted,#888); }
     .kq-hint { font-size:9.5px; color:var(--muted,#777); margin-top:8px; line-height:1.7; }
 
     /* بطاقة النهائي الفارغة: تحتفظ بالتخطيط الأفقي فلا تتشوّه */
@@ -15932,7 +15977,7 @@ window.enterApp = function () {
         display:flex; flex-wrap:wrap; gap:8px;
         min-height:52px; padding:10px 12px;
         background:var(--card2,#111);
-        border:2px dashed var(--border2,#2a2a2a);
+        border:2px dashed var(--border2,var(--border,#2c2c2c));
         border-radius:12px; transition:border-color .2s,background .2s;
       }
       .dnd-bank-over { border-color:var(--gold,#C9A02B) !important; background:rgba(201,160,43,.05) !important; }
@@ -15957,7 +16002,7 @@ window.enterApp = function () {
 
       /* Group card */
       .dnd-gcard {
-        background:var(--card2,#111); border:2px solid var(--border2,#2a2a2a);
+        background:var(--card2,#111); border:2px solid var(--border2,var(--border,#2c2c2c));
         border-radius:14px; overflow:hidden; transition:border-color .2s;
       }
       .dnd-gcard.dnd-over { border-color:var(--gold,#C9A02B); background:rgba(201,160,43,.03); }
@@ -16095,6 +16140,16 @@ window.enterApp = function () {
      المنظّم ترتيباً والجمهور ترتيباً آخر يهدم الثقة بالأرقام كلها.
      ═══════════════════════════════════════════════════════════════ */
   function _computeGroupStats(teamIds, groupId) {
+    /* ✅ تفويض للنواة الموحّدة (standings-core.js). ما تحتها احتياطي
+       يعمل حرفياً كما كان لو تعذّر تحميل الملف. (v338.6) */
+    if (window.StandingsCore) {
+      const _tm = (teamIds || []).map(id => (window.teams || []).find(t => t && t.id === id)).filter(Boolean);
+      return window.StandingsCore.compute({
+        teams: _tm, matches: window.matches || [], settings: window.settings || {},
+        groupId: groupId || null,
+        deduction: (tid) => (typeof _deductionOf === 'function' ? _deductionOf(tid) : 0)
+      });
+    }
     const stats = {};
     teamIds.forEach(id => { stats[id] = { pts:0, p:0, w:0, d:0, l:0, gf:0, ga:0 }; });
     (window.matches||[]).filter(m =>
@@ -16906,7 +16961,7 @@ window.openRosterModal = async function(teamId) {
       </div>
 
       <!-- Footer -->
-      <div style="padding:12px 20px;border-top:1px solid var(--border,#2a2a2a);
+      <div style="padding:12px 20px;border-top:1px solid var(--border,var(--border,#2c2c2c));
                   display:flex;gap:8px;flex-shrink:0">
         <button onclick="importRosterToLineup('${teamId}')"
           style="flex:1;padding:12px;background:var(--blue,#2980B9);color:#fff;border:none;
@@ -17135,7 +17190,7 @@ function renderRosterPlayerRow(p, teamId) {
         <!-- تعديل: يفتح ملف اللاعب الكامل (كل الحقول + الحالة + الصورة) -->
         <button onclick="editRosterPlayer('${teamId}','${p.id}')" title="تعديل بيانات اللاعب"
           style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;
-                 background:var(--card3,#2a2a2a);border:1px solid var(--border,#333);
+                 background:var(--card3,var(--border,#2c2c2c));border:1px solid var(--border,#333);
                  color:var(--text,#ddd);border-radius:8px;cursor:pointer;padding:0">
           ${window.Icon ? window.Icon('edit', 15) : '✏️'}</button>
         <!-- حذف اللاعب -->
@@ -17338,13 +17393,13 @@ window.openPhotoTrash = async function() {
     ov.id = 'photoTrashOv';
     ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:18px';
     const list = items.length
-      ? items.map(it => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border2,#2a2a2a)">
+      ? items.map(it => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border2,var(--border,#2c2c2c))">
            <span style="flex:1;font-size:10.5px;color:var(--muted,#888);direction:ltr;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.publicId||''}</span>
            <span style="font-size:10px;color:var(--text,#ddd)">${it.playerName||''}</span>
          </div>`).join('')
       : '<div style="text-align:center;padding:22px;color:var(--muted,#888);font-size:12px">السلّة فارغة — كل الصور المحذوفة أُزيلت نهائياً ✅︎</div>';
     ov.innerHTML = `
-      <div style="width:100%;max-width:380px;max-height:80vh;overflow:auto;background:var(--card,#111);border:1px solid var(--border2,#2a2a2a);border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
+      <div style="width:100%;max-width:380px;max-height:80vh;overflow:auto;background:var(--card,#111);border:1px solid var(--border2,var(--border,#2c2c2c));border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
         <div style="font-size:15px;font-weight:900;color:var(--gold,#C9A02B);text-align:center;margin-bottom:4px">🧹 سلّة الصور</div>
         <div style="font-size:10.5px;color:var(--muted,#888);text-align:center;line-height:1.8;margin-bottom:12px">
           ملفات تعذّر حذفها فوراً (انتهت صلاحية توكن الحذف).<br>
@@ -17670,7 +17725,7 @@ function _pfSection(icon, title, color) {
   return `<div style="display:flex;align-items:center;gap:7px;margin:16px 0 9px">
     <span style="display:flex;color:${c}">${_pfIc(icon, 15)}</span>
     <span style="font-size:11px;font-weight:900;color:${c};letter-spacing:.4px">${title}</span>
-    <span style="flex:1;height:1px;background:linear-gradient(90deg,var(--border2,#2a2a2a),transparent)"></span>
+    <span style="flex:1;height:1px;background:linear-gradient(90deg,var(--border2,var(--border,#2c2c2c)),transparent)"></span>
   </div>`;
 }
 
@@ -17720,13 +17775,13 @@ window.editRosterPlayer = function(teamId, playerId) {
 
   ov.innerHTML = `
     <div style="width:100%;max-width:520px;max-height:94vh;display:flex;flex-direction:column;
-      background:var(--card,#161616);border:1px solid var(--border2,#2a2a2a);
+      background:var(--card,var(--card,#1a1a1a));border:1px solid var(--border2,var(--border,#2c2c2c));
       border-radius:20px 20px 0 0;overflow:hidden;font-family:Tajawal,sans-serif">
 
       <!-- ترويسة: الصورة + الاسم + الفريق -->
       <div style="position:relative;flex-shrink:0;padding:18px 18px 14px;
         background:linear-gradient(180deg,rgba(201,160,43,.10),transparent);
-        border-bottom:1px solid var(--border,#2a2a2a)">
+        border-bottom:1px solid var(--border,var(--border,#2c2c2c))">
         <button onclick="closePlayerProfile()" title="إغلاق"
           style="position:absolute;top:12px;left:14px;background:none;border:none;
                  color:var(--muted,#888);cursor:pointer;padding:4px;display:flex">${_pfIc('close', 20)}</button>
@@ -17741,12 +17796,12 @@ window.editRosterPlayer = function(teamId, playerId) {
               onchange="pfUploadPhoto('${teamId}','${playerId}', this)">
             <button onclick="document.getElementById('pfPhotoFile').click()" title="${player.photo ? 'تغيير الصورة' : 'إضافة صورة'}"
               style="position:absolute;bottom:-2px;right:-2px;width:28px;height:28px;border-radius:50%;
-                     background:var(--gold,#C9A02B);border:2px solid var(--card,#161616);color:#000;
+                     background:var(--gold,#C9A02B);border:2px solid var(--card,var(--card,#1a1a1a));color:#000;
                      display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0">
               ${_pfIc('camera', 14)}</button>
             <button id="pfDelPhoto" onclick="pfRemovePhoto('${teamId}','${playerId}')" title="حذف الصورة"
               style="position:absolute;bottom:-2px;left:-2px;width:26px;height:26px;border-radius:50%;
-                     background:#C0392B;border:2px solid var(--card,#161616);color:#fff;
+                     background:#C0392B;border:2px solid var(--card,var(--card,#1a1a1a));color:#fff;
                      display:${player.photo ? 'flex' : 'none'};align-items:center;justify-content:center;
                      cursor:pointer;padding:0">${_pfIc('trash', 12)}</button>
           </div>
@@ -17808,7 +17863,7 @@ window.editRosterPlayer = function(teamId, playerId) {
 
       <!-- أزرار الحفظ -->
       <div style="flex-shrink:0;display:grid;grid-template-columns:1fr 2fr;gap:9px;
-        padding:13px 18px;border-top:1px solid var(--border,#2a2a2a);background:var(--card2,#1a1a1a)">
+        padding:13px 18px;border-top:1px solid var(--border,var(--border,#2c2c2c));background:var(--card2,#1a1a1a)">
         <button onclick="closePlayerProfile()"
           style="padding:12px;border-radius:11px;border:1px solid var(--border,#333);background:transparent;
                  color:var(--muted,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12.5px;cursor:pointer">
@@ -18018,7 +18073,7 @@ window.importRosterToLineup = function(teamId) {
       .mcv2-s-live { background:rgba(192,57,43,.12); border:1px solid rgba(192,57,43,.35); color:#C0392B; animation:mcv2pulse 1.5s infinite; }
       .mcv2-s-fin  { background:rgba(39,174,96,.08);  border:1px solid rgba(39,174,96,.25);  color:#27ae60; }
       .mcv2-s-ht   { background:rgba(243,156,18,.1);  border:1px solid rgba(243,156,18,.3);  color:#D35400; }
-      .mcv2-s-up   { background:rgba(136,136,136,.08);border:1px solid rgba(136,136,136,.18);color:#666; }
+      .mcv2-s-up   { background:rgba(136,136,136,.08);border:1px solid rgba(136,136,136,.18);color:var(--muted,#5a5a5a); }
 
       /* Sheet overlay */
       .mcv2-overlay {
@@ -18039,7 +18094,7 @@ window.importRosterToLineup = function(teamId) {
       .mcv2-shdr {
         display:flex;align-items:center;gap:10px;
         padding:16px 18px 12px;flex-shrink:0;
-        border-bottom:1px solid #1f1f1f;
+        border-bottom:1px solid var(--card2,#202020);
         background:linear-gradient(135deg,#111100,#0d0d0d);
       }
       .mcv2-sbody {
@@ -18049,9 +18104,9 @@ window.importRosterToLineup = function(teamId) {
       .mcv2-sbody::-webkit-scrollbar{width:3px}
       .mcv2-sbody::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
 
-      .mcv2-inp  { width:100%;background:#141414;border:1px solid #2a2a2a;border-radius:10px;padding:10px 12px;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;outline:none;box-sizing:border-box; }
+      .mcv2-inp  { width:100%;background:var(--dark,#121212);border:1px solid var(--border,#2c2c2c);border-radius:10px;padding:10px 12px;color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:13px;outline:none;box-sizing:border-box; }
       .mcv2-inp:focus { border-color:#3a3a3a; }
-      .mcv2-lbl  { font-size:10px;color:#666;font-weight:700;letter-spacing:.5px;margin-bottom:5px;display:block; }
+      .mcv2-lbl  { font-size:10px;color:var(--muted,#5a5a5a);font-weight:700;letter-spacing:.5px;margin-bottom:5px;display:block; }
       .mcv2-fld  { margin-bottom:13px; }
       /* 🔴 عنصر الشبكة لا ينكمش تحت عرض محتواه ما لم يُصرَّح min-width صفراً.
          وحقول date/time لها عرض داخلي كبير على الجوال، فكانت تفيض عن
@@ -18068,7 +18123,7 @@ window.importRosterToLineup = function(teamId) {
       .mcv2-sbtn:active{opacity:.8}
       .mcv2-sbtn-gold   { background:linear-gradient(135deg,#E8BE45,#C9A02B);color:#000; }
       .mcv2-sbtn-green  { background:linear-gradient(135deg,#27ae60,#1a8a48);color:#fff; }
-      .mcv2-sbtn-dark   { background:#1a1a1a;border:1px solid #2a2a2a;color:#888; }
+      .mcv2-sbtn-dark   { background:#1a1a1a;border:1px solid var(--border,#2c2c2c);color:var(--muted2,#888); }
 
       .mcv2-toggle-btn.mcv2-toggle-on {
         background:rgba(155,89,182,.12) !important; border-color:rgba(155,89,182,.4) !important; color:#c084fc !important;
@@ -18089,21 +18144,21 @@ window.importRosterToLineup = function(teamId) {
 
       .mcv2-status-opt {
         padding:6px 13px;border-radius:20px;font-size:11px;font-weight:700;
-        cursor:pointer;border:1px solid #2a2a2a;background:#141414;color:#555;
+        cursor:pointer;border:1px solid var(--border,#2c2c2c);background:var(--dark,#121212);color:#555;
         font-family:Tajawal,sans-serif;transition:all .15s;
       }
       .mcv2-status-flex { display:flex;gap:7px;flex-wrap:wrap; }
 
       .mcv2-ltab {
-        flex:1;padding:9px;border-radius:10px;border:1px solid #2a2a2a;
-        background:#141414;color:#666;font-family:Tajawal,sans-serif;
+        flex:1;padding:9px;border-radius:10px;border:1px solid var(--border,#2c2c2c);
+        background:var(--dark,#121212);color:var(--muted,#5a5a5a);font-family:Tajawal,sans-serif;
         font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
       }
       .mcv2-ltab.mcv2-active{border-color:#8e44adaa;color:#8e44ad;background:rgba(142,68,173,.1)}
       .mcv2-fbtn {
-        padding:5px 13px;border-radius:20px;border:1px solid #2a2a2a;
-        background:#141414;color:#666;font-family:Tajawal,sans-serif;
+        padding:5px 13px;border-radius:20px;border:1px solid var(--border,#2c2c2c);
+        background:var(--dark,#121212);color:var(--muted,#5a5a5a);font-family:Tajawal,sans-serif;
         font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;
       }
       .mcv2-fbtn.mcv2-active{border-color:#8e44adaa;color:#8e44ad;background:rgba(142,68,173,.1)}
@@ -18127,7 +18182,7 @@ window.importRosterToLineup = function(teamId) {
     return `<div class="mcv2-shdr" style="border-bottom-color:${color}22">
       <span style="font-size:20px">${icon}</span>
       <span style="flex:1;font-size:15px;font-weight:900;color:${color};font-family:Tajawal,Tajawal,sans-serif">${title}</span>
-      <button onclick="document.getElementById('${closeId}').remove()" style="background:transparent;border:1px solid #2a2a2a;border-radius:8px;color:#666;padding:4px 10px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:11px">✕ إغلاق</button>
+      <button onclick="document.getElementById('${closeId}').remove()" style="background:transparent;border:1px solid var(--border,#2c2c2c);border-radius:8px;color:var(--muted,#5a5a5a);padding:4px 10px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:11px">✕ إغلاق</button>
     </div>`;
   }
 
@@ -18222,7 +18277,7 @@ window.importRosterToLineup = function(teamId) {
   window._qrEventsHtml = function(m) {
     const evs = (Array.isArray(m.events) ? m.events : []).filter(e => e.type === 'goal' || e.type === 'own');
     if (!evs.length) {
-      return `<div style="text-align:center;padding:12px;color:#666;font-size:11px">
+      return `<div style="text-align:center;padding:12px;color:var(--muted,#5a5a5a);font-size:11px">
         لا توجد أهداف — اضغط «＋ هدف» لتسجيل هدف باسم اللاعب
       </div>`;
     }
@@ -18293,26 +18348,26 @@ window.importRosterToLineup = function(teamId) {
     ov.id = 'qrGoalOv';
     ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:18px';
     ov.innerHTML = `
-      <div style="width:100%;max-width:330px;max-height:88vh;overflow-y:auto;background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
+      <div style="width:100%;max-width:330px;max-height:88vh;overflow-y:auto;background:#111;border:1px solid var(--border,#2c2c2c);border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
         <div style="font-size:15px;font-weight:900;color:#C9A02B;text-align:center">⚽ تسجيل هدف</div>
-        <div style="font-size:11px;color:#888;text-align:center;margin-bottom:12px">${t.name}</div>
-        <div style="font-size:10px;color:#888;margin-bottom:5px">اسم اللاعب</div>
+        <div style="font-size:11px;color:var(--muted2,#888);text-align:center;margin-bottom:12px">${t.name}</div>
+        <div style="font-size:10px;color:var(--muted2,#888);margin-bottom:5px">اسم اللاعب</div>
         <input id="qrGoalPlayer" placeholder="اكتب أو اختر لاعباً من القائمة بالأسفل"
-          style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
+          style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border,#2c2c2c);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
         <div id="qrGoalRosterBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
-          <span style="font-size:11px;color:#888">جارِ تحميل قائمة لاعبي ${t.name}...</span>
+          <span style="font-size:11px;color:var(--muted2,#888)">جارِ تحميل قائمة لاعبي ${t.name}...</span>
         </div>
         ${_qrShowAssist ? `
-        <div id="qrAssistWrap" style="margin-top:12px;padding-top:12px;border-top:1px dashed #2a2a2a">
+        <div id="qrAssistWrap" style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border,#2c2c2c)">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
             <span style="font-size:14px">👟</span>
             <span style="font-size:11px;font-weight:800;color:#27ae60">من صنع الهدف؟</span>
-            <span style="font-size:9px;color:#888">(اختياري)</span>
+            <span style="font-size:9px;color:var(--muted2,#888)">(اختياري)</span>
           </div>
           <input id="qrGoalAssist" placeholder="اكتب أو اختر الصانع من القائمة بالأسفل"
-            style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
+            style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border,#2c2c2c);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
           <div id="qrGoalAssistBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
-            <span style="font-size:11px;color:#888">جارِ تحميل قائمة اللاعبين...</span>
+            <span style="font-size:11px;color:var(--muted2,#888)">جارِ تحميل قائمة اللاعبين...</span>
           </div>
         </div>` : ''}
         <button onclick="qrCommitOwnGoal('${matchId}','${side}','${String(t.name).replace(/'/g,"\\'")}')"
@@ -18321,12 +18376,12 @@ window.importRosterToLineup = function(teamId) {
           style="width:100%;margin-top:7px;padding:11px;border-radius:9px;border:1px solid rgba(155,89,182,.45);background:rgba(155,89,182,.12);color:#9B59B6;font-family:Tajawal,sans-serif;font-weight:800;font-size:12px;cursor:pointer">🎯 ركلة جزاء (سجّلها أو أضاعها)</button>
         <button onclick="qrCommitNoName('${matchId}','${side}','${String(t.name).replace(/'/g,"\\'")}')"
           style="width:100%;margin-top:7px;padding:11px;border-radius:9px;border:1px solid rgba(201,160,43,.45);background:rgba(201,160,43,.12);color:#C9A02B;font-family:Tajawal,sans-serif;font-weight:800;font-size:12px;cursor:pointer">⚽ هدف بلا اسم (لا يُنسب لأحد)</button>
-        <div style="font-size:10px;color:#888;margin:10px 0 5px">الدقيقة</div>
+        <div style="font-size:10px;color:var(--muted2,#888);margin:10px 0 5px">الدقيقة</div>
         <input id="qrGoalMinute" type="number" min="1" max="130" value="1"
-          style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
+          style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border,#2c2c2c);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
           <button onclick="document.getElementById('qrGoalOv').remove()"
-            style="padding:11px;border-radius:9px;border:1px solid #2a2a2a;background:transparent;color:#888;font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">إلغاء</button>
+            style="padding:11px;border-radius:9px;border:1px solid var(--border,#2c2c2c);background:transparent;color:var(--muted2,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">إلغاء</button>
           <button onclick="qrCommitGoal('${matchId}','${side}','${String(t.name).replace(/'/g,"\\'")}')"
             style="padding:11px;border-radius:9px;border:none;background:#27ae60;color:#fff;font-family:Tajawal,sans-serif;font-weight:900;font-size:12px;cursor:pointer">✅︎ إضافة</button>
         </div>
@@ -18427,7 +18482,7 @@ window.importRosterToLineup = function(teamId) {
     const evs = (Array.isArray(m.events) ? m.events : [])
       .filter(e => e.type === 'yellow' || e.type === 'red' || e.type === 'sub');
     if (!evs.length) {
-      return `<div style="text-align:center;padding:8px;color:#666;font-size:10px">لا توجد بطاقات أو تبديلات بعد</div>`;
+      return `<div style="text-align:center;padding:8px;color:var(--muted,#5a5a5a);font-size:10px">لا توجد بطاقات أو تبديلات بعد</div>`;
     }
     return evs.map((e) => {
       const realIdx = m.events.indexOf(e);
@@ -18436,7 +18491,7 @@ window.importRosterToLineup = function(teamId) {
       const _out = window._adminLiveName ? window._adminLiveName(e.teamId, e.playerOutId || e.playerId, e.playerOut || e.player || '؟') : (e.playerOut || e.player || '؟');
       const _in  = window._adminLiveName ? window._adminLiveName(e.teamId, e.playerInId, e.playerIn || e.player2 || '؟') : (e.playerIn || e.player2 || '؟');
       let ic = _card('#f1c40f'), body = _nm;
-      if (e.type === 'red') ic = _card('#e74c3c');
+      if (e.type === 'red') ic = _card('var(--red,#C0392B)');
       if (e.type === 'sub') {
         ic = window.Icon ? window.Icon('refresh', 13) : '';
         body = `<span style="color:#e05252">${window.Icon?window.Icon('download',10):''} ${_out}</span> <span style="color:#2ecc71">${window.Icon?window.Icon('upload',10):''} ${_in}</span>`;
@@ -18468,28 +18523,28 @@ window.importRosterToLineup = function(teamId) {
     const teamId = side === 'home' ? m.homeId : m.awayId;
     const icon = cardType === 'red' ? '🟥' : '🟨';
     const label = cardType === 'red' ? 'بطاقة حمراء' : 'بطاقة صفراء';
-    const color = cardType === 'red' ? '#e74c3c' : '#f1c40f';
+    const color = cardType === 'red' ? 'var(--red,#C0392B)' : '#f1c40f';
 
     document.getElementById('qrCardOv')?.remove();
     const ov = document.createElement('div');
     ov.id = 'qrCardOv';
     ov.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:18px';
     ov.innerHTML = `
-      <div style="width:100%;max-width:330px;max-height:88vh;overflow-y:auto;background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
+      <div style="width:100%;max-width:330px;max-height:88vh;overflow-y:auto;background:#111;border:1px solid var(--border,#2c2c2c);border-radius:16px;padding:16px;font-family:Tajawal,sans-serif">
         <div style="font-size:15px;font-weight:900;color:${color};text-align:center">${icon} ${label}</div>
-        <div style="font-size:11px;color:#888;text-align:center;margin-bottom:12px">${t.name}</div>
-        <div style="font-size:10px;color:#888;margin-bottom:5px">اسم اللاعب</div>
+        <div style="font-size:11px;color:var(--muted2,#888);text-align:center;margin-bottom:12px">${t.name}</div>
+        <div style="font-size:10px;color:var(--muted2,#888);margin-bottom:5px">اسم اللاعب</div>
         <input id="qrCardPlayer" placeholder="اكتب أو اختر لاعباً"
-          style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
+          style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border,#2c2c2c);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:13px;box-sizing:border-box"/>
         <div id="qrCardRosterBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
-          <span style="font-size:11px;color:#888">جارِ التحميل...</span>
+          <span style="font-size:11px;color:var(--muted2,#888)">جارِ التحميل...</span>
         </div>
-        <div style="font-size:10px;color:#888;margin:10px 0 5px">الدقيقة</div>
+        <div style="font-size:10px;color:var(--muted2,#888);margin:10px 0 5px">الدقيقة</div>
         <input id="qrCardMinute" type="number" min="1" max="130" value="1"
-          style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
+          style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border,#2c2c2c);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
           <button onclick="document.getElementById('qrCardOv').remove()"
-            style="padding:11px;border-radius:9px;border:1px solid #2a2a2a;background:transparent;color:#888;font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">إلغاء</button>
+            style="padding:11px;border-radius:9px;border:1px solid var(--border,#2c2c2c);background:transparent;color:var(--muted2,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">إلغاء</button>
           <button onclick="qrCommitCard('${matchId}','${side}','${cardType}','${icon}','${String(t.name).replace(/'/g,"\\'")}')"
             style="padding:11px;border-radius:9px;border:none;background:${color};color:#000;font-family:Tajawal,sans-serif;font-weight:900;font-size:12px;cursor:pointer">✅︎ إضافة</button>
         </div>
@@ -18531,16 +18586,16 @@ window.importRosterToLineup = function(teamId) {
     ov.id = 'qrSubOv';
     ov.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:18px';
     ov.innerHTML = `
-      <div style="width:100%;max-width:360px;background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:16px;font-family:Tajawal,sans-serif;max-height:82vh;display:flex;flex-direction:column">
+      <div style="width:100%;max-width:360px;background:#111;border:1px solid var(--border,#2c2c2c);border-radius:16px;padding:16px;font-family:Tajawal,sans-serif;max-height:82vh;display:flex;flex-direction:column">
         <div style="font-size:15px;font-weight:900;color:#3498db;text-align:center">${window.Icon?window.Icon('refresh',15):''} تبديل لاعب</div>
-        <div style="font-size:11px;color:#888;text-align:center;margin-bottom:12px">${t.name}</div>
+        <div style="font-size:11px;color:var(--muted2,#888);text-align:center;margin-bottom:12px">${t.name}</div>
         <div style="overflow-y:auto;flex:1">${window._subBuildPickerHtml ? window._subBuildPickerHtml(matchId, side) : ''}</div>
-        <div style="font-size:10px;color:#888;margin:10px 0 5px">الدقيقة</div>
+        <div style="font-size:10px;color:var(--muted2,#888);margin:10px 0 5px">الدقيقة</div>
         <input id="qrSubMinute" type="number" min="1" max="130" value="1"
-          style="width:100%;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
+          style="width:100%;padding:10px;border-radius:9px;border:1px solid var(--border,#2c2c2c);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:13px;text-align:center;box-sizing:border-box"/>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
           <button onclick="document.getElementById('qrSubOv').remove()"
-            style="padding:11px;border-radius:9px;border:1px solid #2a2a2a;background:transparent;color:#888;font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">إلغاء</button>
+            style="padding:11px;border-radius:9px;border:1px solid var(--border,#2c2c2c);background:transparent;color:var(--muted2,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">إلغاء</button>
           <button onclick="qrCommitSub('${matchId}','${side}','${String(t.name).replace(/'/g,"\\'")}')"
             style="padding:11px;border-radius:9px;border:none;background:#3498db;color:#fff;font-family:Tajawal,sans-serif;font-weight:900;font-size:12px;cursor:pointer">✅︎ إضافة</button>
         </div>
@@ -18587,9 +18642,9 @@ window.importRosterToLineup = function(teamId) {
             const nm = (typeof r === 'object' && r && r.player) ? r.player : '';
             return `<span title="${nm}" style="font-size:13px">${g ? '✅︎' : '❌︎'}</span>`;
           }).join(' ')
-        : '<span style="font-size:10px;color:#666">—</span>';
+        : '<span style="font-size:10px;color:var(--muted,#5a5a5a)">—</span>';
       return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0">
-        <span style="font-size:10px;color:#999;min-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+        <span style="font-size:10px;color:var(--muted2,#888);min-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
         <span style="display:flex;gap:3px;flex-wrap:wrap">${dots}</span>
       </div>`;
     };
@@ -18619,27 +18674,27 @@ window.importRosterToLineup = function(teamId) {
     const lu = side === 'home' ? m.homeLineup : m.awayLineup;
     const players = (lu && Array.isArray(lu.players)) ? lu.players.filter(p => p.name) : [];
     const resLabel = result === 'goal' ? '✅ سجّل' : '❌ ضيّع';
-    const resColor = result === 'goal' ? '#2ecc71' : '#e74c3c';
+    const resColor = result === 'goal' ? '#2ecc71' : 'var(--red,#C0392B)';
 
     const btns = players.length
       ? players.map(p => `<button onclick="qrPenChoose('${matchId}','${side}','${result}','${String(p.name).replace(/'/g,"\\'")}')"
-          style="display:flex;align-items:center;gap:6px;padding:9px 10px;border-radius:9px;border:1px solid #2a2a2a;background:#1a1a1a;color:#eee;font-family:Tajawal,sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-align:right;width:100%">
+          style="display:flex;align-items:center;gap:6px;padding:9px 10px;border-radius:9px;border:1px solid var(--border,#2c2c2c);background:#1a1a1a;color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-align:right;width:100%">
           <span style="min-width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:5px;background:rgba(255,255,255,.06);font-size:10px;font-weight:900;color:#C9A02B">${p.number||'—'}</span>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>
         </button>`).join('')
-      : '<div style="font-size:11px;color:#888;text-align:center;padding:12px">لا توجد تشكيلة محفوظة — يمكنك التخطّي</div>';
+      : '<div style="font-size:11px;color:var(--muted2,#888);text-align:center;padding:12px">لا توجد تشكيلة محفوظة — يمكنك التخطّي</div>';
 
     document.getElementById('qrPenOv')?.remove();
     const ov = document.createElement('div');
     ov.id = 'qrPenOv';
     ov.style.cssText = 'position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:18px';
     ov.innerHTML = `
-      <div style="width:100%;max-width:320px;background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:16px;font-family:Tajawal,sans-serif;max-height:80vh;display:flex;flex-direction:column">
+      <div style="width:100%;max-width:320px;background:#111;border:1px solid var(--border,#2c2c2c);border-radius:16px;padding:16px;font-family:Tajawal,sans-serif;max-height:80vh;display:flex;flex-direction:column">
         <div style="font-size:14px;font-weight:900;color:${resColor};text-align:center">${resLabel} الركلة</div>
-        <div style="font-size:11px;color:#888;text-align:center;margin-bottom:12px">${t.name} — اختر اللاعب أو تخطَّ</div>
+        <div style="font-size:11px;color:var(--muted2,#888);text-align:center;margin-bottom:12px">${t.name} — اختر اللاعب أو تخطَّ</div>
         <div style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1">${btns}</div>
         <button onclick="qrPenChoose('${matchId}','${side}','${result}','')"
-          style="margin-top:12px;padding:10px;border-radius:9px;border:1px solid #2a2a2a;background:transparent;color:#888;font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">تخطّي (بدون اسم)</button>
+          style="margin-top:12px;padding:10px;border-radius:9px;border:1px solid var(--border,#2c2c2c);background:transparent;color:var(--muted2,#888);font-family:Tajawal,sans-serif;font-weight:700;font-size:12px;cursor:pointer">تخطّي (بدون اسم)</button>
       </div>`;
     document.body.appendChild(ov);
     window.bindModalDismiss(ov);
@@ -18685,15 +18740,15 @@ window.importRosterToLineup = function(teamId) {
     const statsRows = QR_STATS.map(d => `
       <div style="display:grid;grid-template-columns:1fr 90px 1fr;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1a1a1a">
         <div style="display:flex;align-items:center;justify-content:flex-end;gap:5px">
-          <button onclick="mcv2QStatAdj('${matchId}','${d.k}Home',-1)" style="width:22px;height:22px;border-radius:5px;background:#1a1a1a;border:1px solid #2a2a2a;color:#888;font-size:13px;cursor:pointer">−</button>
+          <button onclick="mcv2QStatAdj('${matchId}','${d.k}Home',-1)" style="width:22px;height:22px;border-radius:5px;background:#1a1a1a;border:1px solid var(--border,#2c2c2c);color:var(--muted2,#888);font-size:13px;cursor:pointer">−</button>
           <span id="qr-val-${d.k}Home-${matchId}" style="font-size:13px;font-weight:900;color:#C9A02B;min-width:26px;text-align:center;font-family:Tajawal,sans-serif">${st[d.k+'Home']}</span>
-          <button onclick="mcv2QStatAdj('${matchId}','${d.k}Home',1)" style="width:22px;height:22px;border-radius:5px;background:#1a1a1a;border:1px solid #2a2a2a;color:#888;font-size:13px;cursor:pointer">+</button>
+          <button onclick="mcv2QStatAdj('${matchId}','${d.k}Home',1)" style="width:22px;height:22px;border-radius:5px;background:#1a1a1a;border:1px solid var(--border,#2c2c2c);color:var(--muted2,#888);font-size:13px;cursor:pointer">+</button>
         </div>
         <div style="text-align:center;font-size:9px;color:#777">${d.l}</div>
         <div style="display:flex;align-items:center;gap:5px">
-          <button onclick="mcv2QStatAdj('${matchId}','${d.k}Away',-1)" style="width:22px;height:22px;border-radius:5px;background:#1a1a1a;border:1px solid #2a2a2a;color:#888;font-size:13px;cursor:pointer">−</button>
-          <span id="qr-val-${d.k}Away-${matchId}" style="font-size:13px;font-weight:900;color:#aaa;min-width:26px;text-align:center;font-family:Tajawal,sans-serif">${st[d.k+'Away']}</span>
-          <button onclick="mcv2QStatAdj('${matchId}','${d.k}Away',1)" style="width:22px;height:22px;border-radius:5px;background:#1a1a1a;border:1px solid #2a2a2a;color:#888;font-size:13px;cursor:pointer">+</button>
+          <button onclick="mcv2QStatAdj('${matchId}','${d.k}Away',-1)" style="width:22px;height:22px;border-radius:5px;background:#1a1a1a;border:1px solid var(--border,#2c2c2c);color:var(--muted2,#888);font-size:13px;cursor:pointer">−</button>
+          <span id="qr-val-${d.k}Away-${matchId}" style="font-size:13px;font-weight:900;color:var(--muted2,#888);min-width:26px;text-align:center;font-family:Tajawal,sans-serif">${st[d.k+'Away']}</span>
+          <button onclick="mcv2QStatAdj('${matchId}','${d.k}Away',1)" style="width:22px;height:22px;border-radius:5px;background:#1a1a1a;border:1px solid var(--border,#2c2c2c);color:var(--muted2,#888);font-size:13px;cursor:pointer">+</button>
         </div>
       </div>`).join('');
 
@@ -18717,7 +18772,7 @@ window.importRosterToLineup = function(teamId) {
       <div style="font-size:10px;color:#555;font-weight:700;letter-spacing:.5px;margin-bottom:12px">⚽ النتيجة (الوقت الأصلي)</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:12px">
         <div style="flex:1;text-align:center">
-          <div style="font-size:13px;font-weight:900;color:#eee;margin-bottom:8px">${ht.name}</div>
+          <div style="font-size:13px;font-weight:900;color:var(--text,#efefef);margin-bottom:8px">${ht.name}</div>
           <div style="display:flex;align-items:center;justify-content:center;gap:8px">
             <button class="mcv2-adj mcv2-adj-m" onclick="mcv2QAdjS('${matchId}','home',-1)">−</button>
             <div style="font-size:44px;font-weight:900;color:#C9A02B;font-family:Tajawal,sans-serif;min-width:52px;text-align:center;line-height:1" id="qr-score-home-${matchId}">${hs}</div>
@@ -18726,7 +18781,7 @@ window.importRosterToLineup = function(teamId) {
         </div>
         <div style="font-size:22px;color:#333">—</div>
         <div style="flex:1;text-align:center">
-          <div style="font-size:13px;font-weight:900;color:#eee;margin-bottom:8px">${at.name}</div>
+          <div style="font-size:13px;font-weight:900;color:var(--text,#efefef);margin-bottom:8px">${at.name}</div>
           <div style="display:flex;align-items:center;justify-content:center;gap:8px">
             <button class="mcv2-adj mcv2-adj-m" onclick="mcv2QAdjS('${matchId}','away',-1)">−</button>
             <div style="font-size:44px;font-weight:900;color:#C9A02B;font-family:Tajawal,sans-serif;min-width:52px;text-align:center;line-height:1" id="qr-score-away-${matchId}">${as_}</div>
@@ -18739,8 +18794,8 @@ window.importRosterToLineup = function(teamId) {
     <!-- وقت إضافي / ركلات ترجيح — للإقصاء فقط -->
     ${(_qrET || _qrPen) ? `
     <div style="display:flex;gap:8px;margin-top:12px">
-      ${_qrET ? `<button id="qr-et-btn-${matchId}" class="mcv2-toggle-btn ${wentET?'mcv2-toggle-on':''}" onclick="mcv2QToggleET('${matchId}')" style="flex:1;padding:10px;border-radius:10px;border:1px solid #333;background:#161616;color:#ccc;font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer">⏱ احتاجت وقت إضافي؟</button>` : ''}
-      ${_qrPen ? `<button id="qr-pen-btn-${matchId}" class="mcv2-toggle-btn ${wentPen?'mcv2-toggle-on':''}" onclick="mcv2QTogglePen('${matchId}')" style="flex:1;padding:10px;border-radius:10px;border:1px solid #333;background:#161616;color:#ccc;font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer">🥅 وصلت ركلات ترجيح؟</button>` : ''}
+      ${_qrET ? `<button id="qr-et-btn-${matchId}" class="mcv2-toggle-btn ${wentET?'mcv2-toggle-on':''}" onclick="mcv2QToggleET('${matchId}')" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border2,#383838);background:var(--card,#1a1a1a);color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer">⏱ احتاجت وقت إضافي؟</button>` : ''}
+      ${_qrPen ? `<button id="qr-pen-btn-${matchId}" class="mcv2-toggle-btn ${wentPen?'mcv2-toggle-on':''}" onclick="mcv2QTogglePen('${matchId}')" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border2,#383838);background:var(--card,#1a1a1a);color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:11px;font-weight:700;cursor:pointer">🥅 وصلت ركلات ترجيح؟</button>` : ''}
     </div>
     <div style="margin-top:8px;padding:8px 12px;background:rgba(230,126,34,.07);border:1px solid rgba(230,126,34,.2);border-radius:9px;font-size:10px;color:#e67e22;text-align:center;font-weight:700">
       ⛔ مباراة إقصائية — لا تُحفظ بالتعادل، لازم فائز (بالنتيجة أو بركلات الترجيح)
@@ -18748,29 +18803,29 @@ window.importRosterToLineup = function(teamId) {
     <div style="margin-top:12px;padding:9px 12px;background:rgba(255,255,255,.03);border-radius:9px;font-size:10px;color:#777;text-align:center">
       ℹ️ مباراة مجموعات — التعادل نتيجة نهائية (نقطة لكل فريق)
     </div>`}
-    <div id="qr-et-box-${matchId}" style="display:${wentET?'block':'none'};margin-top:8px;padding:10px 12px;background:#161616;border-radius:10px;border:1px solid rgba(243,156,18,.2)">
+    <div id="qr-et-box-${matchId}" style="display:${wentET?'block':'none'};margin-top:8px;padding:10px 12px;background:var(--card,#1a1a1a);border-radius:10px;border:1px solid rgba(243,156,18,.2)">
       <div style="font-size:10px;color:#D35400;margin-bottom:6px">⏱ النتيجة أعلاه تُعتبر بعد الوقت الإضافي (٩٠+١٥+١٥)</div>
     </div>
-    <div id="qr-pen-box-${matchId}" style="display:${wentPen?'block':'none'};margin-top:8px;padding:10px 12px;background:#161616;border-radius:10px;border:1px solid rgba(155,89,182,.25)">
+    <div id="qr-pen-box-${matchId}" style="display:${wentPen?'block':'none'};margin-top:8px;padding:10px 12px;background:var(--card,#1a1a1a);border-radius:10px;border:1px solid rgba(155,89,182,.25)">
       <div style="font-size:10px;color:#9b59b6;font-weight:700;margin-bottom:10px">🥅 ركلات الترجيح — سجّل كل ركلة</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div>
-          <div style="font-size:10px;color:#aaa;text-align:center;font-weight:700;margin-bottom:6px">${ht.name} · <span id="qr-pen-sc-home-${matchId}">0</span></div>
+          <div style="font-size:10px;color:var(--muted2,#888);text-align:center;font-weight:700;margin-bottom:6px">${ht.name} · <span id="qr-pen-sc-home-${matchId}">0</span></div>
           <div style="display:flex;gap:5px">
             <button onclick="qrPenShot('${matchId}','home','goal')" style="flex:1;padding:8px;border-radius:8px;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.35);color:#2ecc71;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">✅ سجّل</button>
-            <button onclick="qrPenShot('${matchId}','home','miss')" style="flex:1;padding:8px;border-radius:8px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">❌ ضيّع</button>
+            <button onclick="qrPenShot('${matchId}','home','miss')" style="flex:1;padding:8px;border-radius:8px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:var(--red,#C0392B);font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">❌ ضيّع</button>
           </div>
         </div>
         <div>
-          <div style="font-size:10px;color:#aaa;text-align:center;font-weight:700;margin-bottom:6px">${at.name} · <span id="qr-pen-sc-away-${matchId}">0</span></div>
+          <div style="font-size:10px;color:var(--muted2,#888);text-align:center;font-weight:700;margin-bottom:6px">${at.name} · <span id="qr-pen-sc-away-${matchId}">0</span></div>
           <div style="display:flex;gap:5px">
             <button onclick="qrPenShot('${matchId}','away','goal')" style="flex:1;padding:8px;border-radius:8px;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.35);color:#2ecc71;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">✅ سجّل</button>
-            <button onclick="qrPenShot('${matchId}','away','miss')" style="flex:1;padding:8px;border-radius:8px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">❌ ضيّع</button>
+            <button onclick="qrPenShot('${matchId}','away','miss')" style="flex:1;padding:8px;border-radius:8px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:var(--red,#C0392B);font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">❌ ضيّع</button>
           </div>
         </div>
       </div>
       <div id="qr-pen-list-${matchId}" style="margin-top:10px">${window._qrPenListHtml(m)}</div>
-      <button onclick="qrPenUndo('${matchId}')" style="margin-top:8px;width:100%;padding:7px;border-radius:8px;background:transparent;border:1px solid #333;color:#888;font-size:10px;cursor:pointer;font-family:Tajawal,sans-serif">↩ تراجع عن آخر ركلة</button>
+      <button onclick="qrPenUndo('${matchId}')" style="margin-top:8px;width:100%;padding:7px;border-radius:8px;background:transparent;border:1px solid var(--border2,#383838);color:var(--muted2,#888);font-size:10px;cursor:pointer;font-family:Tajawal,sans-serif">↩ تراجع عن آخر ركلة</button>
     </div>
 
     <!-- ✅︎ سجل الأهداف — يُضاف بزر (+) في لوحة النتيجة أعلاه (نفس نظام البث) -->
@@ -18784,15 +18839,15 @@ window.importRosterToLineup = function(teamId) {
     <div style="background:#111;border-radius:10px;padding:10px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div style="display:flex;flex-direction:column;gap:6px">
-          <div style="font-size:10px;color:#888;text-align:center;font-weight:700;margin-bottom:2px">${ht.name}</div>
+          <div style="font-size:10px;color:var(--muted2,#888);text-align:center;font-weight:700;margin-bottom:2px">${ht.name}</div>
           <button onclick="qrAddCard('${matchId}','home','yellow')" style="padding:8px;border-radius:9px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:#f1c40f;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#f1c40f;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة صفراء</button>
-          <button onclick="qrAddCard('${matchId}','home','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#e74c3c;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة حمراء</button>
+          <button onclick="qrAddCard('${matchId}','home','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:var(--red,#C0392B);font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:var(--red,#C0392B);vertical-align:-1px;margin-inline-end:5px"></span>بطاقة حمراء</button>
           <button onclick="qrAddSub('${matchId}','home')" style="padding:8px;border-radius:9px;background:rgba(52,152,219,.1);border:1px solid rgba(52,152,219,.3);color:#3498db;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">${window.Icon?window.Icon('refresh',12):''} تبديل</button>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          <div style="font-size:10px;color:#888;text-align:center;font-weight:700;margin-bottom:2px">${at.name}</div>
+          <div style="font-size:10px;color:var(--muted2,#888);text-align:center;font-weight:700;margin-bottom:2px">${at.name}</div>
           <button onclick="qrAddCard('${matchId}','away','yellow')" style="padding:8px;border-radius:9px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:#f1c40f;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#f1c40f;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة صفراء</button>
-          <button onclick="qrAddCard('${matchId}','away','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:#e74c3c;vertical-align:-1px;margin-inline-end:5px"></span>بطاقة حمراء</button>
+          <button onclick="qrAddCard('${matchId}','away','red')" style="padding:8px;border-radius:9px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:var(--red,#C0392B);font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif"><span style="display:inline-block;width:9px;height:12px;border-radius:2px;background:var(--red,#C0392B);vertical-align:-1px;margin-inline-end:5px"></span>بطاقة حمراء</button>
           <button onclick="qrAddSub('${matchId}','away')" style="padding:8px;border-radius:9px;background:rgba(52,152,219,.1);border:1px solid rgba(52,152,219,.3);color:#3498db;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">${window.Icon?window.Icon('refresh',12):''} تبديل</button>
         </div>
       </div>
@@ -18809,7 +18864,7 @@ window.importRosterToLineup = function(teamId) {
       <input class="mcv2-inp" id="qr-mom-${matchId}" value="${m.manOfMatch || ''}" placeholder="اسم اللاعب" style="flex:1"/>
       <button type="button" onclick="window.openMOMPickerToField('${matchId}','qr-mom-${matchId}')" style="flex-shrink:0;padding:9px 12px;border-radius:10px;background:linear-gradient(145deg,#e6c157,#b8860b);border:none;color:#1a1200;font-size:12px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer;white-space:nowrap">🌟 اختر</button>
     </div>
-    <div class="mcv2-sec" style="color:#666">📝 ملخص المباراة</div>
+    <div class="mcv2-sec" style="color:var(--muted,#5a5a5a)">📝 ملخص المباراة</div>
     <div class="mcv2-fld"><textarea class="mcv2-inp" id="qr-sum-${matchId}" rows="2" style="resize:none" placeholder="أبرز أحداث المباراة...">${m.summary || ''}</textarea></div>
 
     <button class="mcv2-sbtn mcv2-sbtn-green" onclick="mcv2SaveQuickResult('${matchId}')">🚀 نشر النتيجة للجمهور</button>
@@ -19087,7 +19142,7 @@ window.importRosterToLineup = function(teamId) {
     ['upcoming','live','halftime','finished'].forEach(k => {
       const btn = document.getElementById(`mcv2-ist-${k}-${matchId}`);
       if (!btn) return;
-      btn.style.background = ''; btn.style.borderColor = '#2a2a2a'; btn.style.color = '#555';
+      btn.style.background = ''; btn.style.borderColor = 'var(--border,#2c2c2c)'; btn.style.color = '#555';
     });
     const active = document.getElementById(`mcv2-ist-${status}-${matchId}`);
     if (active) { active.style.background = `${color}18`; active.style.borderColor = `${color}44`; active.style.color = color; }

@@ -104,13 +104,36 @@
   }
 
   /* تصنيف المركز — يعتمد على النصّ العربي كما يعرضه النظام الأصلي */
+  /* 🔴 كان يفحص نصّاً عربياً فقط، بينما النظام يخزّن **رموزاً**
+     (GK, CB, ST…) — انظر قائمة المراكز في admin-lineup-dragdrop.js.
+     فكان كل اللاعبين يسقطون في «بلا مركز»، وتصنيف اللوحة بلا معنى،
+     واقتراح الخطة يرى صفر دفاع وصفر هجوم دائماً. (v338.4) */
   function groupOf(pos) {
-    var p = String(pos || '');
-    if (/حارس/.test(p)) return 'GK';
-    if (/ظهير|قلب دفاع|مدافع|دفاع/.test(p)) return 'DF';
-    if (/وسط|جناح|صانع/.test(p)) return 'MF';
-    if (/مهاجم|رأس حربة|هداف/.test(p)) return 'FW';
+    var p = String(pos || '').trim().toUpperCase();
+    if (/^(GK)$/.test(p)) return 'GK';
+    if (/^(CB|LB|RB|LWB|RWB|SW)$/.test(p)) return 'DF';
+    if (/^(DM|CM|CAM|LM|RM|AM)$/.test(p)) return 'MF';
+    if (/^(LW|RW|ST|CF|SS)$/.test(p)) return 'FW';
+    // احتياط للنصّ العربي إن أُدخل يدوياً
+    var a = String(pos || '');
+    if (/حارس/.test(a)) return 'GK';
+    if (/ظهير|قلب دفاع|مدافع|دفاع/.test(a)) return 'DF';
+    if (/وسط|صانع/.test(a)) return 'MF';
+    if (/مهاجم|رأس حربة|هداف|جناح/.test(a)) return 'FW';
     return 'OT';
+  }
+
+  /* اسم عربي مقروء للرمز — «CB» وحدها لا تعني شيئاً لأغلب المنظّمين */
+  var POS_AR = {
+    GK:'حارس', CB:'قلب دفاع', LB:'ظهير أيسر', RB:'ظهير أيمن',
+    LWB:'ظهير جناح أيسر', RWB:'ظهير جناح أيمن', SW:'ليبرو',
+    DM:'وسط مدافع', CM:'وسط', CAM:'صانع ألعاب', AM:'وسط مهاجم',
+    LM:'وسط أيسر', RM:'وسط أيمن', LW:'جناح أيسر', RW:'جناح أيمن',
+    ST:'مهاجم', CF:'رأس حربة', SS:'مهاجم ثانٍ'
+  };
+  function posLabel(p) {
+    var k = String(p || '').trim().toUpperCase();
+    return POS_AR[k] || String(p || '');
   }
   var GROUPS = [
     { k: 'GK', t: 'حرّاس المرمى' }, { k: 'DF', t: 'الدفاع' },
@@ -268,18 +291,18 @@
      كانت سطراً نصّياً باهتاً؛ الآن تُقرأ بلمحة كبطاقة تطبيق رسمي. */
   function chip(used, p) {
     var on = !!used[norm(p.name)];
-    var d = detailsOf(p.name);
+    var d = detailsOf(p.id);          // بالمعرّف لا بالاسم
     var pos = p.position || d.position || '';
     var inactive = d.status && d.status !== 'active';
     return '<button type="button" class="lp-card' + (on ? ' on' : '') +
       (inactive ? ' off' : '') + '" ' +
       'data-pid="' + esc(p.id) + '" data-pname="' + esc(p.name) + '">' +
-      avatar(p.name, p.number, 34) +
+      avatar(p.id, p.number, 34) +
       '<span class="lp-txt">' +
         '<span class="lp-nm">' + esc(p.name) + '</span>' +
         '<span class="lp-meta">' +
           (p.number !== '' ? '<b>#' + esc(p.number) + '</b>' : '') +
-          (pos ? '<span>' + esc(pos) + '</span>' : '') +
+          (pos ? '<span>' + esc(posLabel(pos)) + '</span>' : '') +
           (inactive ? '<i class="lp-off">غير متاح</i>' : '') +
         '</span>' +
       '</span>' +
@@ -537,14 +560,14 @@
       el.innerHTML = list.map(function (p) {
         var isCur = norm(p.name) === norm(cur);
         var taken = !isCur && !!used[norm(p.name)];
-        var d = detailsOf(p.name);
+        var d = detailsOf(p.id);
         var pos = p.position || d.position || '';
         return '<button type="button" class="lp-card' + (isCur ? ' on' : '') +
           (taken ? ' off' : '') + '" data-pid="' + esc(p.id) + '">' +
-          avatar(p.name, p.number, 36) +
+          avatar(p.id, p.number, 36) +
           '<span class="lp-txt"><span class="lp-nm">' + esc(p.name) + '</span>' +
           '<span class="lp-meta">' + (p.number !== '' ? '<b>#' + esc(p.number) + '</b>' : '') +
-          (pos ? '<span>' + esc(pos) + '</span>' : '') +
+          (pos ? '<span>' + esc(posLabel(pos)) + '</span>' : '') +
           (taken ? '<i class="lp-off">مُستعمَل</i>' : '') + '</span></span>' +
           '<span class="lp-tk">' + (isCur ? '●' : taken ? '' : '+') + '</span></button>';
       }).join('');
@@ -600,6 +623,20 @@
         e.preventDefault(); e.stopPropagation();
         openSwap(r);
       });
+
+      /* 🔴 ازدواج فعليّ — أُزيل (v338.5)
+         الصفّ يحمل <select class="dd-roster-select"> وهي **نفس** وظيفة
+         منتقي اللاعبين الذي صار يفتح بالضغط على الاسم أو على الملعب.
+         فصار للمهمة الواحدة طريقتان: قائمة منسدلة داخل كل صفّ، ومنتقٍ
+         بالصور. ومع ١١ لاعباً تعني ١١ قائمة زائدة تحت الملعب.
+         نُخفيها ولا نحذفها — فلو عُطّل هذا الملف عادت وعمل النظام
+         الأصلي كاملاً كما كان. */
+      var dup = r.querySelector('.dd-roster-select');
+      if (dup) dup.style.display = 'none';
+
+      /* حقول المركز والحالة تبقى — لكنها ثانوية، نضغطها بصرياً
+         عبر الصنف كي يتصدّر الاسم والرقم. */
+      r.classList.add('lp-row');
     });
   }
 
@@ -613,28 +650,122 @@
 
      ⚠️ السحب والإفلات يبقى يعمل: نميّز النقر عن السحب بالمسافة —
      تحرّك أكثر من ٦ بكسل = سحب فلا نفتح المنتقي. */
+  /* ═══════════════════════════════════════════════════════════════
+     السحب على الملعب: تبديل مراكز لا إفلات حرّ — (v338.6)
+     ─────────────────────────────────────────────────────────────
+     كان السحب يضع اللاعب في **أي إحداثية** يُفلَت عندها. النتيجة
+     تشكيلة مشوّهة: مدافعان متلاصقان، ومهاجم في منطقة الجزاء، وفراغ
+     في الوسط — وكل ذلك يُحفظ ويظهر للجمهور بلا أي حارس.
+
+     السلوك الصحيح — وهو ما تفعله التطبيقات الرسمية:
+       • أفلِت اللاعب **فوق لاعب آخر** → يتبادلان المركز بالكامل.
+       • أفلِته في فراغ → يعود إلى موضعه الأصلي تلقائياً.
+     فتبقى الخطة سليمة مهما عبث المستخدم، ولا يحتاج لضبط إحداثيات.
+
+     ننفّذها فوق النظام الأصلي: نلتقط الموضع قبل السحب، وندع محرّك
+     السحب يعمل كما هو، ثم نصحّح النتيجة في لحظة الإفلات. */
+  function dotCenter(d) {
+    var r = d.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+
+  /* أقرب لاعب آخر إلى نقطة الإفلات — ضمن مدى معقول */
+  function dropTarget(self, px, py) {
+    var best = null, bestD = 1e9;
+    Array.prototype.forEach.call(document.querySelectorAll('.dd-player-dot'), function (o) {
+      if (o === self) return;
+      var c = dotCenter(o);
+      var dist = Math.hypot(c.x - px, c.y - py);
+      if (dist < bestD) { bestD = dist; best = o; }
+    });
+    /* العتبة نسبية بحجم النقطة لا رقماً ثابتاً — فتصحّ على كل الشاشات */
+    var thresh = Math.max(34, self.getBoundingClientRect().width * 1.15);
+    return bestD <= thresh ? best : null;
+  }
+
+  /* ⚠️ حاسم: تغيير style وحده لا يكفي.
+     محرّك السحب الأصلي يكتب في البيانات عند الإفلات
+     (starters[idx].x = parseFloat(style.left))، فلو غيّرنا المظهر فقط
+     لبقيت البيانات على الإحداثية الخاطئة — ويعود التشوّه فور أي إعادة
+     رسم، ويُحفظ للجمهور كما هو.
+     و ddCurrentData ليست مكشوفة على window (وحدة مغلقة)، لذا نكتب عبر
+     ddUpdatePlayer وهي تقبل أي حقل — بما فيه x و y. */
+  function setXY(idx, x, y) {
+    try {
+      window.ddUpdatePlayer(idx, 'x', x);
+      window.ddUpdatePlayer(idx, 'y', y);
+    } catch (e) {}
+  }
+
+  function applySwap(aIdx, bIdx) {
+    /* التبديل = تبادل الإحداثيات فقط. لا نلمس الاسم ولا الرقم —
+       فاللاعب هو هو، والمتغيّر مركزه على الملعب. */
+    var A = document.querySelector('.dd-player-dot[data-idx="' + aIdx + '"]');
+    var B = document.querySelector('.dd-player-dot[data-idx="' + bIdx + '"]');
+    if (!A || !B) return false;
+
+    var ax = parseFloat(A.style.left), ay = parseFloat(A.style.top);
+    var bx = parseFloat(B.style.left), by = parseFloat(B.style.top);
+    if (!isFinite(ax) || !isFinite(bx)) return false;
+
+    A.style.left = bx + '%'; A.style.top = by + '%';
+    B.style.left = ax + '%'; B.style.top = ay + '%';
+
+    setXY(aIdx, bx, by);     // ← البيانات، لا المظهر وحده
+    setXY(bIdx, ax, ay);
+    return true;
+  }
+
   function wirePitch() {
     var dots = document.querySelectorAll('.dd-player-dot');
     Array.prototype.forEach.call(dots, function (d) {
       if (d.dataset.lpWired) return;
       d.dataset.lpWired = '1';
-      var sx = 0, sy = 0, moved = false;
+      var sx = 0, sy = 0, moved = false, ox = '', oy = '';
+
       function down(e) {
         var t = (e.touches && e.touches[0]) || e;
         sx = t.clientX; sy = t.clientY; moved = false;
+        ox = d.style.left; oy = d.style.top;      // الموضع الأصلي للرجوع
       }
       function move(e) {
         var t = (e.touches && e.touches[0]) || e;
         if (Math.abs(t.clientX - sx) > 6 || Math.abs(t.clientY - sy) > 6) moved = true;
       }
-      function up() {
-        if (moved) return;
-        var idx = d.getAttribute('data-idx');
-        var row = rows().filter(function (r) {
-          return String(r.getAttribute('data-idx')) === String(idx);
-        })[0];
-        if (row) setTimeout(function () { openSwap(row); }, 10);
+      function up(e) {
+        // نقرة بلا سحب → منتقي اللاعبين (سلوك قائم)
+        if (!moved) {
+          var idx0 = d.getAttribute('data-idx');
+          var row = rows().filter(function (r) {
+            return String(r.getAttribute('data-idx')) === String(idx0);
+          })[0];
+          if (row) setTimeout(function () { openSwap(row); }, 10);
+          return;
+        }
+        var t = (e.changedTouches && e.changedTouches[0]) || e;
+        var tgt = dropTarget(d, t.clientX, t.clientY);
+
+        setTimeout(function () {          // بعد أن ينهي المحرّك الأصلي عمله
+          if (tgt) {
+            var ok = applySwap(d.getAttribute('data-idx'), tgt.getAttribute('data-idx'));
+            if (ok) {
+              d.classList.add('lp-swapped'); tgt.classList.add('lp-swapped');
+              setTimeout(function () {
+                d.classList.remove('lp-swapped'); tgt.classList.remove('lp-swapped');
+              }, 420);
+              toast('تبادل المركزان');
+              return;
+            }
+          }
+          /* فراغ → رجوع تلقائي. الانتقال يجعل الرجوع مفهوماً لا مفاجئاً. */
+          d.classList.add('lp-snap');
+          d.style.left = ox; d.style.top = oy;
+          var bx2 = parseFloat(ox), by2 = parseFloat(oy);
+          if (isFinite(bx2) && isFinite(by2)) setXY(d.getAttribute('data-idx'), bx2, by2);
+          setTimeout(function () { d.classList.remove('lp-snap'); }, 320);
+        }, 30);
       }
+
       d.addEventListener('mousedown', down);
       d.addEventListener('mousemove', move);
       d.addEventListener('mouseup', up);
@@ -718,6 +849,62 @@
     return n ? ('متوقّعة بناءً على آخر ' + n + ' مباراة للفريق') : 'تشكيلة متوقّعة';
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     إعادة ترتيب بنية النافذة — (v338.5)
+     ─────────────────────────────────────────────────────────────
+     المشكلة: بعد تراكم الطبقات صار الترتيب عمودياً طويلاً —
+     ملعب ← لوحة كشف ← ١١ صفّاً ← تذييل. فيختفي الملعب وأنت تعدّل
+     القائمة، وهو مرجعك البصري الوحيد لمعرفة أين يقف كل لاعب.
+
+     الحلّ بلا مساس بالنواة:
+       ① الملعب يلتصق أعلى النافذة عند التمرير (sticky).
+       ② صفوف اللاعبين تنطوي خلف زرّ — لم يعد لها دور إلا المركز
+          والحالة بعد أن صار الاسم يفتح المنتقي والملعب تفاعلياً.
+       ③ التلميح «اسحب اللاعبين» يُدمج في رأس مضغوط بدل سطر مستقل.
+     كلّها DOM و CSS من هذا الملف — حذفه يُرجع كل شيء كما كان. */
+  function restructure() {
+    var body = $('ddBody');
+    if (!body) return;
+    var pitch = body.querySelector('.dd-pitch-wrap');
+    var list  = $('ddPlayersList');
+    if (!pitch || !list) return;
+    /* ⚠️ الحارس على **وجود الزرّ في الصفحة** لا على علَم في dataset:
+       تبديل تبويب الفريق يستبدل innerHTML لـ #ddBody فيمحو الزرّ،
+       بينما يبقى العنصر نفسه ومعه dataset — فعلَم dataset كان سيمنع
+       إعادة البناء إلى الأبد ويختفي الطيّ بعد أول تبديل. */
+    if (body.querySelector('.lp-toggle')) return;
+
+    /* ❌ أُلغي التصاق الملعب (v338.5-ب)
+       جرّبناه فأكل جزءاً كبيراً من ارتفاع الشاشة على الجوال وبقي
+       معلّقاً حتى عند التمرير بعيداً عنه. الطبيعي أن يمرّ مع المحتوى
+       ويختفي حين يتجاوزه المستخدم. نُبقي الطيّ وحده — فهو ما يقصّر
+       الصفحة فعلاً، بلا أن يسرق مساحة دائمة. */
+
+    // ① التلميح الطويل → سطر مضغوط
+    var hint = pitch.querySelector('div[style*="text-align:center"]');
+    if (hint) { hint.classList.add('lp-tip'); hint.textContent = 'اسحب اللاعبين لتغيير مواضعهم · اضغط أي مركز لتبديله'; }
+
+    // ② زرّ طيّ الصفوف
+    var bar = document.createElement('button');
+    bar.type = 'button';
+    bar.className = 'lp-toggle';
+    bar.setAttribute('aria-expanded', 'false');
+    list.parentNode.insertBefore(bar, list);
+    list.classList.add('lp-collapsed');
+
+    function paint() {
+      var open = !list.classList.contains('lp-collapsed');
+      bar.setAttribute('aria-expanded', String(open));
+      bar.innerHTML = '<span>تفاصيل اللاعبين — المركز والحالة</span>' +
+                      '<b class="lp-cv">' + (open ? '▲' : '▼') + '</b>';
+    }
+    bar.addEventListener('click', function () {
+      list.classList.toggle('lp-collapsed'); paint();
+      if (!list.classList.contains('lp-collapsed')) { wireRows(); }
+    });
+    paint();
+  }
+
   function refresh() { setTimeout(function () { render(); wireRows(); wirePitch(); }, 45); }
 
   function css() {
@@ -776,13 +963,33 @@
       '.lp-sh-x{background:var(--card2,#202020);border:1px solid var(--border2,#383838);color:var(--text,#efefef);width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;flex-shrink:0}',
       '.lp-sh-list{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;padding:2px}',
       '.lp-sh-list .lp-card.off{pointer-events:none}',
+      /* ضغط صفّ اللاعب: الاسم والرقم يتصدّران، والمركز والحالة أصغر */
+      '.dd-player-row.lp-row .dd-p-name input[readonly]{cursor:pointer;font-weight:800}',
+      '.dd-player-row.lp-row .dd-p-pos select,.dd-player-row.lp-row .dd-p-status select{font-size:10.5px;opacity:.78}',
+      '.dd-player-row.lp-row .dd-p-pos select:focus,.dd-player-row.lp-row .dd-p-status select:focus{opacity:1}',
+      '.dd-player-row.lp-row{padding-block:7px}',
+      /* ملعب ملتصق */
+      '.lp-tip{font-size:9.5px!important;opacity:.62;margin-top:5px!important;line-height:1.6}',
+      /* طيّ الصفوف */
+      '.lp-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;',
+      '  padding:11px 13px;margin:10px 0 0;border-radius:12px;cursor:pointer;',
+      '  background:var(--card2,#202020);border:1px solid var(--border2,#383838);',
+      '  color:var(--muted2,#888);font-family:Tajawal,sans-serif;font-size:11.5px;font-weight:800}',
+      '.lp-toggle:active{background:var(--card3,#262626)}',
+      '.lp-cv{color:' + GOLD + ';font-size:10px}',
+      /* التبديل والرجوع */
+      '.dd-player-dot.lp-snap{transition:left .28s cubic-bezier(.34,1.3,.64,1),top .28s cubic-bezier(.34,1.3,.64,1)}',
+      '.dd-player-dot.lp-swapped{transition:left .3s ease,top .3s ease}',
+      '.dd-player-dot.lp-swapped .dd-avatar{box-shadow:0 0 0 3px rgba(201,160,43,.55)}',
+      '.dd-list-wrap.lp-collapsed{display:none}',
+      '.lp-acts .lp-b{font-size:10.5px;padding:9px 6px}',
       '.lp-sh-acts{display:flex;gap:6px}',
       '.lp-cap{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:' + GOLD + ';color:#1a1200;font-size:9.5px;font-weight:900}',
       '.lp-n{min-width:18px;text-align:center;font-size:9.5px;font-weight:900;padding:1px 4px;border-radius:5px;background:rgba(255,255,255,.06);color:var(--muted2,#888)}',
       '.lp-n.z{opacity:.4}',
       '.lp-tk{font-size:11px;font-weight:900;opacity:.7}',
       '.lp-acts{display:flex;gap:5px;margin-top:11px;flex-wrap:wrap}',
-      '.lp-b{flex:1;min-width:98px;padding:9px 8px;border-radius:10px;cursor:pointer;background:var(--card3,#262626);border:1px solid var(--border2,#383838);color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:11px;font-weight:800}',
+      '.lp-b{flex:1;min-width:72px;padding:9px 8px;border-radius:10px;cursor:pointer;background:var(--card3,#262626);border:1px solid var(--border2,#383838);color:var(--text,#efefef);font-family:Tajawal,sans-serif;font-size:11px;font-weight:800}',
       '.lp-b:active{background:rgba(255,255,255,.05)}',
       '.lp-b1{background:rgba(201,160,43,.12);border-color:rgba(201,160,43,.4);color:' + GOLD2 + '}',
       '.lp-bd{color:var(--red,#C0392B);border-color:rgba(192,57,43,.3)}',
@@ -798,29 +1005,39 @@
      تفاصيل. فنقرأ الكشف مرة واحدة لكل فريق ونحتفظ به، كي يظهر اللاعب
      بصورته ومركزه ورقمه في منتقي اللاعبين. (onSnapshot لأن getDocs غير
      مكشوف على window؛ ونلغيه فور وصول أول لقطة فلا يبقى مستمع مفتوح.) */
-  var _photoCache = {};   // teamId -> { اسم مطبَّع: {photo, position, number} }
+  /* 🔴 كانت الفهرسة بالاسم داخل خريطة لكل فريق — وهو سبب «يضيف صورة
+     لاعب ويظهر اسم ثاني»:
+       • تبديل تبويب الفريق يغيّر currentTeamId() فوراً، بينما قائمة
+         الكشف في الـ DOM تظل لحظةً على الفريق السابق. فتُطابَق أسماء
+         فريق (أ) على خريطة صور فريق (ب) → صورة لاعب باسم آخر.
+       • واللاعبان المتشابها الاسم داخل الفريق يتبادلان الصور دائماً.
+     الحلّ: فهرسة بمعرّف اللاعب — فريد عالمياً، ولا يتأثر بالتبويب ولا
+     بتشابه الأسماء. (v338.4) */
+  var _photoById = {};    // playerId -> {photo, position, number, status, name}
+  var _loadedTeams = {};  // teamId -> true
 
   function loadRosterDetails(teamId, cb) {
     if (!teamId) { cb && cb(); return; }
-    if (_photoCache[teamId]) { cb && cb(); return; }
+    if (_loadedTeams[teamId]) { cb && cb(); return; }
     var w = window;
     if (!w._db || !w._firestoreCollection || !w._firestoreOnSnapshot || !w._getLeagueId) { cb && cb(); return; }
     var lid = w._getLeagueId && w._getLeagueId();
     if (!lid) { cb && cb(); return; }
-    _photoCache[teamId] = {};   // احجز المكان فلا يتكرّر الطلب
+    _loadedTeams[teamId] = true;   // احجز فلا يتكرّر الطلب
     try {
       var unsub = w._firestoreOnSnapshot(
         w._firestoreCollection(w._db, 'leagues', lid, 'teams', teamId, 'roster'),
         function (snap) {
-          var map = {};
           snap.forEach(function (d) {
             var v = d.data() || {};
-            map[norm(v.name)] = {
+            /* المفتاح = معرّف مستند اللاعب، وهو نفسه قيمة <option value>
+               في قائمة الكشف — فالربط مضمون لا مُستنتَج. */
+            _photoById[d.id] = {
               photo: v.photo || '', position: v.position || '',
-              number: (v.number != null ? v.number : ''), status: v.status || 'active'
+              number: (v.number != null ? v.number : ''),
+              status: v.status || 'active', name: v.name || ''
             };
           });
-          _photoCache[teamId] = map;
           try { unsub && unsub(); } catch (e) {}   // لقطة واحدة تكفي
           cb && cb();
         },
@@ -829,14 +1046,21 @@
     } catch (e) { cb && cb(); }
   }
 
-  function detailsOf(name) {
-    var tid = currentTeamId();
-    var m = tid && _photoCache[tid];
-    return (m && m[norm(name)]) || {};
+  /* يقبل المعرّف (المضمون) ويسقط للاسم فقط حين لا معرّف — كصفوف
+     التشكيلة المكتوبة يدوياً قبل وجود كشف. */
+  function detailsOf(idOrName) {
+    if (!idOrName) return {};
+    if (_photoById[idOrName]) return _photoById[idOrName];
+    var k = norm(idOrName), out = {};
+    for (var id in _photoById) {
+      if (norm(_photoById[id].name) === k) { out = _photoById[id]; break; }
+    }
+    return out;
   }
 
-  function avatar(name, num, size) {
-    var d = detailsOf(name), sz = size || 30;
+  function avatar(nameOrId, num, size) {
+    var d = detailsOf(nameOrId), sz = size || 30;
+    var name = d.name || nameOrId;
     if (d.photo) {
       return '<span class="lp-av" style="width:' + sz + 'px;height:' + sz + 'px">' +
              '<img src="' + esc(d.photo) + '" alt="" loading="lazy"/></span>';
@@ -854,6 +1078,7 @@
       if (!$('ddPlayersList')) return;
       wrapSave();
       predToggle();
+      restructure();
       if (!$('lpPanel')) render();
       wireRows();
       wirePitch();

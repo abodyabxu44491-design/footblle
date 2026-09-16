@@ -1047,28 +1047,38 @@ if('serviceWorker' in navigator) {
 <div class="card" id="subInfoCard" style="border-color:var(--border2)">
             <div class="card-header"><div class="card-title"><span class="tg-ic" data-ic="key"></span>اشتراك البطولة</div></div>
             <div class="card-body">
-              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-                <div>
-                  <div style="font-size:11px;color:var(--muted)">الحالة</div>
-                  <div style="font-size:14px;font-weight:900;margin-top:2px" id="subInfoStatus">—</div>
+              <!-- ══ لوحة الاشتراك — أُعيد بناؤها (v338.4) ══
+                   كانت أربع قيم متجاورة بـ space-between: تتباعد وتلتفّ
+                   عشوائياً حسب عرض الشاشة، و«الأيام المتبقية» — وهي أهمّ
+                   رقم في القسم — تظهر بنفس حجم بقية التفاصيل فتضيع بينها.
+                   الآن: الرقم بطلاً في الأعلى، والتواريخ خطّاً زمنياً
+                   واضحاً تحته، بنفس لغة بقية بطاقات اللوحة. -->
+              <div class="sbx">
+                <div class="sbx-hero">
+                  <div class="sbx-num" id="subInfoDays">—</div>
+                  <div class="sbx-unit" id="subInfoUnit">يوم متبقٍّ</div>
+                  <div class="sbx-state" id="subInfoStatus">—</div>
                 </div>
-                <div>
-                  <div style="font-size:11px;color:var(--muted)">تاريخ البداية</div>
-                  <div style="font-size:13px;font-weight:700;margin-top:2px" id="subInfoStart">—</div>
+
+                <div class="sbx-track">
+                  <div class="sbx-fill" id="subInfoBar"></div>
+                  <span class="sbx-dot sbx-dot-a"></span>
+                  <span class="sbx-dot sbx-dot-b" id="subInfoDotEnd"></span>
                 </div>
-                <div>
-                  <div style="font-size:11px;color:var(--muted)">تاريخ الانتهاء</div>
-                  <div style="font-size:13px;font-weight:700;margin-top:2px" id="subInfoEnd">—</div>
+
+                <div class="sbx-ends">
+                  <div class="sbx-end">
+                    <span class="sbx-lbl">البداية</span>
+                    <b id="subInfoStart">—</b>
+                  </div>
+                  <div class="sbx-end sbx-end-l">
+                    <span class="sbx-lbl">الانتهاء</span>
+                    <b id="subInfoEnd">—</b>
+                  </div>
                 </div>
-                <div>
-                  <div style="font-size:11px;color:var(--muted)">الأيام المتبقية</div>
-                  <div style="font-size:14px;font-weight:900;margin-top:2px" id="subInfoDays">—</div>
-                </div>
+
+                <div class="sbx-note" id="subInfoNote">جاري التحقق من حالة الاشتراك…</div>
               </div>
-              <div style="margin-top:12px;background:var(--card3);border-radius:20px;height:8px;overflow:hidden">
-                <div id="subInfoBar" style="height:100%;width:0%;background:var(--gold);border-radius:20px;transition:width .3s"></div>
-              </div>
-              <div style="margin-top:10px;font-size:10px;color:var(--muted2)" id="subInfoNote">جاري التحقق من حالة الاشتراك...</div>
             </div>
           </div>
 
@@ -2374,7 +2384,8 @@ if('serviceWorker' in navigator) {
 <!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
 
 <script src="./live-page-stats-fix.js?v=338"></script>
-<script src="./all-fixes.js?v=338"></script>
+<script src="./standings-core.js?v=338"></script>
+  <script src="./all-fixes.js?v=338"></script>
 <script>
 /* ===== timer-admin (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════

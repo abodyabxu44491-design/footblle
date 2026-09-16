@@ -1488,3 +1488,225 @@ body.drawer-open .drawer-backdrop {
 .ios-step strong{color:var(--gold)}
 .ios-step-icon{margin-right:auto;font-size:16px}
 .ios-banner-arrow{text-align:center;font-size:20px;color:var(--gold)}
+
+/* ═══════════════════════════════════════════════════════════════════
+ *  🎨 توحيد هوية لوحة السوبر أدمن — v338.4
+ *  ─────────────────────────────────────────────────────────────────
+ *  المشكلة: الأقسام بُنيت في أوقات مختلفة فتباينت — بطاقات مسطّحة بلا
+ *  عمق، عناوين بلا تسلسل بصري، حقول ضيّقة، وجداول بلا إيقاع. فبدت
+ *  «مطلقات» غير مترابطة رغم أن الأصناف نفسها مشتركة.
+ *
+ *  الحلّ هنا **CSS فقط** — لا سطر منطق واحد. كل قاعدة تُلحق بالملف
+ *  فتَعلو على السابقة بحكم الترتيب، فلا نحذف شيئاً ولا نكسر انتقائية
+ *  قائمة. ولو أُزيلت هذه الكتلة عاد التنسيق القديم كما كان بالضبط.
+ * ═══════════════════════════════════════════════════════════════════ */
+
+/* ── رأس الصفحة: شريط ذهبي يبني التسلسل البصري ── */
+.ph {
+  margin-bottom: 20px;
+  padding-inline-start: 13px;
+  border-inline-start: 3px solid var(--gold);
+}
+.ph-title {
+  font-size: 19px;
+  letter-spacing: -.2px;
+  margin-bottom: 5px;
+}
+.ph-sub {
+  font-size: 11.5px;
+  color: var(--muted2);
+  line-height: 1.7;
+}
+.ph-actions { margin-top: 12px; }
+
+/* ── البطاقات: عمق خفيف ورأس متدرّج ── */
+.card {
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.28), 0 8px 24px rgba(0,0,0,.16);
+  overflow: hidden;
+}
+.card + .card { margin-top: 14px; }
+.card-hd {
+  padding: 15px 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,.028), transparent);
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: -.1px;
+}
+/* نقطة ذهبية بدل الاعتماد على الإيموجي وحده */
+.card-title::before {
+  content: "";
+  width: 4px; height: 15px;
+  border-radius: 3px;
+  background: var(--gold);
+  flex-shrink: 0;
+}
+.card-bd { padding: 18px; }
+
+/* ── الحقول: أوسع، وحلقة تركيز واضحة ── */
+.fg { margin-bottom: 15px; }
+.fg:last-child { margin-bottom: 0; }
+.fg label {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--text);
+  opacity: .82;
+  margin-bottom: 7px;
+}
+.fi, .fs {
+  padding: 12px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 11px;
+  background: var(--card2);
+}
+.fi::placeholder { color: var(--muted); font-weight: 500; }
+.fi:focus, .fs:focus {
+  border-color: var(--gold);
+  background: var(--card3);
+  box-shadow: 0 0 0 3px rgba(201,160,43,.13);
+}
+.fhint {
+  font-size: 10.5px;
+  line-height: 1.75;
+  margin-top: 6px;
+  color: var(--muted2);
+}
+.required { color: var(--red); font-weight: 900; }
+.frow { gap: 13px; }
+
+/* ── الأزرار: قياس موحّد في كل الأقسام ── */
+.btn {
+  border-radius: 11px;
+  font-weight: 800;
+  letter-spacing: -.1px;
+  transition: transform .1s, filter .15s;
+}
+.btn:active { transform: scale(.975); }
+.btn-gold:hover { filter: brightness(1.06); }
+
+/* ── الجداول ──────────────────────────────────────────────────
+   ⚠️ محصورة في الشاشات الكبيرة عمداً. على الجوال (≤768px) يتحوّل
+   الجدول إلى بطاقات عبر قاعدة قائمة أعلى الملف (`.sub-table td`
+   بـ display:flex). وانتقائية قواعدنا هنا أعلى (`.sub-table tbody td`)
+   ونحن متأخّرون في الترتيب — فلولا هذا الحصر لَغلبناها وكسرنا وضع
+   البطاقات بالكامل على الجوال. */
+@media (min-width: 769px) {
+  .sub-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+  .sub-table thead th {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--card2);
+    font-size: 10.5px;
+    font-weight: 900;
+    color: var(--muted2);
+    letter-spacing: .3px;
+    padding: 12px 14px;
+    text-align: start;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border2);
+  }
+  .sub-table tbody td {
+    padding: 13px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .sub-table tbody tr:last-child td { border-bottom: none; }
+  .sub-table tbody tr { transition: background .14s; }
+  .sub-table tbody tr:hover { background: rgba(255,255,255,.022); }
+  /* العمود الأول هو المُعرِّف — يستحق ثقلاً أكبر */
+  .sub-table tbody td:first-child { font-weight: 800; color: var(--text); }
+}
+
+/* ── بطاقات ملخّص الاشتراكات ── */
+.sub-summary-grid { gap: 11px; }
+.sub-summary-card {
+  border-radius: 15px;
+  padding: 17px 13px;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(0,0,0,.24);
+  position: relative;
+  overflow: hidden;
+}
+/* شريط علوي بلون البطاقة نفسها.
+   نعتمد على border-color المضبوط inline في الترميز (green/orange/red)
+   بدل currentColor — فـ currentColor هنا لون النصّ لا لون البطاقة،
+   وكان سيُخرج شريطاً رمادياً في كل البطاقات. */
+.sub-summary-card { border-top-width: 2px; }
+.sub-summary-n {
+  font-size: 27px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+.sub-summary-l {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--muted2);
+  margin-top: 5px;
+}
+
+/* ── بطاقات المدد (نافذة الاشتراك) ── */
+.dur-card { border-radius: 13px; transition: all .14s; }
+.dur-card:active { transform: scale(.98); }
+.dur-name { font-size: 12px; font-weight: 900; }
+.dur-sub  { font-size: 10px; color: var(--muted2); font-weight: 700; }
+
+/* ── تمرير أفقي أنظف للجداول على الجوال ── */
+.card > div[style*="overflow-x"] { -webkit-overflow-scrolling: touch; }
+@media (max-width: 520px) {
+  .card-bd { padding: 15px; }
+  .ph-title { font-size: 17px; }
+  .sub-summary-n { font-size: 23px; }
+  .frow { grid-template-columns: 1fr; }
+}
+
+/* ── النوافذ: نفس لغة البطاقات ── */
+.modal-box {
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.55);
+}
+.modal-hd {
+  padding: 17px 20px 14px;
+  background: linear-gradient(180deg, rgba(201,160,43,.055), transparent);
+  backdrop-filter: saturate(140%) blur(6px);
+}
+.modal-title {
+  display: flex; align-items: center; gap: 9px;
+  letter-spacing: -.1px;
+}
+.modal-title::before {
+  content: "";
+  width: 4px; height: 16px;
+  border-radius: 3px;
+  background: var(--gold);
+  flex-shrink: 0;
+}
+.modal-close { border-radius: 9px; }
+
+/* تذييل الإجراءات داخل النوافذ: أزرار متساوية لا متفاوتة */
+.modal-bd { padding: 18px 20px 20px; }
+.modal-actions,
+.modal-bd > div[style*="display:flex"][style*="gap"] { gap: 8px; }
+.modal-actions .btn { flex: 1; }
+
+/* ── قسم التسعير والعروض (v338.4) ── */
+.pr-sw {
+  display: flex; align-items: center; gap: 9px;
+  margin-top: 12px; cursor: pointer;
+  font-size: 12px; font-weight: 800;
+}
+.pr-sw input { width: 17px; height: 17px; accent-color: var(--gold); cursor: pointer; }
+.pr-code {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  padding: 10px; margin-bottom: 8px;
+  border-radius: 12px;
+  background: var(--card2);
+  border: 1px solid var(--border2);
+}
+.pr-code .fi, .pr-code .fs { margin: 0; padding: 9px 11px; font-size: 12px; }
+.pr-code .pr-sw { margin-top: 0; font-size: 11px; }
+.btn-sm { padding: 7px 13px; font-size: 11px; }

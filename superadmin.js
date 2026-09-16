@@ -1185,12 +1185,23 @@ window.hoShareLink = async function (id) {
     };
     await setDoc(doc(db, 'handoverLinks', token), payload);
     const link = SITE_URL + 'handover-view.html?t=' + token;
-    if (navigator.clipboard) {
-      await navigator.clipboard.writeText(link);
-      showToast('✅︎ تم نسخ رابط التسليم — أرسله للعميل مباشرة', 'success');
-    } else {
-      prompt('انسخ رابط التسليم:', link);
-    }
+    /* 🔴 كان: await navigator.clipboard.writeText(link)
+       ─────────────────────────────────────────────────────────────
+       واجهة الحافظة تشترط **إذن نابع من نقرة المستخدم**، والنقرة هنا
+       استُهلكت في `await setDoc` قبلها. فيرفض المتصفح — سفاري و iOS
+       والمتصفحات المضمّنة داخل واتساب بالذات — ويرمي NotAllowedError،
+       وتظهر رسالة «غير مدعوم». كما أن navigator.clipboard غير موجود
+       أصلاً خارج سياق آمن (HTTP أو معاينة محلية).
+
+       البديل: نافذة مشاركة تعرض الرابط جاهزاً — نسخ بنقرة مباشرة
+       (فالإذن حاضر)، أو واتساب، أو مشاركة النظام. ولا تعتمد على أي
+       واجهة قد تغيب: تسقط إلى execCommand ثم إلى التحديد اليدوي. */
+    _showShareSheet({
+      title: 'رابط صفحة التسليم',
+      sub: 'أرسله للعميل — ينتهي تلقائياً بعد ١٤ يوماً',
+      link: link,
+      wa: 'رابط تسليم بطولتك:\n' + link
+    });
   } catch (e) {
     if (e && e.code === 'permission-denied') {
       alert('🚫 رفضت قواعد Firestore إنشاء رابط التسليم.\n\n'
@@ -1230,6 +1241,9 @@ window.copyStr = function(str) {
 
 // ══ NAVIGATION ══
 window.showPage = function(name, sb, mn) {
+  /* حمّل التسعير عند فتح قسمه فقط — لا نُحمّله مع كل صفحة بلا داعٍ */
+  try { if (arguments[0] === 'pricing' && typeof window.loadPricingAdmin === 'function') window.loadPricingAdmin(); } catch (e) {}
+
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   const el = document.getElementById('page-' + name);
   if(el) el.classList.add('active');
@@ -1422,4 +1436,251 @@ window.saSelfCheck = async function () {
 
   alert(L.join('\n'));
   console.log(L.join('\n'));
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+ *  📤 نافذة المشاركة — v338.4
+ *  ─────────────────────────────────────────────────────────────────
+ *  بديل موثوق لـ navigator.clipboard الذي يفشل بعد أي await، وخارج
+ *  السياق الآمن، وداخل المتصفحات المضمّنة في تطبيقات المراسلة.
+ *
+ *  ثلاث طبقات تراجع، لا تفشل كلها معاً أبداً:
+ *    ① navigator.clipboard — النقرة هنا مباشرة فالإذن حاضر
+ *    ② document.execCommand('copy') — يعمل بلا HTTPS
+ *    ③ تحديد النصّ تلقائياً ليَنسخ المستخدم يدوياً
+ *  ومعها واتساب ومشاركة النظام، فللمستخدم دائماً مخرج.
+ * ═══════════════════════════════════════════════════════════════════ */
+window._showShareSheet = function (o) {
+  document.getElementById('shShareOv')?.remove();
+  const G = 'var(--gold,#C9A02B)';
+  const ov = document.createElement('div');
+  ov.id = 'shShareOv';
+  ov.style.cssText =
+    'position:fixed;inset:0;z-index:100030;background:rgba(0,0,0,.74);display:flex;' +
+    'align-items:flex-end;justify-content:center;font-family:Tajawal,sans-serif';
+  ov.innerHTML =
+    '<div style="width:100%;max-width:520px;background:var(--card,#1a1a1a);' +
+      'border:1px solid var(--border2,#383838);border-bottom:none;border-radius:20px 20px 0 0;' +
+      'padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))">' +
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px">' +
+        '<div><div style="font-size:15px;font-weight:900;color:' + G + '">' + (o.title || 'مشاركة') + '</div>' +
+        (o.sub ? '<div style="font-size:11px;color:var(--muted2,#888);margin-top:3px;font-weight:700">' + o.sub + '</div>' : '') +
+        '</div>' +
+        '<button id="shX" style="background:var(--card2,#202020);border:1px solid var(--border2,#383838);' +
+          'color:var(--text,#efefef);width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px">✕</button>' +
+      '</div>' +
+      '<input id="shLink" readonly value="' + String(o.link).replace(/"/g, '&quot;') + '" ' +
+        'style="width:100%;box-sizing:border-box;padding:12px;border-radius:11px;background:var(--dark,#121212);' +
+        'border:1px solid var(--border,#2c2c2c);color:var(--text,#efefef);font-size:12px;' +
+        'font-family:monospace;direction:ltr;text-align:left;margin-bottom:10px"/>' +
+      '<div style="display:flex;gap:7px;flex-wrap:wrap">' +
+        '<button id="shCopy" style="flex:2;min-width:120px;padding:13px;border-radius:12px;border:none;' +
+          'background:' + G + ';color:#1a1200;font-family:Tajawal,sans-serif;font-size:13px;font-weight:900;cursor:pointer">نسخ الرابط</button>' +
+        '<button id="shWa" style="flex:1;min-width:104px;padding:13px;border-radius:12px;' +
+          'border:1px solid rgba(37,211,102,.4);background:rgba(37,211,102,.12);color:#25D366;' +
+          'font-family:Tajawal,sans-serif;font-size:13px;font-weight:900;cursor:pointer">واتساب</button>' +
+        (navigator.share ? '<button id="shNat" style="flex:1;min-width:92px;padding:13px;border-radius:12px;' +
+          'border:1px solid var(--border2,#383838);background:var(--card2,#202020);color:var(--text,#efefef);' +
+          'font-family:Tajawal,sans-serif;font-size:13px;font-weight:900;cursor:pointer">مشاركة</button>' : '') +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+
+  const close = () => ov.remove();
+  ov.querySelector('#shX').onclick = close;
+  ov.onclick = (e) => { if (e.target === ov) close(); };
+
+  const inp = ov.querySelector('#shLink');
+  const btn = ov.querySelector('#shCopy');
+  btn.onclick = async () => {
+    let ok = false;
+    try {                                   // ① الحافظة الحديثة
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(o.link); ok = true;
+      }
+    } catch (e) {}
+    if (!ok) {                              // ② الطريقة القديمة
+      try {
+        inp.removeAttribute('readonly');
+        inp.select(); inp.setSelectionRange(0, 99999);
+        ok = document.execCommand('copy');
+        inp.setAttribute('readonly', 'readonly');
+      } catch (e) {}
+    }
+    if (ok) {
+      btn.textContent = '✓ تم النسخ';
+      btn.style.background = 'var(--green,#27AE60)';
+      setTimeout(() => { btn.textContent = 'نسخ الرابط'; btn.style.background = G; }, 1600);
+    } else {                                // ③ تحديد يدوي
+      inp.select(); inp.setSelectionRange(0, 99999);
+      btn.textContent = 'انسخ يدوياً ↑';
+    }
+  };
+  ov.querySelector('#shWa').onclick = () =>
+    window.open('https://wa.me/?text=' + encodeURIComponent(o.wa || o.link), '_blank');
+  const nat = ov.querySelector('#shNat');
+  if (nat) nat.onclick = () =>
+    navigator.share({ title: o.title || '', text: o.wa || '', url: o.link }).catch(() => {});
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+ *  💰 التسعير والعروض — v338.4
+ *  ─────────────────────────────────────────────────────────────────
+ *  مصدر الحقيقة: settings/pricing. تقرؤه subscribe.html عند كل فتح،
+ *  ولو تعذّر تعمل بقيمها الاحتياطية المكتوبة فيها — فلا تتعطّل صفحة
+ *  الاشتراك أبداً بسبب هذه اللوحة.
+ *
+ *  تنبيه أمني: settings مقروء للمسجّلين فقط في القواعد. لكن صفحة
+ *  الاشتراك عامة ويقرؤها زوّار بلا حساب — لذلك يجب أن تكون قاعدة
+ *  settings/pricing وحدها `read: if true`. (مضبوطة في firestore.rules.)
+ * ═══════════════════════════════════════════════════════════════════ */
+const PR_DEFAULTS = {
+  base:50, teamsIncluded:16, teamsBlock:8, teamsPrice:10,
+  playersIncluded:200, playersBlock:50, playersPrice:15,
+  photoFree:200, photoBlock:100, photoPrice:15,
+  playersOff:false, photosOff:false,
+  t3:10, t6:15, t12:25,
+  promo:{ on:false, title:'', note:'', type:'pct', value:0, from:'', to:'' },
+  codes:[]
+};
+let _prCodes = [];
+
+const _prG = (id) => document.getElementById(id);
+const _prNum = (id, dflt) => {
+  const el = _prG(id); if (!el) return dflt;
+  const v = parseInt(el.value, 10);
+  return (isFinite(v) && v >= 0) ? v : dflt;
+};
+
+window.loadPricingAdmin = async function () {
+  let v = { ...PR_DEFAULTS };
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'pricing'));
+    if (snap.exists()) {
+      const d = snap.data() || {};
+      v = { ...v, ...d };
+      if (Array.isArray(d.tiers)) {           // نحوّل الشرائح لحقول مقروءة
+        const f = (m) => { const t = d.tiers.find(x => x.min === m); return t ? Math.round(t.d * 100) : v['t' + m]; };
+        v.t3 = f(3); v.t6 = f(6); v.t12 = f(12);
+      }
+      v.promo = { ...PR_DEFAULTS.promo, ...(d.promo || {}) };
+    }
+  } catch (e) { showToast('تعذّر تحميل التسعير — تُعرض القيم الافتراضية', 'error'); }
+
+  ['base','teamsIncluded','teamsBlock','teamsPrice','playersIncluded','playersBlock',
+   'playersPrice','photoFree','photoBlock','photoPrice','t3','t6','t12']
+    .forEach(k => { const el = _prG('pr_' + k); if (el) el.value = v[k]; });
+  const po = _prG('pr_playersOff'); if (po) po.checked = !!v.playersOff;
+  const fo = _prG('pr_photosOff');  if (fo) fo.checked = !!v.photosOff;
+
+  const p = v.promo || {};
+  const set = (id, val) => { const el = _prG(id); if (el) el.value = val == null ? '' : val; };
+  const on = _prG('pr_promoOn'); if (on) on.checked = !!p.on;
+  set('pr_promoTitle', p.title); set('pr_promoNote', p.note);
+  set('pr_promoType', p.type || 'pct'); set('pr_promoValue', p.value || 0);
+  set('pr_promoFrom', p.from); set('pr_promoTo', p.to);
+
+  _prCodes = Array.isArray(v.codes) ? v.codes.slice() : [];
+  prRenderCodes();
+
+  const lk = _prG('pr_link');
+  if (lk) lk.value = (typeof SITE_URL !== 'undefined' ? SITE_URL : location.origin + '/') + 'subscribe.html';
+};
+
+window.prRenderCodes = function () {
+  const box = _prG('pr_codes');
+  if (!box) return;
+  if (!_prCodes.length) {
+    box.innerHTML = '<div class="fhint" style="text-align:center;padding:14px">لا أكواد بعد — أضف كوداً ليستعمله العملاء.</div>';
+    return;
+  }
+  box.innerHTML = _prCodes.map((c, i) =>
+    '<div class="pr-code">' +
+      '<input class="fi" style="flex:1;min-width:88px" value="' + String(c.code || '').replace(/"/g,'&quot;') +
+        '" placeholder="CODE" dir="ltr" oninput="prSetCode(' + i + ',\'code\',this.value)"/>' +
+      '<select class="fs" style="width:78px" onchange="prSetCode(' + i + ',\'type\',this.value)">' +
+        '<option value="pct"' + (c.type !== 'flat' ? ' selected' : '') + '>٪</option>' +
+        '<option value="flat"' + (c.type === 'flat' ? ' selected' : '') + '>﷼</option>' +
+      '</select>' +
+      '<input class="fi" style="width:74px" type="number" min="0" value="' + (c.value || 0) +
+        '" oninput="prSetCode(' + i + ',\'value\',this.value)"/>' +
+      '<label class="pr-sw" style="margin:0"><input type="checkbox"' + (c.on !== false ? ' checked' : '') +
+        ' onchange="prSetCode(' + i + ',\'on\',this.checked)"/><span>مفعّل</span></label>' +
+      '<button class="btn btn-outline btn-sm" onclick="prDelCode(' + i + ')">حذف</button>' +
+    '</div>').join('');
+};
+window.prSetCode = (i, k, v) => {
+  if (!_prCodes[i]) return;
+  _prCodes[i][k] = (k === 'value') ? (parseInt(v, 10) || 0) : v;
+};
+window.prAddCode = () => { _prCodes.push({ code:'', type:'pct', value:10, on:true }); prRenderCodes(); };
+window.prDelCode = (i) => { _prCodes.splice(i, 1); prRenderCodes(); };
+
+window.savePricing = async function () {
+  const why = await _assertSuperAdmin();
+  if (why) { alert('⚠️ تعذّر حفظ التسعير\n\n' + why); return; }
+
+  const codes = _prCodes
+    .filter(c => String(c.code || '').trim())
+    .map(c => ({ code: String(c.code).trim().toUpperCase(),
+                 type: c.type === 'flat' ? 'flat' : 'pct',
+                 value: parseInt(c.value, 10) || 0,
+                 on: c.on !== false }));
+
+  /* الشرائح تُحفظ بالصيغة التي تفهمها subscribe.html (min/d) وبترتيب
+     تنازلي — دالّة discOf تأخذ أول تطابق، فالترتيب جزء من صحّتها. */
+  const tiers = [
+    { min:12, d:(_prNum('pr_t12',25) / 100) },
+    { min:6,  d:(_prNum('pr_t6',15)  / 100) },
+    { min:3,  d:(_prNum('pr_t3',10)  / 100) },
+    { min:1,  d:0 }
+  ];
+
+  const payload = {
+    base:            _prNum('pr_base', 50),
+    teamsIncluded:   _prNum('pr_teamsIncluded', 16),
+    teamsBlock:      Math.max(1, _prNum('pr_teamsBlock', 8)),
+    teamsPrice:      _prNum('pr_teamsPrice', 10),
+    playersIncluded: _prNum('pr_playersIncluded', 200),
+    playersBlock:    Math.max(1, _prNum('pr_playersBlock', 50)),
+    playersPrice:    _prNum('pr_playersPrice', 15),
+    photoFree:       _prNum('pr_photoFree', 200),
+    photoBlock:      Math.max(1, _prNum('pr_photoBlock', 100)),
+    photoPrice:      _prNum('pr_photoPrice', 15),
+    playersOff:      !!(_prG('pr_playersOff') || {}).checked,
+    photosOff:       !!(_prG('pr_photosOff')  || {}).checked,
+    tiers,
+    promo: {
+      on:    !!(_prG('pr_promoOn') || {}).checked,
+      title: (_prG('pr_promoTitle') || {}).value || '',
+      note:  (_prG('pr_promoNote')  || {}).value || '',
+      type:  (_prG('pr_promoType')  || {}).value || 'pct',
+      value: _prNum('pr_promoValue', 0),
+      from:  (_prG('pr_promoFrom') || {}).value || '',
+      to:    (_prG('pr_promoTo')   || {}).value || ''
+    },
+    codes,
+    updatedAt: serverTimestamp()
+  };
+
+  try {
+    await setDoc(doc(db, 'settings', 'pricing'), payload, { merge: true });
+    showToast('✅︎ حُفظ التسعير — يظهر فوراً في صفحة الاشتراك', 'success');
+  } catch (e) {
+    if (e && e.code === 'permission-denied') {
+      alert('🚫 رفضت القواعد الحفظ.\n\nتأكّد أن firestore.rules المُحدَّث منشور، '
+          + 'وأن admins/' + (auth.currentUser ? auth.currentUser.uid : '{uid}') + ' يحمل role = superadmin.');
+    } else showToast('خطأ: ' + window._trErr(e), 'error');
+  }
+};
+
+window.prShareLink = function () {
+  const lk = _prG('pr_link');
+  if (!lk || !lk.value) return;
+  _showShareSheet({
+    title: 'رابط صفحة الاشتراك',
+    sub: 'الأسعار والعروض تُطبَّق تلقائياً',
+    link: lk.value,
+    wa: 'اشترك في المنصة:\n' + lk.value
+  });
 };

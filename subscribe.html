@@ -242,6 +242,22 @@ body{background:var(--bg);font-family:Tajawal,sans-serif;color:var(--t1);line-he
  transition:top .35s cubic-bezier(.16,1,.3,1);white-space:nowrap;
  box-shadow:0 10px 30px rgba(0,0,0,.25)}
 .toast.on{top:22px}
+
+/* ══ العرض الساري وكود الخصم (v338.4) ══ */
+.promo{margin:12px 0 0;padding:12px 14px;border-radius:13px;
+  background:rgba(201,160,43,.09);border:1px solid rgba(201,160,43,.32);text-align:start}
+.promo-t{font-size:13px;font-weight:900;color:var(--gold)}
+.promo-s{font-size:10.5px;opacity:.7;margin-top:3px;line-height:1.7}
+.promo-v{font-size:11.5px;font-weight:900;margin-top:6px;color:var(--gold)}
+.codeRow{display:flex;gap:7px;margin-top:11px}
+.codeIn{flex:1;min-width:0;padding:11px 13px;border-radius:11px;font-size:12px;font-weight:700;
+  background:rgba(128,128,128,.08);border:1px solid rgba(128,128,128,.25);
+  color:inherit;font-family:inherit;outline:none}
+.codeIn:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,160,43,.12)}
+.codeBtn{flex-shrink:0;padding:11px 18px;border-radius:11px;cursor:pointer;border:none;
+  background:var(--gold);color:#1a1200;font-family:inherit;font-size:12px;font-weight:900}
+.codeBtn:active{transform:scale(.97)}
+.codeMsg{font-size:10.5px;font-weight:800;margin-top:6px;min-height:14px;text-align:start}
 </style>
 </head>
 <body>
@@ -408,6 +424,14 @@ body{background:var(--bg);font-family:Tajawal,sans-serif;color:var(--t1);line-he
       <div class="total">
         <div class="l">الإجمالي<small id="durTxt">لشهر واحد</small></div>
         <div class="v"><span id="grand">50</span><u>ريال</u></div>
+        <!-- ══ العرض الساري + كود الخصم — يُدارَان من لوحة السوبر أدمن ══ -->
+        <div id="promoBox" class="promo" style="display:none"></div>
+        <div class="codeRow">
+          <input id="codeInput" class="codeIn" placeholder="كود الخصم — إن وُجد"
+                 dir="ltr" onkeydown="if(event.key==='Enter'){event.preventDefault();applyCode();}"/>
+          <button type="button" class="codeBtn" onclick="applyCode()">تطبيق</button>
+        </div>
+        <div id="codeMsg" class="codeMsg"></div>
       </div>
       <div class="permo" id="permo" style="display:none"></div>
       <div class="feat">
@@ -477,7 +501,7 @@ body{background:var(--bg);font-family:Tajawal,sans-serif;color:var(--t1);line-he
       أو تواصل مباشرة بدون تعبئة النموذج
     </div>
     <div class="btn2">
-      <button class="btn-sm" onclick="sendWA()">💬 واتساب</button>
+      <button class="btn-sm" onclick="sendWA()">واتساب</button>
       <button class="btn-sm" onclick="copy()">📋 نسخ الطلب</button>
     </div>
   </div>
@@ -504,10 +528,9 @@ body{background:var(--bg);font-family:Tajawal,sans-serif;color:var(--t1);line-he
     <span class="l" id="barL">شهر واحد</span>
     <span class="v"><span id="barV">50</span><u>ريال</u></span>
   </div>
-  <button class="btn btn-wa" id="sendBtn" onclick="submit()">
-    <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.5 14.2c-.2.6-1.2 1.2-1.7 1.2-.5.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6a11 11 0 0 1-4.2-3.8c-.3-.4-.8-1.2-.8-2.3s.6-1.6.8-1.8c.2-.2.4-.3.6-.3h.4c.1 0 .3 0 .5.4l.7 1.6c0 .1.1.3 0 .4l-.3.4-.3.3c-.1.1-.2.2-.1.4.1.2.5.9 1.1 1.4.8.7 1.4.9 1.6 1 .2.1.3.1.4 0l.6-.7c.1-.2.3-.2.4-.1l1.5.7c.2.1.4.2.4.3s0 .7-.2 1.2z"/></svg>
-    إرسال الطلب
-  </button>
+  <!-- بلا أيقونة — الزرّ نصّ صريح. إشارة واتساب هنا كانت تُوهم بأن
+       الضغط يفتح واتساب، بينما هو يرسل الطلب إلى المنصة مباشرة. -->
+  <button class="btn btn-wa" id="sendBtn" onclick="submit()">إرسال الطلب</button>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -529,6 +552,108 @@ const P = {
   tiers: [ {min:12, d:.25}, {min:6, d:.15}, {min:3, d:.10}, {min:1, d:0} ]
 };
 const S = { dur:1, players:true, photos:true };
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDdn-sS67sthhLrZRrIDZ6ynauWVin_WNU",
+  authDomain: "footblle2.firebaseapp.com",
+  projectId: "footblle2",
+  storageBucket: "footblle2.firebasestorage.app",
+  messagingSenderId: "541343956211",
+  appId: "1:541343956211:web:a1d757a4ecd655d3e47da8"
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+ *  💰 التسعير من لوحة التحكّم — v338.4
+ *  ─────────────────────────────────────────────────────────────────
+ *  الأسعار أعلاه صارت **الاحتياطي** لا المصدر. المصدر الحقيقي مستند
+ *  settings/pricing الذي يحرّره السوبر أدمن. فلو تعذّرت القراءة —
+ *  شبكة، أو قواعد لم تُنشر، أو أول تشغيل قبل حفظ أي أسعار — تعمل
+ *  الصفحة بالقيم المكتوبة هنا كما كانت تماماً. لا شاشة بيضاء أبداً.
+ *
+ *  ونقرأ معه العرض الساري وأكواد الخصم، فيتحكّم السوبر أدمن بالتسعير
+ *  والعروض كاملةً بلا أي تعديل على الشيفرة.
+ * ═══════════════════════════════════════════════════════════════════ */
+let PROMO = null;        // العرض الساري (إن وُجد)
+let CODES = [];          // أكواد الخصم
+let CODE_OK = null;      // الكود المُطبَّق حالياً
+
+async function loadPricing(){
+  try{
+    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
+    const { getFirestore, doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+    const app = initializeApp(firebaseConfig, 'pricing-' + Date.now());
+    const snap = await getDoc(doc(getFirestore(app), 'settings', 'pricing'));
+    if(!snap.exists()) return;
+    const v = snap.data() || {};
+
+    // ندمج حقلاً حقلاً: أي حقل غائب يبقى على الاحتياطي
+    ['base','teamsIncluded','teamsBlock','teamsPrice','playersIncluded',
+     'playersBlock','playersPrice','photoFree','photoBlock','photoPrice']
+      .forEach(k => { if(typeof v[k] === 'number' && v[k] >= 0) P[k] = v[k]; });
+    if(Array.isArray(v.tiers) && v.tiers.length) P.tiers = v.tiers;
+
+    // إخفاء أقسام كاملة حين يجعلها المسؤول مجانية/معطّلة
+    if(v.playersOff === true) S.players = false;
+    if(v.photosOff  === true) S.photos  = false;
+
+    if(v.promo && v.promo.on) {
+      const now = Date.now();
+      const from = v.promo.from ? new Date(v.promo.from).getTime() : 0;
+      const to   = v.promo.to   ? new Date(v.promo.to).getTime() + 864e5 : Infinity;
+      if(now >= from && now <= to) PROMO = v.promo;
+    }
+    CODES = Array.isArray(v.codes) ? v.codes : [];
+
+    renderPromo();
+    calc();
+  }catch(e){ /* الاحتياطي يعمل — لا شيء يُعطَّل */ }
+}
+
+function renderPromo(){
+  const box = $('promoBox');
+  if(!box) return;
+  if(!PROMO){ box.style.display='none'; return; }
+  box.style.display='';
+  box.innerHTML =
+    '<div class="promo-t">' + (PROMO.title || 'عرض خاص') + '</div>' +
+    (PROMO.note ? '<div class="promo-s">' + PROMO.note + '</div>' : '') +
+    '<div class="promo-v">' +
+      (PROMO.type === 'flat' ? 'خصم ' + ar(PROMO.value) + ' ﷼'
+                             : 'خصم ' + ar(PROMO.value) + '٪') + '</div>';
+}
+
+/* خصم العرض + كود الخصم — يُطبَّقان بعد خصم المدة */
+function extraOff(afterTier){
+  let off = 0;
+  if(PROMO){
+    off += PROMO.type === 'flat' ? Number(PROMO.value || 0)
+                                 : Math.round(afterTier * (Number(PROMO.value||0)/100));
+  }
+  if(CODE_OK){
+    const baseFor = Math.max(0, afterTier - off);
+    off += CODE_OK.type === 'flat' ? Number(CODE_OK.value || 0)
+                                   : Math.round(baseFor * (Number(CODE_OK.value||0)/100));
+  }
+  return Math.min(off, afterTier);   // لا يتجاوز الخصم قيمة الاشتراك
+}
+
+window.applyCode = function(){
+  const el = $('codeInput'), msg = $('codeMsg');
+  if(!el) return;
+  const v = String(el.value||'').trim().toUpperCase();
+  if(!v){ CODE_OK=null; msg.textContent=''; calc(); return; }
+  const hit = CODES.find(c => String(c.code||'').toUpperCase() === v && c.on !== false);
+  if(!hit){
+    CODE_OK=null;
+    msg.textContent = 'كود غير صالح';
+    msg.style.color = 'var(--red,#C0392B)';
+  } else {
+    CODE_OK = hit;
+    msg.textContent = '✓ طُبِّق: ' + (hit.type==='flat' ? ar(hit.value)+' ﷼' : hit.value+'٪');
+    msg.style.color = 'var(--green,#27AE60)';
+  }
+  calc();
+};
 const WA   = '966591757224';
 const MAIL = 'abodyabxu44491@gmail.com';
 
@@ -579,8 +704,10 @@ function build(){
   const disc = discOf(dur);
   const before = monthly * dur;
   const off = Math.round(before*disc);
-  return { teams, players, items, monthly, dur, disc, before, off,
-           total: before - off, phB };
+  const afterTier = before - off;
+  const extra = extraOff(afterTier);        // عرض + كود خصم
+  return { teams, players, items, monthly, dur, disc, before, off, extra,
+           total: Math.max(0, afterTier - extra), phB };
 }
 
 function calc(){
@@ -598,6 +725,13 @@ function calc(){
   if(r.off)
     h += '<div class="line disc"><span class="l">خصم المدة<small>' +
          Math.round(r.disc*100) + '٪</small></span><span class="v">− ' + ar(r.off) + ' ﷼</span></div>';
+  if(r.extra){
+    const lbl = (PROMO && CODE_OK) ? 'عرض + كود خصم'
+              : (PROMO ? (PROMO.title || 'عرض خاص') : 'كود خصم');
+    h += '<div class="line disc"><span class="l">' + lbl +
+         '<small>' + (CODE_OK ? String(CODE_OK.code).toUpperCase() : 'ساري الآن') +
+         '</small></span><span class="v">− ' + ar(r.extra) + ' ﷼</span></div>';
+  }
   $('lines').innerHTML = h;
 
   $('grand').textContent = ar(r.total);
@@ -746,7 +880,7 @@ async function fs(){
 async function submit(){
   if(!check()){ toast('أكمل الحقول المطلوبة'); return; }
   const btn = $('sendBtn');
-  btn.disabled = true; btn.innerHTML = '⏳ جارٍ الإرسال…';
+  btn.disabled = true; btn.innerHTML = 'جارٍ الإرسال…';
   const r = build();
   const payload = {
     name:     $('name').value.trim(),
@@ -772,23 +906,63 @@ async function submit(){
     /* ⚠️ لو تعذّر الوصول (شبكة أو قواعد) لا نُفقد الطلب —
        نحوّله إلى واتساب فوراً بدل أن يضيع. */
     btn.disabled = false;
-    btn.innerHTML = '💬 إرسال على واتساب';
+    btn.innerHTML = 'إرسال على واتساب';
     btn.setAttribute('onclick','sendWA()');
     toast('تعذّر الإرسال المباشر — أرسله على واتساب');
     setTimeout(sendWA, 600);
   }
 }
+function _step(n, t, d){
+  return '<div style="display:flex;gap:11px;align-items:flex-start">' +
+    '<span style="flex-shrink:0;width:24px;height:24px;border-radius:50%;display:flex;' +
+      'align-items:center;justify-content:center;background:rgba(201,160,43,.13);' +
+      'color:var(--gold,#C9A02B);font-size:11px;font-weight:900">' + n + '</span>' +
+    '<span><b style="font-size:12.5px;display:block">' + t + '</b>' +
+    '<span style="font-size:11px;opacity:.65;line-height:1.7">' + d + '</span></span>' +
+  '</div>';
+}
 function done(){
   try{ localStorage.removeItem(KEY); }catch(e){}
+  /* ═══════════════════════════════════════════════════════════
+     شاشة ما بعد الإرسال — أُعيد بناؤها (v338.4)
+     ─────────────────────────────────────────────────────────
+     كانت رسالة وزرّاً واحداً. وهذه أول لحظة يرى فيها العميل أن
+     المنصة «جهة رسمية» لا نموذجاً عابراً — فتستحق أن تُطمئنه:
+     رقم طلب يستشهد به، خطوات واضحة لما سيحدث، ووسائل تواصل
+     مرتّبة بنفس القياس والتنسيق بدل زرّ وحيد.
+     ═══════════════════════════════════════════════════════════ */
+  var _ref = 'REQ-' + String(Date.now()).slice(-6);
+  var _ph  = $('phone').value.trim();
   document.querySelector('.wrap').innerHTML =
-    '<div class="card" style="margin-top:50px"><div class="cb sent">' +
-    '<div class="ic">✓</div>' +
-    '<h2>وصلنا طلبك</h2>' +
-    '<p>راجعناه ونتواصل معك على <b>' + $('phone').value.trim() + '</b><br>' +
-    'خلال ساعات — وتوصلك بطولتك جاهزة.</p>' +
-    '<button class="btn btn-wa" style="margin-top:22px" onclick="' +
-      'window.open(\'https://wa.me/' + WA + '\',\'_blank\')">' +
-      '💬 تواصل معنا الآن</button>' +
+    '<div class="card" style="margin-top:38px"><div class="cb sent" style="text-align:center">' +
+      '<div class="ic">✓</div>' +
+      '<h2 style="margin-bottom:6px">وصلنا طلبك</h2>' +
+      '<p style="margin:0">سنتواصل معك على <b style="direction:ltr;display:inline-block">' + _ph + '</b></p>' +
+
+      '<div style="margin:18px auto 0;display:inline-flex;align-items:center;gap:8px;' +
+        'padding:8px 15px;border-radius:30px;background:rgba(201,160,43,.1);' +
+        'border:1px solid rgba(201,160,43,.3)">' +
+        '<span style="font-size:10.5px;font-weight:700;opacity:.75">رقم الطلب</span>' +
+        '<b style="font-size:13px;letter-spacing:.5px;direction:ltr">' + _ref + '</b>' +
+      '</div>' +
+
+      '<div style="margin-top:24px;text-align:start;display:flex;flex-direction:column;gap:11px">' +
+        _step('1', 'مراجعة الطلب', 'نتأكد من التفاصيل ونجهّز عرضك') +
+        _step('2', 'نتواصل معك', 'خلال ساعات على واتساب أو اتصالاً') +
+        _step('3', 'بطولتك جاهزة', 'نسلّمك لوحة الإدارة وروابط الجمهور') +
+      '</div>' +
+
+      '<div style="margin-top:24px;padding-top:18px;border-top:1px solid rgba(128,128,128,.22)">' +
+        '<div style="font-size:11px;opacity:.7;margin-bottom:10px;font-weight:700">' +
+          'تحتاج شيئاً قبل ذلك؟</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          '<button class="btn btn-wa" style="flex:1;min-width:132px;margin:0" onclick="' +
+            'window.open(\'https://wa.me/' + WA + '\',\'_blank\')">' +
+            'راسلنا على واتساب</button>' +
+          '<button class="btn" style="flex:1;min-width:112px;margin:0" onclick="' +
+            'location.href=\'tel:+' + WA + '\'">اتصل بنا</button>' +
+        '</div>' +
+      '</div>' +
     '</div></div>';
   document.querySelector('.bar').style.display = 'none';
   scrollTo({top:0,behavior:'smooth'});

@@ -245,6 +245,52 @@ window._scheduleNameRerender = function () {
   }, 100);
 };
 
+/* ═══════════════════════════════════════════════════════════════════
+ *  ⚡ تحميل الكشف مرّة واحدة (بلا مستمع دائم) — v338.6
+ *  ─────────────────────────────────────────────────────────────────
+ *  المشكلة التي يحلّها:
+ *    كان الفتح يُنشئ onSnapshot لكشف **كل فريق**. بطولة ٣٢ فريقاً =
+ *    ٣٢ مستمعاً دائماً لكل مشاهد، فوق مستمعي المباريات والفرق
+ *    والمجموعات والشجرة والإعدادات ≈ ٣٧. ومع ٥٠٠٠ مشاهد متزامن
+ *    ١٨٥٬٠٠٠ مستمع مفتوح. و_rosterListeners لا يُلغى في أي موضع من
+ *    الملف — فتبقى كلها حيّة حتى إغلاق التبويب.
+ *
+ *  لماذا هذا آمن — والغرض الأصلي محفوظ:
+ *    الغرض المكتوب في التعليق الأصلي هو «أن ينعكس تعديل اسم لاعب
+ *    مباشرةً في كل مكان». وهو يتحقّق هنا كما هو:
+ *      • الأسماء تصل فوراً عند الفتح (getDocs لكل الفرق — قراءة واحدة).
+ *      • الفريق الذي **يفتحه** المشاهد فعلاً (مباراة/بطاقة فريق/شجرة)
+ *        يأخذ مستمعاً حيّاً كالمعتاد عبر _ensureRosterLoaded.
+ *    أي أن الحيّ يبقى حيث يُرى، ويسقط حيث لا يُرى أحد.
+ *
+ *  نفس بنية البيانات (window._teamRosters) ونفس _scheduleNameRerender —
+ *  فلا يتغيّر أي مسار عرض.
+ * ═══════════════════════════════════════════════════════════════════ */
+window._rosterOnce = window._rosterOnce || {};
+
+function _loadRosterOnce(teamId, onLoaded) {
+  if (!teamId) return;
+  window._teamRosters = window._teamRosters || {};
+  // مستمع حيّ قائم أصلاً؟ فهو أحدث — لا داعي لقراءة إضافية
+  if (window._rosterListeners[teamId]) { if (typeof onLoaded === 'function') onLoaded(); return; }
+  if (window._rosterOnce[teamId]) { if (typeof onLoaded === 'function') onLoaded(); return; }
+  window._rosterOnce[teamId] = true;   // احجز قبل الطلب فلا يتكرّر مع كل لقطة فرق
+
+  getDocs(query(collection(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster'), orderBy('number', 'asc')))
+    .then(snap => {
+      const list = [];
+      snap.forEach(dd => list.push(_sanitizeDoc({ id: dd.id, ...dd.data() })));
+      window._teamRosters[teamId] = list;
+      window._scheduleNameRerender();
+      if (typeof onLoaded === 'function') onLoaded();
+    })
+    .catch(() => {
+      /* فشل القراءة: أفرِج عن الحجز كي تُعاد المحاولة لاحقاً بدل أن
+         يبقى الفريق بلا كشف إلى الأبد. */
+      window._rosterOnce[teamId] = false;
+    });
+}
+
 // المستمع الحيّ الوحيد لكشف كل فريق. آمن ضد الاستدعاء المتكرر (لا يُنشئ مستمعاً مكرراً).
 function _ensureRosterLoaded(teamId, onLoaded) {
   if (!teamId) return;
@@ -259,6 +305,30 @@ function _ensureRosterLoaded(teamId, onLoaded) {
     window._scheduleNameRerender();
     if (typeof onLoaded === 'function') onLoaded();
   };
+  /* ═══ سقف صلب لعدد المستمعين الأحياء (v338.6) ═══
+     التحميل الجماعي لم يعد يُنشئ مستمعات، لكن التصفّح الطويل يفعل:
+     كل مباراة تُفتح تُضيف فريقين. بطولة ٣٢ فريقاً تعني أن مشاهداً
+     متحمّساً يعود إلى ٣٢ مستمعاً بعد نصف ساعة تصفّح — أي نعود لنفس
+     المشكلة بطريق أبطأ.
+     نُبقي أحدث ٦ فرق حيّة ونُغلق الأقدم. الأثر على العرض معدوم:
+     البيانات تبقى في _teamRosters، والمفقود هو «الحياة» لفريق لم
+     يعد المشاهد ينظر إليه أصلاً. */
+  try {
+    const _MAX_LIVE = 6;
+    window._rosterOrder = window._rosterOrder || [];
+    const _i = window._rosterOrder.indexOf(teamId);
+    if (_i > -1) window._rosterOrder.splice(_i, 1);
+    window._rosterOrder.push(teamId);
+    while (window._rosterOrder.length > _MAX_LIVE) {
+      const old = window._rosterOrder.shift();
+      const un = window._rosterListeners[old];
+      if (typeof un === 'function') { try { un(); } catch (e) {} }
+      delete window._rosterListeners[old];
+      /* نُبقي _rosterOnce[old] = true فلا يُعاد جلبه بلا داعٍ —
+         بياناته ما زالت في _teamRosters. */
+    }
+  } catch (e) {}
+
   try {
     window._rosterListeners[teamId] = onSnapshot(
       query(collection(db, 'leagues', LEAGUE_ID, 'teams', teamId, 'roster'), orderBy('number', 'asc')),
@@ -748,12 +818,13 @@ async function init() {
     snap => {
       teams = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()}));
       teamsLoaded = true; window.renderAll(); checkHide();
-      // ✅︎ ابدأ مستمعي كشوف كل الفرق فوراً — كي ينعكس تعديل أي اسم لاعب
-      //    مباشرةً في كل مكان (الهدّافون، البطاقات، الأحداث، التشكيلات، الرئيسية)
-      //    دون انتظار فتح تبويب أو مباراة.
+      /* ✅︎ الأسماء تصل فوراً لكل الفرق — لكن بقراءة واحدة لكل فريق،
+         لا بمستمع دائم. (الفريق الذي يفتحه المشاهد يأخذ مستمعاً حيّاً
+         عند فتحه عبر _ensureRosterLoaded — انظر مسارات المباراة
+         وبطاقة الفريق والشجرة.) راجع _loadRosterOnce أعلى الملف. */
       try {
         (teams || []).forEach(t => {
-          if (t && t.id && typeof _ensureRosterLoaded === 'function') _ensureRosterLoaded(t.id);
+          if (t && t.id && typeof _loadRosterOnce === 'function') _loadRosterOnce(t.id);
         });
       } catch (e) {}
     });
@@ -764,6 +835,29 @@ async function init() {
       matches = snap.docs.map(d=>_sanitizeDoc({id:d.id,...d.data()}));
       matches.sort((a,b)=>(a.round||0)-(b.round||0)||(a.date||'').localeCompare(b.date||''));
       matchesLoaded = true; window.renderAll(); checkHide();
+
+      /* 🔴 نافذة تفاصيل المباراة لم تكن تُحدَّث مع تحديث المباريات —
+         أُصلح (v338.6)
+         ─────────────────────────────────────────────────────────────
+         كانت تُعاد بناءً من مسار الكشوف وحده (سطر ~228). فإذا حفظ
+         المنظّم تشكيلة والنافذة مفتوحة أمام الجمهور، تصل البيانات
+         الجديدة إلى window.matches لكن الشريط لا يُعاد بناؤه — فيبقى
+         اسم القسم «التشكيلات» رغم أنها صارت متوقّعة (والعكس)، ولا
+         تظهر التشكيلة أصلاً حتى يُغلق المشاهد النافذة ويفتحها.
+         الآن: أي تحديث للمباريات يُعيد بناء النافذة المفتوحة — فيتغيّر
+         اسم القسم لحظياً كما تتغيّر النتيجة تماماً. */
+      try {
+        const _ov = document.getElementById('matchDetailOverlay');
+        if (_ov && _ov.classList.contains('show') && window._lastMatchDetailId
+            && typeof openMatchDetail === 'function') {
+          if (window._mdRefreshT) clearTimeout(window._mdRefreshT);
+          // تأخير قصير يمنع إعادة بناء متكرّرة حين تصل عدّة تحديثات معاً
+          window._mdRefreshT = setTimeout(() => {
+            try { openMatchDetail(window._lastMatchDetailId); } catch (e) {}
+          }, 180);
+        }
+      } catch (e) {}
+
       // 🔗 رابط مباراة مباشر: افتح المباراة المحددة في الرابط تلقائياً (مرة واحدة)
       _maybeOpenDeepLinkMatch();
     });
@@ -1625,6 +1719,21 @@ function computeGroupStats(teamIds, groupId) {
      بنتيجة null تمرّ إلى الفرع الأخير (لأن null>null و null<null كلاهما
      false) فتُحتسب **تعادلاً** بنقطة لكل فريق — بينما لوحة الإدارة
      تتجاهلها. (v338-audit) */
+  /* ✅ تفويض للنواة الموحّدة متى توفّرت (standings-core.js).
+     الشيفرة أدناه تبقى كما هي احتياطاً: لو تعذّر تحميل الملف لأي سبب
+     يعمل الحساب القديم بلا أي فرق في النتيجة. (v338.6) */
+  if (window.StandingsCore) {
+    const _tm = (teamIds || []).map(id => (teams || []).find(t => t && t.id === id)).filter(Boolean);
+    const _r = window.StandingsCore.compute({
+      teams: _tm, matches: matches, settings: window.settings || {},
+      groupId: groupId || null,
+      /* ⚠️ اسم الدالّة في الجمهور هو _deductionOfV لا _deductionOf —
+         الاسم الخاطئ كان سيُرجع 0 دائماً فيسقط خصم النقاط بصمت. */
+      deduction: (tid) => (typeof _deductionOfV === 'function' ? _deductionOfV(tid) : 0)
+    });
+    return _r;
+  }
+
   matches.filter(m=>m.status==='finished' && !m.isKnockout && !m.knockoutRoundId
                     && typeof m.homeScore==='number' && typeof m.awayScore==='number'
                     && (!groupId || !m.groupId || m.groupId===groupId)).forEach(m=>{
@@ -5781,7 +5890,10 @@ function _applyStatsFilter(list) {
 function renderStats() {
   const opts = _displayOpts();
   // تأكد أن كشوف كل الفرق مُشترَك بها (المستمع الموحّد يعيد الرسم عند أي تحديث)
-  (teams || []).forEach(t => { if (t && t.id) _ensureRosterLoaded(t.id); });
+  /* الإحصائيات تحتاج كل الكشوف لحلّ أسماء الهدّافين — لكن قراءةً
+     واحدة تكفي. المستمع الحيّ هنا كان يُعيد إنشاء ٣٢ اشتراكاً في كل
+     مرة يُفتح فيها تبويب الإحصائيات. (v338.6) */
+  (teams || []).forEach(t => { if (t && t.id) _loadRosterOnce(t.id); });
   const _searching = !!window._statsQuery;
   // أخفِ ملخص البطولة أثناء البحث لإبراز نتائج اللاعب
   const _sumWrap = document.getElementById('statsSummaryWrap');
@@ -7995,6 +8107,8 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
     const m = (window.matches||[]).find(x => x.id === matchId);
     if (!m) return;
     window._lastMatchDetailId = matchId;
+    /* مباراة جديدة = تبويب افتراضي جديد، لا نُورّث تبويب السابقة */
+    if (window._mdPrevMatch !== matchId) { window._mdActiveTab = null; window._mdPrevMatch = matchId; }
 
     const ht = (window.teams||[]).find(t => t.id === m.homeId) || { name: m.homeName||'؟', logo: m.homeLogo||'' };
     const at = (window.teams||[]).find(t => t.id === m.awayId) || { name: m.awayName||'؟', logo: m.awayLogo||'' };
@@ -8046,7 +8160,12 @@ window._toggleVideoFullscreen = _toggleVideoFullscreen;
     const _statsLive = (d && d.stats) || null;
     const _statsFin  = m.stats || null;
 
-    const activeTab = (tabs[0] && tabs[0].id) || 'lineup';
+    /* استرجع التبويب الذي كان مفتوحاً إن كان ما يزال موجوداً — وإلا
+       فأوّل تبويب. هذا ما يجعل التحديث اللحظي غير مُزعج. */
+    const _want = window._mdActiveTab;
+    const activeTab = (_want && tabs.some(t => t.id === _want))
+      ? _want
+      : ((tabs[0] && tabs[0].id) || 'lineup');
 
     // ── بناء محتوى كل تبويب ──
     function buildTabContent(tabId) {
@@ -8974,6 +9093,9 @@ function renderPitchViewer(lineup, isAway) {
 
     // تبديل التبويبات
     window._mdSwitchTab = function(tabId, mid) {
+      /* نحفظ التبويب المفتوح: إعادة بناء النافذة عند وصول تحديث كانت
+         تُرجع المشاهد إلى أول تبويب وهو يقرأ التشكيلة. (v338.6) */
+      window._mdActiveTab = tabId;
       tabs.forEach(t => {
         const tabBtn = document.getElementById('md-tab-' + t.id + '-' + mid);
         const content = document.getElementById('md-content-' + t.id + '-' + mid);

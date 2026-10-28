@@ -1,7 +1,13 @@
 // ══ Service Worker — منصة بطولات ══
 /* ⚠️ ارفع هذا الرقم مع كل نشر، وإلا خدم الـ SW نسخة قديمة من
    admin.js / TimerCore فتنكسر الاستبدالات وتعود أخطاء الساعة. */
-const VERSION = 'batolat-v338';
+const VERSION = 'batolat-v339';
+/* رقم إصدار الأصول — يجب أن يطابق ?v= في وسوم <script>/<link> بالصفحات.
+   🟡 v339: كانت SHELL تُخزّن './viewer.js' بلا ?v= بينما الصفحة تطلب
+   './viewer.js?v=338' — والكاش يطابق الرابط حرفياً، فالتخزين المسبق
+   للسكربتات لم يُستعمل قط وصفحة الجمهور لا تعمل بلا اتصال إلا بعد
+   زيارة ثانية. الآن تُخزَّن بنفس الرابط الذي تطلبه الصفحة. */
+const ASSET_V = '339';
 
 // أهم ملفات صفحة الجمهور فقط (offline يخص الجمهور بشكل أساسي)
 const SHELL = [
@@ -41,7 +47,7 @@ const SHELL = [
   './icon-512.png',
   './apple-touch-icon.png',
   './offline.html',
-];
+].map(u => /\.(js|css)$/.test(u) ? u + '?v=' + ASSET_V : u);
 
 self.addEventListener('install', e => {
   e.waitUntil(

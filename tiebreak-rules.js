@@ -56,7 +56,11 @@
       var st = window._liveMatches[matchId];
       if (!st) return;
 
-      var drawn = (st.homeScore || 0) === (st.awayScore || 0);
+      /* v339: «يحتاج حسماً» بدل «تعادل في هذه المباراة» — الذهاب المتعادل
+         يُنهى عادي، والإياب يُحسم بالمجموع (admin.js → _koNeedsDecider). */
+      var drawn = typeof window._koNeedsDecider === 'function'
+        ? window._koNeedsDecider(matchId)
+        : (st.homeScore || 0) === (st.awayScore || 0);
       // ركلات الترجيح تحسم التعادل — نقرأ نتيجتها
       var penDecided = st.matchStatus === 'penalties' &&
                        (st.penHomeScore != null && st.penAwayScore != null) &&
@@ -120,9 +124,12 @@
             '❌ ركلات الترجيح معطّلة في إعدادات البطولة', 'error');
           return;
         }
-        if ((st.homeScore || 0) !== (st.awayScore || 0)) {
+        var tied = typeof window._koNeedsDecider === 'function'
+          ? window._koNeedsDecider(matchId)
+          : (st.homeScore || 0) === (st.awayScore || 0);
+        if (!tied) {
           window.showToast && window.showToast(
-            '❌ ركلات الترجيح عند التعادل فقط', 'error');
+            '❌ ركلات الترجيح عند التعادل فقط (بالمجموع في الذهاب والإياب)', 'error');
           return;
         }
         return _origPen.apply(this, arguments);

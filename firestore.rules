@@ -103,6 +103,13 @@ service cloud.firestore {
       return ownsLeague(lid) || isOwnerUid(lid) || isSuperAdmin();
     }
 
+    // مذيع البث = منظّم البطولة صاحبة مستند liveStreams/{sid} (أو السوبر أدمن)
+    function isStreamOwner(sid) {
+      return signedIn()
+             && (ownsLeague(get(/databases/$(database)/documents/liveStreams/$(sid)).data.get('leagueId', ''))
+                 || isSuperAdmin());
+    }
+
     /* ── سجلّ السوبر أدمن ─────────────────────────────────────
        🔴 كانت هذه المجموعة **غائبة تماماً** عن القواعد، فتسقط على
           match /{document=**} { allow read, write: if false }.
@@ -165,6 +172,10 @@ service cloud.firestore {
          كل تعديلاتها بلا سبب ظاهر (بما فيها quotaAlert الذي يكتبه
          subscription-quota.js). .get() بقيمة افتراضية يجعل الشرط يقارن
          «الغائب بالغائب» فينجح، ويظل يمنع **تغيير** المالك متى وُجد. */
+      /* 🔴 v339 — آخر شرط: حدود الاشتراك (limits: maxTeams/maxPlayers/photos)
+         كانت قابلة للتعديل من المنظّم: سطر واحد في DevTools
+         updateDoc(leagues/X, {limits:{maxTeams:0}}) = «بلا حدّ» فيتجاوز
+         باقته المدفوعة. الحدود يحدّدها السوبر أدمن وحده. */
       allow update: if canEditLeagueDoc(lid)
                     && request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '')
                     && (
@@ -176,7 +187,8 @@ service cloud.firestore {
                          !('locked' in resource.data)
                          ? request.resource.data.get('locked', false) == false
                          : request.resource.data.get('locked', false) == resource.data.locked
-                       );
+                       )
+                    && request.resource.data.get('limits', null) == resource.data.get('limits', null);
 
       /* 🔴 كانت `if false` — فكانت تمنع superadmin.js:352 و :947
             (إنشاء بطولة) و:558 (حذفها) وهي جوهر عمل اللوحة.
@@ -309,10 +321,25 @@ service cloud.firestore {
         && ownsLeague(request.resource.data.get('leagueId',
              (resource != null ? resource.data.get('leagueId','') : '')));
 
-      // مقاعد المشاهدين — إشارة WebRTC فقط
+      /* مقاعد المشاهدين — إشارة WebRTC فقط
+         🟡 كانت `create, update, delete: if true` مع `read: if true`:
+            أي زائر يسرد كل المقاعد (list) فيعرف معرّفاتها، ثم يحذفها
+            أو يكتب فوق answer المذيع → يقطع بثّ كل المشاهدين بسطرين.
+         الآن:
+           • السرد (list) للمذيع وحده — فمعرّف المقعد (عشوائي طويل)
+             لا يعرفه إلا صاحبه، وهو الحماية الفعلية للمقعد.
+           • الإنشاء: offer فقط، بلا answer مزوّر، وبحجم معقول.
+           • التحديث (كتابة answer): المذيع وحده.
+           • الحذف: صاحب المقعد (يعرف معرّفه) أو المذيع. */
       match /viewers/{vid} {
-        allow read: if true;
-        allow create, update, delete: if true;   // offer/answer/ICE فقط، لا بيانات حسّاسة
+        allow get: if true;
+        allow list: if isStreamOwner(sid);
+        allow create: if request.resource.data.keys().hasOnly(['offer', 'at'])
+                      && request.resource.data.offer is map
+                      && request.resource.data.offer.get('sdp', '') is string
+                      && request.resource.data.offer.get('sdp', '').size() < 20000;
+        allow update: if isStreamOwner(sid);
+        allow delete: if true;   // يتطلّب معرفة المعرّف — ولا يُسرَد لغير المذيع
         match /vcandidates/{cid} { allow read, write: if true; }
         match /bcandidates/{cid} { allow read, write: if true; }
       }

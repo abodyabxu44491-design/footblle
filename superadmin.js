@@ -18,6 +18,17 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+/* 🔴 v339 — تهريب HTML لكل نص قادم من Firestore قبل حقنه في innerHTML.
+   كانت أسماء البطولات/المالكين/المواسم تُحقن خاماً. ومنظّم البطولة
+   يملك صلاحية تعديل مستند بطولته (name/season/icon) — فيضع اسماً مثل
+   <img src=x onerror=...> فيُنفَّذ في متصفح السوبر أدمن بجلسته الكاملة:
+   قراءة طلبات الاشتراك (بكلمات مرورها) وإنشاء/حذف أي شيء = تصعيد
+   صلاحيات كامل من منظّم إلى مالك المنصة. */
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+window._saEsc = esc;
+
 /* ✅︎ تصدير جسر Firestore — superadmin.js موديول، فمتغيّراته (db, doc, setDoc...)
    غير مرئية للملفات العادية اللي تُحمَّل بعده بدون type="module"
    (مثل superadmin-requests.js و handover.js). بدون هذا التصدير تظل
@@ -204,7 +215,7 @@ async function loadData() {
     const sel = document.getElementById('sub_league');
     if(sel) {
       sel.innerHTML = '<option value="">-- اختر بطولة --</option>' +
-        allLeagues.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+        allLeagues.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
     }
   });
 
@@ -284,10 +295,10 @@ function renderLeagues(filter = 'all') {
   grid.innerHTML = filtered.map(l => `
     <div class="league-card">
       <div class="lc-header">
-        <div class="lc-badge">${l.icon || '🏆'}</div>
+        <div class="lc-badge">${esc(l.icon || '🏆')}</div>
         <div class="lc-info">
-          <div class="lc-name">${l.name}</div>
-          <div class="lc-meta">${typeLabel(l.type)} · ${l.ownerName || '—'} · ${l.season || '2025'}</div>
+          <div class="lc-name">${esc(l.name)}</div>
+          <div class="lc-meta">${typeLabel(l.type)} · ${esc(l.ownerName || '—')} · ${esc(l.season || '2025')}</div>
         </div>
         ${statusBadge(l.status)}
       </div>
@@ -402,7 +413,7 @@ window.leagueActions = function(id) {
         <hr style="border-color:var(--border);margin:12px 0"/>
         <div style="display:grid;gap:6px;font-size:11px;color:var(--muted2);line-height:1.9">
           <div>المعرّف: <strong style="color:var(--text);font-family:monospace">${l.id}</strong></div>
-          <div>المالك: <strong style="color:var(--text)">${l.ownerName || '—'}</strong></div>
+          <div>المالك: <strong style="color:var(--text)">${esc(l.ownerName || '—')}</strong></div>
           <div style="display:flex;align-items:center;gap:6px">البريد: <strong style="color:var(--text)">${l.ownerEmail || '—'}</strong>
             ${l.ownerEmail ? `<button class="ic-btn-mini" onclick="copyStr('${l.ownerEmail}')" title="نسخ">📋</button>` : ''}</div>
           <div style="display:flex;align-items:center;gap:6px">الواتساب: <strong style="color:var(--text)">${l.ownerPhone || '—'}</strong>
@@ -572,9 +583,9 @@ function renderActiveQuick() {
   el.innerHTML = active.map(l => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:22px">${l.icon || '🏆'}</span>
+        <span style="font-size:22px">${esc(l.icon || '🏆')}</span>
         <div>
-          <div style="font-size:13px;font-weight:700">${l.name}</div>
+          <div style="font-size:13px;font-weight:700">${esc(l.name)}</div>
           <div style="font-size:10px;color:var(--muted)">${typeLabel(l.type)} · ${l.teamsCount || 0} فريق</div>
         </div>
       </div>
@@ -602,8 +613,8 @@ function renderExpiringOverview() {
     return `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border)">
       <div>
-        <div style="font-size:13px;font-weight:700">${s.leagueName || s.leagueId}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${s.ownerName || '—'}</div>
+        <div style="font-size:13px;font-weight:700">${esc(s.leagueName || s.leagueId)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(s.ownerName || '—')}</div>
       </div>
       <div style="text-align:left">
         <div class="exp-soon">⏰ ينتهي بعد ${diff} يوم</div>
@@ -644,8 +655,8 @@ function renderSubs() {
     const text = st === 'soon' ? `${days} يوم` : lbl;
     const isDone = st === 'cancelled';
     return `<tr>
-      <td data-label="البطولة" style="font-weight:700">${s.leagueName || s.leagueId || '—'}</td>
-      <td data-label="المالك" style="color:var(--muted2)">${s.ownerName || '—'}</td>
+      <td data-label="البطولة" style="font-weight:700">${esc(s.leagueName || s.leagueId || '—')}</td>
+      <td data-label="المالك" style="color:var(--muted2)">${esc(s.ownerName || '—')}</td>
       <td data-label="المدة" style="color:var(--muted2);font-size:10px">${durationLabel(s.startDate, s.endDate)}</td>
       <td data-label="ينتهي"><span class="${cls}">${s.endDate || '—'}</span></td>
       <td data-label="الحالة"><span style="font-size:10px" class="${cls}">${text}</span></td>
@@ -787,9 +798,9 @@ function renderUsers(users) {
     const [subClass, subText] = subMap[st] || subMap.expired;
     return `
     <tr>
-      <td data-label="الاسم" style="font-weight:700">${u.ownerName || '—'}</td>
-      <td data-label="البريد" style="color:var(--muted2);font-family:monospace;font-size:10px">${u.email || '—'}</td>
-      <td data-label="البطولة" style="color:var(--muted2)">${u.leagueName || u.leagueId || '—'}</td>
+      <td data-label="الاسم" style="font-weight:700">${esc(u.ownerName || '—')}</td>
+      <td data-label="البريد" style="color:var(--muted2);font-family:monospace;font-size:10px">${esc(u.email || '—')}</td>
+      <td data-label="البطولة" style="color:var(--muted2)">${esc(u.leagueName || u.leagueId || '—')}</td>
       <td data-label="الاشتراك"><span class="plan-badge ${subClass}">${subText}</span></td>
       <td data-label="الحالة"><span style="font-size:9px;padding:2px 8px;border-radius:10px;background:${u.active !== false ? 'var(--green2)' : 'var(--red2)'};color:${u.active !== false ? 'var(--green)' : 'var(--red)'};border:1px solid ${u.active !== false ? 'var(--green)' : 'var(--red)'}">${u.active !== false ? '🟢 نشط' : '⚫ موقوف'}</span></td>
       <td class="sa-td-actions"><div style="display:flex;gap:5px">
@@ -1002,12 +1013,12 @@ window._showNewLeagueLinks = function(slug, name){
   ov.innerHTML =
     `<div style="background:var(--bg,#12121e);border:1px solid var(--border,#2a2a3e);border-radius:18px;padding:20px;max-width:440px;width:100%;font-family:Tajawal,sans-serif">
       <div style="text-align:center;margin-bottom:8px;display:flex;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="#C9A02B" stroke-width="1.6" width="34" height="34"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div>
-      <h3 style="text-align:center;color:var(--text,#fff);margin:0 0 4px;font-size:18px">تم إنشاء «${name}»</h3>
+      <h3 style="text-align:center;color:var(--text,#fff);margin:0 0 4px;font-size:18px">تم إنشاء «${esc(name)}»</h3>
       <p style="text-align:center;color:var(--muted,#9aa);font-size:12.5px;margin:0 0 16px">الروابط الثلاثة جاهزة للمشاركة</p>
       ${linkRow('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="vertical-align:-2px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> صفحة الجمهور', V, '#22c55e')}
       ${linkRow('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="vertical-align:-2px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> لوحة الإدارة', A, '#3b82f6')}
       ${linkRow('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="vertical-align:-2px"><path d="M23 7l-7 5 7 5V7zM14 5H3a2 2 0 00-2 2v10a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2z"/></svg> استوديو البثّ', B, '#C9A02B')}
-      <button onclick="sendWALeague('${name.replace(/'/g,'')}','${slug}','')" style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:6px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 2a10 10 0 00-8.5 15.3L2 22l4.8-1.5A10 10 0 1012 2zm0 18a8 8 0 01-4.1-1.1l-.3-.2-2.8.9.9-2.8-.2-.3A8 8 0 1112 20z"/></svg>إرسال الروابط واتساب</button>
+      <button onclick="sendWALeague('${esc(String(name).replace(/['\\]/g,''))}','${slug}','')" style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:6px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 2a10 10 0 00-8.5 15.3L2 22l4.8-1.5A10 10 0 1012 2zm0 18a8 8 0 01-4.1-1.1l-.3-.2-2.8.9.9-2.8-.2-.3A8 8 0 1112 20z"/></svg>إرسال الروابط واتساب</button>
       <button onclick="this.closest('div[style*=fixed]').remove();showPage('leagues',null)" style="width:100%;background:var(--card,#1a1a2e);color:var(--text,#fff);border:1px solid var(--border,#2a2a3e);border-radius:10px;padding:11px;font-weight:800;font-family:inherit;cursor:pointer">تم — عرض كل البطولات</button>
     </div>`;
   ov.onclick = e => { if(e.target===ov){ ov.remove(); showPage('leagues',null); } };

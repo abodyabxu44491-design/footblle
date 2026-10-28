@@ -7631,6 +7631,37 @@ const PLATFORM_NAME = 'منصة البطولات';
 const _liveMatches = {}; // matchId → { timer, state }
 window._liveMatches = _liveMatches; // يستخدمه live-page-fixes.js
 
+/* 🟠 v339 — هل تحتاج هذه المباراة حسماً (وقت إضافي/ركلات) لو انتهت الآن؟
+   كانت كل الفحوص «إقصاء + تعادل في هذه المباراة». وهذا خطأ في نظام
+   الذهاب والإياب (settings.koTwoLegs):
+     • الذهاب المتعادل 1-1 كان يُمنع إنهاؤه (tiebreak-rules) ويُفرض عليه
+       وقت إضافي تلقائي — والتعادل في الذهاب نتيجة مشروعة تماماً.
+     • الإياب 1-1 بعد ذهاب 2-0 كان يُمنع إنهاؤه رغم أن المتأهّل محسوم
+       بالمجموع، بينما الإياب 0-1 بعد ذهاب 1-0 (مجموع متعادل) كان يُنهى
+       بلا حسم ويُمنع زر الركلات، فيعلق التأهّل في _autoAdvanceWinner.
+   القاعدة الآن: الإياب يُحسم بالمجموع — نفس حساب _autoAdvanceWinner
+   حرفياً (بلا أفضلية أهداف خارج الأرض). */
+window._koNeedsDecider = function (matchId) {
+  const st = _liveMatches[matchId];
+  if (!st || !(st.isKnockout || st.knockoutRoundId != null)) return false;
+  const h = st.homeScore || 0, a = st.awayScore || 0;
+  const legNo = Number(st.legNo || 0);
+  if (legNo === 1) return false;
+  if (legNo === 2) {
+    const first = (matches || []).find(m => m.id !== matchId && m.isKnockout &&
+      m.knockoutRoundId === st.knockoutRoundId &&
+      (m.knockoutSlot ?? 0) === (st.knockoutSlot ?? 0) &&
+      Number(m.legNo ?? m.leg ?? 0) === 1 && m.status === 'finished');
+    if (first) {
+      let aggH = h, aggA = a;   // من منظور صاحب أرض هذه المباراة
+      if (first.homeId === st.homeId) { aggH += first.homeScore || 0; aggA += first.awayScore || 0; }
+      else                            { aggH += first.awayScore || 0; aggA += first.homeScore || 0; }
+      return aggH === aggA;
+    }
+  }
+  return h === a;
+};
+
 // ── Settings helper ──
 function _getLiveSettings() {
   const ms = (window.settings && window.settings.matchSettings) || {};
@@ -7733,6 +7764,8 @@ window.openLivePage = function(matchId) {
     isKnockout:        !!(match.isKnockout || match.knockoutRoundId != null),
     knockoutRoundId:   match.knockoutRoundId ?? null,
     knockoutRoundName: match.knockoutRoundName || '',
+    knockoutSlot:      match.knockoutSlot ?? null,
+    legNo:             match.legNo ?? match.leg ?? null,
     cfg,
     unsubscribe: null,
   };
@@ -9817,10 +9850,9 @@ function _updateTimeControlBtns(matchId) {
 
   // الشوط الثاني جارٍ
   } else if (phase === 'live' && st.currentHalf === 2) {
-    const isKnockout = st.isKnockout || (st.knockoutRoundId != null);
-    const drawn = (st.homeScore || 0) === (st.awayScore || 0);
-    const showET  = isKnockout && drawn && cfg.hasExtraTime !== false;
-    const showPen = isKnockout && drawn && cfg.hasPenalties !== false;
+    const needsDecider = window._koNeedsDecider(matchId);   // v339: يراعي الذهاب/الإياب
+    const showET  = needsDecider && cfg.hasExtraTime !== false;
+    const showPen = needsDecider && cfg.hasPenalties !== false;
     const extras = `${showET ? `<button class="lp-btn lp-btn-et" onclick="lpStartET1('${matchId}')">⚡ وقت إضافي</button>` : ''}${showPen ? `<button class="lp-btn lp-btn-pen" onclick="lpStartPenalties('${matchId}')">🥅 ركلات ترجيح</button>` : ''}`;
     html = `${pauseBtn}${addTimeBtn}${extras}
       <button class="lp-btn lp-btn-end lp-btn-primary" onclick="lpEndMatch('${matchId}')">🏁 إنهاء المباراة</button>`;
@@ -9836,9 +9868,7 @@ function _updateTimeControlBtns(matchId) {
 
   // الوقت الإضافي الثاني
   } else if (phase === 'extratime2') {
-    const isKnockout = st.isKnockout || (st.knockoutRoundId != null);
-    const drawn = (st.homeScore || 0) === (st.awayScore || 0);
-    const showPen = isKnockout && drawn && cfg.hasPenalties !== false;
+    const showPen = window._koNeedsDecider(matchId) && cfg.hasPenalties !== false;
     const extras = showPen ? `<button class="lp-btn lp-btn-pen" onclick="lpStartPenalties('${matchId}')">🥅 ركلات ترجيح</button>` : '';
     html = `${pauseBtn}${addTimeBtn}${extras}
       <button class="lp-btn lp-btn-end lp-btn-primary" onclick="lpEndMatch('${matchId}')">🏁 إنهاء المباراة</button>`;
@@ -10032,10 +10062,9 @@ window._lpAutoEndHalf = function(matchId) {
     window.lpHalfTime(matchId);
   } else if (st.matchStatus === 'live' && st.currentHalf === 2) {
     // للمباريات الإقصائية: إذا كانت التعادل — ابدأ الوقت الإضافي تلقائيًا
-    const isKnockout = st.isKnockout || (st.knockoutRoundId != null);
     const cfg = _getCfg(matchId);
-    
-    if (isKnockout && st.homeScore === st.awayScore && cfg.hasExtraTime) {
+
+    if (window._koNeedsDecider(matchId) && cfg.hasExtraTime) {
       // ✅︎ ابدأ الوقت الإضافي الأول تلقائيًا (تعادل في مباراة إقصائية)
       // عدّاد الفترة يبدأ من الصفر — الإزاحة (90 د) تُضاف عند العرض في TimerCore.
       // ⚠️ لا تستخدم offset هنا وإلا ظهرت الساعة 180:00 عند الجمهور.
@@ -10060,11 +10089,12 @@ window._lpAutoEndHalf = function(matchId) {
       /* ✅︎ الرسالة حسب نوع المباراة — كانت تقترح وقتاً إضافياً
          حتى على مباريات المجموعات التي لا تملكه أصلاً. */
       var msg;
+      var isKnockout = st.isKnockout || (st.knockoutRoundId != null);
       if (!isKnockout) {
         msg = st.homeScore === st.awayScore
           ? '⏰ انتهى الوقت — التعادل نتيجة نهائية، اضغط "إنهاء المباراة"'
           : '⏰ انتهى الوقت — اضغط "إنهاء المباراة"';
-      } else if (st.homeScore === st.awayScore) {
+      } else if (window._koNeedsDecider(matchId)) {
         var routes = [];
         if (cfg.hasExtraTime !== false) routes.push('الوقت الإضافي');
         if (cfg.hasPenalties !== false) routes.push('ركلات الترجيح');
@@ -10427,16 +10457,9 @@ window.lpEndMatch = async function(matchId) {
   const st = _liveMatches[matchId];
   if (!st) return;
 
-  // 🛡️ إصلاح ثغرة نادرة: ألغِ الحفظ التلقائي (كل 20ث) فوراً — قبل أي await —
-  //    وإلا قد يصل حفظ تلقائي قديم (matchStatus='live') بعد حفظ الإنهاء
-  //    فيدهس 'ended' بـ 'live' → المباراة تظهر منتهية لكن عالقة في البث.
-  if (st._autoSaveV2) { clearInterval(st._autoSaveV2); st._autoSaveV2 = null; }
-  if (st.timerInterval) { clearInterval(st.timerInterval); st.timerInterval = null; }
-  st._ending = true; // علامة تمنع أي حفظ تلقائي متأخّر
-
-  // ⛔ مباريات الإقصاء لا تنتهي بالتعادل — لازم فائز (نتيجة أو ركلات ترجيح)
-  const _koMatch = matches.find(function(x){ return x.id === matchId; });
-  if (_koMatch && _koMatch.isKnockout && (st.homeScore || 0) === (st.awayScore || 0)) {
+  /* ⛔ مباريات الإقصاء لا تنتهي بلا فائز (نتيجة أو ركلات ترجيح).
+     v339: «تحتاج حسماً» تراعي الذهاب والإياب (المجموع) — انظر _koNeedsDecider. */
+  if (window._koNeedsDecider(matchId)) {
     const _pIsGoal = r => (typeof r === 'string') ? r === 'goal' : !!(r && r.result === 'goal');
     const _ph = st.penalties ? (st.penalties.home || []).filter(_pIsGoal).length : 0;
     const _pa = st.penalties ? (st.penalties.away || []).filter(_pIsGoal).length : 0;
@@ -10449,7 +10472,16 @@ window.lpEndMatch = async function(matchId) {
   }
 
   if (!(await window.confirmDialog({ title: '⚠️ تأكيد', message: 'هل تريد إنهاء المباراة نهائياً؟', confirmText: 'تأكيد', danger: true }))) return;
-  clearInterval(st.timerInterval);
+
+  /* 🛡️ ألغِ الحفظ التلقائي (كل 20ث) فوراً — قبل أي await تالٍ — وإلا قد
+     يصل حفظ تلقائي قديم (matchStatus='live') بعد حفظ الإنهاء فيدهس 'ended'.
+     🟠 v339: كان هذا قبل الحارس ونافذة التأكيد، فإن رُفض الإنهاء (تعادل
+     إقصاء) أو ضغط المنظّم «إلغاء» بقيت الساعة متجمّدة والحفظ التلقائي
+     متوقّفاً و_ending=true — مباراة جارية بلا ساعة ولا حفظ حتى إعادة الفتح.
+     كتابات Firestore من نفس العميل مرتّبة، فالإلغاء هنا آمن بنفس القدر. */
+  if (st._autoSaveV2) { clearInterval(st._autoSaveV2); st._autoSaveV2 = null; }
+  if (st.timerInterval) { clearInterval(st.timerInterval); st.timerInterval = null; }
+  st._ending = true; // علامة تمنع أي حفظ تلقائي متأخّر
   st.timerPaused = false;
   st.matchStatus = 'ended';
   window._lpUpdateStatusUI(matchId);

@@ -16,7 +16,8 @@
       "previews/**",
       "*.rules",
       "firestore.indexes.json",
-      "tests/**"
+      "tests/**",
+      "functions/**"
     ],
     "headers": [
       {

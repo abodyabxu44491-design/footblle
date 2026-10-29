@@ -31,8 +31,10 @@
   function ready(fn, tries) {
     tries = tries || 0;
     if (window.settings && typeof window.showPage === 'function') return fn();
-    if (tries > 400) return;
-    setTimeout(function () { ready(fn, tries + 1); }, 60);
+    /* v339: كانت تكفّ بعد ~٢٤ ثانية فتموت الميزة بصمت على الشبكات البطيئة
+       (admin.js وحده ١٫١ ميجا). الآن: سريع أولاً، ثم كل ثانية حتى ٥ دقائق. */
+    if (tries > 400 + 300) return;
+    setTimeout(function () { ready(fn, tries + 1); }, tries > 400 ? 1000 : 60);
   }
 
   /* ─────────────────────────────────────────────────────────────

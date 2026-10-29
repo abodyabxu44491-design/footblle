@@ -29,8 +29,10 @@
     t = t || 0;
     if (window.settings !== undefined && typeof window.showPage === 'function' &&
         typeof window._getLeagueId === 'function') return fn();
-    if (t > 500) return;
-    setTimeout(function () { ready(fn, t + 1); }, 60);
+    /* v339: كانت تكفّ بعد ~٢٤ ثانية فتموت الميزة بصمت على الشبكات البطيئة
+       (admin.js وحده ١٫١ ميجا). الآن: سريع أولاً، ثم كل ثانية حتى ٥ دقائق. */
+    if (t > 500 + 300) return;
+    setTimeout(function () { ready(fn, t + 1); }, t > 500 ? 1000 : 60);
   }
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')

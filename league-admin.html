@@ -18,7 +18,7 @@ if('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
-<link rel="stylesheet" href="./admin.css?v=339"/>
+<link rel="stylesheet" href="./admin.css?v=340"/>
 <!-- SheetJS: لإنشاء/قراءة ملفات Excel (قالب واستيراد اللاعبين) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1260,23 +1260,7 @@ if('serviceWorker' in navigator) {
     </div><!-- /main -->
   </div><!-- /layout -->
 
-  <!-- ══ QUICK ENTRY OVERLAY ══ -->
-  <div class="qe-overlay" id="qeOverlay" style="display:none;position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.92);overflow-y:auto">
-    <div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:20px">
-      <div style="background:var(--card);border:1px solid var(--gold3);border-radius:20px;width:100%;max-width:560px;overflow:hidden">
-        <div style="background:linear-gradient(135deg,#0d0a00,#1a1200);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--gold3)">
-          <div>
-            <div style="font-size:15px;font-weight:900;color:var(--gold);font-family:Tajawal,sans-serif">⚽ إدخال سريع</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:2px" id="qeMatchLabel">جاري التحميل...</div>
-          </div>
-          <button onclick="closeQuickEntry()" style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;color:var(--text);width:36px;height:36px;cursor:pointer;font-size:18px">✕</button>
-        </div>
-        <div style="padding:20px" id="qeOverlayBody">
-          <div style="text-align:center;padding:40px;color:var(--muted)">جاري التحميل...</div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- v339: أُزيل #qeOverlay الميت — لا شيفرة تفتحه، وزرّ إغلاقه يستدعي closeQuickEntry غير المعرّفة -->
 
   <!-- ⛔ شريط التنقل السفلي (الإيموجي) أُزيل — استُبدل بقائمة جانبية منظمة تدعم الجوال -->
 </div>
@@ -2377,15 +2361,15 @@ if('serviceWorker' in navigator) {
   };
 })();
 </script>
-<script type="module" src="./admin.js?v=339"></script>
+<script type="module" src="./admin.js?v=340"></script>
 <!-- نظام التشكيلات — Drag & Drop — يُحمّل بعد الأدمن مباشرة -->
-<script type="module" src="./admin-lineup-dragdrop.js?v=339"></script>
+<script type="module" src="./admin-lineup-dragdrop.js?v=340"></script>
 
 <!-- إضافات بطاقة البث: إحصائيات + سجل أحداث محسّن -->
 
-<script src="./live-page-stats-fix.js?v=339"></script>
-<script src="./standings-core.js?v=339"></script>
-  <script src="./all-fixes.js?v=339"></script>
+<script src="./live-page-stats-fix.js?v=340"></script>
+<script src="./standings-core.js?v=340"></script>
+  <script src="./all-fixes.js?v=340"></script>
 <script>
 /* ===== timer-admin (مدمج) ===== */
 /* ═══════════════════════════════════════════════════════════════════
@@ -3079,8 +3063,8 @@ if('serviceWorker' in navigator) {
   console.log('[sponsor-admin] ✅︎ جاهز');
 })();
 </script>
-<script src="./cards-system.js?v=339"></script>
-<script src="./substitution-system.js?v=339"></script>
+<script src="./cards-system.js?v=340"></script>
+<script src="./substitution-system.js?v=340"></script>
 <script>
 // ── ربط زر "تحرير التشكيلة" في لوحة المباشر ──
 window.lvOpenLineupFromLive = function() {
@@ -3199,37 +3183,37 @@ window.openMatchLineup = function(matchId) {
   </div>
 </div>
 
-<script src="./timer-hotfix.js?v=339"></script>
-<script src="./tiebreak-rules.js?v=339"></script>
-<script src="./date-groups.js?v=339"></script>
-<script src="./match-core.js?v=339"></script>
-<script src="./admin-matches-tabs.js?v=339"></script>
-<script src="./groups-gate.js?v=339"></script>
-<script src="./league-logo.js?v=339"></script>
-<script src="./health-check.js?v=339"></script>
-<script src="./lock-guard.js?v=339"></script>
-<script src="./clock-sync.js?v=339"></script>
-<script src="./viewport-lock.js?v=339"></script>
-<script src="./pwa-install.js?v=339"></script>
+<script src="./timer-hotfix.js?v=340"></script>
+<script src="./tiebreak-rules.js?v=340"></script>
+<script src="./date-groups.js?v=340"></script>
+<script src="./match-core.js?v=340"></script>
+<script src="./admin-matches-tabs.js?v=340"></script>
+<script src="./groups-gate.js?v=340"></script>
+<script src="./league-logo.js?v=340"></script>
+<script src="./health-check.js?v=340"></script>
+<script src="./lock-guard.js?v=340"></script>
+<script src="./clock-sync.js?v=340"></script>
+<script src="./viewport-lock.js?v=340"></script>
+<script src="./pwa-install.js?v=340"></script>
 
 <!-- (شبكة أمان اللمس القديمة أُزيلت — النافذة الجديدة تربط أحداثها بالتفويض داخل admin.js) -->
-<script src="./back-nav.js?v=339"></script>
+<script src="./back-nav.js?v=340"></script>
 
 <!-- ⚽ مجريات المباراة الموحّدة — يُحمَّل آخر شيء كي تسبق تعريفاته
      كل من يعرّف _lpRenderEvents / _qrEventsHtml قبله -->
-<script src="./events-timeline.js?v=339"></script>
+<script src="./events-timeline.js?v=340"></script>
 
 <!-- ⚖️ الإيقاف الآلي بتراكم البطاقات — معطَّل افتراضياً، لا يعمل قبل إعداده -->
-<script src="./suspensions.js?v=339"></script>
+<script src="./suspensions.js?v=340"></script>
 
 <!-- 📋 القيم الافتراضية للمباريات — تُملأ في كل مباراة جديدة -->
-<script src="./match-defaults.js?v=339"></script>
+<script src="./match-defaults.js?v=340"></script>
 
 <!-- 🥅 ركلات الترجيح: مصدر ولوحة وصياغة واحدة -->
-<script src="./penalties-core.js?v=339"></script>
+<script src="./penalties-core.js?v=340"></script>
 
 <!-- 📦 حدود الاشتراك: أشرطة الاستهلاك والتنبيهات -->
-<script src="./subscription-quota.js?v=339"></script>
-  <script src="./lineup-plus.js?v=339"></script>
+<script src="./subscription-quota.js?v=340"></script>
+  <script src="./lineup-plus.js?v=340"></script>
 </body>
 </html>

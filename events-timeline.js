@@ -40,8 +40,10 @@
   function ready(fn, tries) {
     tries = tries || 0;
     if (window._liveMatches && typeof window._lpSaveV2 === 'function') return fn();
-    if (tries > 400) return;                     // ~24 ثانية ثم نكفّ
-    setTimeout(function () { ready(fn, tries + 1); }, 60);
+    /* v339: كانت تكفّ بعد ~٢٤ ثانية فتموت الميزة بصمت على الشبكات البطيئة
+       (admin.js وحده ١٫١ ميجا). الآن: سريع أولاً، ثم كل ثانية حتى ٥ دقائق. */
+    if (tries > 400 + 300) return;
+    setTimeout(function () { ready(fn, tries + 1); }, tries > 400 ? 1000 : 60);
   }
 
   /* ─────────────────────────────────────────────────────────────

@@ -31,8 +31,10 @@
   function ready(fn, t) {
     t = t || 0;
     if (window._db && window.showPage && window.showToast) return fn();
-    if (t > 400) return;
-    setTimeout(function () { ready(fn, t + 1); }, 60);
+    /* v339: كانت تكفّ بعد ~٢٤ ثانية فتموت الميزة بصمت على الشبكات البطيئة
+       (admin.js وحده ١٫١ ميجا). الآن: سريع أولاً، ثم كل ثانية حتى ٥ دقائق. */
+    if (t > 400 + 300) return;
+    setTimeout(function () { ready(fn, t + 1); }, t > 400 ? 1000 : 60);
   }
 
   var FS = {};                 // مراجع Firestore تُلتقط من الصفحة

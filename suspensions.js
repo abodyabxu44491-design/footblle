@@ -37,8 +37,10 @@
   function whenFn(name, wrap, tries) {
     tries = tries || 0;
     if (typeof window[name] === 'function') { try { wrap(window[name]); } catch (e) {} return; }
-    if (tries > 400) return;                     // ~24 ثانية ثم نكفّ
-    setTimeout(function () { whenFn(name, wrap, tries + 1); }, 60);
+    /* v339: كانت تكفّ بعد ~٢٤ ثانية فتموت الميزة بصمت على الشبكات البطيئة
+       (admin.js وحده ١٫١ ميجا). الآن: سريع أولاً، ثم كل ثانية حتى ٥ دقائق. */
+    if (tries > 400 + 300) return;
+    setTimeout(function () { whenFn(name, wrap, tries + 1); }, tries > 400 ? 1000 : 60);
   }
 
   /* ─────────────────────────────────────────────────────────────

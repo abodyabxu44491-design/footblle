@@ -101,21 +101,37 @@ const SITE_URL  = location.origin + location.pathname.replace(/\/[^/]*$/, '/');
 // أسماء الفرق/اللاعبين/البطولة تُعرض عبر innerHTML في عشرات المواضع.
 // بدل تعديل كل موضع، نُصفّي الحقول النصية عند مصدرها (لحظة القراءة من
 // Firestore). نُزيل أقواس الوسوم فقط — يبقى النص طبيعياً ولا يُنفَّذ كـ HTML.
+/* v339: نُزيل الأقواس، ونحوّل علامات الاقتباس إلى أشكالها الطباعية (” ’)
+   — تبدو متطابقة للقارئ، لكنها لا تكسر سمات HTML ولا نصوص JS داخل
+   onclick="...('${name}')" (كان اسم مثل  ');alert(1);('  يُنفَّذ). */
 function _stripTags(v) {
-  return typeof v === 'string' ? v.replace(/[<>]/g, '') : v;
+  return typeof v === 'string'
+    ? v.replace(/[<>`]/g, '').replace(/"/g, '”').replace(/'/g, '’')
+    : v;
 }
-// حقول نصية يكتبها المنظّم وقد تُعرض كـ HTML
-const _TEXT_FIELDS = ['name', 'shortName', 'coach', 'stadium', 'city',
-  'group', 'title', 'label', 'note', 'notes', 'scorer', 'player',
-  'playerName', 'assist', 'reason', 'season'];
-function _sanitizeDoc(o) {
-  if (!o || typeof o !== 'object') return o;
-  _TEXT_FIELDS.forEach(k => { if (k in o) o[k] = _stripTags(o[k]); });
-  // اللاعبون داخل الفريق (roster) وأحداث المباراة
-  if (Array.isArray(o.roster)) o.roster.forEach(_sanitizeDoc);
-  if (Array.isArray(o.players)) o.players.forEach(_sanitizeDoc);
-  if (Array.isArray(o.scorers)) o.scorers.forEach(_sanitizeDoc);
-  if (Array.isArray(o.events)) o.events.forEach(_sanitizeDoc);
+/* 🟠 v339 — كانت قائمة حقول ثابتة (16 حقلاً) في المستوى الأعلى وحده،
+   فتفلت منها homeName/awayName/venue/summary/manOfMatch/playerIn/
+   playerOut وكل ما داخل liveData (الأحداث والتشكيلات والتعليق).
+   الآن: مرور عميق، وكل مفتاح يدلّ اسمه على نص يكتبه المنظّم يُصفّى،
+   والروابط (شعارات/صور/بث — http/data:) لا تُلمس. */
+const _TEXT_KEY = /(name|player|scorer|coach|stadium|city|venue|summary|title|label|note|reason|season|assist|referee|motm|manofmatch|comment|caption|captain|group|desc|text|sponsor|owner)/i;
+const _SKIP_KEY = /(logo|url|photo|image|img|icon|sdp|candidate|token|color|colour|id)$/i;
+function _sanitizeDoc(o, depth) {
+  depth = depth || 0;
+  if (!o || typeof o !== 'object' || depth > 6) return o;
+  if (Array.isArray(o)) { for (let i = 0; i < o.length; i++) o[i] = (typeof o[i] === 'string') ? o[i] : _sanitizeDoc(o[i], depth + 1); return o; }
+  for (const k in o) {
+    if (!Object.prototype.hasOwnProperty.call(o, k)) continue;
+    const v = o[k];
+    if (typeof v === 'string') {
+      if (_TEXT_KEY.test(k) && !_SKIP_KEY.test(k) && !/^(https?:|data:|blob:)/i.test(v)) o[k] = _stripTags(v);
+      /* الروابط تُحقن في src="..." — رابط فيه " أو بروتوكول javascript:
+         يكسر السمة ويُنفَّذ. الرابط السليم لا يحوي أيّاً منها. */
+      else if (/(logo|url|photo|image|img)$/i.test(k) && (/["'<>`]/.test(v) && !/^data:image\/svg/i.test(v) || /^\s*javascript:/i.test(v))) o[k] = '';
+    } else if (v && typeof v === 'object' && typeof v.toDate !== 'function') {
+      _sanitizeDoc(v, depth + 1);
+    }
+  }
   return o;
 }
 window._sanitizeDoc = _sanitizeDoc;
@@ -762,7 +778,7 @@ async function init() {
   if(league.status === 'suspended') { showError('البطولة موقوفة مؤقتاً','هذه البطولة موقوفة حالياً. تابعنا لاحقاً.'); return; }
 
   updateHeader();
-  if(settDoc.exists()) settings = {...settings, ...settDoc.data()};
+  if(settDoc.exists()) settings = {...settings, ..._sanitizeDoc(settDoc.data())};
   window.settings = settings;
   tournamentType = settings.type || league.type || 'league';
   adaptUIToType();
@@ -771,7 +787,7 @@ async function init() {
   // استمع لتغيّرات الإعدادات (bracketPublished وغيرها) بشكل لحظي
   onSnapshot(doc(db,'leagues',LEAGUE_ID,'config','settings'), snap => {
     if(snap.exists()) {
-      settings = {...settings, ...snap.data()};
+      settings = {...settings, ..._sanitizeDoc(snap.data())};
       window.settings = settings;
       if (typeof window._spRender === 'function') window._spRender();
       // الأقسام المفعّلة تُطبَّق لحظياً: إطفاء مفتاح يجب أن يختفي أثره فوراً
@@ -7486,7 +7502,7 @@ function _psWatchStream(streamId, matchId) {
     _psDetailUnsub = fs.onSnapshot(fs.doc(db,'liveStreams',streamId), snap=>{
       const box = document.getElementById('ps-box-'+matchId);
       if (!box) return;
-      const d = snap.exists() ? snap.data() : null;
+      const d = snap.exists() ? _sanitizeDoc(snap.data()) : null;
       const active = d && d.status === 'live';
       // كشف إعادة جديدة (P2P عبر data أو Storage عبر url) → اعرضها بأنيميشن احترافي
       if (d && d.replay && (d.replay.data || d.replay.url) && d.replay.at && d.replay.at !== _psLastReplayAt[matchId]) {

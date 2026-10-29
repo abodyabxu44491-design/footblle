@@ -3,9 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "npm run test:logic && npm run test:rules",
+    "test": "npm run test:logic && npm run test:rules && npm run test:storage",
     "test:logic": "node logic.test.mjs",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-footballa --config ../firebase.json \"node rules.test.mjs\""
+    "test:rules": "firebase emulators:exec --only firestore --project demo-footballa --config ../firebase.json \"node rules.test.mjs\"",
+    "test:storage": "firebase emulators:exec --only firestore,storage --project demo-footballa --config ../firebase.json \"node storage.test.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.0",

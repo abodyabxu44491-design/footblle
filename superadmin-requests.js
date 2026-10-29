@@ -472,7 +472,7 @@
      ───────────────────────────────────────────────────────────── */
   ready(function () {
     FS.db = window._db || window.db;
-    ['collection','doc','getDoc','setDoc','updateDoc','deleteDoc','addDoc','onSnapshot']
+    ['collection','doc','getDoc','setDoc','updateDoc','deleteDoc','deleteField','addDoc','onSnapshot']
       .forEach(function (k) { FS[k] = window['_firestore' + k[0].toUpperCase() + k.slice(1)] || window[k]; });
 
     var t = 0;
@@ -506,8 +506,12 @@
           };
           if (slug) await FS.setDoc(FS.doc(FS.db, 'leagues', slug), { limits: limits }, { merge: true });
           if (window._saPendingReq) {
-            await FS.updateDoc(FS.doc(FS.db, 'subRequests', window._saPendingReq),
-              { status: 'done', leagueId: slug });
+            /* 🔴 v339 — كلمة مرور العميل تبقى نصّاً صريحاً في الطلب إلى الأبد
+               بعد أن أدّت غرضها (تعبئة نموذج الإنشاء). نمحوها عند التفعيل:
+               نسخة واحدة أقل من كلمة المرور في القاعدة. */
+            var done = { status: 'done', leagueId: slug };
+            if (FS.deleteField) done.password = FS.deleteField();
+            await FS.updateDoc(FS.doc(FS.db, 'subRequests', window._saPendingReq), done);
             window._saPendingReq = null;
           }
         } catch (e) {}

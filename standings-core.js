@@ -127,6 +127,100 @@
     return rows;
   }
 
-  root.StandingsCore = { compute: compute, table: table, isCounted: isCounted };
+  /* ═══ الترتيب الكامل مع كسر التعادل الجماعي — v339 ═══════════════
+     🔴 كان الترتيب يُبنى بمقارن زوجي (applyTiebreak(a, b)). وهذا صحيح
+        لفريقين فقط. أما مع ثلاثة متساوين في النقاط فالمواجهات المباشرة
+        «الزوجية» قد تكون دائرية: أ فاز على ب، ب على ج، ج على أ —
+        فالمقارن متناقض، وArray.sort يعطي ترتيباً اعتباطياً يتغيّر بتغيّر
+        ترتيب المدخلات (أي قد يختلف بين لوحة المنظّم وصفحة الجمهور).
+     الصحيح (FIFA/UEFA): **دوري مصغّر** بين كل الفرق المتساوية معاً،
+     ثم يُعاد تطبيق القواعد على أي مجموعة فرعية بقيت متساوية.
+     لفريقين متساويين النتيجة مطابقة حرفياً للمقارن القديم.
+
+     @param rows  أسطر الجدول {id,name,pts,gf,ga,w,...}
+     @param o     { matches, settings:{tiebreakOrder,tiebreakDisabled,winPts,drawPts},
+                    cardCount:(teamId)=>عدد نقاط البطاقات }
+     @returns     مصفوفة جديدة مرتّبة */
+  function rank(rows, o) {
+    o = o || {};
+    var st = o.settings || {};
+    var WP = (typeof st.winPts  === 'number') ? st.winPts  : 3;
+    var DP = (typeof st.drawPts === 'number') ? st.drawPts : 1;
+    var dis = st.tiebreakDisabled || [];
+    var order = (st.tiebreakOrder || ['gd', 'gf', 'h2h', 'wins', 'cards', 'draw'])
+      .filter(function (r) { return r !== 'draw' && dis.indexOf(r) === -1; });
+    var counted = (o.matches || []).filter(isCounted);
+    var cardCount = (typeof o.cardCount === 'function') ? o.cardCount : null;
+    var cardMemo = {};
+
+    /* مفتاح كل قاعدة — الأكبر يتقدّم دائماً (البطاقات بالسالب) */
+    function keyFn(rule, block) {
+      if (rule === 'gd')   return function (r) { return (r.gf || 0) - (r.ga || 0); };
+      if (rule === 'gf')   return function (r) { return r.gf || 0; };
+      if (rule === 'wins') return function (r) { return r.w || 0; };
+      if (rule === 'cards') {
+        if (!cardCount) return null;
+        return function (r) {
+          if (!(r.id in cardMemo)) cardMemo[r.id] = Number(cardCount(r.id)) || 0;
+          return -cardMemo[r.id];
+        };
+      }
+      if (rule === 'h2h') {
+        var ids = {}, pts = {};
+        block.forEach(function (r) { ids[r.id] = true; pts[r.id] = 0; });
+        counted.forEach(function (m) {
+          if (!ids[m.homeId] || !ids[m.awayId] || m.homeId === m.awayId) return;
+          if (m.homeScore > m.awayScore)      pts[m.homeId] += WP;
+          else if (m.homeScore < m.awayScore) pts[m.awayId] += WP;
+          else { pts[m.homeId] += DP; pts[m.awayId] += DP; }
+        });
+        return function (r) { return pts[r.id]; };
+      }
+      return null;
+    }
+
+    function byName(a, b) {
+      return String(a.name || '').localeCompare(String(b.name || ''), 'ar');
+    }
+
+    /* يرتّب كتلة متساوية بدءاً من القاعدة ri */
+    function resolve(block, ri) {
+      if (block.length < 2) return block;
+      for (var i = ri; i < order.length; i++) {
+        var k = keyFn(order[i], block);
+        if (!k) continue;
+        var buckets = {}, keys = [];
+        block.forEach(function (r) {
+          var v = k(r);
+          if (!(v in buckets)) { buckets[v] = []; keys.push(v); }
+          buckets[v].push(r);
+        });
+        if (keys.length < 2) continue;              // القاعدة لم تفرّق — التالية
+        keys.sort(function (x, y) { return y - x; });
+        var out = [];
+        keys.forEach(function (v) {
+          /* كتلة فرعية ما زالت متساوية: أعد القواعد من أولها عليها —
+             فالمواجهات المباشرة تُحسب من جديد بين أفرادها وحدهم. */
+          out = out.concat(resolve(buckets[v], 0));
+        });
+        return out;
+      }
+      return block.slice().sort(byName);            // «القرعة»: ثابتة بالاسم
+    }
+
+    var sorted = (rows || []).slice().sort(function (a, b) {
+      return (b.pts || 0) - (a.pts || 0);
+    });
+    var res = [], i = 0;
+    while (i < sorted.length) {
+      var j = i;
+      while (j < sorted.length && (sorted[j].pts || 0) === (sorted[i].pts || 0)) j++;
+      res = res.concat(resolve(sorted.slice(i, j), 0));
+      i = j;
+    }
+    return res;
+  }
+
+  root.StandingsCore = { compute: compute, table: table, rank: rank, isCounted: isCounted };
 
 })(typeof window !== 'undefined' ? window : globalThis);

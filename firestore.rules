@@ -60,23 +60,27 @@ service cloud.firestore {
     // منظّم هذه البطولة تحديداً (ونشط)
     function ownsLeague(lid) {
       return hasAdminRec()
-             && adminRec().leagueId == lid
-             && adminRec().active == true;
+             && adminRec().get('leagueId', '') == lid
+             && adminRec().get('active', false) == true;
     }
 
     // مالك البطولة عبر ownerUid — احتياط لو غاب سجل leagueAdmins
     function isOwnerUid(lid) {
       return signedIn()
-             && get(/databases/$(database)/documents/leagues/$(lid)).data.ownerUid == request.auth.uid;
+             && get(/databases/$(database)/documents/leagues/$(lid)).data.get('ownerUid', '') == request.auth.uid;
     }
 
     /* البطولة قابلة للإدارة؟
        ✅ انتهاء الاشتراك يضع locked=true (ولا يوقف البطولة) حتى تبقى
           صفحة الجمهور تعمل للمتابعين. لذلك نفحص الاثنين معاً:
           status=='active' (لم تُوقف يدوياً) و locked != true (اشتراك ساري). */
+    /* 🔴 v339 — كانت `.data.locked != true` مباشرةً. لكن superadmin.js
+       ينشئ البطولة **بلا حقل locked** (لا يُكتب إلا عند القفل/التجديد)،
+       والوصول لحقل غائب في القواعد يرمي خطأ تقييم = رفض. النتيجة: منظّم
+       كل بطولة جديدة لا يستطيع حفظ مباراة واحدة. (كُشف بالمحاكي — tests/.) */
     function leagueActive(lid) {
-      return get(/databases/$(database)/documents/leagues/$(lid)).data.status == 'active'
-             && get(/databases/$(database)/documents/leagues/$(lid)).data.locked != true;
+      return get(/databases/$(database)/documents/leagues/$(lid)).data.get('status', '') == 'active'
+             && get(/databases/$(database)/documents/leagues/$(lid)).data.get('locked', false) != true;
     }
 
     /* ✅ الصلاحية = منظّم البطولة + البطولة نشطة.
@@ -282,8 +286,16 @@ service cloud.firestore {
        مسموحة للجميع، لكن السرد الكامل (list) ممنوع نهائياً حتى
        لا يقدر أحد يستعرض كل الروابط. الإنشاء/الحذف للسوبر أدمن فقط
        (الحذف = إلغاء صلاحية الرابط لو تسرّب). */
+    /* 🟠 v339 — الانتهاء (expiresAt، ١٤ يوماً) كان يُفحص في handover-view.html
+       وحدها. أي أن الصفحة ترفض العرض، لكن المستند — وفيه كلمة مرور
+       الإدارة — يبقى مقروءاً بـ getDoc مباشر من الطرفية إلى الأبد.
+       الآن يرفضه الخادم نفسه بعد الانتهاء. الروابط القديمة بلا الحقل
+       تبقى صالحة (توافق للخلف) — احذفها من اللوحة إن أردت إبطالها. */
     match /handoverLinks/{token} {
-      allow get: if true;
+      allow get: if !('expiresAt' in resource.data)
+                 || !(resource.data.expiresAt is number)
+                 || request.time.toMillis() < resource.data.expiresAt
+                 || isSuperAdmin();
       allow list: if false;
       allow create, update, delete: if isSuperAdmin();
     }

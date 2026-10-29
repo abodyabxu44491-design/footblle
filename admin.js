@@ -4127,12 +4127,16 @@ function renderStandings() {
   document.getElementById('page-standings')?.style.removeProperty('display');
   document.getElementById('dashStandingsCard')?.style.removeProperty('display');
 
-  const sorted = [...teams].sort((a, b) => {
-    if(b.pts !== a.pts) return b.pts - a.pts;
-    return (typeof window.applyTiebreak === 'function')
-      ? window.applyTiebreak(a, b, window.matches)
-      : (b.gf - b.ga) - (a.gf - a.ga);
-  });
+  /* v339: ترتيب جماعي (دوري مصغّر للمتساوين) — نفس دالّة الجمهور حرفياً */
+  const sorted = (window.StandingsCore && window.StandingsCore.rank)
+    ? window.StandingsCore.rank(teams, { matches: window.matches || [], settings: window.settings || {},
+        cardCount: id => (typeof window._teamCardCount === 'function' ? window._teamCardCount(id, window.matches) : 0) })
+    : [...teams].sort((a, b) => {
+        if(b.pts !== a.pts) return b.pts - a.pts;
+        return (typeof window.applyTiebreak === 'function')
+          ? window.applyTiebreak(a, b, window.matches)
+          : (b.gf - b.ga) - (a.gf - a.ga);
+      });
 
   /* ── جدول واحد لا جدولان ──
      كان «الدوري الموحّد» يعرض جدول الترتيب **ولوحة متأهلين منفصلة تسرد
@@ -16210,6 +16214,14 @@ window.enterApp = function () {
   function _sortGroupTeamsByStandings(gTeams, groupId) {
     const ids = gTeams.map(t => t.id);
     const stats = _computeGroupStats(ids, groupId);
+    /* v339: كان يرتّب بالنقاط ثم الفارق ثم الأهداف فقط — متجاهلاً قواعد
+       الحسم التي اختارها المنظّم، فيختلف عن جدول المجموعة عند الجمهور. */
+    if (window.StandingsCore && window.StandingsCore.rank) {
+      return window.StandingsCore.rank(gTeams.map(t => ({ ...t, ...(stats[t.id] || {}) })),
+        { matches: window.matches || [], settings: window.settings || {},
+          cardCount: id => (typeof window._teamCardCount === 'function' ? window._teamCardCount(id, window.matches) : 0) })
+        .map(r => gTeams.find(t => t.id === r.id));
+    }
     return [...gTeams].sort((a, b) => {
       const sa = stats[a.id] || {}, sb = stats[b.id] || {};
       if ((sb.pts||0) !== (sa.pts||0)) return (sb.pts||0) - (sa.pts||0);

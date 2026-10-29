@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, where, serverTimestamp }
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, deleteField, onSnapshot, query, orderBy, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -43,6 +43,7 @@ window._firestoreSetDoc     = setDoc;
 window._firestoreAddDoc     = addDoc;
 window._firestoreUpdateDoc  = updateDoc;
 window._firestoreDeleteDoc  = deleteDoc;
+window._firestoreDeleteField = deleteField;
 window._firestoreOnSnapshot = onSnapshot;
 window._firestoreQuery      = query;
 window._firestoreOrderBy    = orderBy;

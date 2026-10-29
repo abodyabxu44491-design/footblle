@@ -181,7 +181,13 @@
             });
 
             // ترتيب حسب النقاط ثم قواعد الحسم المختارة (فارق الأهداف، أهداف، مواجهات، انتصارات، بطاقات)
-            const sortedTeams = [...groupTeams].sort((a, b) => {
+            /* v339: ترتيب جماعي للمتساوين (StandingsCore.rank) */
+            const sortedTeams = (window.StandingsCore && window.StandingsCore.rank)
+              ? window.StandingsCore.rank(groupTeams.map(t => ({ ...t, ...(statsMap[t.id] || {}) })),
+                  { matches, settings: window.settings || {},
+                    cardCount: id => (typeof window._teamCardCount === 'function' ? window._teamCardCount(id, matches) : 0) })
+                  .map(r => groupTeams.find(t => t.id === r.id))
+              : [...groupTeams].sort((a, b) => {
               const sa = statsMap[a.id] || {}, sb = statsMap[b.id] || {};
               if ((sb.pts||0) !== (sa.pts||0)) return (sb.pts||0) - (sa.pts||0);
               const fa = { ...a, ...sa }, fb = { ...b, ...sb };

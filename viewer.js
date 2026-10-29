@@ -3354,7 +3354,10 @@ function renderGroupsStandings() {
   el.innerHTML=groups.map(g=>{
     const gTeams=(g.teamIds||[]).map(id=>teams.find(t=>t.id===id)).filter(Boolean);
     const gs=computeGroupStats(g.teamIds||[], g.id);
-    const sorted=gTeams.sort((a,b)=>{const sa=gs[a.id]||{},sb=gs[b.id]||{};if((sb.pts||0)!==(sa.pts||0))return(sb.pts||0)-(sa.pts||0);const fa={...a,...sa},fb={...b,...sb};return applyTiebreak(fa,fb,matches);});
+    /* v339: ترتيب جماعي للمتساوين (StandingsCore.rank) مع رجوع للمقارن القديم */
+    const sorted=(window.StandingsCore&&StandingsCore.rank)
+      ? StandingsCore.rank(gTeams.map(t=>({...t,...(gs[t.id]||{})})),{matches,settings,cardCount:id=>_teamCardCount(id,matches)}).map(r=>gTeams.find(t=>t.id===r.id))
+      : gTeams.sort((a,b)=>{const sa=gs[a.id]||{},sb=gs[b.id]||{};if((sb.pts||0)!==(sa.pts||0))return(sb.pts||0)-(sa.pts||0);const fa={...a,...sa},fb={...b,...sb};return applyTiebreak(fa,fb,matches);});
     const qCount=g.qualify||2;
     const manualQ=new Set(g.qualifiedTeamIds||[]);
     const manualE=new Set(g.eliminatedTeamIds||[]);
@@ -6016,10 +6019,13 @@ function renderStandings() {
   });
   teams.forEach(t => { if (statsMap[t.id]) Object.assign(t, statsMap[t.id]); });
 
-  const sorted = [...teams].sort((a, b) => {
-    if ((b.pts||0) !== (a.pts||0)) return (b.pts||0)-(a.pts||0);
-    return applyTiebreak(a, b, matches);
-  });
+  /* v339: ترتيب جماعي (دوري مصغّر للمتساوين) — انظر StandingsCore.rank */
+  const sorted = (window.StandingsCore && StandingsCore.rank)
+    ? StandingsCore.rank(teams, { matches, settings, cardCount: id => _teamCardCount(id, matches) })
+    : [...teams].sort((a, b) => {
+        if ((b.pts||0) !== (a.pts||0)) return (b.pts||0)-(a.pts||0);
+        return applyTiebreak(a, b, matches);
+      });
 
   /* مناطق الترتيب — قواعد مرنة يحدّدها المنظّم (من مركز إلى مركز باسم
      ولون)، مع ترجمة تلقائية للبطولات القديمة ذات المناطق الستّ الثابتة. */

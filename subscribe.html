@@ -932,7 +932,7 @@ function done(){
      مرتّبة بنفس القياس والتنسيق بدل زرّ وحيد.
      ═══════════════════════════════════════════════════════════ */
   var _ref = 'REQ-' + String(Date.now()).slice(-6);
-  var _ph  = $('phone').value.trim();
+  var _ph  = $('phone').value.trim().replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; });
   document.querySelector('.wrap').innerHTML =
     '<div class="card" style="margin-top:38px"><div class="cb sent" style="text-align:center">' +
       '<div class="ic">✓</div>' +
